@@ -205,7 +205,7 @@ export default function DivisionSwitcher({
         <form onSubmit={handleCreate}>
           <div className='space-y-4 py-2 pb-4'>
             <div className='space-y-2'>
-              <Label htmlFor='fullName'>Full Division Name</Label>
+              <Label htmlFor='fullName' required>Full Division Name</Label>
               <Input
                 id='fullName'
                 placeholder='e.g. Data Innovations and Projects'
@@ -225,7 +225,7 @@ export default function DivisionSwitcher({
               />
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='assistantCommissioner'>Assistant Commissioner</Label>
+              <Label htmlFor='assistantCommissioner' required>Assistant Commissioner</Label>
               <AssistantCommissionerSwitcher
                 assistantCommissioners={assistantCommissioners}
                 value={createAssistantCommissionerId}
@@ -244,7 +244,14 @@ export default function DivisionSwitcher({
             >
               Cancel
             </Button>
-            <Button type='submit' disabled={isCreating || !createFullName.trim()}>
+            <Button
+              type='submit'
+              disabled={
+                isCreating ||
+                !createFullName.trim() ||
+                !createAssistantCommissionerId
+              }
+            >
               {isCreating ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />

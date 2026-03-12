@@ -1,4 +1,5 @@
 import { type SchemaTypeDefinition } from 'sanity'
+import { detailedTask } from './detailed-task'
 import { measurableActivity } from './measurable-activity'
 import { contractInitiative } from './contract-initiative'
 import { ssmartaObjective } from './ssmarta-objective'
@@ -22,12 +23,15 @@ import { investmentStatement } from './investment-statement'
 import { section } from './section'
 import { sectionContract } from './section-contract'
 import { staff } from './staff'
+import { stakeholderEntry } from './stakeholder-entry'
+import { stakeholderEngagement } from './stakeholder-engagement'
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
     division,
     staff,
     section,
     sectionContract,
+    detailedTask,
     measurableActivity,
     contractInitiative,
     ssmartaObjective,
@@ -47,5 +51,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     property,
     propertyTransaction,
     investmentStatement,
+    stakeholderEntry,
+    stakeholderEngagement,
   ],
 }

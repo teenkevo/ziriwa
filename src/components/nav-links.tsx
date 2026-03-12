@@ -8,15 +8,15 @@ export default function NavLinks() {
 
   return (
     <>
-      <Link
+      {/* <Link
         href='/dashboard'
         className={`text-sm font-medium transition-colors ${
           pathname === '/dashboard' ? 'text-primary' : 'hover:text-primary'
         }`}
       >
         Dashboard
-      </Link>
-      <Link
+      </Link> */}
+      {/* <Link
         href='/members'
         className={`text-sm font-medium transition-colors ${
           pathname === '/members'
@@ -25,8 +25,8 @@ export default function NavLinks() {
         }`}
       >
         Members
-      </Link>
-      <Link
+      </Link> */}
+      {/* <Link
         href='/resolutions'
         className={`text-sm font-medium transition-colors ${
           pathname === '/resolutions'
@@ -35,8 +35,8 @@ export default function NavLinks() {
         }`}
       >
         Resolutions
-      </Link>
-      <Link
+      </Link> */}
+      {/* <Link
         href='/investments'
         className={`text-sm font-medium transition-colors ${
           pathname === '/investments'
@@ -45,7 +45,7 @@ export default function NavLinks() {
         }`}
       >
         Investments
-      </Link>
+      </Link> */}
     </>
   )
 }

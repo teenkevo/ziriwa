@@ -89,62 +89,66 @@ export function CreateSectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Create Section</DialogTitle>
-        <DialogDescription>
-          Add a new section to {divisionName}.
-        </DialogDescription>
-      </DialogHeader>
-      <form onSubmit={handleSubmit}>
-        <div className='space-y-4 py-2 pb-4'>
-          <div className='space-y-2'>
-            <Label htmlFor='sectionName'>Section Name</Label>
-            <Input
-              id='sectionName'
-              placeholder='e.g. Data Science, Data Engineering'
-              value={name}
-              onChange={e => setName(e.target.value)}
-              disabled={isCreating}
-              required
-            />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Section</DialogTitle>
+          <DialogDescription>
+            Add a new section to {divisionName}.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className='space-y-4 py-2 pb-4'>
+            <div className='space-y-2'>
+              <Label htmlFor='sectionName' required>
+                Section Name
+              </Label>
+              <Input
+                id='sectionName'
+                placeholder='e.g. Data Science, Data Engineering'
+                value={name}
+                onChange={e => setName(e.target.value)}
+                disabled={isCreating}
+                required
+              />
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='manager' required>
+                Manager
+              </Label>
+              <ManagerSwitcher
+                managers={managers}
+                value={managerId}
+                onChange={setManagerId}
+                disabled={isCreating}
+                placeholder='Select or create manager'
+              />
+            </div>
           </div>
-          <div className='space-y-2'>
-            <Label htmlFor='manager'>Manager</Label>
-            <ManagerSwitcher
-              managers={managers}
-              value={managerId}
-              onChange={setManagerId}
+          <DialogFooter>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => onOpenChange(false)}
               disabled={isCreating}
-              placeholder='Select or create manager'
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={() => onOpenChange(false)}
-            disabled={isCreating}
-          >
-            Cancel
-          </Button>
-          <Button
-            type='submit'
-            disabled={isCreating || !name.trim() || !managerId}
-          >
-            {isCreating ? (
-              <>
-                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                Creating...
-              </>
-            ) : (
-              'Create Section'
-            )}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
+            >
+              Cancel
+            </Button>
+            <Button
+              type='submit'
+              disabled={isCreating || !name.trim() || !managerId}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  Creating...
+                </>
+              ) : (
+                'Create Section'
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
     </Dialog>
   )
 }

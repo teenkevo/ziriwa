@@ -1,6 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { isValidPhoneNumber } from 'react-phone-number-input'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -11,8 +16,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { PhoneInput } from '@/components/ui/phone-input'
 import {
   Select,
   SelectContent,
@@ -21,67 +34,36 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PlusCircle } from 'lucide-react'
-import { createUser, updateUserTransactions } from '@/lib/actions'
-import { ID } from 'node-appwrite'
+
+const memberSchema = z.object({
+  fullName: z.string().min(1, 'Full name is required'),
+  email: z.string().min(1, 'Email is required').email('Invalid email'),
+  phone: z
+    .string()
+    .min(1, 'Phone is required')
+    .refine(val => isValidPhoneNumber(val), 'Enter valid phone number'),
+  contributionTier: z.string().min(1, 'Contribution tier is required'),
+})
+
+type MemberFormValues = z.infer<typeof memberSchema>
 
 export function AddMemberDialog() {
   const [open, setOpen] = useState(false)
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [contributionTier, setContributionTier] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const form = useForm<MemberFormValues>({
+    resolver: zodResolver(memberSchema),
+    defaultValues: {
+      fullName: '',
+      email: '',
+      phone: '',
+      contributionTier: '',
+    },
+    mode: 'onChange',
+  })
 
-    // setOpen(false)
-    // Reset form fields
-    // setFullName('')
-    // setEmail('')
-    // setPhone('')
-    // setContributionTier('')
-    // createUser({
-    //   id: ID.unique(),
-    //   email,
-    //   fullName,
-    //   phone,
-    //   status: 'Active',
-    // })
-
-    // const months = [
-    //   'January',
-    //   // 'February',
-    //   // 'March',
-    //   // 'April',
-    //   // 'May',
-    //   // 'June',
-    //   // 'July',
-    //   // // 'August',
-    //   // // 'September',
-    //   // // 'October',
-    //   // // 'November',
-    //   // // 'December',
-    // ]
-    // const userDocumentId = '674594a8002cc142441c'
-    // const tier = 3000
-    // const yearPaidFor = 2022
-
-    // updateUserTransactions(
-    //   userDocumentId,
-    //   months.map(month => {
-    //     return {
-    //       id: ID.unique(),
-    //       userId: userDocumentId,
-    //       groupId: '6744e9b800001e926605',
-    //       name: `Loan`,
-    //       amount: 350000,
-    //       method: 'Online-Banking',
-    //       category: 'Loan',
-    //       dateTime: new Date('2022-02-23').toISOString(),
-    //       year: yearPaidFor,
-    //     }
-    //   }),
-    // )
+  const handleSubmit = (data: MemberFormValues) => {
+    // Form submission logic when enabled
+    console.log(data)
   }
 
   return (
@@ -99,63 +81,86 @@ export function AddMemberDialog() {
             club.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className='space-y-4 py-4'>
-            <div className='space-y-2'>
-              <Label htmlFor='fullName'>Full Name</Label>
-              <Input
-                id='fullName'
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)}>
+            <div className='space-y-4 py-4'>
+              <FormField
+                control={form.control}
+                name='fullName'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Full Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='email'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Email</FormLabel>
+                    <FormControl>
+                      <Input {...field} type='email' />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='phone'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Phone</FormLabel>
+                    <FormControl>
+                      <PhoneInput
+                        defaultCountry='UG'
+                        placeholder='e.g. +256 792 445002'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='contributionTier'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel required>Contribution Tier</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder='Select a tier' />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {[
+                          50000, 100000, 150000, 200000, 250000, 300000, 350000,
+                        ].map(tier => (
+                          <SelectItem key={tier} value={tier.toString()}>
+                            {tier.toLocaleString()} UGX
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className='space-y-2'>
-              <Label htmlFor='email'>Email</Label>
-              <Input
-                id='email'
-                type='email'
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className='space-y-2'>
-              <Label htmlFor='phone'>Phone</Label>
-              <Input
-                id='phone'
-                type='tel'
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                required
-              />
-            </div>
-            <div className='space-y-2'>
-              <Label htmlFor='contributionTier'>Contribution Tier</Label>
-              <Select
-                value={contributionTier}
-                onValueChange={setContributionTier}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder='Select a tier' />
-                </SelectTrigger>
-                <SelectContent>
-                  {[50000, 100000, 150000, 200000, 250000, 300000, 350000].map(
-                    tier => (
-                      <SelectItem key={tier} value={tier.toString()}>
-                        {tier.toLocaleString()} UGX
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type='submit'>Add Member</Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button type='submit' disabled={!form.formState.isValid}>
+                Add Member
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

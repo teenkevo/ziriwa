@@ -118,9 +118,7 @@ export function LoanApplicationDialog({
   const content = (
     <div className='space-y-4'>
       <div className='space-y-2'>
-        <Label htmlFor='amount'>
-          Loan Amount <span className='text-destructive'>*</span>
-        </Label>
+        <Label htmlFor='amount' required>Loan Amount</Label>
         <NumericFormat
           id='amount'
           customInput={Input}
@@ -134,9 +132,7 @@ export function LoanApplicationDialog({
       </div>
 
       <div className='space-y-2'>
-        <Label htmlFor='guarantor'>
-          Guarantor <span className='text-destructive'>*</span>
-        </Label>
+        <Label htmlFor='guarantor' required>Guarantor</Label>
         <Select
           value={guarantorId}
           onValueChange={setGuarantorId}
@@ -163,9 +159,7 @@ export function LoanApplicationDialog({
       </div>
 
       <div className='space-y-2'>
-        <Label htmlFor='repaymentPlan'>
-          Repayment Plan <span className='text-destructive'>*</span>
-        </Label>
+        <Label htmlFor='repaymentPlan' required>Repayment Plan</Label>
         <Select
           value={repaymentPlan}
           onValueChange={setRepaymentPlan}

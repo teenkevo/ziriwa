@@ -29,11 +29,13 @@ import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
+const INITIATIVE_CODE_REGEX = /^\d+\.\d+\.\d+$/
+
 const initiativeSchema = z.object({
   code: z
     .string()
     .min(1, 'Code is required')
-    .regex(/^\d+\.\d+\.\d+$/, 'Code must match format 1.1.1, 1.1.2, 1.1.3'),
+    .regex(INITIATIVE_CODE_REGEX, 'Code must match format 1.1.1, 1.1.2, 1.1.3'),
   title: z.string().min(1, 'Initiative is required'),
 })
 
@@ -57,6 +59,8 @@ export function AddInitiativeDialog({
   onSuccess,
 }: AddInitiativeDialogProps) {
   const router = useRouter()
+  const [isCheckingCode, setIsCheckingCode] = React.useState(false)
+  const checkAbortRef = React.useRef<AbortController | null>(null)
 
   const form = useForm<InitiativeFormValues>({
     resolver: zodResolver(initiativeSchema),
@@ -64,11 +68,51 @@ export function AddInitiativeDialog({
     mode: 'onChange',
   })
 
+  const codeValue = form.watch('code')
+
   React.useEffect(() => {
     if (!open) {
       form.reset()
+      setIsCheckingCode(false)
+      checkAbortRef.current?.abort()
     }
   }, [open, form])
+
+  React.useEffect(() => {
+    const trimmed = codeValue?.trim() ?? ''
+    if (!INITIATIVE_CODE_REGEX.test(trimmed)) {
+      form.clearErrors('code')
+      return
+    }
+    const t = setTimeout(async () => {
+      checkAbortRef.current?.abort()
+      checkAbortRef.current = new AbortController()
+      const signal = checkAbortRef.current.signal
+      setIsCheckingCode(true)
+      form.clearErrors('code')
+      try {
+        const res = await fetch(
+          `/api/section-contracts/${sectionContractId}/codes`,
+          { signal },
+        )
+        if (!res.ok) return
+        const data = await res.json()
+        const existing = (data.initiativesByObjective?.[objectiveIndex] ??
+          []) as string[]
+        if (existing.includes(trimmed)) {
+          form.setError('code', {
+            type: 'duplicate',
+            message: `Initiative with code "${trimmed}" already exists.`,
+          })
+        }
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') throw e
+      } finally {
+        setIsCheckingCode(false)
+      }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [codeValue, sectionContractId, objectiveIndex, form])
 
   const isCreating = form.formState.isSubmitting
 
@@ -119,17 +163,25 @@ export function AddInitiativeDialog({
                 name='code'
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Code</FormLabel>
+                    <FormLabel required>Code</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder='e.g. 1.1.1'
-                        disabled={isCreating}
-                        className={cn(
-                          fieldState.invalid &&
-                            'border-destructive focus-visible:ring-destructive',
+                      <div className='relative'>
+                        <Input
+                          {...field}
+                          placeholder='e.g. 1.1.1'
+                          disabled={isCreating}
+                          className={cn(
+                            'pr-9',
+                            fieldState.invalid &&
+                              'border-destructive focus-visible:ring-destructive',
+                          )}
+                        />
+                        {isCheckingCode && (
+                          <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                            <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+                          </div>
                         )}
-                      />
+                      </div>
                     </FormControl>
                     <FormDescription>
                       Acceptable format: 1.1.1, 1.1.2, 1.1.3
@@ -143,7 +195,7 @@ export function AddInitiativeDialog({
                 name='title'
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Initiative</FormLabel>
+                    <FormLabel required>Initiative</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
@@ -171,7 +223,10 @@ export function AddInitiativeDialog({
               >
                 Cancel
               </Button>
-              <Button type='submit' disabled={isCreating}>
+              <Button
+                type='submit'
+                disabled={isCreating || !form.formState.isValid}
+              >
                 {isCreating ? (
                   <>
                     <Loader2 className='mr-2 h-4 w-4 animate-spin' />

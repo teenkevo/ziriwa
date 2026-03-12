@@ -62,12 +62,35 @@ export const measurableActivity = defineType({
       initialValue: 'not_started',
     }),
     defineField({
+      name: 'reportingFrequency',
+      title: 'Reporting Frequency',
+      type: 'string',
+      description: 'How often is this activity reported on. This determines the target date for the activity.',
+      options: {
+        list: [
+          { title: 'Weekly', value: 'weekly' },
+          { title: 'Monthly', value: 'monthly' },
+          { title: 'Quarterly', value: 'quarterly' },
+          { title: 'N/A', value: 'n/a' },
+        ],
+        layout: 'dropdown',
+      },
+      initialValue: 'monthly',
+    }),
+    defineField({
       name: 'evidence',
       title: 'Evidence / Uploads',
       type: 'array',
       of: [{ type: 'file' }, { type: 'image' }],
       description: 'Uploads for KPI activities',
       hidden: ({ parent }) => (parent as { activityType?: string })?.activityType !== 'kpi',
+    }),
+    defineField({
+      name: 'tasks',
+      title: 'Detailed Tasks',
+      type: 'array',
+      of: [{ type: 'detailedTask' }],
+      description: 'Tasks for KPIs and CRC activities',
     }),
   ],
   preview: {

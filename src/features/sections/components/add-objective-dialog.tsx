@@ -29,11 +29,13 @@ import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
+const OBJECTIVE_CODE_REGEX = /^\d+\.\d+$/
+
 const objectiveSchema = z.object({
   code: z
     .string()
     .min(1, 'Code is required')
-    .regex(/^\d+\.\d+$/, 'Code must match format 1.1, 1.2, 2.1'),
+    .regex(OBJECTIVE_CODE_REGEX, 'Code must match format 1.1, 1.2, 2.1'),
   title: z.string().min(1, 'SSMARTA objective is required'),
 })
 
@@ -53,6 +55,8 @@ export function AddObjectiveDialog({
   onSuccess,
 }: AddObjectiveDialogProps) {
   const router = useRouter()
+  const [isCheckingCode, setIsCheckingCode] = React.useState(false)
+  const checkAbortRef = React.useRef<AbortController | null>(null)
 
   const form = useForm<ObjectiveFormValues>({
     resolver: zodResolver(objectiveSchema),
@@ -60,11 +64,50 @@ export function AddObjectiveDialog({
     mode: 'onChange',
   })
 
+  const codeValue = form.watch('code')
+
   React.useEffect(() => {
     if (!open) {
       form.reset()
+      setIsCheckingCode(false)
+      checkAbortRef.current?.abort()
     }
   }, [open, form])
+
+  React.useEffect(() => {
+    const trimmed = codeValue?.trim() ?? ''
+    if (!OBJECTIVE_CODE_REGEX.test(trimmed)) {
+      form.clearErrors('code')
+      return
+    }
+    const t = setTimeout(async () => {
+      checkAbortRef.current?.abort()
+      checkAbortRef.current = new AbortController()
+      const signal = checkAbortRef.current.signal
+      setIsCheckingCode(true)
+      form.clearErrors('code')
+      try {
+        const res = await fetch(
+          `/api/section-contracts/${sectionContractId}/codes`,
+          { signal },
+        )
+        if (!res.ok) return
+        const data = await res.json()
+        const existing = (data.objectiveCodes ?? []) as string[]
+        if (existing.includes(trimmed)) {
+          form.setError('code', {
+            type: 'duplicate',
+            message: `SSMARTA objective with code "${trimmed}" already exists`,
+          })
+        }
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') throw e
+      } finally {
+        setIsCheckingCode(false)
+      }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [codeValue, sectionContractId, form])
 
   const isCreating = form.formState.isSubmitting
 
@@ -110,17 +153,25 @@ export function AddObjectiveDialog({
                 name='code'
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Code</FormLabel>
+                    <FormLabel required>Code</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder='e.g. 1.1'
-                        disabled={isCreating}
-                        className={cn(
-                          fieldState.invalid &&
-                            'border-destructive focus-visible:ring-destructive',
+                      <div className='relative'>
+                        <Input
+                          {...field}
+                          placeholder='e.g. 1.1'
+                          disabled={isCreating}
+                          className={cn(
+                            'pr-9',
+                            fieldState.invalid &&
+                              'border-destructive focus-visible:ring-destructive',
+                          )}
+                        />
+                        {isCheckingCode && (
+                          <div className='absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none'>
+                            <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+                          </div>
                         )}
-                      />
+                      </div>
                     </FormControl>
                     <FormDescription>
                       Acceptable format: 1.1, 1.2, 2.1
@@ -134,7 +185,7 @@ export function AddObjectiveDialog({
                 name='title'
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>SSMARTA objective</FormLabel>
+                    <FormLabel required>SSMARTA objective</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
@@ -162,7 +213,10 @@ export function AddObjectiveDialog({
               >
                 Cancel
               </Button>
-              <Button type='submit' disabled={isCreating}>
+              <Button
+                type='submit'
+                disabled={isCreating || !form.formState.isValid}
+              >
                 {isCreating ? (
                   <>
                     <Loader2 className='mr-2 h-4 w-4 animate-spin' />

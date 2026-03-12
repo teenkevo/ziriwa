@@ -61,7 +61,7 @@ export default function DashboardPage({
 }) {
   const [showCreatePosition, setShowCreatePosition] = useState(false)
   const [showCreateSection, setShowCreateSection] = useState(false)
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState('sections')
 
   const canCreateSection = !!division
   const divisionName = division?.name ?? 'the current division'
@@ -89,22 +89,20 @@ export default function DashboardPage({
       <div className='flex-col md:flex'>
         <div className='flex-1 space-y-4 p-4 md:p-8 pt-6'>
           <Tabs
-            defaultValue='dashboard'
+            defaultValue='sections'
             value={activeTab}
             onValueChange={setActiveTab}
             className='space-y-4'
           >
             <div className='flex items-center justify-between gap-4'>
               <TabsList>
-                <TabsTrigger value='dashboard'>Dashboard</TabsTrigger>
-                <TabsTrigger value='executive-committee'>
-                  Executive
-                </TabsTrigger>
+                <TabsTrigger value='sections'>Sections</TabsTrigger>
+                <TabsTrigger value='executive-committee'>Executive</TabsTrigger>
                 <TabsTrigger value='reports' disabled>
                   Reports
                 </TabsTrigger>
               </TabsList>
-              {activeTab === 'dashboard' && canCreateSection && (
+              {activeTab === 'sections' && canCreateSection && (
                 <Button
                   variant='outline'
                   onClick={() => setShowCreateSection(true)}
@@ -120,14 +118,17 @@ export default function DashboardPage({
                 </Button>
               )}
             </div>
-            <TabsContent value='dashboard' className='space-y-4'>
+            <TabsContent value='sections' className='space-y-4'>
               <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
                 {sections.map(section => (
                   <Card
                     key={section._id}
                     className='md:hover:shadow-lg md:hover:border-primary bg-primary/5 md:hover:bg-primary/10 shadow-md transition-all'
                   >
-                    <Link href={`/sections/${section.slug?.current ?? section._id}`} prefetch={false}>
+                    <Link
+                      href={`/sections/${section.slug?.current ?? section._id}`}
+                      prefetch={false}
+                    >
                       <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                         <CardTitle className='text-xs font-medium text-muted-foreground'>
                           Section
@@ -157,27 +158,6 @@ export default function DashboardPage({
                     </CardContent>
                   </Card>
                 )}
-              </div>
-              <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-7'>
-                <Card className='col-span-4 md:col-span-3'>
-                  <CardHeader>
-                    <CardTitle>Recent Transactions</CardTitle>
-                    <p className='text-muted-foreground'>
-                      32 transactions have been made this month.
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <RecentSales recentPayments={recentPayments} />
-                  </CardContent>
-                </Card>
-                <Card className='col-span-4'>
-                  <CardHeader>
-                    <CardTitle>File Repository</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Repository />
-                  </CardContent>
-                </Card>
               </div>
             </TabsContent>
             <TabsContent value='executive-committee' className='space-y-4'>

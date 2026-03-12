@@ -22,6 +22,7 @@ interface AddMeasurableActivityDialogProps {
   sectionContractId: string
   objectiveIndex: number
   initiativeIndex: number
+  initiativeCode?: string
   activityType: 'kpi' | 'cross-cutting'
   nextOrder: number
   onSuccess?: () => void
@@ -33,6 +34,7 @@ export function AddMeasurableActivityDialog({
   sectionContractId,
   objectiveIndex,
   initiativeIndex,
+  initiativeCode,
   activityType,
   nextOrder,
   onSuccess,
@@ -83,7 +85,9 @@ export function AddMeasurableActivityDialog({
     } catch (err) {
       console.error(err)
       alert(
-        err instanceof Error ? err.message : 'Failed to add measurable activity',
+        err instanceof Error
+          ? err.message
+          : 'Failed to add measurable activity',
       )
     } finally {
       setIsCreating(false)
@@ -99,14 +103,14 @@ export function AddMeasurableActivityDialog({
           </DialogTitle>
           <DialogDescription>
             {isKPI
-              ? 'KPI measurable activities have AIM and evidence uploads (in Sanity Studio).'
-              : 'Cross-cutting measurable activities are bullet-point items.'}
+              ? `For initiative ${initiativeCode ?? initiativeIndex}`
+              : `For initiative ${initiativeCode ?? initiativeIndex}`}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>
             <div className='space-y-2'>
-              <Label htmlFor='title'>Title</Label>
+              <Label htmlFor='title' required>Title</Label>
               <Input
                 id='title'
                 placeholder='e.g. Submit completed forms to HR'
@@ -118,7 +122,7 @@ export function AddMeasurableActivityDialog({
             </div>
             {isKPI && (
               <div className='space-y-2'>
-                <Label htmlFor='aim'>AIM</Label>
+                <Label htmlFor='aim' required>AIM</Label>
                 <textarea
                   id='aim'
                   className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
@@ -130,7 +134,7 @@ export function AddMeasurableActivityDialog({
               </div>
             )}
             <div className='space-y-2'>
-              <Label htmlFor='targetDate'>Target Date (optional)</Label>
+              <Label htmlFor='targetDate'>Due Date (optional)</Label>
               <Input
                 id='targetDate'
                 type='date'
@@ -151,11 +155,7 @@ export function AddMeasurableActivityDialog({
             </Button>
             <Button
               type='submit'
-              disabled={
-                isCreating ||
-                !title.trim() ||
-                (isKPI && !aim.trim())
-              }
+              disabled={isCreating || !title.trim() || (isKPI && !aim.trim())}
             >
               {isCreating ? (
                 <>

@@ -5,13 +5,18 @@ import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Users, ArrowLeft } from 'lucide-react'
+import { FileText, Handshake, FileBarChart, ArrowLeft } from 'lucide-react'
 import { DueTodayThisWeek } from './components/due-today-this-week'
 import { ContractTree } from './components/contract-tree'
 import { OnboardContractDialog } from './components/onboard-contract-dialog'
+import { StakeholderEngagementContent } from './stakeholder-engagement-content'
 import type { DueItem } from './components/due-today-this-week'
 import type { SectionStaff } from '@/sanity/lib/staff/get-staff-by-section'
-import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
+import {
+  type SectionContract,
+  flattenInitiatives,
+} from '@/sanity/lib/section-contracts/get-section-contract'
+import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 
 type Section = {
   _id: string
@@ -21,33 +26,48 @@ type Section = {
   manager?: { _id: string; fullName?: string }
 }
 
+type StaffOption = { _id: string; fullName?: string; staffId?: string }
+
 interface SectionPageContentProps {
   section: Section
   sectionContract: SectionContract | null
+  stakeholderEngagement: StakeholderEngagement | null
+  staffOptions: StaffOption[]
   supervisors: SectionStaff[]
   officers: SectionStaff[]
   dueToday: DueItem[]
   dueThisWeek: DueItem[]
+  dueThisMonth: DueItem[]
+  dueThisQuarter: DueItem[]
 }
 
 export function SectionPageContent({
   section,
   sectionContract,
+  stakeholderEngagement,
+  staffOptions,
   supervisors,
   officers,
   dueToday,
   dueThisWeek,
+  dueThisMonth,
+  dueThisQuarter,
 }: SectionPageContentProps) {
   const [activeTab, setActiveTab] = useState('contract')
+  const tabTriggers = [
+    { value: 'contract', label: 'Contract', icon: FileText },
+    { value: 'stakeholder-engagements', label: 'Stakeholder engagements', icon: Handshake },
+    { value: 'reports', label: 'Reports', icon: FileBarChart },
+  ] as const
   const [onboardOpen, setOnboardOpen] = useState(false)
   const currentFY = sectionContract?.financialYearLabel ?? 'current FY'
   const manager = section.manager
   const hasManager = !!manager?._id
 
   return (
-    <div className='flex flex-col lg:flex-row flex-1 gap-6 p-4 md:p-8 pt-6'>
-      {/* Main content */}
-      <div className='flex-1 min-w-0'>
+    <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
+      {/* Main content - left scroll area */}
+      <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
         <div className='mb-6'>
           <Button variant='ghost' size='sm' asChild className='mb-2 -ml-2'>
             <Link href='/dashboard'>
@@ -67,6 +87,14 @@ export function SectionPageContent({
           onValueChange={setActiveTab}
           className='space-y-4'
         >
+          <TabsList>
+            {tabTriggers.map(({ value, label, icon: Icon }) => (
+              <TabsTrigger key={value} value={value}>
+                <Icon className='h-4 w-4 mr-2' />
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
           <TabsContent value='contract' className='space-y-4'>
             <Card>
               <CardContent className='pt-6'>
@@ -76,7 +104,10 @@ export function SectionPageContent({
                       <FileText className='h-5 w-5' />
                       <span>Contract for {currentFY}</span>
                     </div>
-                    <ContractTree sectionContract={sectionContract} />
+                    <ContractTree
+                      sectionContract={sectionContract}
+                      sectionSlug={section.slug?.current ?? ''}
+                    />
                   </div>
                 ) : (
                   <div className='space-y-4'>
@@ -113,67 +144,45 @@ export function SectionPageContent({
             </Card>
           </TabsContent>
 
-          <TabsContent value='staff' className='space-y-4'>
+          <TabsContent value='stakeholder-engagements' className='space-y-4'>
+            <Card>
+              <CardContent className='pt-6'>
+                <StakeholderEngagementContent
+                  sectionId={section._id}
+                  sectionName={section.name}
+                  engagement={stakeholderEngagement}
+                  staffOptions={staffOptions}
+                  initiatives={flattenInitiatives(sectionContract)}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value='reports' className='space-y-4'>
             <Card>
               <CardContent className='pt-6'>
                 <div className='flex items-center gap-2 text-muted-foreground mb-4'>
-                  <Users className='h-5 w-5' />
-                  <span>Section staff (Supervisors & Officers)</span>
+                  <FileBarChart className='h-5 w-5' />
+                  <span>Reports</span>
                 </div>
-                <div className='space-y-6'>
-                  <div>
-                    <h3 className='text-sm font-medium mb-2'>Supervisors</h3>
-                    {supervisors.length === 0 ? (
-                      <p className='text-sm text-muted-foreground'>
-                        No supervisors assigned to this section.
-                      </p>
-                    ) : (
-                      <ul className='space-y-1'>
-                        {supervisors.map(s => (
-                          <li key={s._id} className='text-sm'>
-                            {s.fullName}
-                            {s.staffId && (
-                              <span className='text-muted-foreground ml-1'>
-                                ({s.staffId})
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div>
-                    <h3 className='text-sm font-medium mb-2'>Officers</h3>
-                    {officers.length === 0 ? (
-                      <p className='text-sm text-muted-foreground'>
-                        No officers assigned to this section.
-                      </p>
-                    ) : (
-                      <ul className='space-y-1'>
-                        {officers.map(o => (
-                          <li key={o._id} className='text-sm'>
-                            {o.fullName}
-                            {o.staffId && (
-                              <span className='text-muted-foreground ml-1'>
-                                ({o.staffId})
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
+                <p className='text-sm text-muted-foreground'>
+                  Reports will be displayed here.
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* Sidebar - Due Today / Due This Week */}
-      <aside className='w-full lg:w-72 shrink-0'>
-        <div className='lg:sticky lg:top-6'>
-          <DueTodayThisWeek dueToday={dueToday} dueThisWeek={dueThisWeek} />
+      {/* Right scroll area - Due Today / Due This Week */}
+      <aside className='w-full lg:w-72 shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
+        <div className='p-4 md:p-6'>
+          <DueTodayThisWeek
+            dueToday={dueToday}
+            dueThisWeek={dueThisWeek}
+            dueThisMonth={dueThisMonth}
+            dueThisQuarter={dueThisQuarter}
+          />
         </div>
       </aside>
     </div>

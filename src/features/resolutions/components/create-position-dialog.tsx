@@ -88,7 +88,7 @@ export default function CreatePositionDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className='space-y-4'>
           <div className='space-y-2'>
-            <Label htmlFor='title'>Position Title</Label>
+            <Label htmlFor='title' required>Position Title</Label>
             <Input
               id='title'
               value={formData.title}
@@ -114,7 +114,7 @@ export default function CreatePositionDialog({
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='committeeYear'>Committee Year</Label>
+            <Label htmlFor='committeeYear' required>Committee Year</Label>
             <Input
               id='committeeYear'
               type='number'
@@ -136,7 +136,14 @@ export default function CreatePositionDialog({
             >
               Cancel
             </Button>
-            <Button type='submit' disabled={loading}>
+            <Button
+              type='submit'
+              disabled={
+                loading ||
+                !formData.title.trim() ||
+                !formData.committeeYear.trim()
+              }
+            >
               {loading ? 'Creating...' : 'Create Position'}
             </Button>
           </DialogFooter>

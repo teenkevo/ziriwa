@@ -9,13 +9,13 @@ export function objectiveNumber(order: number): string {
   return String(order)
 }
 
-/** Measurable activity number (e.g. 1.1.1-KPI-1, 1.1.1-CC-1) */
+/** Measurable activity number (e.g. 1.1.1-KPI-1, 1.1.1-CRC-1) */
 export function measurableActivityNumber(
   initiativeNumber: string,
   activityType: 'kpi' | 'cross-cutting',
   activityOrder: number,
 ): string {
-  const cat = activityType === 'cross-cutting' ? 'CC' : 'KPI'
+  const cat = activityType === 'cross-cutting' ? 'CRC' : 'KPI'
   return `${initiativeNumber}-${cat}-${activityOrder}`
 }
 

@@ -125,7 +125,7 @@ export default function CreateResolutionDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className='space-y-4'>
           <div className='space-y-2'>
-            <Label htmlFor='title'>Resolution Title</Label>
+            <Label htmlFor='title' required>Resolution Title</Label>
             <Input
               id='title'
               value={formData.title}
@@ -138,7 +138,7 @@ export default function CreateResolutionDialog({
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='description'>Description</Label>
+            <Label htmlFor='description' required>Description</Label>
             <Textarea
               id='description'
               value={formData.description}
@@ -153,7 +153,7 @@ export default function CreateResolutionDialog({
 
           <div className='grid grid-cols-2 gap-4'>
             <div className='space-y-2'>
-              <Label htmlFor='resolutionType'>Resolution Type</Label>
+              <Label htmlFor='resolutionType' required>Resolution Type</Label>
               <Select
                 value={formData.resolutionType}
                 onValueChange={value =>
@@ -191,7 +191,7 @@ export default function CreateResolutionDialog({
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='meetingDate'>Meeting Date</Label>
+            <Label htmlFor='meetingDate' required>Meeting Date</Label>
             <Input
               id='meetingDate'
               type='date'
@@ -236,7 +236,15 @@ export default function CreateResolutionDialog({
             >
               Cancel
             </Button>
-            <Button type='submit' disabled={loading}>
+            <Button
+              type='submit'
+              disabled={
+                loading ||
+                !formData.title.trim() ||
+                !formData.description.trim() ||
+                !formData.meetingDate
+              }
+            >
               {loading ? 'Creating...' : 'Create Resolution'}
             </Button>
           </DialogFooter>

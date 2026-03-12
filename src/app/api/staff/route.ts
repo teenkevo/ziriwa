@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
       email,
       role,
       phone,
+      sectionId,
     } = body
 
     if (!firstName || typeof firstName !== 'string') {
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
     const fullName = `${firstName.trim()} ${lastName.trim()}`
 
     const doc = {
-      _type: 'staff',
+      _type: 'staff' as const,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       fullName,
@@ -68,6 +69,11 @@ export async function POST(req: NextRequest) {
       role,
       status: 'active',
       ...(phone && { phone: String(phone).trim() }),
+      ...(sectionId &&
+        typeof sectionId === 'string' &&
+        ['manager', 'supervisor', 'officer'].includes(role) && {
+          section: { _type: 'reference' as const, _ref: sectionId },
+        }),
     }
 
     const result = await writeClient.create(doc)

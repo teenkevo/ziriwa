@@ -161,7 +161,7 @@ export default function CreateNominationDialog({
         {selectedPosition && (
           <form onSubmit={handleSubmit} className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='nominee'>Nominee</Label>
+              <Label htmlFor='nominee' required>Nominee</Label>
               <Select
                 value={formData.nomineeId}
                 onValueChange={value =>
@@ -208,7 +208,14 @@ export default function CreateNominationDialog({
               >
                 Cancel
               </Button>
-              <Button type='submit' disabled={loading}>
+              <Button
+                type='submit'
+                disabled={
+                  loading ||
+                  !formData.nomineeId ||
+                  !formData.nominatedById
+                }
+              >
                 {loading ? 'Creating...' : 'Create Nomination'}
               </Button>
             </DialogFooter>
