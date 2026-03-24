@@ -46,6 +46,7 @@ import { OfficerSwitcher, type Officer } from './officer-switcher'
 import { SprintWeekTimer } from './sprint-week-timer'
 import type { AcceptedSprintTask } from './sprint-tasks-table'
 import type { WorkSubmission } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import { getEffectiveTaskStatus, isSprintWeekStarted } from '@/lib/sprint-week'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -160,8 +161,11 @@ export function SprintTaskDetailsPanel({
     )
   }
 
-  const taskStatus = task.taskStatus ?? 'to_do'
+  const sprintStarted = isSprintWeekStarted(task.weekStart)
+  const taskStatus = getEffectiveTaskStatus(task, task.weekStart)
   const isDone = taskStatus === 'done'
+  const preSprintLocked =
+    task.status === 'accepted' && !sprintStarted
   const isCompliance = task.activityCategory === 'compliance'
 
   const handleAddSubmission = async () => {
@@ -270,7 +274,7 @@ export function SprintTaskDetailsPanel({
             onValueChange={v =>
               onUpdate(task.sprintId, task._key, { taskStatus: v })
             }
-            disabled={isSaving || !task.assignee || isDone}
+            disabled={isSaving || !task.assignee || isDone || preSprintLocked}
           >
             <SelectTrigger className='mt-1'>
               <SelectValue />
@@ -283,6 +287,11 @@ export function SprintTaskDetailsPanel({
               ))}
             </SelectContent>
           </Select>
+          {preSprintLocked && (
+            <p className='text-xs text-muted-foreground mt-1'>
+              Status stays To do until the sprint week starts (Monday 10 AM).
+            </p>
+          )}
         </div>
 
         <div>
@@ -317,7 +326,7 @@ export function SprintTaskDetailsPanel({
               <Label className='text-xs text-muted-foreground'>
                 Work Submissions ({(task.workSubmissions ?? []).length})
               </Label>
-              {!isDone && (
+              {!isDone && sprintStarted && (
                 <Dialog
                   open={addDialogOpen}
                   onOpenChange={open => {
@@ -426,6 +435,11 @@ export function SprintTaskDetailsPanel({
                 </Dialog>
               )}
             </div>
+            {!isDone && !sprintStarted && (
+              <p className='text-xs text-muted-foreground mb-3'>
+                Work submissions open when the sprint week starts (Monday 10 AM).
+              </p>
+            )}
 
             {(task.workSubmissions ?? []).length === 0 ? (
               <p className='text-xs text-muted-foreground'>
@@ -441,6 +455,7 @@ export function SprintTaskDetailsPanel({
                     taskKey={task._key}
                     weekStart={task.weekStart}
                     weekEnd={task.weekEnd}
+                    sprintStarted={sprintStarted}
                     isCompliance={isCompliance}
                     onApprove={onApproveSubmission}
                     onReject={onRejectSubmission}
@@ -463,6 +478,7 @@ function WorkSubmissionCard({
   taskKey,
   weekStart,
   weekEnd,
+  sprintStarted,
   isCompliance,
   onApprove,
   onReject,
@@ -474,6 +490,7 @@ function WorkSubmissionCard({
   taskKey: string
   weekStart: string
   weekEnd: string
+  sprintStarted: boolean
   isCompliance: boolean
   onApprove: (
     sprintId: string,
@@ -768,7 +785,12 @@ function WorkSubmissionCard({
                   type='button'
                   variant='outline'
                   size='sm'
-                  disabled={isSaving}
+                  disabled={isSaving || !sprintStarted}
+                  title={
+                    !sprintStarted
+                      ? 'Opens when the sprint week starts (Monday 10 AM)'
+                      : undefined
+                  }
                 >
                   <Paperclip className='h-3.5 w-3.5 mr-1' />
                   Respond

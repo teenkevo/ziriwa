@@ -4,12 +4,9 @@ import { motion } from 'framer-motion'
 import Logo from '@/components/logo'
 import Link from 'next/link'
 import { useState } from 'react'
-import { Sixtyfour } from 'next/font/google'
-import { ArrowRight, ArrowRightIcon, ChevronRight } from 'lucide-react'
+import { ArrowRight, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SignInButton, SignedIn, SignedOut } from '@clerk/nextjs'
-
-const sixtyFour = Sixtyfour({ subsets: ['latin'] })
 
 const Navbar = () => {
   const [openNavbar, setOpenNavbar] = useState(false)
@@ -38,7 +35,7 @@ const Navbar = () => {
                   variant='outline'
                   className='flex items-center justify-center w-full sm:w-auto h-10 px-6 rounded-md shadow-md border border-gray-200 dark:border-gray-800'
                 >
-                  Member Login
+                  Sign in
                 </Button>
               </SignInButton>
             </SignedOut>
@@ -47,7 +44,7 @@ const Navbar = () => {
                 href='/dashboard'
                 className='flex items-center justify-center w-full sm:w-auto h-10 px-6 rounded-md shadow-md border border-gray-200 dark:border-gray-800'
               >
-                Go to Dashboard
+                Dashboard
               </Link>
             </SignedIn>
           </div>
@@ -89,7 +86,7 @@ const Navbar = () => {
   )
 }
 
-function MemberLoginButton() {
+function SignInCtaButton() {
   const [isHovered, setIsHovered] = useState(false)
 
   return (
@@ -101,7 +98,7 @@ function MemberLoginButton() {
           onMouseLeave={() => setIsHovered(false)}
         >
           <span className='flex items-center'>
-            Member Login
+            Sign in
             <span className='relative w-4 h-4 ml-2'>
               <ChevronRight
                 className={`absolute inset-0 transition-opacity duration-200 ease-in-out ${
@@ -134,7 +131,7 @@ export default function HeroSection() {
             transition={{ duration: 1 }}
           >
             <h1 className='text-gray-900 dark:text-white mx-auto max-w-5xl font-bold text-4xl/tight sm:text-5xl/tight lg:text-5xl/tight xl:text-6xl/tight'>
-              Self Service Portal
+              Ziriwa
             </h1>
           </motion.div>
 
@@ -144,7 +141,7 @@ export default function HeroSection() {
             transition={{ duration: 1, delay: 0.1 }}
           >
             <p className='text-gray-700 dark:text-gray-300 mx-auto max-w-2xl'>
-              Simplify every step of managing your investment club online
+              Sign in to continue to your workspace.
             </p>
           </motion.div>
 
@@ -154,7 +151,7 @@ export default function HeroSection() {
             transition={{ duration: 1, delay: 0.1 }}
           >
             <div className='flex justify-center items-center flex-wrap mx-auto gap-4'>
-              <MemberLoginButton />
+              <SignInCtaButton />
             </div>
           </motion.div>
 
@@ -165,63 +162,63 @@ export default function HeroSection() {
             transition={{ duration: 1, delay: 0.1 }}
           >
             <div className='text-left grid lg:grid-cols-2 p-6 rounded-2xl bg-gradient-to-tr from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800 border border-gray-100 dark:border-gray-800 max-w-2xl lg:max-w-5xl mx-auto lg:divide-x divide-y lg:divide-y-0 divide-gray-300 dark:divide-gray-800'>
-            <div className='flex items-start gap-6 lg:pr-6 pb-6 lg:pb-0'>
-              <div className='w-10'>
-                <span className='p-3 rounded-xl bg-gray-200 dark:bg-gray-800 flex w-max text-gray-800 dark:text-gray-200'>
-                  <svg
-                    xmlns='http://www.w3.org/2000/svg'
-                    fill='none'
-                    viewBox='0 0 24 24'
-                    strokeWidth='1.5'
-                    stroke='currentColor'
-                    className='w-6 h-6'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      d='M21 10.5h.375c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125H21M4.5 10.5H18V15H4.5v-4.5zM3.75 18h15A2.25 2.25 0 0021 15.75v-6a2.25 2.25 0 00-2.25-2.25h-15A2.25 2.25 0 001.5 9.75v6A2.25 2.25 0 003.75 18z'
-                    />
-                  </svg>
-                </span>
+              <div className='flex items-start gap-6 lg:pr-6 pb-6 lg:pb-0'>
+                <div className='w-10'>
+                  <span className='p-3 rounded-xl bg-gray-200 dark:bg-gray-800 flex w-max text-gray-800 dark:text-gray-200'>
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      strokeWidth='1.5'
+                      stroke='currentColor'
+                      className='w-6 h-6'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        d='M21 10.5h.375c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125H21M4.5 10.5H18V15H4.5v-4.5zM3.75 18h15A2.25 2.25 0 0021 15.75v-6a2.25 2.25 0 00-2.25-2.25h-15A2.25 2.25 0 001.5 9.75v6A2.25 2.25 0 003.75 18z'
+                      />
+                    </svg>
+                  </span>
+                </div>
+                <div className='flex-1 space-y-1'>
+                  <h2 className='text-gray-900 dark:text-white font-semibold text-lg'>
+                    One place for your work
+                  </h2>
+                  <p className='text-gray-700 dark:text-gray-300 text-sm'>
+                    Keep everything organized in one place.
+                  </p>
+                </div>
               </div>
-              <div className='flex-1 space-y-1'>
-                <h2 className='text-gray-900 dark:text-white font-semibold text-lg'>
-                  Less Hassle, More Investing
-                </h2>
-                <p className='text-gray-700 dark:text-gray-300 text-sm'>
-                  Manage your investment portfolio with ease
-                </p>
+              <div className='flex items-start gap-6 lg:px-6 py-6 lg:py-0'>
+                <div className='w-10'>
+                  <span className='p-3 rounded-xl bg-gray-200 dark:bg-gray-800 flex w-max text-gray-800 dark:text-gray-200'>
+                    <svg
+                      xmlns='http://www.w3.org/2000/svg'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      strokeWidth='1.5'
+                      stroke='currentColor'
+                      className='w-6 h-6'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        d='M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z'
+                      />
+                    </svg>
+                  </span>
+                </div>
+                <div className='flex-1 space-y-1'>
+                  <h2 className='text-gray-900 dark:text-white font-semibold text-lg'>
+                    Clear and up to date
+                  </h2>
+                  <p className='text-gray-700 dark:text-gray-300 text-sm'>
+                    See what matters without the noise.
+                  </p>
+                </div>
               </div>
             </div>
-            <div className='flex items-start gap-6 lg:px-6 py-6 lg:py-0'>
-              <div className='w-10'>
-                <span className='p-3 rounded-xl bg-gray-200 dark:bg-gray-800 flex w-max text-gray-800 dark:text-gray-200'>
-                  <svg
-                    xmlns='http://www.w3.org/2000/svg'
-                    fill='none'
-                    viewBox='0 0 24 24'
-                    strokeWidth='1.5'
-                    stroke='currentColor'
-                    className='w-6 h-6'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      d='M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z'
-                    />
-                  </svg>
-                </span>
-              </div>
-              <div className='flex-1 space-y-1'>
-                <h2 className='text-gray-900 dark:text-white font-semibold text-lg'>
-                  Transparency Meets Simplicity
-                </h2>
-                <p className='text-gray-700 dark:text-gray-300 text-sm'>
-                  Get real time updates on your investments.
-                </p>
-              </div>
-            </div>
-          </div>
           </motion.div>
         </div>
       </section>

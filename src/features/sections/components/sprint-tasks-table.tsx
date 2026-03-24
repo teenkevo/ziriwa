@@ -45,6 +45,7 @@ import { DataTableColumnHeader } from '@/features/members/components/data-table-
 import { DataTableFacetedFilter } from '@/features/members/components/data-table-faceted-filter'
 import { OfficerSwitcher, type Officer } from './officer-switcher'
 import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import { getEffectiveTaskStatus } from '@/lib/sprint-week'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -175,12 +176,16 @@ export function SprintTasksTable({
         },
       },
       {
-        accessorKey: 'taskStatus',
+        id: 'taskStatus',
+        accessorFn: row => getEffectiveTaskStatus(row, row.weekStart),
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title='Status' />
         ),
         cell: ({ row }) => {
-          const status = row.original.taskStatus ?? 'to_do'
+          const status = getEffectiveTaskStatus(
+            row.original,
+            row.original.weekStart,
+          )
           const label = TASK_STATUSES.find(s => s.value === status)?.label ?? status
           const variant =
             status === 'done'
@@ -194,7 +199,10 @@ export function SprintTasksTable({
             </Badge>
           )
         },
-        filterFn: (row, id, value) => value.includes(row.original.taskStatus ?? 'to_do'),
+        filterFn: (row, id, value) =>
+          value.includes(
+            getEffectiveTaskStatus(row.original, row.original.weekStart),
+          ),
       },
     ],
     [officers, sectionId, onUpdateTask, isSaving, hasSubmissions],

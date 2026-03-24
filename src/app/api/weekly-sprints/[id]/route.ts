@@ -4,6 +4,10 @@ import {
   sprintTaskHasRequiredLinks,
   validateSprintTaskPayload,
 } from '@/lib/sprint-task-validation'
+import {
+  getSprintWeekStartLocal,
+  isSprintWeekStarted,
+} from '@/lib/sprint-week'
 
 export async function PATCH(
   req: NextRequest,
@@ -191,6 +195,31 @@ export async function PATCH(
         )
       }
 
+      const doc = await writeClient.getDocument(id)
+      if (!doc || doc._type !== 'weeklySprint') {
+        return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+      }
+      const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
+      const task = tasks.find((t: Record<string, unknown>) => t._key === taskKey)
+      if (!task) {
+        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+      }
+      const weekStart = doc.weekStart as string
+      if (
+        updates.taskStatus !== undefined &&
+        task.status === 'accepted' &&
+        !isSprintWeekStarted(weekStart) &&
+        updates.taskStatus !== 'to_do'
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Task status stays To do until the sprint week starts (Monday 10 AM)',
+          },
+          { status: 400 },
+        )
+      }
+
       const patchPath = `tasks[_key=="${taskKey}"]`
       const setFields: Record<string, unknown> = {}
 
@@ -232,7 +261,22 @@ export async function PATCH(
 
       const now = new Date()
       const weekStart = doc.weekStart as string
-      const sprintStart = new Date(`${weekStart}T10:00:00`)
+      if (task.status !== 'accepted') {
+        return NextResponse.json(
+          { error: 'Only accepted tasks can receive work submissions' },
+          { status: 400 },
+        )
+      }
+      if (!isSprintWeekStarted(weekStart, now)) {
+        return NextResponse.json(
+          {
+            error:
+              'Work submissions open when the sprint week starts (Monday 10 AM)',
+          },
+          { status: 400 },
+        )
+      }
+      const sprintStart = getSprintWeekStartLocal(weekStart)
       const diffMs = now.getTime() - sprintStart.getTime()
       const totalHours = Math.max(0, Math.round((diffMs / 3_600_000) * 100) / 100)
 
@@ -324,7 +368,10 @@ export async function PATCH(
         [`tasks[_key=="${taskKey}"].workSubmissions`]: updated,
       }
       if (allApproved) {
-        setFields[`tasks[_key=="${taskKey}"].taskStatus`] = 'done'
+        const ws = doc.weekStart as string
+        setFields[`tasks[_key=="${taskKey}"].taskStatus`] = isSprintWeekStarted(ws)
+          ? 'done'
+          : 'to_do'
       }
 
       await writeClient.patch(id).set(setFields).commit()
@@ -392,6 +439,17 @@ export async function PATCH(
       const doc = await writeClient.getDocument(id)
       if (!doc || doc._type !== 'weeklySprint') {
         return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+      }
+
+      const weekStart = doc.weekStart as string
+      if (!isSprintWeekStarted(weekStart)) {
+        return NextResponse.json(
+          {
+            error:
+              'Responses open when the sprint week starts (Monday 10 AM)',
+          },
+          { status: 400 },
+        )
       }
 
       const tasks = (doc.tasks as Array<Record<string, unknown>>) || []

@@ -50,6 +50,7 @@ import type {
   WeeklySprint,
   SprintTask,
 } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import { Input } from '@/components/ui/input'
 
 export type InitiativeWithActivities = {
   key: string
@@ -153,6 +154,7 @@ const STATUS_CONFIG: Record<
   revisions_requested: { label: 'Revisions Requested', variant: 'outline' },
 }
 
+// TODO: Allow adding other activity cateogories
 const ACTIVITY_CATEGORIES = [
   { label: 'Normal Flow', value: 'normal_flow' },
   { label: 'Compliance', value: 'compliance' },
@@ -225,9 +227,8 @@ export function WeeklySprintContent({
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null)
   const [reviseOpen, setReviseOpen] = React.useState(false)
   const [reviseSprintId, setReviseSprintId] = React.useState('')
-  const [reviseTaskDraft, setReviseTaskDraft] = React.useState<DraftTask | null>(
-    null,
-  )
+  const [reviseTaskDraft, setReviseTaskDraft] =
+    React.useState<DraftTask | null>(null)
   const [reviseManagerFeedback, setReviseManagerFeedback] = React.useState('')
   const [isSavingRevise, setIsSavingRevise] = React.useState(false)
 
@@ -348,9 +349,7 @@ export function WeeklySprintContent({
       router.refresh()
     } catch (err) {
       console.error(err)
-      alert(
-        err instanceof Error ? err.message : 'Failed to save sprint',
-      )
+      alert(err instanceof Error ? err.message : 'Failed to save sprint')
     } finally {
       setIsSavingSprint(false)
     }
@@ -378,7 +377,9 @@ export function WeeklySprintContent({
     if (!reviseTaskDraft?._key || !isDraftTaskComplete(reviseTaskDraft)) return
 
     const init = initiatives.find(i => i.key === reviseTaskDraft.initiativeKey)
-    const act = init?.activities.find(a => a.key === reviseTaskDraft.activityKey)
+    const act = init?.activities.find(
+      a => a.key === reviseTaskDraft.activityKey,
+    )
 
     setIsSavingRevise(true)
     try {
@@ -399,7 +400,9 @@ export function WeeklySprintContent({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(
-          typeof data.error === 'string' ? data.error : 'Failed to save revision',
+          typeof data.error === 'string'
+            ? data.error
+            : 'Failed to save revision',
         )
       }
       setReviseOpen(false)
@@ -433,7 +436,9 @@ export function WeeklySprintContent({
     } catch (err) {
       console.error(err)
       alert(
-        err instanceof Error ? err.message : 'Failed to submit sprint for review',
+        err instanceof Error
+          ? err.message
+          : 'Failed to submit sprint for review',
       )
     } finally {
       setIsSubmitting(null)
@@ -483,9 +488,14 @@ export function WeeklySprintContent({
 
   // --- Accepted tasks handlers ---
 
-  const acceptedTasks = React.useMemo<AcceptedSprintTask[]>(() => {
-    const tasks: AcceptedSprintTask[] = []
+  /** One group per sprint that has at least one accepted task; latest sprint first. */
+  const acceptedSprintGroups = React.useMemo(() => {
+    const groups: {
+      sprint: WeeklySprint
+      tasks: AcceptedSprintTask[]
+    }[] = []
     for (const sprint of sprints) {
+      const tasks: AcceptedSprintTask[] = []
       for (const task of sprint.tasks ?? []) {
         if (task.status === 'accepted') {
           tasks.push({
@@ -497,9 +507,18 @@ export function WeeklySprintContent({
           })
         }
       }
+      if (tasks.length > 0) {
+        groups.push({ sprint, tasks })
+      }
     }
-    return tasks
+    groups.sort((a, b) => b.sprint.weekStart.localeCompare(a.sprint.weekStart))
+    return groups
   }, [sprints])
+
+  const acceptedTasks = React.useMemo(
+    () => acceptedSprintGroups.flatMap(g => g.tasks),
+    [acceptedSprintGroups],
+  )
 
   const selectedAcceptedTask = React.useMemo(
     () => acceptedTasks.find(t => t._key === selectedTaskKey) ?? null,
@@ -769,8 +788,8 @@ export function WeeklySprintContent({
           )}
         </TabsContent>
 
-        <TabsContent value='accepted' className='mt-4'>
-          {acceptedTasks.length === 0 ? (
+        <TabsContent value='accepted' className='mt-4 space-y-4'>
+          {acceptedSprintGroups.length === 0 ? (
             <Card>
               <CardContent className='pt-6'>
                 <p className='text-sm text-muted-foreground'>
@@ -780,15 +799,19 @@ export function WeeklySprintContent({
               </CardContent>
             </Card>
           ) : (
-            <SprintTasksTable
-              tasks={acceptedTasks}
-              officers={officers}
-              sectionId={sectionId}
-              selectedTaskKey={selectedTaskKey}
-              onSelectTask={setSelectedTaskKey}
-              onUpdateTask={handleUpdateTask}
-              isSaving={isSavingTask}
-            />
+            acceptedSprintGroups.map(({ sprint, tasks }) => (
+              <AcceptedSprintTasksCard
+                key={sprint._id}
+                sprint={sprint}
+                tasks={tasks}
+                officers={officers}
+                sectionId={sectionId}
+                selectedTaskKey={selectedTaskKey}
+                onSelectTask={setSelectedTaskKey}
+                onUpdateTask={handleUpdateTask}
+                isSaving={isSavingTask}
+              />
+            ))
           )}
           {panelPortalNode && createPortal(detailPanel, panelPortalNode)}
         </TabsContent>
@@ -970,8 +993,8 @@ export function WeeklySprintContent({
                         </div>
                       ) : (
                         <p className='text-xs text-muted-foreground rounded-md border border-dashed p-2'>
-                          Add initiatives and measurable activities to the section
-                          contract before you can link sprint tasks.
+                          Add initiatives and measurable activities to the
+                          section contract before you can link sprint tasks.
                         </p>
                       )}
                     </div>
@@ -1121,9 +1144,7 @@ export function WeeklySprintContent({
                   className='text-xs'
                   placeholder='Describe the task...'
                   value={reviseTaskDraft.description}
-                  onChange={e =>
-                    setReviseField('description', e.target.value)
-                  }
+                  onChange={e => setReviseField('description', e.target.value)}
                   rows={3}
                   disabled={isSavingRevise}
                 />
@@ -1254,6 +1275,75 @@ export function WeeklySprintContent({
   )
 }
 
+function AcceptedSprintTasksCard({
+  sprint,
+  tasks,
+  officers,
+  sectionId,
+  selectedTaskKey,
+  onSelectTask,
+  onUpdateTask,
+  isSaving,
+}: {
+  sprint: WeeklySprint
+  tasks: AcceptedSprintTask[]
+  officers: Officer[]
+  sectionId: string
+  selectedTaskKey: string | null
+  onSelectTask: (key: string | null) => void
+  onUpdateTask: (
+    sprintId: string,
+    taskKey: string,
+    updates: Record<string, unknown>,
+  ) => void
+  isSaving: boolean
+}) {
+  const [open, setOpen] = React.useState(true)
+
+  return (
+    <Card>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CardHeader className='pb-3'>
+          <div className='flex items-center justify-between gap-2'>
+            <div className='space-y-1 min-w-0'>
+              <CardTitle className='text-base'>{sprint.weekLabel}</CardTitle>
+              <p className='text-xs text-muted-foreground'>
+                {sprint.supervisor?.fullName &&
+                  `By ${sprint.supervisor.fullName} · `}
+                {tasks.length} accepted task{tasks.length === 1 ? '' : 's'}
+              </p>
+            </div>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant='ghost'
+                size='sm'
+                className='h-8 w-8 p-0 shrink-0'
+              >
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
+                />
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className='pt-0'>
+            <SprintTasksTable
+              tasks={tasks}
+              officers={officers}
+              sectionId={sectionId}
+              selectedTaskKey={selectedTaskKey}
+              onSelectTask={onSelectTask}
+              onUpdateTask={onUpdateTask}
+              isSaving={isSaving}
+            />
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  )
+}
+
 function SprintCard({
   sprint,
   onSubmit,
@@ -1275,11 +1365,21 @@ function SprintCard({
   const accepted = tasks.filter(t => t.status === 'accepted').length
   const total = tasks.length
 
-  const sprintStatusBadge = {
-    draft: { label: 'Draft', variant: 'secondary' as const },
-    submitted: { label: 'Submitted for Review', variant: 'default' as const },
-    reviewed: { label: 'Review complete', variant: 'outline' as const },
-  }[sprint.status]
+  const hasRevisionsRequested = tasks.some(
+    t => t.status === 'revisions_requested',
+  )
+
+  const sprintStatusBadge =
+    sprint.status !== 'draft' && hasRevisionsRequested
+      ? { label: 'Review in progress', variant: 'default' as const }
+      : {
+          draft: { label: 'Draft', variant: 'secondary' as const },
+          submitted: {
+            label: 'Submitted for Review',
+            variant: 'default' as const,
+          },
+          reviewed: { label: 'Review complete', variant: 'outline' as const },
+        }[sprint.status]
 
   return (
     <Card>
@@ -1342,16 +1442,16 @@ function SprintCard({
           <CardContent className='pt-0'>
             <div className='space-y-2'>
               {tasks.map((task, i) => {
-                const config =
-                  STATUS_CONFIG[task.status] ?? {
-                    label: task.status ?? 'Unknown',
-                    variant: 'secondary' as const,
-                  }
+                const config = STATUS_CONFIG[task.status] ?? {
+                  label: task.status ?? 'Unknown',
+                  variant: 'secondary' as const,
+                }
                 const canReview =
                   sprint.status === 'submitted' && task.status === 'pending'
                 const canRevise =
                   task.status === 'revisions_requested' &&
-                  (sprint.status === 'submitted' || sprint.status === 'reviewed') &&
+                  (sprint.status === 'submitted' ||
+                    sprint.status === 'reviewed') &&
                   Boolean(onOpenRevise)
                 return (
                   <div
