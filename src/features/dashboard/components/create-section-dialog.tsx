@@ -35,6 +35,8 @@ interface CreateSectionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   divisionId: string
+  /** Department owning the division (optional; used for labels / future use). */
+  departmentId?: string
   divisionName: string
   managers: StaffMember[]
   onSuccess?: (section: Section) => void
@@ -119,6 +121,7 @@ export function CreateSectionDialog({
                 managers={managers}
                 value={managerId}
                 onChange={setManagerId}
+                divisionId={divisionId}
                 disabled={isCreating}
                 placeholder='Select or create manager'
               />

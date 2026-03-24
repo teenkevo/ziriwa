@@ -14,16 +14,15 @@ const Label = React.forwardRef<
   React.ElementRef<typeof LabelPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> &
     VariantProps<typeof labelVariants> & { required?: boolean }
->(({ className, required, ...props }, ref) => (
+>(({ className, required, children, ...props }, ref) => (
   <LabelPrimitive.Root
     ref={ref}
-    className={cn(
-      labelVariants(),
-      required && 'after:ml-0.5 after:text-destructive after:content-["*"]',
-      className,
-    )}
+    className={cn(labelVariants(), className)}
     {...props}
-  />
+  >
+    {children}
+    {required && <span className="text-destructive ml-0.5">*</span>}
+  </LabelPrimitive.Root>
 ))
 Label.displayName = LabelPrimitive.Root.displayName
 

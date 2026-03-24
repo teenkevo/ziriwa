@@ -34,6 +34,14 @@ export const division = defineType({
       validation: Rule => Rule.required(),
     }),
     defineField({
+      name: 'department',
+      title: 'Department',
+      type: 'reference',
+      to: [{ type: 'department' }],
+      validation: Rule => Rule.required(),
+      description: 'Department this division belongs to',
+    }),
+    defineField({
       name: 'assistantCommissioner',
       title: 'Assistant Commissioner',
       type: 'reference',

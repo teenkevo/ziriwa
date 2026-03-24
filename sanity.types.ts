@@ -13,6 +13,455 @@
  */
 
 // Source: schema.json
+export type StakeholderEngagement = {
+  _id: string
+  _type: 'stakeholderEngagement'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  section?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'section'
+  }
+  financialYearLabel?: string
+  stakeholders?: Array<
+    {
+      _key: string
+    } & StakeholderEntry
+  >
+}
+
+export type StakeholderEntry = {
+  _type: 'stakeholderEntry'
+  sn?: number
+  stakeholder?:
+    | 'regulatory_body'
+    | 'community_leader'
+    | 'supplier'
+    | 'partner_organization'
+    | 'internal'
+    | 'other'
+  designation?: string
+  name?: string
+  phoneNumber?: string
+  emailAddress?: string
+  address?: string
+  initiativeCode?: string
+  objectiveOfEngagement?: string
+  power?: 'H' | 'M' | 'L'
+  interest?: 'H' | 'M' | 'L'
+  priority?: 'H' | 'M' | 'L'
+  stakeholderExpectations?: string
+  uraExpectations?: string
+  proposedDateOfEngagement?: string
+  modeOfEngagement?:
+    | 'meeting'
+    | 'email'
+    | 'report'
+    | 'workshop'
+    | 'phone_call'
+    | 'site_visit'
+    | 'other'
+  budgetHighlights?: string
+  totalCost?: number
+  uraDelegation?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'staff'
+  }
+  engagementReport?: string
+}
+
+export type InvestmentStatement = {
+  _id: string
+  _type: 'investmentStatement'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  investment?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'investment'
+  }
+  statementDate?: string
+  document?: {
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+  }
+  closingBalance?: number
+  interestEarned?: number
+  notes?: string
+}
+
+export type PropertyTransaction = {
+  _id: string
+  _type: 'propertyTransaction'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  property?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'property'
+  }
+  transactionType?: 'purchase' | 'sale' | 'maintenance' | 'fees'
+  amount?: number
+  date?: string
+  counterparty?: string
+  ownershipDocuments?: Array<{
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+    _key: string
+  }>
+  notes?: string
+  status?: 'pending' | 'confirmed' | 'cancelled'
+}
+
+export type Property = {
+  _id: string
+  _type: 'property'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  name?: string
+  propertyType?: 'land' | 'apartment' | 'house' | 'building' | 'other'
+  dateAcquired?: string
+  landTitle?: {
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+  }
+  documents?: Array<{
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+    _key: string
+  }>
+  location?: string
+  plotNumber?: string
+  status?: 'active' | 'sold' | 'transferred'
+}
+
+export type PropertyInvestmentTransaction = {
+  _id: string
+  _type: 'propertyInvestmentTransaction'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  investment?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'investment'
+  }
+  transactionType?: 'purchase' | 'sale' | 'maintenance' | 'fees'
+  amount?: number
+  date?: string
+  counterparty?: string
+  ownershipDocuments?: Array<{
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+    _key: string
+  }>
+  notes?: string
+  status?: 'pending' | 'confirmed' | 'cancelled'
+}
+
+export type FinancialInvestmentTransaction = {
+  _id: string
+  _type: 'financialInvestmentTransaction'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  investment?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'investment'
+  }
+  transactionType?: 'deposit' | 'withdrawal'
+  amount?: number
+  date?: string
+  referenceNumber?: string
+  proofOfDeposit?: {
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+  }
+  redemptionForm?: {
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+  }
+  notes?: string
+  status?: 'pending' | 'confirmed' | 'cancelled'
+}
+
+export type Investment = {
+  _id: string
+  _type: 'investment'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  name?: string
+  investmentType?: 'unit_trust' | 'bond' | 'money_market' | 'other'
+  provider?: string
+  accountName?: string
+  product?:
+    | 'umbrella_trust_fund'
+    | 'dollar_fund'
+    | 'money_market_fund'
+    | 'balanced_fund'
+  memberNumber?: string
+  accountNumber?: string
+  description?: string
+  status?: 'active' | 'liquidated' | 'suspended'
+}
+
+export type AttendanceVerification = {
+  _id: string
+  _type: 'attendanceVerification'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  meeting?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'meeting'
+  }
+  generatedAt?: string
+}
+
+export type Meeting = {
+  _id: string
+  _type: 'meeting'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  title?: string
+  meetingType?: 'agm' | 'executive' | 'ordinary' | 'other'
+  meetingDate?: string
+  agenda?: {
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+  }
+  financials?: {
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+  }
+  minutes?: {
+    asset?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+    }
+    media?: unknown
+    _type: 'file'
+  }
+  attendance?: Array<{
+    member?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'member'
+    }
+    status?: 'present' | 'absent' | 'excused'
+    excusedReason?: string
+    _type: 'attendanceItem'
+    _key: string
+  }>
+  attendanceLockedAt?: string
+  attendanceVerificationId?: string
+}
+
+export type Vote = {
+  _id: string
+  _type: 'vote'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  resolution?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'resolution'
+  }
+  voter?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'member'
+  }
+  voteType?: 'for' | 'against' | 'abstain'
+  nomination?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'nomination'
+  }
+  votedAt?: string
+  notes?: string
+}
+
+export type Nomination = {
+  _id: string
+  _type: 'nomination'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  position?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'position'
+  }
+  nominee?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'member'
+  }
+  nominatedBy?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'member'
+  }
+  status?: 'pending' | 'accepted' | 'withdrawn'
+  acceptedForVoting?: boolean
+  nominationDate?: string
+  notes?: string
+}
+
+export type Position = {
+  _id: string
+  _type: 'position'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  title?: string
+  description?: string
+  committeeYear?: number
+  isActive?: boolean
+}
+
+export type Resolution = {
+  _id: string
+  _type: 'resolution'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  title?: string
+  description?: string
+  resolutionType?: 'executive_committee' | 'general' | 'policy' | 'other'
+  committeeYear?: number
+  meetingDate?: string
+  status?: 'draft' | 'open' | 'closed' | 'passed' | 'rejected'
+  positions?: Array<{
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    _key: string
+    [internalGroqTypeReferenceTo]?: 'position'
+  }>
+  createdBy?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'member'
+  }
+  createdAt?: string
+}
+
+export type Loan = {
+  _id: string
+  _type: 'loan'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  member?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'member'
+  }
+  amount?: number
+  guarantor?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'member'
+  }
+  repaymentPlan?:
+    | '3_months'
+    | '6_months'
+    | '12_months'
+    | '18_months'
+    | '24_months'
+  interestRate?: number
+  status?: 'pending' | 'approved' | 'active' | 'completed' | 'defaulted'
+  applicationDate?: string
+  startDate?: string
+  description?: string
+}
+
 export type Payment = {
   _id: string
   _type: 'payment'
@@ -80,6 +529,358 @@ export type PaymentTier = {
   _rev: string
   title?: string
   amount?: number
+}
+
+export type SsmartaObjective = {
+  _type: 'ssmartaObjective'
+  code?: string
+  title?: string
+  order?: number
+  initiatives?: Array<
+    {
+      _key: string
+    } & ContractInitiative
+  >
+}
+
+export type ContractInitiative = {
+  _type: 'contractInitiative'
+  code?: string
+  title?: string
+  order?: number
+  measurableActivities?: Array<
+    {
+      _key: string
+    } & MeasurableActivity
+  >
+}
+
+export type MeasurableActivity = {
+  _type: 'measurableActivity'
+  activityType?: 'kpi' | 'cross-cutting'
+  title?: string
+  aim?: string
+  order?: number
+  targetDate?: string
+  status?: 'not_started' | 'in_progress' | 'completed'
+  reportingFrequency?: 'weekly' | 'monthly' | 'quarterly' | 'n/a'
+  evidence?: Array<
+    | {
+        asset?: {
+          _ref: string
+          _type: 'reference'
+          _weak?: boolean
+          [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+        }
+        media?: unknown
+        _type: 'file'
+        _key: string
+      }
+    | {
+        asset?: {
+          _ref: string
+          _type: 'reference'
+          _weak?: boolean
+          [internalGroqTypeReferenceTo]?: 'sanity.imageAsset'
+        }
+        media?: unknown
+        hotspot?: SanityImageHotspot
+        crop?: SanityImageCrop
+        _type: 'image'
+        _key: string
+      }
+  >
+  tasks?: Array<
+    {
+      _key: string
+    } & DetailedTask
+  >
+}
+
+export type DetailedTask = {
+  _type: 'detailedTask'
+  task?: string
+  priority?: 'highest' | 'high' | 'medium' | 'low' | 'lowest'
+  assignee?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'staff'
+  }
+  inputs?: {
+    file?: {
+      asset?: {
+        _ref: string
+        _type: 'reference'
+        _weak?: boolean
+        [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+      }
+      media?: unknown
+      _type: 'file'
+    }
+    submittedAt?: string
+  }
+  inputsReviewThread?: Array<{
+    author?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'staff'
+    }
+    role?: 'officer' | 'supervisor'
+    action?: 'submit' | 'reject' | 'approve' | 'respond'
+    message?: string
+    createdAt?: string
+    file?: {
+      asset?: {
+        _ref: string
+        _type: 'reference'
+        _weak?: boolean
+        [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+      }
+      media?: unknown
+      _type: 'file'
+    }
+    _type: 'inputsReviewEntry'
+    _key: string
+  }>
+  status?:
+    | 'to_do'
+    | 'inputs_submitted'
+    | 'in_progress'
+    | 'delivered'
+    | 'in_review'
+    | 'done'
+  targetDate?: string
+  reportingFrequency?: 'weekly' | 'monthly' | 'quarterly' | 'n/a'
+  expectedDeliverable?: string
+  reportingPeriodStart?: string
+  periodDeliverables?: Array<{
+    periodKey?: string
+    status?: 'pending' | 'delivered' | 'in_review' | 'done'
+    submittedAt?: string
+    deliverable?: Array<{
+      file?: {
+        asset?: {
+          _ref: string
+          _type: 'reference'
+          _weak?: boolean
+          [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+        }
+        media?: unknown
+        _type: 'file'
+      }
+      tag?: 'support' | 'main'
+      locked?: boolean
+      _type: 'periodDeliverableItem'
+      _key: string
+    }>
+    deliverableReviewThread?: Array<{
+      author?: {
+        _ref: string
+        _type: 'reference'
+        _weak?: boolean
+        [internalGroqTypeReferenceTo]?: 'staff'
+      }
+      role?: 'officer' | 'supervisor'
+      action?: 'submit' | 'reject' | 'approve' | 'respond'
+      message?: string
+      createdAt?: string
+      file?: {
+        asset?: {
+          _ref: string
+          _type: 'reference'
+          _weak?: boolean
+          [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+        }
+        media?: unknown
+        _type: 'file'
+      }
+      _type: 'periodDeliverableReviewEntry'
+      _key: string
+    }>
+    _type: 'periodDeliverable'
+    _key: string
+  }>
+  deliverable?: Array<{
+    file?: {
+      asset?: {
+        _ref: string
+        _type: 'reference'
+        _weak?: boolean
+        [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+      }
+      media?: unknown
+      _type: 'file'
+    }
+    tag?: 'support' | 'main'
+    locked?: boolean
+    _type: 'deliverableItem'
+    _key: string
+  }>
+  deliverableReviewThread?: Array<{
+    author?: {
+      _ref: string
+      _type: 'reference'
+      _weak?: boolean
+      [internalGroqTypeReferenceTo]?: 'staff'
+    }
+    role?: 'officer' | 'supervisor'
+    action?: 'submit' | 'reject' | 'approve' | 'respond'
+    message?: string
+    createdAt?: string
+    file?: {
+      asset?: {
+        _ref: string
+        _type: 'reference'
+        _weak?: boolean
+        [internalGroqTypeReferenceTo]?: 'sanity.fileAsset'
+      }
+      media?: unknown
+      _type: 'file'
+    }
+    _type: 'deliverableReviewEntry'
+    _key: string
+  }>
+}
+
+export type SectionContract = {
+  _id: string
+  _type: 'sectionContract'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  section?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'section'
+  }
+  financialYearLabel?: string
+  manager?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'staff'
+  }
+  status?: 'draft' | 'active' | 'completed'
+  objectives?: Array<
+    {
+      _key: string
+    } & SsmartaObjective
+  >
+}
+
+export type Department = {
+  _id: string
+  _type: 'department'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  fullName?: string
+  acronym?: string
+  slug?: Slug
+  commissioner?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'staff'
+  }
+  isDefault?: boolean
+}
+
+export type Staff = {
+  _id: string
+  _type: 'staff'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  firstName?: string
+  lastName?: string
+  idNumber?: string
+  email?: string
+  fullName?: string
+  staffId?: string
+  phone?: string
+  role?:
+    | 'commissioner_general'
+    | 'commissioner'
+    | 'assistant_commissioner'
+    | 'manager'
+    | 'supervisor'
+    | 'officer'
+  reportsTo?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'staff'
+  }
+  department?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'department'
+  }
+  division?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'division'
+  }
+  section?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'section'
+  }
+  status?: 'active' | 'inactive'
+}
+
+export type Section = {
+  _id: string
+  _type: 'section'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  name?: string
+  slug?: Slug
+  division?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'division'
+  }
+  manager?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'staff'
+  }
+  order?: number
+}
+
+export type Division = {
+  _id: string
+  _type: 'division'
+  _createdAt: string
+  _updatedAt: string
+  _rev: string
+  fullName?: string
+  acronym?: string
+  slug?: Slug
+  department?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'department'
+  }
+  assistantCommissioner?: {
+    _ref: string
+    _type: 'reference'
+    _weak?: boolean
+    [internalGroqTypeReferenceTo]?: 'staff'
+  }
+  isDefault?: boolean
 }
 
 export type SanityImagePaletteSwatch = {
@@ -201,9 +1002,33 @@ export type SanityAssetSourceData = {
 }
 
 export type AllSanitySchemaTypes =
+  | StakeholderEngagement
+  | StakeholderEntry
+  | InvestmentStatement
+  | PropertyTransaction
+  | Property
+  | PropertyInvestmentTransaction
+  | FinancialInvestmentTransaction
+  | Investment
+  | AttendanceVerification
+  | Meeting
+  | Vote
+  | Nomination
+  | Position
+  | Resolution
+  | Loan
   | Payment
   | Member
   | PaymentTier
+  | SsmartaObjective
+  | ContractInitiative
+  | MeasurableActivity
+  | DetailedTask
+  | SectionContract
+  | Department
+  | Staff
+  | Section
+  | Division
   | SanityImagePaletteSwatch
   | SanityImagePalette
   | SanityImageDimensions
@@ -216,9 +1041,81 @@ export type AllSanitySchemaTypes =
   | Slug
   | SanityAssetSourceData
 export declare const internalGroqTypeReferenceTo: unique symbol
+// Source: ./src/sanity/lib/departments/get-all-departments.ts
+// Variable: query
+// Query: *[_type == "department"] | order(coalesce(fullName, name) asc) {      _id,      "name": coalesce(acronym, fullName, name),      slug,      fullName,      acronym,      isDefault,    }
+export type QueryResult = Array<{
+  _id: string
+  name: string | null
+  slug: Slug | null
+  fullName: string | null
+  acronym: string | null
+  isDefault: boolean | null
+}>
+
+// Source: ./src/sanity/lib/meetings/get-all-meeting-minutes.ts
+// Variable: ALL_MEETINGS_QUERY
+// Query: *[_type in ["meeting" ]] | order(meetingDate desc) {      _id,      title,      meetingType,      meetingDate,      agenda{        asset->{          _id,          url,          originalFilename,          extension,          mimeType,          size        }      },      financials{        asset->{          _id,          url,          originalFilename,          extension,          mimeType,          size        }      },      minutes{        asset->{          _id,          url,          originalFilename,          extension,          mimeType,          size        }      },      attendance[]{        member->{          _id,          fullName,          memberId        },        status,        excusedReason      },      attendanceLockedAt,      attendanceVerificationId    }
+export type ALL_MEETINGS_QUERYResult = Array<{
+  _id: string
+  title: string | null
+  meetingType: 'agm' | 'executive' | 'ordinary' | 'other' | null
+  meetingDate: string | null
+  agenda: {
+    asset: {
+      _id: string
+      url: string | null
+      originalFilename: string | null
+      extension: string | null
+      mimeType: string | null
+      size: number | null
+    } | null
+  } | null
+  financials: {
+    asset: {
+      _id: string
+      url: string | null
+      originalFilename: string | null
+      extension: string | null
+      mimeType: string | null
+      size: number | null
+    } | null
+  } | null
+  minutes: {
+    asset: {
+      _id: string
+      url: string | null
+      originalFilename: string | null
+      extension: string | null
+      mimeType: string | null
+      size: number | null
+    } | null
+  } | null
+  attendance: Array<{
+    member: {
+      _id: string
+      fullName: string | null
+      memberId: string | null
+    } | null
+    status: 'absent' | 'excused' | 'present' | null
+    excusedReason: string | null
+  }> | null
+  attendanceLockedAt: string | null
+  attendanceVerificationId: string | null
+}>
+
+// Source: ./src/sanity/lib/members/check-member-email.ts
+// Variable: CHECK_EMAIL_QUERY
+// Query: *[_type == "member" && email == $email][0] {      _id,      email,      fullName,    }
+export type CHECK_EMAIL_QUERYResult = {
+  _id: string
+  email: string | null
+  fullName: string | null
+} | null
+
 // Source: ./src/sanity/lib/members/get-all-members.ts
 // Variable: ALL_MEMBERS_QUERY
-// Query: *[_type == "member"] | order(fullName asc) {      _id,      fullName,      phone,      email,      memberId,      status,      selectedTier->{        _id,        name,        amount,      },      tierHistory[]{        tier->{          _id,          name,          amount,        },        year,        dateAssigned,      },      "payments": *[        _type == "payment"         && references(^._id)      ] {        _id,        type,        amountPaid,        paymentDate,        status,        year,        month,        description,        tier->{          _id,          name,          amount,        },      }    }
+// Query: *[_type == "member"] | order(fullName asc) {      _id,      fullName,      phone,      email,      memberId,      status,      selectedTier->{        _id,        title,        amount,      },      tierHistory[]{        tier->{          _id,          title,          amount,        },        year,        dateAssigned,      },      "payments": *[        _type == "payment"         && references(^._id)      ] {        _id,        type,        amountPaid,        paymentDate,        status,        year,        month,        description,        tier->{          _id,          title,          amount,        },      }    }
 export type ALL_MEMBERS_QUERYResult = Array<{
   _id: string
   fullName: string | null
@@ -228,13 +1125,13 @@ export type ALL_MEMBERS_QUERYResult = Array<{
   status: 'active' | 'inactive' | null
   selectedTier: {
     _id: string
-    name: null
+    title: string | null
     amount: number | null
   } | null
   tierHistory: Array<{
     tier: {
       _id: string
-      name: null
+      title: string | null
       amount: number | null
     } | null
     year: number | null
@@ -251,7 +1148,7 @@ export type ALL_MEMBERS_QUERYResult = Array<{
     description: string | null
     tier: {
       _id: string
-      name: null
+      title: string | null
       amount: number | null
     } | null
   }>
@@ -259,7 +1156,7 @@ export type ALL_MEMBERS_QUERYResult = Array<{
 
 // Source: ./src/sanity/lib/members/get-member-by-id.ts
 // Variable: MEMBER_BY_ID_QUERY
-// Query: *[_type == "member" && _id == $memberId] | order(fullName asc) {      _id,      fullName,      phone,      email,      memberId,      status,      selectedTier->{        _id,        name,        amount,      },      tierHistory[]{        tier->{          _id,          name,          amount,        },        year,        dateAssigned,      },      "payments": *[        _type == "payment"         && references(^._id)      ] {        _id,        type,        amountPaid,        paymentDate,        status,        year,        month,        description,        tier->{          _id,          name,          amount,        },      }    }
+// Query: *[_type == "member" && _id == $memberId] | order(fullName asc) {      _id,      fullName,      phone,      email,      memberId,      status,      selectedTier->{        _id,        title,        amount,      },      tierHistory[]{        tier->{          _id,          title,          amount,        },        year,        dateAssigned,      },      "payments": *[        _type == "payment"         && references(^._id)      ] {        _id,        type,        amountPaid,        paymentDate,        status,        year,        month,        description,        tier->{          _id,          title,          amount,        },      }    }
 export type MEMBER_BY_ID_QUERYResult = Array<{
   _id: string
   fullName: string | null
@@ -269,13 +1166,13 @@ export type MEMBER_BY_ID_QUERYResult = Array<{
   status: 'active' | 'inactive' | null
   selectedTier: {
     _id: string
-    name: null
+    title: string | null
     amount: number | null
   } | null
   tierHistory: Array<{
     tier: {
       _id: string
-      name: null
+      title: string | null
       amount: number | null
     } | null
     year: number | null
@@ -292,17 +1189,164 @@ export type MEMBER_BY_ID_QUERYResult = Array<{
     description: string | null
     tier: {
       _id: string
-      name: null
+      title: string | null
       amount: number | null
     } | null
   }>
 }>
 
+// Source: ./src/sanity/lib/payment-tiers/get-all-payment-tiers.ts
+// Variable: ALL_PAYMENT_TIERS_QUERY
+// Query: *[_type == "paymentTier"] | order(amount asc) {      _id,      title,      amount,    }
+export type ALL_PAYMENT_TIERS_QUERYResult = Array<{
+  _id: string
+  title: string | null
+  amount: number | null
+}>
+
+// Source: ./src/sanity/lib/resolutions/get-all-resolutions.ts
+// Variable: ALL_RESOLUTIONS_QUERY
+// Query: *[_type == "resolution"] | order(createdAt desc) {      _id,      title,      description,      resolutionType,      committeeYear,      meetingDate,      status,      createdAt,      createdBy->{        _id,        fullName,        memberId,      },      positions[]->{        _id,        title,        description,        committeeYear,        isActive,      },      "votes": *[        _type == "vote"         && references(^._id)      ] {        _id,        voteType,        votedAt,        voter->{          _id,          fullName,          memberId,        },        nomination->{          _id,          nominee->{            _id,            fullName,          },          position->{            _id,            title,          },        },      },      "nominations": *[        _type == "nomination"        && acceptedForVoting == true        && position._ref in ^.positions[]._ref      ] {        _id,        status,        acceptedForVoting,        nominee->{          _id,          fullName,          memberId,        },        position->{          _id,          title,        },        nominatedBy->{          _id,          fullName,        },      },    }
+export type ALL_RESOLUTIONS_QUERYResult = Array<{
+  _id: string
+  title: string | null
+  description: string | null
+  resolutionType: 'executive_committee' | 'general' | 'other' | 'policy' | null
+  committeeYear: number | null
+  meetingDate: string | null
+  status: 'closed' | 'draft' | 'open' | 'passed' | 'rejected' | null
+  createdAt: string | null
+  createdBy: {
+    _id: string
+    fullName: string | null
+    memberId: string | null
+  } | null
+  positions: Array<{
+    _id: string
+    title: string | null
+    description: string | null
+    committeeYear: number | null
+    isActive: boolean | null
+  }> | null
+  votes: Array<{
+    _id: string
+    voteType: 'abstain' | 'against' | 'for' | null
+    votedAt: string | null
+    voter: {
+      _id: string
+      fullName: string | null
+      memberId: string | null
+    } | null
+    nomination: {
+      _id: string
+      nominee: {
+        _id: string
+        fullName: string | null
+      } | null
+      position: {
+        _id: string
+        title: string | null
+      } | null
+    } | null
+  }>
+  nominations: Array<{
+    _id: string
+    status: 'accepted' | 'pending' | 'withdrawn' | null
+    acceptedForVoting: boolean | null
+    nominee: {
+      _id: string
+      fullName: string | null
+      memberId: string | null
+    } | null
+    position: {
+      _id: string
+      title: string | null
+    } | null
+    nominatedBy: {
+      _id: string
+      fullName: string | null
+    } | null
+  }>
+}>
+
+// Source: ./src/sanity/lib/resolutions/get-resolution-by-id.ts
+// Variable: RESOLUTION_BY_ID_QUERY
+// Query: *[_type == "resolution" && _id == $id][0] {      _id,      title,      description,      resolutionType,      committeeYear,      meetingDate,      status,      createdAt,      createdBy->{        _id,        fullName,        memberId,      },      positions[]->{        _id,        title,        description,        committeeYear,        isActive,      },      "votes": *[        _type == "vote"         && references(^._id)      ] | order(votedAt desc) {        _id,        voteType,        votedAt,        notes,        voter->{          _id,          fullName,          memberId,        },        nomination->{          _id,          nominee->{            _id,            fullName,          },          position->{            _id,            title,          },        },      },      "nominations": *[        _type == "nomination"        && acceptedForVoting == true        && position._ref in ^.positions[]._ref      ] {        _id,        status,        acceptedForVoting,        nominationDate,        nominee->{          _id,          fullName,          memberId,        },        position->{          _id,          title,        },        nominatedBy->{          _id,          fullName,        },      },    }
+export type RESOLUTION_BY_ID_QUERYResult = {
+  _id: string
+  title: string | null
+  description: string | null
+  resolutionType: 'executive_committee' | 'general' | 'other' | 'policy' | null
+  committeeYear: number | null
+  meetingDate: string | null
+  status: 'closed' | 'draft' | 'open' | 'passed' | 'rejected' | null
+  createdAt: string | null
+  createdBy: {
+    _id: string
+    fullName: string | null
+    memberId: string | null
+  } | null
+  positions: Array<{
+    _id: string
+    title: string | null
+    description: string | null
+    committeeYear: number | null
+    isActive: boolean | null
+  }> | null
+  votes: Array<{
+    _id: string
+    voteType: 'abstain' | 'against' | 'for' | null
+    votedAt: string | null
+    notes: string | null
+    voter: {
+      _id: string
+      fullName: string | null
+      memberId: string | null
+    } | null
+    nomination: {
+      _id: string
+      nominee: {
+        _id: string
+        fullName: string | null
+      } | null
+      position: {
+        _id: string
+        title: string | null
+      } | null
+    } | null
+  }>
+  nominations: Array<{
+    _id: string
+    status: 'accepted' | 'pending' | 'withdrawn' | null
+    acceptedForVoting: boolean | null
+    nominationDate: string | null
+    nominee: {
+      _id: string
+      fullName: string | null
+      memberId: string | null
+    } | null
+    position: {
+      _id: string
+      title: string | null
+    } | null
+    nominatedBy: {
+      _id: string
+      fullName: string | null
+    } | null
+  }>
+} | null
+
 // Query TypeMap
 import '@sanity/client'
 declare module '@sanity/client' {
   interface SanityQueries {
-    '\n    *[_type == "member"] | order(fullName asc) {\n      _id,\n      fullName,\n      phone,\n      email,\n      memberId,\n      status,\n      selectedTier->{\n        _id,\n        name,\n        amount,\n      },\n      tierHistory[]{\n        tier->{\n          _id,\n          name,\n          amount,\n        },\n        year,\n        dateAssigned,\n      },\n      "payments": *[\n        _type == "payment" \n        && references(^._id)\n      ] {\n        _id,\n        type,\n        amountPaid,\n        paymentDate,\n        status,\n        year,\n        month,\n        description,\n        tier->{\n          _id,\n          name,\n          amount,\n        },\n      }\n    }\n  ': ALL_MEMBERS_QUERYResult
-    '\n    *[_type == "member" && _id == $memberId] | order(fullName asc) {\n      _id,\n      fullName,\n      phone,\n      email,\n      memberId,\n      status,\n      selectedTier->{\n        _id,\n        name,\n        amount,\n      },\n      tierHistory[]{\n        tier->{\n          _id,\n          name,\n          amount,\n        },\n        year,\n        dateAssigned,\n      },\n      "payments": *[\n        _type == "payment" \n        && references(^._id)\n      ] {\n        _id,\n        type,\n        amountPaid,\n        paymentDate,\n        status,\n        year,\n        month,\n        description,\n        tier->{\n          _id,\n          name,\n          amount,\n        },\n      }\n    }\n  ': MEMBER_BY_ID_QUERYResult
+    '\n    *[_type == "department"] | order(coalesce(fullName, name) asc) {\n      _id,\n      "name": coalesce(acronym, fullName, name),\n      slug,\n      fullName,\n      acronym,\n      isDefault,\n    }\n  ': QueryResult
+    '\n    *[_type in ["meeting" ]] | order(meetingDate desc) {\n      _id,\n      title,\n      meetingType,\n      meetingDate,\n      agenda{\n        asset->{\n          _id,\n          url,\n          originalFilename,\n          extension,\n          mimeType,\n          size\n        }\n      },\n      financials{\n        asset->{\n          _id,\n          url,\n          originalFilename,\n          extension,\n          mimeType,\n          size\n        }\n      },\n      minutes{\n        asset->{\n          _id,\n          url,\n          originalFilename,\n          extension,\n          mimeType,\n          size\n        }\n      },\n      attendance[]{\n        member->{\n          _id,\n          fullName,\n          memberId\n        },\n        status,\n        excusedReason\n      },\n      attendanceLockedAt,\n      attendanceVerificationId\n    }\n  ': ALL_MEETINGS_QUERYResult
+    '\n    *[_type == "member" && email == $email][0] {\n      _id,\n      email,\n      fullName,\n    }\n  ': CHECK_EMAIL_QUERYResult
+    '\n    *[_type == "member"] | order(fullName asc) {\n      _id,\n      fullName,\n      phone,\n      email,\n      memberId,\n      status,\n      selectedTier->{\n        _id,\n        title,\n        amount,\n      },\n      tierHistory[]{\n        tier->{\n          _id,\n          title,\n          amount,\n        },\n        year,\n        dateAssigned,\n      },\n      "payments": *[\n        _type == "payment" \n        && references(^._id)\n      ] {\n        _id,\n        type,\n        amountPaid,\n        paymentDate,\n        status,\n        year,\n        month,\n        description,\n        tier->{\n          _id,\n          title,\n          amount,\n        },\n      }\n    }\n  ': ALL_MEMBERS_QUERYResult
+    '\n    *[_type == "member" && _id == $memberId] | order(fullName asc) {\n      _id,\n      fullName,\n      phone,\n      email,\n      memberId,\n      status,\n      selectedTier->{\n        _id,\n        title,\n        amount,\n      },\n      tierHistory[]{\n        tier->{\n          _id,\n          title,\n          amount,\n        },\n        year,\n        dateAssigned,\n      },\n      "payments": *[\n        _type == "payment" \n        && references(^._id)\n      ] {\n        _id,\n        type,\n        amountPaid,\n        paymentDate,\n        status,\n        year,\n        month,\n        description,\n        tier->{\n          _id,\n          title,\n          amount,\n        },\n      }\n    }\n  ': MEMBER_BY_ID_QUERYResult
+    '\n    *[_type == "paymentTier"] | order(amount asc) {\n      _id,\n      title,\n      amount,\n    }\n  ': ALL_PAYMENT_TIERS_QUERYResult
+    '\n    *[_type == "resolution"] | order(createdAt desc) {\n      _id,\n      title,\n      description,\n      resolutionType,\n      committeeYear,\n      meetingDate,\n      status,\n      createdAt,\n      createdBy->{\n        _id,\n        fullName,\n        memberId,\n      },\n      positions[]->{\n        _id,\n        title,\n        description,\n        committeeYear,\n        isActive,\n      },\n      "votes": *[\n        _type == "vote" \n        && references(^._id)\n      ] {\n        _id,\n        voteType,\n        votedAt,\n        voter->{\n          _id,\n          fullName,\n          memberId,\n        },\n        nomination->{\n          _id,\n          nominee->{\n            _id,\n            fullName,\n          },\n          position->{\n            _id,\n            title,\n          },\n        },\n      },\n      "nominations": *[\n        _type == "nomination"\n        && acceptedForVoting == true\n        && position._ref in ^.positions[]._ref\n      ] {\n        _id,\n        status,\n        acceptedForVoting,\n        nominee->{\n          _id,\n          fullName,\n          memberId,\n        },\n        position->{\n          _id,\n          title,\n        },\n        nominatedBy->{\n          _id,\n          fullName,\n        },\n      },\n    }\n  ': ALL_RESOLUTIONS_QUERYResult
+    '\n    *[_type == "resolution" && _id == $id][0] {\n      _id,\n      title,\n      description,\n      resolutionType,\n      committeeYear,\n      meetingDate,\n      status,\n      createdAt,\n      createdBy->{\n        _id,\n        fullName,\n        memberId,\n      },\n      positions[]->{\n        _id,\n        title,\n        description,\n        committeeYear,\n        isActive,\n      },\n      "votes": *[\n        _type == "vote" \n        && references(^._id)\n      ] | order(votedAt desc) {\n        _id,\n        voteType,\n        votedAt,\n        notes,\n        voter->{\n          _id,\n          fullName,\n          memberId,\n        },\n        nomination->{\n          _id,\n          nominee->{\n            _id,\n            fullName,\n          },\n          position->{\n            _id,\n            title,\n          },\n        },\n      },\n      "nominations": *[\n        _type == "nomination"\n        && acceptedForVoting == true\n        && position._ref in ^.positions[]._ref\n      ] {\n        _id,\n        status,\n        acceptedForVoting,\n        nominationDate,\n        nominee->{\n          _id,\n          fullName,\n          memberId,\n        },\n        position->{\n          _id,\n          title,\n        },\n        nominatedBy->{\n          _id,\n          fullName,\n        },\n      },\n    }\n  ': RESOLUTION_BY_ID_QUERYResult
   }
 }

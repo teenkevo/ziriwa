@@ -66,7 +66,12 @@ interface CreateStaffDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   fixedRole?: string
+  /** Section for officer / supervisor / manager (when tied to an existing section). */
   fixedSectionId?: string
+  /** Department context (commissioner; assistant commissioner in department before division). */
+  departmentId?: string
+  /** Division context (assistant commissioner; manager without section yet). */
+  divisionId?: string
   onSuccess?: (staff: StaffMember) => void
 }
 
@@ -75,6 +80,8 @@ export function CreateStaffDialog({
   onOpenChange,
   fixedRole = 'assistant_commissioner',
   fixedSectionId,
+  departmentId,
+  divisionId,
   onSuccess,
 }: CreateStaffDialogProps) {
   const isRoleFixed = !!fixedRole
@@ -113,6 +120,8 @@ export function CreateStaffDialog({
           role: isRoleFixed ? fixedRole : values.role,
           phone: values.phone?.trim() || undefined,
           sectionId: fixedSectionId,
+          departmentId,
+          divisionId,
         }),
       })
       if (!res.ok) {
@@ -135,11 +144,11 @@ export function CreateStaffDialog({
       <DialogHeader>
         <DialogTitle>Create Staff</DialogTitle>
         <DialogDescription>
-          Add a new staff member to ITID. Email must end with @ura.go.ug.
+          Add a new staff member. Email must end with @ura.go.ug.
         </DialogDescription>
       </DialogHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={e => { e.stopPropagation(); form.handleSubmit(onSubmit)(e) }}>
           <div className='space-y-4 py-2 pb-4'>
             <div className='grid grid-cols-2 gap-4'>
               <FormField

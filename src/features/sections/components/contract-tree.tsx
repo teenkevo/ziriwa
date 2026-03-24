@@ -20,7 +20,14 @@ interface ContractTreeProps {
 
 const nodeMeta = new Map<
   string,
-  { code?: string; aim?: string; objIdx?: number; initIdx?: number; actIdx?: number; isKpi?: boolean }
+  {
+    code?: string
+    aim?: string
+    objIdx?: number
+    initIdx?: number
+    actIdx?: number
+    isKpi?: boolean
+  }
 >()
 
 function sectionContractToTreeData(

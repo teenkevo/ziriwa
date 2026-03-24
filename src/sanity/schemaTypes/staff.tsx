@@ -75,7 +75,7 @@ export const staff = defineType({
       },
       validation: Rule => Rule.required(),
       description:
-        'Commissioner General heads ITID; Commissioners head departments; Assistant Commissioners head divisions; Managers head sections; Supervisors and Officers report to managers',
+        'Commissioner General heads the institution; Commissioners head departments; Assistant Commissioners head divisions; Managers head sections; Supervisors and Officers report to managers',
     }),
     defineField({
       name: 'reportsTo',
@@ -85,15 +85,30 @@ export const staff = defineType({
       description: 'Direct supervisor in the hierarchy',
     }),
     defineField({
+      name: 'department',
+      title: 'Department',
+      type: 'reference',
+      to: [{ type: 'department' }],
+      description:
+        'Department this staff belongs to (for Commissioners and below)',
+      hidden: ({ value, parent }) =>
+        !value &&
+        (parent as { role?: string })?.role === 'commissioner_general',
+    }),
+    defineField({
       name: 'division',
       title: 'Division',
       type: 'reference',
       to: [{ type: 'division' }],
       description:
         'Division this staff belongs to (for Assistant Commissioners, Managers, etc.)',
-      hidden: ({ value, parent }) =>
-        !value &&
-        (parent as { role?: string })?.role === 'commissioner_general',
+      hidden: ({ value, parent }) => {
+        const role = (parent as { role?: string })?.role
+        return (
+          !value &&
+          ['commissioner_general', 'commissioner'].includes(role || '')
+        )
+      },
     }),
     defineField({
       name: 'section',
@@ -133,12 +148,12 @@ export const staff = defineType({
       const { firstName, lastName, role, staffId, idNumber } = selection
       const fullName = [firstName, lastName].filter(Boolean).join(' ')
       const roleLabels: Record<string, string> = {
-        commissioner_general: 'CG',
-        commissioner: 'Comm',
-        assistant_commissioner: 'AC',
-        manager: 'Mgr',
-        supervisor: 'Sup',
-        officer: 'Off',
+        commissioner_general: 'Commissioner General',
+        commissioner: 'Commissioner',
+        assistant_commissioner: 'Assistant Commissioner',
+        manager: 'Manager',
+        supervisor: 'Supervisor',
+        officer: 'Officer',
       }
       const roleLabel = roleLabels[role as string] || role
       return {

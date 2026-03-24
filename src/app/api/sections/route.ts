@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
+import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,10 +26,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const slug = name
+    const baseSlug = name
       .toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
+
+    const slug = await generateUniqueSlug(baseSlug, 'section')
 
     const doc = {
       _type: 'section',
@@ -41,8 +44,13 @@ export async function POST(req: NextRequest) {
 
     const result = await writeClient.create(doc)
 
+    await writeClient
+      .patch(managerId)
+      .set({ section: { _type: 'reference', _ref: result._id } })
+      .commit()
+
     return NextResponse.json(
-      { id: result._id, name: name.trim(), slug: doc.slug.current },
+      { id: result._id, name: name.trim(), slug },
       { status: 201 },
     )
   } catch (error) {

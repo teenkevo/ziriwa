@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { getAllDivisions } from '@/sanity/lib/divisions/get-all-divisions'
+import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
+
+function staffRef(id: string) {
+  return { _type: 'reference' as const, _ref: id }
+}
 
 export async function GET() {
   try {
@@ -18,7 +23,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { fullName, acronym, assistantCommissionerId } = body
+    const { fullName, acronym, assistantCommissionerId, departmentId } = body
 
     if (!fullName || typeof fullName !== 'string') {
       return NextResponse.json(
@@ -27,11 +32,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (!departmentId || typeof departmentId !== 'string') {
+      return NextResponse.json(
+        { error: 'Department is required' },
+        { status: 400 },
+      )
+    }
+
     const slugSource = (acronym || fullName).trim()
-    const slug = slugSource
+    const baseSlug = slugSource
       .toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
+
+    const slug = await generateUniqueSlug(baseSlug, 'division')
 
     const doc = {
       _type: 'division',
@@ -39,6 +53,7 @@ export async function POST(req: NextRequest) {
       ...(acronym && { acronym: acronym.trim() }),
       slug: { _type: 'slug', current: slug },
       isDefault: false,
+      department: { _type: 'reference', _ref: departmentId },
       ...(assistantCommissionerId && {
         assistantCommissioner: {
           _type: 'reference',
@@ -49,8 +64,18 @@ export async function POST(req: NextRequest) {
 
     const result = await writeClient.create(doc)
 
+    if (assistantCommissionerId && typeof assistantCommissionerId === 'string') {
+      await writeClient
+        .patch(assistantCommissionerId)
+        .set({
+          division: staffRef(result._id),
+          department: staffRef(departmentId),
+        })
+        .commit()
+    }
+
     return NextResponse.json(
-      { id: result._id, slug: doc.slug.current },
+      { id: result._id, slug },
       { status: 201 },
     )
   } catch (error) {

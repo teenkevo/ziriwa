@@ -30,7 +30,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { getDefaultDivisionSlug } from '@/lib/division'
 import { AssistantCommissionerSwitcher } from './assistant-commissioner-switcher'
 
 export type Division = {
@@ -50,14 +49,18 @@ export type StaffMember = {
 interface DivisionSwitcherProps {
   divisions: Division[]
   assistantCommissioners: StaffMember[]
-  selectedSlug: string
+  selectedId: string
+  departmentId: string
+  departmentName: string
   className?: string
 }
 
 export default function DivisionSwitcher({
   divisions,
   assistantCommissioners,
-  selectedSlug,
+  selectedId,
+  departmentId,
+  departmentName,
   className,
 }: DivisionSwitcherProps) {
   const router = useRouter()
@@ -71,18 +74,15 @@ export default function DivisionSwitcher({
   const [isSelecting, setIsSelecting] = React.useState(false)
 
   const selectedDivision =
-    divisions.find(
-      d => d.slug?.current === selectedSlug || d.name.toLowerCase() === selectedSlug,
-    ) || divisions[0]
+    divisions.find(d => d._id === selectedId) || divisions[0]
 
   const handleSelect = async (division: Division) => {
-    const slug = division.slug?.current || division.name.toLowerCase().replace(/\s+/g, '-')
     setIsSelecting(true)
     try {
       await fetch('/api/division/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug }),
+        body: JSON.stringify({ id: division._id }),
       })
       setOpen(false)
       router.refresh()
@@ -103,13 +103,14 @@ export default function DivisionSwitcher({
           fullName: createFullName.trim(),
           acronym: createAcronym.trim() || undefined,
           assistantCommissionerId: createAssistantCommissionerId || undefined,
+          departmentId,
         }),
       })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || 'Failed to create')
       }
-      const { slug } = await res.json()
+      const { id } = await res.json()
       setCreateFullName('')
       setCreateAcronym('')
       setCreateAssistantCommissionerId('')
@@ -118,7 +119,7 @@ export default function DivisionSwitcher({
       await fetch('/api/division/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug }),
+        body: JSON.stringify({ id }),
       })
       router.refresh()
     } catch (err) {
@@ -142,8 +143,8 @@ export default function DivisionSwitcher({
           >
             <Building2 className='text-muted-foreground' />
             {divisions.length > 0
-              ? (selectedDivision?.name || selectedSlug || 'Select division')
-              : 'ITID Divisions'}
+              ? (selectedDivision?.name || 'Select division')
+              : `${departmentName} Divisions`}
             <ChevronsUpDown className='ml-auto opacity-50' />
           </Button>
         </PopoverTrigger>
@@ -152,10 +153,9 @@ export default function DivisionSwitcher({
             <CommandInput placeholder='Search division...' />
             <CommandList>
               <CommandEmpty>No division found.</CommandEmpty>
-              <CommandGroup heading='ITID Divisions'>
+              <CommandGroup heading={`${departmentName} Divisions`}>
                 {divisions.map(division => {
-                  const slug = division.slug?.current || division.name.toLowerCase().replace(/\s+/g, '-')
-                  const isSelected = selectedSlug === slug
+                  const isSelected = selectedId === division._id
                   return (
                     <CommandItem
                       key={division._id}
@@ -198,8 +198,8 @@ export default function DivisionSwitcher({
         <DialogHeader>
           <DialogTitle>Create Division</DialogTitle>
           <DialogDescription>
-            Add a new division to ITID (e.g. IT Security, Infrastructure and
-            Operations).
+            Add a new division to {departmentName} (e.g. IT Security,
+            Infrastructure and Operations).
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleCreate}>
@@ -232,6 +232,7 @@ export default function DivisionSwitcher({
                 onChange={id => setCreateAssistantCommissionerId(id || '')}
                 disabled={isCreating}
                 placeholder='Select or create assistant commissioner'
+                departmentId={departmentId}
               />
             </div>
           </div>

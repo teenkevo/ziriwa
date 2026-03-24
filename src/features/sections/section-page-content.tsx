@@ -1,15 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Handshake, FileBarChart, ArrowLeft } from 'lucide-react'
+import { FileText, Handshake, FileBarChart, ArrowLeft, Zap } from 'lucide-react'
 import { DueTodayThisWeek } from './components/due-today-this-week'
 import { ContractTree } from './components/contract-tree'
 import { OnboardContractDialog } from './components/onboard-contract-dialog'
 import { StakeholderEngagementContent } from './stakeholder-engagement-content'
+import { WeeklySprintContent } from './weekly-sprint-content'
 import type { DueItem } from './components/due-today-this-week'
 import type { SectionStaff } from '@/sanity/lib/staff/get-staff-by-section'
 import {
@@ -17,12 +18,35 @@ import {
   flattenInitiatives,
 } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import type { InitiativeWithActivities } from './weekly-sprint-content'
+
+function flattenInitiativesWithActivities(
+  contract: SectionContract | null,
+): InitiativeWithActivities[] {
+  if (!contract?.objectives) return []
+  const out: InitiativeWithActivities[] = []
+  for (const obj of contract.objectives) {
+    for (const init of obj.initiatives ?? []) {
+      const key = init._key
+      if (!key || !init.title) continue
+      out.push({
+        key,
+        title: `${init.code ? init.code + ' – ' : ''}${init.title}`,
+        activities: (init.measurableActivities ?? [])
+          .filter(a => a._key && a.title)
+          .map(a => ({ key: a._key, title: a.title })),
+      })
+    }
+  }
+  return out
+}
 
 type Section = {
   _id: string
   name: string
   slug?: { current: string }
-  division?: { _id: string; name: string }
+  division?: { _id: string; name: string; slug?: { current: string } }
   manager?: { _id: string; fullName?: string }
 }
 
@@ -39,6 +63,7 @@ interface SectionPageContentProps {
   dueThisWeek: DueItem[]
   dueThisMonth: DueItem[]
   dueThisQuarter: DueItem[]
+  sprints?: WeeklySprint[]
 }
 
 export function SectionPageContent({
@@ -52,13 +77,26 @@ export function SectionPageContent({
   dueThisWeek,
   dueThisMonth,
   dueThisQuarter,
+  sprints = [],
 }: SectionPageContentProps) {
   const [activeTab, setActiveTab] = useState('contract')
   const tabTriggers = [
     { value: 'contract', label: 'Contract', icon: FileText },
-    { value: 'stakeholder-engagements', label: 'Stakeholder engagements', icon: Handshake },
+    { value: 'weekly-sprint', label: 'Weekly Sprint', icon: Zap },
+    {
+      value: 'stakeholder-engagements',
+      label: 'Stakeholder engagements',
+      icon: Handshake,
+    },
     { value: 'reports', label: 'Reports', icon: FileBarChart },
   ] as const
+  const [sprintSubTab, setSprintSubTab] = useState('draft')
+  const [panelPortalNode, setPanelPortalNode] = useState<HTMLDivElement | null>(
+    null,
+  )
+  const panelPortalRef = useCallback((node: HTMLDivElement | null) => {
+    setPanelPortalNode(node)
+  }, [])
   const [onboardOpen, setOnboardOpen] = useState(false)
   const currentFY = sectionContract?.financialYearLabel ?? 'current FY'
   const manager = section.manager
@@ -70,9 +108,15 @@ export function SectionPageContent({
       <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
         <div className='mb-6'>
           <Button variant='ghost' size='sm' asChild className='mb-2 -ml-2'>
-            <Link href='/dashboard'>
+            <Link
+              href={
+                section.division?.slug?.current
+                  ? `/divisions/${section.division.slug.current}`
+                  : '/dashboard'
+              }
+            >
               <ArrowLeft className='h-4 w-4 mr-1' />
-              Back to Dashboard
+              Back to Sections
             </Link>
           </Button>
           <h1 className='text-2xl font-bold'>{section.name}</h1>
@@ -100,7 +144,7 @@ export function SectionPageContent({
               <CardContent className='pt-6'>
                 {sectionContract ? (
                   <div className='space-y-4'>
-                    <div className='flex items-center gap-2 text-muted-foreground'>
+                    <div className='text-sm flex items-center gap-2 text-muted-foreground'>
                       <FileText className='h-5 w-5' />
                       <span>Contract for {currentFY}</span>
                     </div>
@@ -158,6 +202,18 @@ export function SectionPageContent({
             </Card>
           </TabsContent>
 
+          <TabsContent value='weekly-sprint' className='space-y-4'>
+            <WeeklySprintContent
+              sectionId={section._id}
+              sectionName={section.name}
+              sprints={sprints}
+              initiatives={flattenInitiativesWithActivities(sectionContract)}
+              officers={officers}
+              onSprintTabChange={setSprintSubTab}
+              panelPortalNode={panelPortalNode}
+            />
+          </TabsContent>
+
           <TabsContent value='reports' className='space-y-4'>
             <Card>
               <CardContent className='pt-6'>
@@ -174,17 +230,23 @@ export function SectionPageContent({
         </Tabs>
       </div>
 
-      {/* Right scroll area - Due Today / Due This Week */}
-      <aside className='w-full lg:w-72 shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
-        <div className='p-4 md:p-6'>
-          <DueTodayThisWeek
-            dueToday={dueToday}
-            dueThisWeek={dueThisWeek}
-            dueThisMonth={dueThisMonth}
-            dueThisQuarter={dueThisQuarter}
-          />
-        </div>
-      </aside>
+      {activeTab === 'weekly-sprint' && sprintSubTab === 'accepted' ? (
+        <div
+          ref={panelPortalRef}
+          className='shrink-0 flex flex-col min-h-0 h-full'
+        />
+      ) : (
+        <aside className='w-full lg:w-72 shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
+          <div className='p-4 md:p-6'>
+            <DueTodayThisWeek
+              dueToday={dueToday}
+              dueThisWeek={dueThisWeek}
+              dueThisMonth={dueThisMonth}
+              dueThisQuarter={dueThisQuarter}
+            />
+          </div>
+        </aside>
+      )}
     </div>
   )
 }

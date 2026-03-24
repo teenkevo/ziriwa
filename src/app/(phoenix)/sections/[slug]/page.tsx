@@ -6,9 +6,8 @@ import {
   getSupervisorsBySection,
   getOfficersBySection,
 } from '@/sanity/lib/staff/get-staff-by-section'
-import {
-  getDueItemsFromContract,
-} from '@/sanity/lib/contract-items/get-due-items'
+import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
+import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { SectionPageContent } from '@/features/sections/section-page-content'
 
 export default async function SectionPage({
@@ -21,26 +20,39 @@ export default async function SectionPage({
 
   if (!section) notFound()
 
-  const [sectionContract, stakeholderEngagement, supervisors, officers] =
-    await Promise.all([
-      getSectionContractBySection(section._id),
-      getStakeholderEngagementBySection(section._id),
-      getSupervisorsBySection(section._id),
-      getOfficersBySection(section._id),
-    ])
+  const [
+    sectionContract,
+    stakeholderEngagement,
+    supervisors,
+    officers,
+    sprints,
+  ] = await Promise.all([
+    getSectionContractBySection(section._id),
+    getStakeholderEngagementBySection(section._id),
+    getSupervisorsBySection(section._id),
+    getOfficersBySection(section._id),
+    getSprintsBySection(section._id),
+  ])
 
   const today = new Date().toISOString().slice(0, 10)
   const now = new Date()
-  const dayOfWeek = now.getDay()
+
+  const day = now.getDay()
+  const diffToMonday = day === 0 ? -6 : 1 - day
+
   const startOfWeek = new Date(now)
-  startOfWeek.setDate(now.getDate() - dayOfWeek)
+  startOfWeek.setDate(now.getDate() + diffToMonday)
+
   const endOfWeek = new Date(startOfWeek)
-  endOfWeek.setDate(startOfWeek.getDate() + 6)
+  endOfWeek.setDate(startOfWeek.getDate() + 4)
+
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
   const quarter = Math.floor(now.getMonth() / 3) + 1
   const startOfQuarter = new Date(now.getFullYear(), (quarter - 1) * 3, 1)
   const endOfQuarter = new Date(now.getFullYear(), quarter * 3, 0)
+
   const weekStart = startOfWeek.toISOString().slice(0, 10)
   const weekEnd = endOfWeek.toISOString().slice(0, 10)
   const monthStart = startOfMonth.toISOString().slice(0, 10)
@@ -83,7 +95,8 @@ export default async function SectionPage({
     ...supervisors,
     ...officers,
   ].map(s => {
-    const staffId = 'staffId' in s && typeof s.staffId === 'string' ? s.staffId : undefined
+    const staffId =
+      'staffId' in s && typeof s.staffId === 'string' ? s.staffId : undefined
     return { _id: s._id, fullName: s.fullName, staffId }
   })
 
@@ -99,6 +112,7 @@ export default async function SectionPage({
       dueThisWeek={dueThisWeek}
       dueThisMonth={dueThisMonth}
       dueThisQuarter={dueThisQuarter}
+      sprints={sprints}
     />
   )
 }

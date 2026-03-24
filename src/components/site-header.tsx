@@ -5,7 +5,7 @@ import { Search } from '@/features/dashboard/components/search'
 import { ModeToggle } from './modeToggle'
 import { UserNav } from '@/features/dashboard/components/user-nav'
 import { VerticalDivider } from './vertical-divider'
-import { DivisionSwitcherWrapper } from '@/features/dashboard/components/division-switcher-wrapper'
+import { DepartmentSwitcherWrapper } from '@/features/dashboard/components/department-switcher-wrapper'
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 
@@ -15,7 +15,7 @@ export default function SiteHeader() {
       <div className='flex space-x-5'>
         <Logo href='/dashboard' />
         <VerticalDivider className='h-9 hidden md:flex' />
-        <DivisionSwitcherWrapper />
+        <DepartmentSwitcherWrapper />
         <MainNav />
       </div>
 

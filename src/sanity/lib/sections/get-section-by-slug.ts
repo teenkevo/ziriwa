@@ -5,7 +5,7 @@ export type Section = {
   _id: string
   name: string
   slug?: { current: string }
-  division?: { _id: string; name: string }
+  division?: { _id: string; name: string; slug?: { current: string } }
   manager?: { _id: string; fullName?: string }
 }
 
@@ -17,7 +17,7 @@ export async function getSectionBySlug(
       _id,
       name,
       slug,
-      division->{ _id, "name": coalesce(acronym, fullName, name) },
+      division->{ _id, "name": coalesce(acronym, fullName, name), slug },
       manager->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
     }
   `)

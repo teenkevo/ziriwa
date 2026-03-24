@@ -4,19 +4,19 @@ import { DIVISION_COOKIE_NAME } from '@/lib/division'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { slug } = body
+    const { id } = body
 
-    if (!slug || typeof slug !== 'string') {
+    if (!id || typeof id !== 'string') {
       return NextResponse.json(
-        { error: 'Slug is required' },
+        { error: 'Division ID is required' },
         { status: 400 },
       )
     }
 
     const response = NextResponse.json({ success: true })
-    response.cookies.set(DIVISION_COOKIE_NAME, slug, {
+    response.cookies.set(DIVISION_COOKIE_NAME, id, {
       path: '/',
-      maxAge: 60 * 60 * 24 * 365, // 1 year
+      maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',
     })
 

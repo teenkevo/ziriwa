@@ -3,6 +3,7 @@ import { detailedTask } from './detailed-task'
 import { measurableActivity } from './measurable-activity'
 import { contractInitiative } from './contract-initiative'
 import { ssmartaObjective } from './ssmarta-objective'
+import { department } from './department'
 import { division } from './division'
 import { member } from './member'
 import { paymentTier } from './payment-tier'
@@ -25,8 +26,12 @@ import { sectionContract } from './section-contract'
 import { staff } from './staff'
 import { stakeholderEntry } from './stakeholder-entry'
 import { stakeholderEngagement } from './stakeholder-engagement'
+import { sprintTask } from './sprint-task'
+import { workSubmission } from './work-submission'
+import { weeklySprint } from './weekly-sprint'
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
+    department,
     division,
     staff,
     section,
@@ -53,5 +58,8 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     investmentStatement,
     stakeholderEntry,
     stakeholderEngagement,
+    sprintTask,
+    workSubmission,
+    weeklySprint,
   ],
 }

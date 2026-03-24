@@ -68,9 +68,8 @@ export function OnboardContractDialog({
         <DialogHeader>
           <DialogTitle>Onboard Contract</DialogTitle>
           <DialogDescription>
-            Create a performance contract for {sectionName} for {currentFY.label}.
-            The contract will cascade from the section manager to supervisors and
-            officers.
+            Contract will cascade from the section manager to supervisors and
+            then officers.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -78,7 +77,7 @@ export function OnboardContractDialog({
             <div className='rounded-lg border p-4 space-y-2'>
               <p className='text-sm font-medium'>Section</p>
               <p className='text-sm text-muted-foreground'>{sectionName}</p>
-              <p className='text-sm font-medium mt-2'>Manager (cascade from)</p>
+              <p className='text-sm font-medium mt-2'>Manager</p>
               <p className='text-sm text-muted-foreground'>{managerName}</p>
               <p className='text-sm font-medium mt-2'>Financial Year</p>
               <p className='text-sm text-muted-foreground'>{currentFY.label}</p>

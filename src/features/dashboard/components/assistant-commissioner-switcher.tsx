@@ -39,6 +39,9 @@ interface AssistantCommissionerSwitcherProps {
   onChange: (id: string | null) => void
   disabled?: boolean
   placeholder?: string
+  departmentId?: string
+  /** When creating an AC already tied to a division (optional). */
+  divisionId?: string
 }
 
 export function AssistantCommissionerSwitcher({
@@ -47,6 +50,8 @@ export function AssistantCommissionerSwitcher({
   onChange,
   disabled = false,
   placeholder = 'Select assistant commissioner',
+  departmentId,
+  divisionId,
 }: AssistantCommissionerSwitcherProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
@@ -128,6 +133,8 @@ export function AssistantCommissionerSwitcher({
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         fixedRole='assistant_commissioner'
+        departmentId={departmentId}
+        divisionId={divisionId}
         onSuccess={handleCreateSuccess}
       />
     </Dialog>

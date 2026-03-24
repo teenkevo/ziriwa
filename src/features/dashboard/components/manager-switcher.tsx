@@ -39,6 +39,7 @@ interface ManagerSwitcherProps {
   onChange: (id: string) => void
   disabled?: boolean
   placeholder?: string
+  divisionId: string
 }
 
 export function ManagerSwitcher({
@@ -47,6 +48,7 @@ export function ManagerSwitcher({
   onChange,
   disabled = false,
   placeholder = 'Select or create manager',
+  divisionId,
 }: ManagerSwitcherProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
@@ -131,6 +133,7 @@ export function ManagerSwitcher({
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         fixedRole='manager'
+        divisionId={divisionId}
         onSuccess={handleCreateSuccess}
       />
     </Dialog>

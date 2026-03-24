@@ -4,7 +4,13 @@ import { sanityFetch } from '../client'
 export type Division = {
   _id: string
   name: string
+  fullName?: string
   slug?: { current: string }
+  department?: {
+    _id: string
+    fullName?: string
+    acronym?: string
+  }
 }
 
 export async function getDivisionBySlug(
@@ -14,7 +20,9 @@ export async function getDivisionBySlug(
     *[_type == "division" && slug.current == $slug][0] {
       _id,
       "name": coalesce(acronym, fullName, name),
+      fullName,
       slug,
+      department->{ _id, fullName, acronym },
     }
   `)
 
