@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { getAllDivisions } from '@/sanity/lib/divisions/get-all-divisions'
 import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
+import { hasRoleAtLeast } from '@/lib/app-role'
+import { getAppRole } from '@/lib/clerk-app-role.server'
 
 function staffRef(id: string) {
   return { _type: 'reference' as const, _ref: id }
@@ -22,6 +25,18 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const role = await getAppRole()
+    if (!hasRoleAtLeast(role, 'commissioner')) {
+      return NextResponse.json(
+        { error: 'Only commissioners can create divisions' },
+        { status: 403 },
+      )
+    }
+
     const body = await req.json()
     const { fullName, acronym, assistantCommissionerId, departmentId } = body
 

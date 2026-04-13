@@ -1,5 +1,5 @@
 import { verifyWebhook } from '@clerk/nextjs/webhooks'
-import { checkMemberEmail } from '@/sanity/lib/members/check-member-email'
+import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
 import { clerkClient } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -19,8 +19,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'no_email' })
     }
 
-    // Check if email exists in Sanity members
-    const emailExists = await checkMemberEmail(primaryEmail)
+    const emailExists = await checkStaffEmail(primaryEmail)
 
     if (!emailExists) {
       try {

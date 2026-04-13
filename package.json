@@ -6,7 +6,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "seed:services": "tsx --tsconfig ./tsconfig.scripts.json ./src/features/members/data/seed.ts",
     "typegen": "npx sanity@latest schema extract && npx sanity@latest typegen generate",
     "lint": "next lint"
   },

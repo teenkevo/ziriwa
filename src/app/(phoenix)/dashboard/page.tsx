@@ -1,5 +1,4 @@
 import DashboardPage from '@/features/dashboard/dashboard'
-import { getAllMembers } from '@/sanity/lib/members/get-all-members'
 import { getAllDepartments } from '@/sanity/lib/departments/get-all-departments'
 import { getDepartmentById } from '@/sanity/lib/departments/get-department-by-id'
 import { getDivisionsByDepartment } from '@/sanity/lib/divisions/get-divisions-by-department'
@@ -14,10 +13,7 @@ export default async function Dashboard() {
   const cookieStore = await cookies()
   const departmentIdCookie = cookieStore.get(DEPARTMENT_COOKIE_NAME)?.value
 
-  const [members, commissionersUnassigned] = await Promise.all([
-    getAllMembers(),
-    getCommissionersUnassigned(),
-  ])
+  const commissionersUnassigned = await getCommissionersUnassigned()
 
   let department = departmentIdCookie
     ? await getDepartmentById(departmentIdCookie)
@@ -39,7 +35,6 @@ export default async function Dashboard() {
   return (
     <Suspense fallback={<Loading />}>
       <DashboardPage
-        members={members}
         divisions={divisions}
         department={department}
         assistantCommissioners={assistantCommissioners}

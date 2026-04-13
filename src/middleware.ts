@@ -1,9 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
-import { checkMemberEmail } from '@/sanity/lib/members/check-member-email'
+import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
 
-// Set to 'true' to require auth + member email in Sanity. 'false' = open access (dev).
+// Set to 'true' to require auth + staff email in Sanity. 'false' = open access (dev).
 const AUTH_GATED = process.env.AUTH_GATED === 'true'
 
 // Define public routes - homepage and Clerk auth routes
@@ -32,7 +32,7 @@ export default clerkMiddleware(async (auth, request) => {
 
   // Protect all routes except public routes
   if (!isPublicRoute(request)) {
-    // If user is authenticated, verify their email exists in Sanity
+    // If user is authenticated, verify their email exists on a staff record in Sanity
     if (userId) {
       try {
         const clerk = await clerkClient()
@@ -44,8 +44,7 @@ export default clerkMiddleware(async (auth, request) => {
         )?.emailAddress
 
         if (primaryEmail) {
-          // Check if email exists in Sanity members
-          const emailExists = await checkMemberEmail(primaryEmail)
+          const emailExists = await checkStaffEmail(primaryEmail)
 
           if (!emailExists) {
             // User's email is not in Sanity, redirect to unauthorized

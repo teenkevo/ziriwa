@@ -12,7 +12,9 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import Link from 'next/link'
-import { Plus, FolderOpen } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { canCreateSection } from '@/lib/app-role'
+import { useAppRole } from '@/hooks/use-app-role'
 import { CreateSectionDialog } from '@/features/dashboard/components/create-section-dialog'
 
 type Division = {
@@ -45,6 +47,8 @@ export function DivisionPageContent({
   managers: StaffMember[]
 }) {
   const [showCreateSection, setShowCreateSection] = useState(false)
+  const { role, isLoaded } = useAppRole()
+  const allowCreateSection = isLoaded && canCreateSection(role)
 
   const divisionLabel = division.fullName || division.name
   const departmentLabel =
@@ -82,10 +86,12 @@ export function DivisionPageContent({
             <h2 className='font-bold tracking-tight'>{divisionLabel}</h2>
             <p className='text-sm text-muted-foreground'>Sections</p>
           </div>
-          <Button variant='outline' onClick={() => setShowCreateSection(true)}>
-            <Plus className='h-4 w-4' />
-            Create Section
-          </Button>
+          {allowCreateSection && (
+            <Button variant='outline' onClick={() => setShowCreateSection(true)}>
+              <Plus className='h-4 w-4' />
+              Create Section
+            </Button>
+          )}
         </div>
 
         <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
@@ -114,28 +120,32 @@ export function DivisionPageContent({
               </Link>
             </Card>
           ))}
-          <Card
-            className='cursor-pointer border-2 border-primary border-dashed hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[120px]'
-            onClick={() => setShowCreateSection(true)}
-          >
-            <CardContent className='flex flex-col items-center justify-center pt-6'>
-              <Plus className='h-10 w-10 text-primary mb-2' />
-              <p className='text-sm font-medium'>Create Section</p>
-              <p className='text-xs text-muted-foreground'>
-                Add a section to {division.name}
-              </p>
-            </CardContent>
-          </Card>
+          {allowCreateSection && (
+            <Card
+              className='cursor-pointer border-2 border-primary border-dashed hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[120px]'
+              onClick={() => setShowCreateSection(true)}
+            >
+              <CardContent className='flex flex-col items-center justify-center pt-6'>
+                <Plus className='h-10 w-10 text-primary mb-2' />
+                <p className='text-sm font-medium'>Create Section</p>
+                <p className='text-xs text-muted-foreground'>
+                  Add a section to {division.name}
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        <CreateSectionDialog
-          open={showCreateSection}
-          onOpenChange={setShowCreateSection}
-          divisionId={division._id}
-          departmentId={division.department?._id ?? ''}
-          divisionName={division.name}
-          managers={managers}
-        />
+        {allowCreateSection && (
+          <CreateSectionDialog
+            open={showCreateSection}
+            onOpenChange={setShowCreateSection}
+            divisionId={division._id}
+            departmentId={division.department?._id ?? ''}
+            divisionName={division.name}
+            managers={managers}
+          />
+        )}
       </div>
     </div>
   )

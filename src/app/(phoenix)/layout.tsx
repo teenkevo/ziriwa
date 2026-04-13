@@ -4,8 +4,8 @@ import SiteHeader from '@/components/site-header'
 
 //TODO: work on per page metadata below, this layout is shared
 export const metadata: Metadata = {
-  title: 'Tereka by Phoenix',
-  description: 'Collaborative investing made simple ',
+  title: 'Ziriwa by DIP',
+  description: 'Your daily companion for work',
 }
 
 interface LayoutProps {

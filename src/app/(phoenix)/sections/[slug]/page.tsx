@@ -8,6 +8,7 @@ import {
 } from '@/sanity/lib/staff/get-staff-by-section'
 import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
 import { SectionPageContent } from '@/features/sections/section-page-content'
 
 export default async function SectionPage({
@@ -100,6 +101,8 @@ export default async function SectionPage({
     return { _id: s._id, fullName: s.fullName, staffId }
   })
 
+  const viewerStaffId = await getViewerStaffIdForSection(section._id)
+
   return (
     <SectionPageContent
       section={section}
@@ -113,6 +116,7 @@ export default async function SectionPage({
       dueThisMonth={dueThisMonth}
       dueThisQuarter={dueThisQuarter}
       sprints={sprints}
+      viewerStaffId={viewerStaffId ?? undefined}
     />
   )
 }

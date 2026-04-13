@@ -21,8 +21,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
+import { hasRoleAtLeast } from '@/lib/app-role'
+import { useAppRole } from '@/hooks/use-app-role'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -75,6 +76,10 @@ export default function DivisionSwitcher({
 
   const selectedDivision =
     divisions.find(d => d._id === selectedId) || divisions[0]
+
+  const { role, isLoaded } = useAppRole()
+  const canCreateDivision =
+    isLoaded && hasRoleAtLeast(role, 'commissioner')
 
   const handleSelect = async (division: Division) => {
     setIsSelecting(true)
@@ -131,7 +136,7 @@ export default function DivisionSwitcher({
   }
 
   return (
-    <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+    <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -177,8 +182,8 @@ export default function DivisionSwitcher({
                   )
                 })}
               </CommandGroup>
-              <CommandGroup>
-                <DialogTrigger asChild>
+              {canCreateDivision && (
+                <CommandGroup>
                   <CommandItem
                     onSelect={() => {
                       setOpen(false)
@@ -188,13 +193,15 @@ export default function DivisionSwitcher({
                     <PlusCircle className='h-5 w-5' />
                     Create Division
                   </CommandItem>
-                </DialogTrigger>
-              </CommandGroup>
+                </CommandGroup>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
-      <DialogContent>
+      {canCreateDivision && (
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Division</DialogTitle>
           <DialogDescription>
@@ -267,7 +274,9 @@ export default function DivisionSwitcher({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }

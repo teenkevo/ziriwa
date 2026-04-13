@@ -5,8 +5,6 @@ import { Button } from './ui/button'
 import { HamburgerMenuIcon } from '@radix-ui/react-icons'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import TeamSwitcher from '@/features/dashboard/components/team-switcher'
-
 export default function MobileNav() {
   const pathname = usePathname()
   return (
@@ -32,32 +30,7 @@ export default function MobileNav() {
               </Link>
             </SheetClose>
 
-            <SheetClose asChild>
-              <Link
-                href='/members'
-                className={`text-sm font-medium transition-colors ${
-                  pathname === '/members'
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-primary'
-                }`}
-              >
-                Members
-              </Link>
-            </SheetClose>
-            <SheetClose asChild>
-              <Link
-                href='/resolutions'
-                className={`text-sm font-medium transition-colors ${
-                  pathname === '/resolutions'
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-primary'
-                }`}
-              >
-                Resolutions
-              </Link>
-            </SheetClose>
           </div>
-          <TeamSwitcher />
         </SheetContent>
       </Sheet>
     </div>

@@ -41,8 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { DataTableColumnHeader } from '@/features/members/components/data-table-column-header'
-import { DataTableFacetedFilter } from '@/features/members/components/data-table-faceted-filter'
+import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import { DataTableFacetedFilter } from '@/components/data-table/data-table-faceted-filter'
 import { OfficerSwitcher, type Officer } from './officer-switcher'
 import { Trash2 } from 'lucide-react'
 import {

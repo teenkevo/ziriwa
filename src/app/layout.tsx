@@ -20,8 +20,8 @@ const geistMono = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Tereka by Phoenix',
-  description: 'Collaborative Investing Made Simple',
+  title: 'Ziriwa by DIP',
+  description: 'Your daily companion for work',
 }
 
 export default function RootLayout({

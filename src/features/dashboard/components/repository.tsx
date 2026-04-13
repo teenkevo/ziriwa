@@ -29,18 +29,6 @@ const recentlyAccessed: FileItem[] = [
     type: 'folder',
     href: 'javascript:void(0)',
   },
-  {
-    name: 'Meetings',
-    date: format(new Date(), 'MMM d, yyyy, h:mm a'),
-    type: 'folder',
-    href: '/meetings',
-  },
-  {
-    name: 'Investments',
-    date: format(new Date(), 'MMM d, yyyy, h:mm a'),
-    type: 'folder',
-    href: '/investments',
-  },
 ]
 
 function FileCard({ item }: { item: FileItem }) {

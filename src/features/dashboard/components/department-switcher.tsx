@@ -27,8 +27,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
+import { hasRoleAtLeast } from '@/lib/app-role'
+import { useAppRole } from '@/hooks/use-app-role'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -78,6 +79,10 @@ export default function DepartmentSwitcher({
 
   const selectedDepartment =
     departments.find(d => d._id === selectedId) || departments[0]
+
+  const { role, isLoaded } = useAppRole()
+  const canCreateDepartment =
+    isLoaded && hasRoleAtLeast(role, 'commissioner')
 
   const handleSelect = async (department: Department) => {
     setIsSelecting(true)
@@ -133,7 +138,7 @@ export default function DepartmentSwitcher({
   }
 
   return (
-    <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+    <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -190,8 +195,8 @@ export default function DepartmentSwitcher({
                   )
                 })}
               </CommandGroup>
-              <CommandGroup>
-                <DialogTrigger asChild>
+              {canCreateDepartment && (
+                <CommandGroup>
                   <CommandItem
                     onSelect={() => {
                       setOpen(false)
@@ -201,13 +206,15 @@ export default function DepartmentSwitcher({
                     <PlusCircle className='h-5 w-5' />
                     Create Department
                   </CommandItem>
-                </DialogTrigger>
-              </CommandGroup>
+                </CommandGroup>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
-      <DialogContent>
+      {canCreateDepartment && (
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Department</DialogTitle>
           <DialogDescription>
@@ -277,7 +284,9 @@ export default function DepartmentSwitcher({
             </Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   )
 }

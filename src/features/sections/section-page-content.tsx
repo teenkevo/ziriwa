@@ -64,6 +64,8 @@ interface SectionPageContentProps {
   dueThisMonth: DueItem[]
   dueThisQuarter: DueItem[]
   sprints?: WeeklySprint[]
+  /** Signed-in user’s Sanity staff id for this section (for officer sprint filtering). */
+  viewerStaffId?: string
 }
 
 export function SectionPageContent({
@@ -78,6 +80,7 @@ export function SectionPageContent({
   dueThisMonth,
   dueThisQuarter,
   sprints = [],
+  viewerStaffId,
 }: SectionPageContentProps) {
   const [activeTab, setActiveTab] = useState('contract')
   const tabTriggers = [
@@ -211,6 +214,7 @@ export function SectionPageContent({
               officers={officers}
               onSprintTabChange={setSprintSubTab}
               panelPortalNode={panelPortalNode}
+              viewerStaffId={viewerStaffId}
             />
           </TabsContent>
 

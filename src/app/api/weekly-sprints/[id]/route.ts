@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import {
   sprintTaskHasRequiredLinks,
   validateSprintTaskPayload,
 } from '@/lib/sprint-task-validation'
-import {
-  getSprintWeekStartLocal,
-  isSprintWeekStarted,
-} from '@/lib/sprint-week'
+import { getSprintWeekStartLocal, isSprintWeekStarted } from '@/lib/sprint-week'
+import { getAppRole } from '@/lib/clerk-app-role.server'
 
 export async function PATCH(
   req: NextRequest,
@@ -17,6 +16,23 @@ export async function PATCH(
     const { id } = await params
     const body = await req.json()
     const { action } = body
+
+    if (action === 'submit' || action === 'update-draft-sprint') {
+      const { userId } = await auth()
+      if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      const role = await getAppRole()
+      if (role === 'officer') {
+        return NextResponse.json(
+          {
+            error:
+              'Officers cannot create or edit draft weekly sprint plans',
+          },
+          { status: 403 },
+        )
+      }
+    }
 
     if (action === 'submit') {
       const doc = await writeClient.getDocument(id)
@@ -163,9 +179,7 @@ export async function PATCH(
         [`${patchPath}.status`]: reviewStatus,
         [`${patchPath}.reviewedAt`]: new Date().toISOString(),
         [`${patchPath}.revisionReason`]:
-          reviewStatus === 'revisions_requested'
-            ? revisionReason.trim()
-            : '',
+          reviewStatus === 'revisions_requested' ? revisionReason.trim() : '',
       }
 
       if (reviewStatus === 'accepted') {
@@ -175,8 +189,9 @@ export async function PATCH(
 
       const patch = writeClient.patch(id).set(setFields)
 
-      const allReviewed = tasks.every((t: Record<string, unknown>, i: number) =>
-        i === taskIndex ? true : t.status !== 'pending',
+      const allReviewed = tasks.every(
+        (t: Record<string, unknown>, i: number) =>
+          i === taskIndex ? true : t.status !== 'pending',
       )
       if (allReviewed) {
         patch.set({ status: 'reviewed' })
@@ -200,7 +215,9 @@ export async function PATCH(
         return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
       }
       const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
-      const task = tasks.find((t: Record<string, unknown>) => t._key === taskKey)
+      const task = tasks.find(
+        (t: Record<string, unknown>) => t._key === taskKey,
+      )
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
@@ -254,7 +271,9 @@ export async function PATCH(
       }
 
       const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
-      const task = tasks.find((t: Record<string, unknown>) => t._key === taskKey)
+      const task = tasks.find(
+        (t: Record<string, unknown>) => t._key === taskKey,
+      )
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
@@ -278,9 +297,13 @@ export async function PATCH(
       }
       const sprintStart = getSprintWeekStartLocal(weekStart)
       const diffMs = now.getTime() - sprintStart.getTime()
-      const totalHours = Math.max(0, Math.round((diffMs / 3_600_000) * 100) / 100)
+      const totalHours = Math.max(
+        0,
+        Math.round((diffMs / 3_600_000) * 100) / 100,
+      )
 
-      const existing = (task.workSubmissions as Array<Record<string, unknown>>) || []
+      const existing =
+        (task.workSubmissions as Array<Record<string, unknown>>) || []
       const newSubmission: Record<string, unknown> = {
         _key: crypto.randomUUID(),
         _type: 'workSubmission',
@@ -314,7 +337,10 @@ export async function PATCH(
       await writeClient
         .patch(id)
         .set({
-          [`tasks[_key=="${taskKey}"].workSubmissions`]: [...existing, newSubmission],
+          [`tasks[_key=="${taskKey}"].workSubmissions`]: [
+            ...existing,
+            newSubmission,
+          ],
         })
         .commit()
 
@@ -336,12 +362,15 @@ export async function PATCH(
       }
 
       const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
-      const task = tasks.find((t: Record<string, unknown>) => t._key === taskKey)
+      const task = tasks.find(
+        (t: Record<string, unknown>) => t._key === taskKey,
+      )
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
 
-      const submissions = (task.workSubmissions as Array<Record<string, unknown>>) || []
+      const submissions =
+        (task.workSubmissions as Array<Record<string, unknown>>) || []
       const updated = submissions.map(s => {
         if (s._key !== submissionKey) return s
         const thread = (s.reviewThread as Array<Record<string, unknown>>) || []
@@ -369,7 +398,9 @@ export async function PATCH(
       }
       if (allApproved) {
         const ws = doc.weekStart as string
-        setFields[`tasks[_key=="${taskKey}"].taskStatus`] = isSprintWeekStarted(ws)
+        setFields[`tasks[_key=="${taskKey}"].taskStatus`] = isSprintWeekStarted(
+          ws,
+        )
           ? 'done'
           : 'to_do'
       }
@@ -393,12 +424,15 @@ export async function PATCH(
       }
 
       const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
-      const task = tasks.find((t: Record<string, unknown>) => t._key === taskKey)
+      const task = tasks.find(
+        (t: Record<string, unknown>) => t._key === taskKey,
+      )
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
 
-      const submissions = (task.workSubmissions as Array<Record<string, unknown>>) || []
+      const submissions =
+        (task.workSubmissions as Array<Record<string, unknown>>) || []
       const updated = submissions.map(s => {
         if (s._key !== submissionKey) return s
         const thread = (s.reviewThread as Array<Record<string, unknown>>) || []
@@ -445,20 +479,22 @@ export async function PATCH(
       if (!isSprintWeekStarted(weekStart)) {
         return NextResponse.json(
           {
-            error:
-              'Responses open when the sprint week starts (Monday 10 AM)',
+            error: 'Responses open when the sprint week starts (Monday 10 AM)',
           },
           { status: 400 },
         )
       }
 
       const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
-      const task = tasks.find((t: Record<string, unknown>) => t._key === taskKey)
+      const task = tasks.find(
+        (t: Record<string, unknown>) => t._key === taskKey,
+      )
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
 
-      const submissions = (task.workSubmissions as Array<Record<string, unknown>>) || []
+      const submissions =
+        (task.workSubmissions as Array<Record<string, unknown>>) || []
       const updated = submissions.map(s => {
         if (s._key !== submissionKey) return s
         const thread = (s.reviewThread as Array<Record<string, unknown>>) || []
@@ -538,7 +574,9 @@ export async function PATCH(
       }
 
       const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
-      const task = tasks.find((t: Record<string, unknown>) => t._key === taskKey)
+      const task = tasks.find(
+        (t: Record<string, unknown>) => t._key === taskKey,
+      )
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
@@ -572,6 +610,110 @@ export async function PATCH(
       }
 
       await patch.commit()
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'add-extra-task') {
+      const { userId } = await auth()
+      if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      const clerkUser = await currentUser()
+      const emailRaw =
+        clerkUser?.primaryEmailAddress?.emailAddress ??
+        clerkUser?.emailAddresses?.[0]?.emailAddress
+      const email = emailRaw?.trim().toLowerCase()
+      if (!email) {
+        return NextResponse.json(
+          { error: 'Could not resolve your account email' },
+          { status: 400 },
+        )
+      }
+
+      const {
+        description,
+        activityCategory,
+        initiativeKey,
+        initiativeTitle,
+        activityKey,
+        activityTitle,
+      } = body
+
+      const err = validateSprintTaskPayload({
+        description,
+        activityCategory,
+        initiativeKey,
+        activityKey,
+      })
+      if (err) {
+        return NextResponse.json({ error: err }, { status: 400 })
+      }
+
+      const doc = await writeClient.getDocument(id)
+      if (!doc || doc._type !== 'weeklySprint') {
+        return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+      }
+      if (doc.status === 'draft') {
+        return NextResponse.json(
+          { error: 'Cannot add extra tasks to draft sprints' },
+          { status: 400 },
+        )
+      }
+
+      const sectionRef = doc.section as { _ref?: string } | undefined
+      const sectionId = sectionRef?._ref
+      if (!sectionId) {
+        return NextResponse.json(
+          { error: 'Sprint has no section' },
+          { status: 400 },
+        )
+      }
+
+      const officerId = await writeClient.fetch<string | null>(
+        `*[_type == "staff"
+          && role == "officer"
+          && lower(email) == $email
+          && section._ref == $sectionId
+          && status == "active"
+        ][0]._id`,
+        { email, sectionId },
+      )
+
+      if (!officerId) {
+        return NextResponse.json(
+          {
+            error:
+              'Only active officers assigned to this section can add extra tasks. Your sign-in email must match your staff record.',
+          },
+          { status: 403 },
+        )
+      }
+
+      const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
+      const newTask: Record<string, unknown> = {
+        _type: 'sprintTask',
+        _key: crypto.randomUUID(),
+        description: String(description).trim(),
+        activityCategory,
+        initiativeKey,
+        ...(initiativeTitle && {
+          initiativeTitle: String(initiativeTitle).trim(),
+        }),
+        activityKey,
+        ...(activityTitle && { activityTitle: String(activityTitle).trim() }),
+        status: 'accepted',
+        reviewedAt: new Date().toISOString(),
+        taskStatus: 'to_do',
+        priority: 'medium',
+        assignee: { _type: 'reference', _ref: officerId },
+      }
+
+      await writeClient
+        .patch(id)
+        .set({ tasks: [...tasks, newTask] })
+        .commit()
+
       return NextResponse.json({ success: true })
     }
 

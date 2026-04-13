@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
-import { ALL_MEMBERS_QUERYResult } from '../../../sanity.types'
+import { hasRoleAtLeast } from '@/lib/app-role'
+import { useAppRole } from '@/hooks/use-app-role'
 import { CreateDepartmentDialog } from './components/create-department-dialog'
 import { CreateDivisionDialog } from './components/create-division-dialog'
 
@@ -37,13 +38,11 @@ type CommissionerMember = {
 }
 
 export default function DashboardPage({
-  members,
   divisions = [],
   department,
   assistantCommissioners = [],
   commissioners = [],
 }: {
-  members: ALL_MEMBERS_QUERYResult
   divisions?: DivisionItem[]
   department?: Department
   assistantCommissioners?: ACStaffMember[]
@@ -51,8 +50,13 @@ export default function DashboardPage({
 }) {
   const [showCreateDivision, setShowCreateDivision] = useState(false)
   const [showCreateDepartment, setShowCreateDepartment] = useState(false)
+  const { role, isLoaded } = useAppRole()
 
-  const canCreateDivision = !!department
+  /** Commissioner General or Commissioner (Clerk `publicMetadata.appRole`). */
+  const canCreateDeptOrDivision =
+    isLoaded && hasRoleAtLeast(role, 'commissioner')
+
+  const canCreateDivision = !!department && canCreateDeptOrDivision
   const needsDepartment = !department
   const departmentName = department?.name ?? 'the current department'
 
@@ -75,7 +79,7 @@ export default function DashboardPage({
               </p>
             )}
           </div>
-          {needsDepartment && (
+          {needsDepartment && canCreateDeptOrDivision && (
             <Button
               variant='outline'
               onClick={() => setShowCreateDepartment(true)}
@@ -96,7 +100,7 @@ export default function DashboardPage({
         </div>
 
         <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
-          {needsDepartment && (
+          {needsDepartment && canCreateDeptOrDivision && (
             <Card
               className='cursor-pointer border-2 border-primary border-dashed hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[120px]'
               onClick={() => setShowCreateDepartment(true)}
@@ -151,7 +155,7 @@ export default function DashboardPage({
           )}
         </div>
 
-        {needsDepartment && (
+        {needsDepartment && canCreateDeptOrDivision && (
           <CreateDepartmentDialog
             open={showCreateDepartment}
             onOpenChange={setShowCreateDepartment}

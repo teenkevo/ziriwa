@@ -41,8 +41,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { DataTableColumnHeader } from '@/features/members/components/data-table-column-header'
-import { DataTableFacetedFilter } from '@/features/members/components/data-table-faceted-filter'
+import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import { DataTableFacetedFilter } from '@/components/data-table/data-table-faceted-filter'
 import { OfficerSwitcher, type Officer } from './officer-switcher'
 import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getEffectiveTaskStatus } from '@/lib/sprint-week'

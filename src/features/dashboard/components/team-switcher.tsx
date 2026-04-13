@@ -42,7 +42,7 @@ import { Badge } from '@/components/ui/badge'
 
 const groups = [
   {
-    label: 'Investment Groups',
+    label: 'Organisations',
     teams: [
       {
         label: 'Phoenix',
@@ -145,13 +145,13 @@ export default function TeamSwitcher({ className }: TeamSwitcherProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            Create Investment Group{' '}
+            Create organisation{' '}
             <Badge variant='destructive' className='ml-2'>
               Coming soon
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            Add a new group to manage members and their investments.
+            Add a new organisation for performance contracts and reporting.
           </DialogDescription>
         </DialogHeader>
         <div>
@@ -170,13 +170,13 @@ export default function TeamSwitcher({ className }: TeamSwitcherProps) {
                   <SelectItem value='active'>
                     <span className='font-medium'>Active</span> -{' '}
                     <span className='text-muted-foreground'>
-                      Can add members and investments
+                      Full access to contracts and sprints
                     </span>
                   </SelectItem>
                   <SelectItem value='inactive'>
                     <span className='font-medium'>Inactive</span> -{' '}
                     <span className='text-muted-foreground'>
-                      Can't add members or investments
+                      Limited or read-only access
                     </span>
                   </SelectItem>
                 </SelectContent>
