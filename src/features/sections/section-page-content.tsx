@@ -1,11 +1,40 @@
 'use client'
 
+import * as React from 'react'
 import { useCallback, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { FileText, Handshake, FileBarChart, ArrowLeft, Zap } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  FileText,
+  Handshake,
+  FileBarChart,
+  Zap,
+  Loader2,
+  Pencil,
+  Trash2,
+  ChevronDown,
+} from 'lucide-react'
+import { canCreateSection } from '@/lib/app-role'
+import { useAppRole } from '@/hooks/use-app-role'
+import { EditSectionDialog } from '@/features/dashboard/components/edit-section-dialog'
 import { DueTodayThisWeek } from './components/due-today-this-week'
 import { ContractTree } from './components/contract-tree'
 import { OnboardContractDialog } from './components/onboard-contract-dialog'
@@ -19,7 +48,9 @@ import {
 } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import type { StaffMember } from '@/sanity/lib/staff/get-managers'
 import type { InitiativeWithActivities } from './weekly-sprint-content'
+import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 
 function flattenInitiativesWithActivities(
   contract: SectionContract | null,
@@ -66,6 +97,8 @@ interface SectionPageContentProps {
   sprints?: WeeklySprint[]
   /** Signed-in user’s Sanity staff id for this section (for officer sprint filtering). */
   viewerStaffId?: string
+  /** Managers in this section’s division (edit section dialog). */
+  managers: StaffMember[]
 }
 
 export function SectionPageContent({
@@ -81,7 +114,15 @@ export function SectionPageContent({
   dueThisQuarter,
   sprints = [],
   viewerStaffId,
+  managers,
 }: SectionPageContentProps) {
+  const router = useRouter()
+  const { role, isLoaded } = useAppRole()
+  const allowSectionActions = isLoaded && canCreateSection(role)
+  const [showEditSection, setShowEditSection] = useState(false)
+  const [showDeleteSection, setShowDeleteSection] = useState(false)
+  const [deletingSection, setDeletingSection] = useState(false)
+
   const [activeTab, setActiveTab] = useState('contract')
   const tabTriggers = [
     { value: 'contract', label: 'Contract', icon: FileText },
@@ -105,29 +146,139 @@ export function SectionPageContent({
   const manager = section.manager
   const hasManager = !!manager?._id
 
+  const breadcrumbItems = React.useMemo(() => {
+    const out: { label: string; href?: string }[] = [
+      { label: 'Departments', href: '/departments' },
+    ]
+    const divSlug = section.division?.slug?.current
+    if (divSlug) {
+      out.push({
+        label: section.division?.name ?? 'Division',
+        href: `/divisions/${divSlug}`,
+      })
+    }
+    out.push({ label: section.name })
+    return out
+  }, [section])
+
+  useRegisterPageBreadcrumbs(breadcrumbItems)
+
+  const divisionSlug = section.division?.slug?.current
+
+  const handleDeleteSection = async () => {
+    setDeletingSection(true)
+    try {
+      const res = await fetch(`/api/sections/${section._id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to delete section')
+      }
+      setShowDeleteSection(false)
+      if (divisionSlug) {
+        router.push(`/divisions/${divisionSlug}`)
+      } else {
+        router.push('/departments')
+      }
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : 'Failed to delete section')
+    } finally {
+      setDeletingSection(false)
+    }
+  }
+
   return (
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
       {/* Main content - left scroll area */}
       <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
-        <div className='mb-6'>
-          <Button variant='ghost' size='sm' asChild className='mb-2 -ml-2'>
-            <Link
-              href={
-                section.division?.slug?.current
-                  ? `/divisions/${section.division.slug.current}`
-                  : '/dashboard'
-              }
-            >
-              <ArrowLeft className='h-4 w-4 mr-1' />
-              Back to Sections
-            </Link>
-          </Button>
-          <h1 className='text-2xl font-bold'>{section.name}</h1>
-          <p className='text-muted-foreground'>
-            {section.manager?.fullName &&
-              `Manager: ${section.manager.fullName}`}
-          </p>
+        <div className='mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+          <div>
+            <h1 className='text-2xl font-bold'>{section.name}</h1>
+            <p className='text-muted-foreground'>
+              {section.manager?.fullName &&
+                `Manager: ${section.manager.fullName}`}
+            </p>
+          </div>
+          {allowSectionActions && section.division?._id && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant='outline' size='sm' className='shrink-0'>
+                  Actions
+                  <ChevronDown className='h-4 w-4 ml-1 opacity-70' />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='end'>
+                <DropdownMenuItem onClick={() => setShowEditSection(true)}>
+                  <Pencil className='h-4 w-4 mr-2' />
+                  Edit section
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className='text-destructive focus:text-destructive'
+                  onClick={() => setShowDeleteSection(true)}
+                >
+                  <Trash2 className='h-4 w-4 mr-2' />
+                  Delete section
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
+
+        {allowSectionActions && section.division?._id && (
+          <>
+            <EditSectionDialog
+              open={showEditSection}
+              onOpenChange={setShowEditSection}
+              section={section}
+              divisionId={section.division._id}
+              managers={managers}
+            />
+            <AlertDialog
+              open={showDeleteSection}
+              onOpenChange={setShowDeleteSection}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete section?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action will{' '}
+                    <strong className='text-destructive'>
+                      permanently delete
+                    </strong>{' '}
+                    &quot;{section.name}&quot; and all related performance
+                    contracts, weekly sprints, stakeholder engagement data, and
+                    uploaded files. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deletingSection}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={e => {
+                      e.preventDefault()
+                      handleDeleteSection()
+                    }}
+                    disabled={deletingSection}
+                    className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                  >
+                    {deletingSection ? (
+                      <>
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                        Deleting…
+                      </>
+                    ) : (
+                      'Delete section'
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
 
         <Tabs
           value={activeTab}
@@ -237,7 +388,7 @@ export function SectionPageContent({
       {activeTab === 'weekly-sprint' && sprintSubTab === 'accepted' ? (
         <div
           ref={panelPortalRef}
-          className='shrink-0 flex flex-col min-h-0 h-full'
+          className='flex max-h-[calc(100vh-5rem)] min-h-0 w-full shrink-0 flex-col overflow-y-auto overscroll-contain border-l bg-muted/20 lg:w-[29rem]'
         />
       ) : (
         <aside className='w-full lg:w-72 shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>

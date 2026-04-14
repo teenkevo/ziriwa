@@ -22,7 +22,7 @@ export async function DepartmentSwitcherWrapper() {
       departments={departments}
       commissioners={commissioners}
       selectedId={selectedId}
-      className='hidden md:flex'
+      className='w-full'
     />
   )
 }

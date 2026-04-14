@@ -32,6 +32,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { AssistantCommissionerSwitcher } from './assistant-commissioner-switcher'
+import { useSidebarOptional } from '@/components/ui/sidebar'
 
 export type Division = {
   _id: string
@@ -80,6 +81,10 @@ export default function DivisionSwitcher({
   const { role, isLoaded } = useAppRole()
   const canCreateDivision =
     isLoaded && hasRoleAtLeast(role, 'commissioner')
+
+  const sidebar = useSidebarOptional()
+  const inSidebar = sidebar != null
+  const isCollapsed = sidebar?.state === 'collapsed'
 
   const handleSelect = async (division: Division) => {
     setIsSelecting(true)
@@ -144,16 +149,36 @@ export default function DivisionSwitcher({
             role='combobox'
             aria-expanded={open}
             aria-label='Select division'
-            className={cn('w-[200px] justify-between', className)}
+            className={cn(
+              inSidebar
+                ? isCollapsed
+                  ? 'h-8 w-8 shrink-0 justify-center p-0'
+                  : 'w-full min-w-0 max-w-none justify-between'
+                : 'w-[min(100%,12.5rem)] justify-between',
+              className,
+            )}
           >
-            <Building2 className='text-muted-foreground' />
-            {divisions.length > 0
-              ? (selectedDivision?.name || 'Select division')
-              : `${departmentName} Divisions`}
-            <ChevronsUpDown className='ml-auto opacity-50' />
+            <Building2 className='text-muted-foreground shrink-0' />
+            {!isCollapsed && (
+              <>
+                <span className='truncate'>
+                  {divisions.length > 0
+                    ? selectedDivision?.name || 'Select division'
+                    : `${departmentName} Divisions`}
+                </span>
+                <ChevronsUpDown className='ml-auto shrink-0 opacity-50' />
+              </>
+            )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className='w-[200px] p-0'>
+        <PopoverContent
+          className={cn(
+            'p-0',
+            inSidebar && !isCollapsed
+              ? 'w-[var(--radix-popover-trigger-width)]'
+              : 'w-[min(100vw-2rem,20rem)]',
+          )}
+        >
           <Command>
             <CommandInput placeholder='Search division...' />
             <CommandList>

@@ -6,6 +6,7 @@ import {
   getSupervisorsBySection,
   getOfficersBySection,
 } from '@/sanity/lib/staff/get-staff-by-section'
+import { getManagersByDivision } from '@/sanity/lib/staff/get-managers'
 import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
@@ -27,12 +28,14 @@ export default async function SectionPage({
     supervisors,
     officers,
     sprints,
+    managers,
   ] = await Promise.all([
     getSectionContractBySection(section._id),
     getStakeholderEngagementBySection(section._id),
     getSupervisorsBySection(section._id),
     getOfficersBySection(section._id),
     getSprintsBySection(section._id),
+    getManagersByDivision(section.division?._id ?? ''),
   ])
 
   const today = new Date().toISOString().slice(0, 10)
@@ -117,6 +120,7 @@ export default async function SectionPage({
       dueThisQuarter={dueThisQuarter}
       sprints={sprints}
       viewerStaffId={viewerStaffId ?? undefined}
+      managers={managers}
     />
   )
 }

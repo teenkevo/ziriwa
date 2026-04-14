@@ -5,12 +5,16 @@ export type Division = {
   _id: string
   name: string
   fullName?: string
+  acronym?: string
   slug?: { current: string }
+  isDefault?: boolean
   department?: {
     _id: string
     fullName?: string
     acronym?: string
+    slug?: { current: string }
   }
+  assistantCommissioner?: { _id: string }
 }
 
 export async function getDivisionBySlug(
@@ -21,8 +25,11 @@ export async function getDivisionBySlug(
       _id,
       "name": coalesce(acronym, fullName, name),
       fullName,
+      acronym,
       slug,
-      department->{ _id, fullName, acronym },
+      isDefault,
+      department->{ _id, fullName, acronym, slug },
+      assistantCommissioner->{ _id },
     }
   `)
 

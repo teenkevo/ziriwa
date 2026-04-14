@@ -5,7 +5,9 @@ export type Department = {
   _id: string
   name: string
   fullName?: string
+  acronym?: string
   slug?: { current: string }
+  commissioner?: { _id: string }
 }
 
 export async function getDepartmentBySlug(
@@ -16,7 +18,9 @@ export async function getDepartmentBySlug(
       _id,
       "name": coalesce(acronym, fullName, name),
       fullName,
+      acronym,
       slug,
+      commissioner->{ _id },
     }
   `)
 

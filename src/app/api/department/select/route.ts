@@ -4,7 +4,17 @@ import { DEPARTMENT_COOKIE_NAME } from '@/lib/division'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { id } = body
+    const { id, clear } = body as { id?: string; clear?: boolean }
+
+    if (clear === true) {
+      const response = NextResponse.json({ success: true })
+      response.cookies.set(DEPARTMENT_COOKIE_NAME, '', {
+        path: '/',
+        maxAge: 0,
+        sameSite: 'lax',
+      })
+      return response
+    }
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json(

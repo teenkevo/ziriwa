@@ -38,6 +38,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { CommissionerSwitcher } from './commissioner-switcher'
+import { useSidebarOptional } from '@/components/ui/sidebar'
 
 export type Department = {
   _id: string
@@ -81,8 +82,11 @@ export default function DepartmentSwitcher({
     departments.find(d => d._id === selectedId) || departments[0]
 
   const { role, isLoaded } = useAppRole()
-  const canCreateDepartment =
-    isLoaded && hasRoleAtLeast(role, 'commissioner')
+  const canCreateDepartment = isLoaded && hasRoleAtLeast(role, 'commissioner')
+
+  const sidebar = useSidebarOptional()
+  const inSidebar = sidebar != null
+  const isCollapsed = sidebar?.state === 'collapsed'
 
   const handleSelect = async (department: Department) => {
     setIsSelecting(true)
@@ -139,6 +143,11 @@ export default function DepartmentSwitcher({
 
   return (
     <>
+      {!isCollapsed && (
+        <p className='text-xs font-medium text-sidebar-foreground mb-2'>
+          Choose a department
+        </p>
+      )}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -146,18 +155,38 @@ export default function DepartmentSwitcher({
             role='combobox'
             aria-expanded={open}
             aria-label='Select department'
-            className={cn('w-[400px] justify-between', className)}
+            className={cn(
+              inSidebar
+                ? isCollapsed
+                  ? 'h-8 w-8 shrink-0 justify-center p-0'
+                  : 'w-full min-w-0 max-w-none justify-between'
+                : 'w-[min(100%,24rem)] justify-between',
+              className,
+            )}
           >
-            <Building className='text-muted-foreground' />
-            {departments.length > 0
-              ? selectedDepartment?.fullName ||
-                selectedDepartment?.name ||
-                'Select department'
-              : 'Departments'}
-            <ChevronsUpDown className='ml-auto opacity-50' />
+            <Building className='text-muted-foreground shrink-0' />
+            {!isCollapsed && (
+              <>
+                <span className='truncate'>
+                  {departments.length > 0
+                    ? selectedDepartment?.fullName ||
+                      selectedDepartment?.name ||
+                      'Select department'
+                    : 'Departments'}
+                </span>
+                <ChevronsUpDown className='ml-auto shrink-0 opacity-50' />
+              </>
+            )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className='w-[400px] p-0'>
+        <PopoverContent
+          className={cn(
+            'p-0',
+            inSidebar && !isCollapsed
+              ? 'w-[var(--radix-popover-trigger-width)]'
+              : 'w-[min(100vw-2rem,24rem)]',
+          )}
+        >
           <Command>
             <CommandInput placeholder='Search department...' />
             <CommandList>
@@ -215,75 +244,75 @@ export default function DepartmentSwitcher({
       {canCreateDepartment && (
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create Department</DialogTitle>
-          <DialogDescription>
-            Add a new department (e.g. Information Technology and Innovation
-            Department, Human Resources).
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleCreate}>
-          <div className='space-y-4 py-2 pb-4'>
-            <div className='space-y-2'>
-              <Label htmlFor='deptFullName' required>
-                Full Department Name
-              </Label>
-              <Input
-                id='deptFullName'
-                placeholder='e.g. Information Technology and Innovation Department'
-                value={createFullName}
-                onChange={e => setCreateFullName(e.target.value)}
-                disabled={isCreating}
-              />
-            </div>
-            <div className='space-y-2'>
-              <Label htmlFor='deptAcronym'>Acronym (optional)</Label>
-              <Input
-                id='deptAcronym'
-                placeholder='e.g. ITID'
-                value={createAcronym}
-                onChange={e => setCreateAcronym(e.target.value)}
-                disabled={isCreating}
-              />
-            </div>
-            <div className='space-y-2'>
-              <Label htmlFor='commissioner'>Commissioner</Label>
-              <CommissionerSwitcher
-                commissioners={commissioners}
-                value={createCommissionerId}
-                onChange={id => setCreateCommissionerId(id || '')}
-                disabled={isCreating}
-                placeholder='Select or create commissioner'
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type='button'
-              variant='outline'
-              onClick={() => setShowCreateDialog(false)}
-              disabled={isCreating}
-            >
-              Cancel
-            </Button>
-            <Button
-              type='submit'
-              disabled={isCreating || !createFullName.trim()}
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <PlusCircle className='h-4 w-4' />
-                  Create Department
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogHeader>
+              <DialogTitle>Create Department</DialogTitle>
+              <DialogDescription>
+                Add a new department (e.g. Information Technology and Innovation
+                Department, Human Resources).
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreate}>
+              <div className='space-y-4 py-2 pb-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor='deptFullName' required>
+                    Full Department Name
+                  </Label>
+                  <Input
+                    id='deptFullName'
+                    placeholder='e.g. Information Technology and Innovation Department'
+                    value={createFullName}
+                    onChange={e => setCreateFullName(e.target.value)}
+                    disabled={isCreating}
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='deptAcronym'>Acronym (optional)</Label>
+                  <Input
+                    id='deptAcronym'
+                    placeholder='e.g. ITID'
+                    value={createAcronym}
+                    onChange={e => setCreateAcronym(e.target.value)}
+                    disabled={isCreating}
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='commissioner'>Commissioner</Label>
+                  <CommissionerSwitcher
+                    commissioners={commissioners}
+                    value={createCommissionerId}
+                    onChange={id => setCreateCommissionerId(id || '')}
+                    disabled={isCreating}
+                    placeholder='Select or create commissioner'
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setShowCreateDialog(false)}
+                  disabled={isCreating}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type='submit'
+                  disabled={isCreating || !createFullName.trim()}
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle className='h-4 w-4' />
+                      Create Department
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       )}

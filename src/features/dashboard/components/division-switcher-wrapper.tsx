@@ -46,7 +46,7 @@ export async function DivisionSwitcherWrapper() {
       selectedId={selectedId}
       departmentId={department._id}
       departmentName={department.name}
-      className='hidden md:flex'
+      className='w-full'
     />
   )
 }

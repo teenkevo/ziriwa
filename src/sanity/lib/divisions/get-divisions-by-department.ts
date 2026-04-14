@@ -9,6 +9,10 @@ export type Division = {
   acronym?: string
   isDefault?: boolean
   sectionCount?: number
+  department?: { _id: string }
+  assistantCommissioner?: { _id: string; fullName?: string }
+  /** Active staff assigned to this division (directly or via a section). */
+  staffCount?: number
 }
 
 export async function getDivisionsByDepartment(
@@ -22,7 +26,12 @@ export async function getDivisionsByDepartment(
       fullName,
       acronym,
       isDefault,
+      department->{ _id },
+      assistantCommissioner->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
       "sectionCount": count(*[_type == "section" && division._ref == ^._id]),
+      "staffCount": count(*[_type == "staff" && status == "active" && (
+        division._ref == ^._id || section->division._ref == ^._id
+      )]),
     }
   `)
 

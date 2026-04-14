@@ -1,11 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { endOfMonth, endOfQuarter, endOfWeek, format } from 'date-fns'
 import {
-  ArrowLeft,
   CalendarIcon,
   Check,
   Loader2,
@@ -57,11 +55,13 @@ import {
 } from '@/features/sections/components/detailed-tasks-table'
 import { TaskDetailsPanel } from '@/features/sections/components/task-details-panel'
 import { SubmitForReviewDialog } from '@/features/sections/components/submit-for-review-dialog'
+import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 
 type Section = {
   _id: string
   name: string
   slug?: { current: string }
+  division?: { _id: string; name: string; slug?: { current: string } }
 }
 
 function normalizeTasks(
@@ -280,6 +280,32 @@ export function ActivityPageContent({
     React.useState(false)
   const titleEditRef = React.useRef<HTMLDivElement>(null)
   const aimEditRef = React.useRef<HTMLDivElement>(null)
+
+  const breadcrumbItems = React.useMemo(() => {
+    const out: { label: string; href?: string }[] = [
+      { label: 'Departments', href: '/departments' },
+    ]
+    const divSlug = section.division?.slug?.current
+    if (divSlug) {
+      out.push({
+        label: section.division?.name ?? 'Division',
+        href: `/divisions/${divSlug}`,
+      })
+    }
+    out.push({ label: section.name, href: sectionHref })
+    out.push({
+      label: title.trim() || activity.title || 'Activity',
+    })
+    return out
+  }, [
+    section.division,
+    section.name,
+    sectionHref,
+    title,
+    activity.title,
+  ])
+
+  useRegisterPageBreadcrumbs(breadcrumbItems)
 
   const handleConfirmTitle = React.useCallback(async () => {
     if (!title.trim()) return
@@ -1336,12 +1362,6 @@ export function ActivityPageContent({
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
       <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
       <div>
-        <Button variant='ghost' size='sm' asChild className='mb-2 -ml-2'>
-          <Link href={sectionHref}>
-            <ArrowLeft className='h-4 w-4 mr-1' />
-            Back to {section.name}
-          </Link>
-        </Button>
         <div className='max-w-prose'>
           {isEditingTitle ? (
             <div ref={titleEditRef} className='space-y-2'>

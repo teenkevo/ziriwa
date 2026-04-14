@@ -151,13 +151,11 @@ export function SprintTaskDetailsPanel({
 
   if (!task) {
     return (
-      <aside className='w-full lg:w-[29rem] h-full shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
-        <div className='p-6 flex flex-1 items-center justify-center'>
-          <p className='text-sm text-muted-foreground text-center'>
-            Select a task to view and edit details
-          </p>
-        </div>
-      </aside>
+      <div className='flex min-h-[12rem] w-full flex-col items-center justify-center p-6'>
+        <p className='text-center text-sm text-muted-foreground'>
+          Select a task to view and edit details
+        </p>
+      </div>
     )
   }
 
@@ -191,8 +189,7 @@ export function SprintTaskDetailsPanel({
   }
 
   return (
-    <aside className='w-full lg:w-[29rem] h-full shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
-      <div className='p-4 space-y-6 flex-1 min-h-0'>
+    <div className='w-full space-y-6 p-4'>
         <div>
           <Label className='text-xs text-muted-foreground'>
             Task Description
@@ -467,8 +464,7 @@ export function SprintTaskDetailsPanel({
             )}
           </div>
         )}
-      </div>
-    </aside>
+    </div>
   )
 }
 

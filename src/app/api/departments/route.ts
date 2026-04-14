@@ -78,10 +78,7 @@ export async function POST(req: NextRequest) {
         .commit()
     }
 
-    return NextResponse.json(
-      { id: result._id, slug },
-      { status: 201 },
-    )
+    return NextResponse.json({ id: result._id, slug }, { status: 201 })
   } catch (error) {
     console.error('Error creating department', error)
     return NextResponse.json(

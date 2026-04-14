@@ -20,9 +20,9 @@ export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth()
   const { pathname } = request.nextUrl
 
-  // Redirect authenticated users away from homepage to dashboard
+  // Redirect authenticated users away from homepage to departments
   if (userId && pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/departments', request.url))
   }
 
   // Skip auth gating when AUTH_GATED is not 'true'

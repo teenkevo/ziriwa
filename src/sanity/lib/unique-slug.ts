@@ -7,11 +7,19 @@ import { client } from './client'
 export async function generateUniqueSlug(
   baseSlug: string,
   documentType: string,
+  /** When updating a document, exclude its current slug from collision checks. */
+  excludeDocumentId?: string,
 ): Promise<string> {
-  const existing = await client.fetch<string[]>(
-    `*[_type == $type && slug.current match $pattern].slug.current`,
-    { type: documentType, pattern: `${baseSlug}*` },
-  )
+  const query = excludeDocumentId
+    ? `*[_type == $type && _id != $excludeId && slug.current match $pattern].slug.current`
+    : `*[_type == $type && slug.current match $pattern].slug.current`
+  const params: Record<string, string> = {
+    type: documentType,
+    pattern: `${baseSlug}*`,
+  }
+  if (excludeDocumentId) params.excludeId = excludeDocumentId
+
+  const existing = await client.fetch<string[]>(query, params)
 
   if (!existing.includes(baseSlug)) {
     return baseSlug

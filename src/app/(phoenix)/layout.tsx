@@ -1,8 +1,16 @@
 import { Metadata } from 'next'
-import Nav from '@/components/nav'
-import SiteHeader from '@/components/site-header'
+import { cookies } from 'next/headers'
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarInset,
+  SidebarRail,
+} from '@/components/ui/sidebar'
+import { SidebarChromeHeader } from '@/components/sidebar-chrome-header'
+import { AppSidebarNavWrapper } from '@/components/app-sidebar-nav-wrapper'
+import { AppTopBar } from '@/components/app-top-bar'
+import { AppBreadcrumbProvider } from '@/contexts/app-breadcrumb-context'
 
-//TODO: work on per page metadata below, this layout is shared
 export const metadata: Metadata = {
   title: 'Ziriwa by DIP',
   description: 'Your daily companion for work',
@@ -12,11 +20,23 @@ interface LayoutProps {
   children: React.ReactNode
 }
 
-export default function Layout({ children }: LayoutProps) {
+export default async function Layout({ children }: LayoutProps) {
+  const cookieStore = await cookies()
+  const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false'
+
   return (
-    <>
-      <SiteHeader />
-      {children}
-    </>
+    <SidebarProvider defaultOpen={defaultOpen}>
+      <Sidebar collapsible='icon' variant='inset'>
+        <SidebarChromeHeader />
+        <AppSidebarNavWrapper />
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset>
+        <AppBreadcrumbProvider>
+          <AppTopBar />
+          {children}
+        </AppBreadcrumbProvider>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

@@ -19,8 +19,8 @@ export default function UnauthorizedPage() {
           </div>
           <CardTitle className='text-2xl'>Unauthorized Access</CardTitle>
           <CardDescription className='mt-2'>
-            Your email address is not registered as a member. Please contact the
-            administrator if you believe this is an error.
+            Your email address is not registered as staff in this system. Please
+            contact the administrator if you believe this is an error.
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
