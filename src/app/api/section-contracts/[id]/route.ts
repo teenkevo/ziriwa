@@ -21,6 +21,173 @@ export async function PATCH(
       )
     }
 
+    if (op === 'updateObjective') {
+      const { objectiveIndex, code, title } = payload
+      if (typeof objectiveIndex !== 'number') {
+        return NextResponse.json(
+          { error: 'objectiveIndex is required' },
+          { status: 400 },
+        )
+      }
+
+      const setPayload: Record<string, unknown> = {}
+
+      if (code !== undefined) {
+        if (typeof code !== 'string') {
+          return NextResponse.json(
+            { error: 'code must be a string' },
+            { status: 400 },
+          )
+        }
+        const trimmedCode = code.trim()
+        if (!/^\d+\.\d+$/.test(trimmedCode)) {
+          return NextResponse.json(
+            { error: 'code must match format 1.1, 1.2, 2.1' },
+            { status: 400 },
+          )
+        }
+
+        const contract = await writeClient.fetch<{
+          objectives?: { code?: string }[]
+        }>(`*[_id == $id][0]{ objectives[] { code } }`, { id })
+        const existingCodes = (contract?.objectives ?? [])
+          .map(o => o.code?.trim())
+          .filter(Boolean)
+        const currentCode = existingCodes[objectiveIndex] ?? null
+        if (
+          trimmedCode !== (currentCode ?? '').trim() &&
+          existingCodes.includes(trimmedCode)
+        ) {
+          return NextResponse.json(
+            {
+              error: `SSMARTA objective with code "${trimmedCode}" already exists`,
+            },
+            { status: 409 },
+          )
+        }
+
+        setPayload[`objectives[${objectiveIndex}].code`] = trimmedCode
+      }
+
+      if (title !== undefined) {
+        if (typeof title !== 'string' || !title.trim()) {
+          return NextResponse.json(
+            { error: 'title must be a non-empty string' },
+            { status: 400 },
+          )
+        }
+        setPayload[`objectives[${objectiveIndex}].title`] = title.trim()
+      }
+
+      if (Object.keys(setPayload).length > 0) {
+        await writeClient.patch(id).set(setPayload).commit()
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'updateInitiative') {
+      const { objectiveIndex, initiativeIndex, code, title } = payload
+      if (
+        typeof objectiveIndex !== 'number' ||
+        typeof initiativeIndex !== 'number'
+      ) {
+        return NextResponse.json(
+          { error: 'objectiveIndex and initiativeIndex are required' },
+          { status: 400 },
+        )
+      }
+
+      const setPayload: Record<string, unknown> = {}
+
+      if (code !== undefined) {
+        if (typeof code !== 'string') {
+          return NextResponse.json(
+            { error: 'code must be a string' },
+            { status: 400 },
+          )
+        }
+        const trimmedCode = code.trim()
+        if (!/^\d+\.\d+\.\d+$/.test(trimmedCode)) {
+          return NextResponse.json(
+            { error: 'code must match format 1.1.1, 1.1.2, 1.1.3' },
+            { status: 400 },
+          )
+        }
+
+        const contract = await writeClient.fetch<{
+          initiatives?: { code?: string }[]
+        }>(
+          `*[_id == $id][0]{ "initiatives": objectives[$objIdx].initiatives[] { code } }`,
+          { id, objIdx: objectiveIndex },
+        )
+        const initiatives = contract?.initiatives ?? []
+        const existingCodes = initiatives.map(i => i.code?.trim()).filter(Boolean)
+        const currentCode = existingCodes[initiativeIndex] ?? null
+        if (
+          trimmedCode !== (currentCode ?? '').trim() &&
+          existingCodes.includes(trimmedCode)
+        ) {
+          return NextResponse.json(
+            { error: `Initiative with code "${trimmedCode}" already exists.` },
+            { status: 409 },
+          )
+        }
+
+        setPayload[
+          `objectives[${objectiveIndex}].initiatives[${initiativeIndex}].code`
+        ] = trimmedCode
+      }
+
+      if (title !== undefined) {
+        if (typeof title !== 'string' || !title.trim()) {
+          return NextResponse.json(
+            { error: 'title must be a non-empty string' },
+            { status: 400 },
+          )
+        }
+        setPayload[
+          `objectives[${objectiveIndex}].initiatives[${initiativeIndex}].title`
+        ] = title.trim()
+      }
+
+      if (Object.keys(setPayload).length > 0) {
+        await writeClient.patch(id).set(setPayload).commit()
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'deleteObjective') {
+      const { objectiveIndex } = payload
+      if (typeof objectiveIndex !== 'number') {
+        return NextResponse.json(
+          { error: 'objectiveIndex is required' },
+          { status: 400 },
+        )
+      }
+      await writeClient.patch(id).unset([`objectives[${objectiveIndex}]`]).commit()
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'deleteInitiative') {
+      const { objectiveIndex, initiativeIndex } = payload
+      if (
+        typeof objectiveIndex !== 'number' ||
+        typeof initiativeIndex !== 'number'
+      ) {
+        return NextResponse.json(
+          { error: 'objectiveIndex and initiativeIndex are required' },
+          { status: 400 },
+        )
+      }
+      await writeClient
+        .patch(id)
+        .unset([
+          `objectives[${objectiveIndex}].initiatives[${initiativeIndex}]`,
+        ])
+        .commit()
+      return NextResponse.json({ ok: true })
+    }
+
     if (op === 'addObjective') {
       const { code, title, order } = payload
       if (!code || typeof code !== 'string') {

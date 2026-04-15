@@ -300,7 +300,7 @@ export function SectionPageContent({
                   <div className='space-y-4'>
                     <div className='text-sm flex items-center gap-2 text-muted-foreground'>
                       <FileText className='h-5 w-5' />
-                      <span>Contract for {currentFY}</span>
+                      <span>{currentFY}</span>
                     </div>
                     <ContractTree
                       sectionContract={sectionContract}
