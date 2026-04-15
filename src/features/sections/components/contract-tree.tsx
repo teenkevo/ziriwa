@@ -54,7 +54,11 @@ function sectionContractToTreeData(
   nodeMeta.clear()
   const objectives = sectionContract.objectives ?? []
   const items: TreeDataItem[] = [
-    { id: 'label-objectives', name: 'SSMARTA objectives' },
+    {
+      id: 'label-objectives',
+      name: 'SSMARTA objectives',
+      className: 'py-0 before:h-[1.25rem]',
+    },
   ]
 
   for (let objIdx = 0; objIdx < objectives.length; objIdx++) {
@@ -64,7 +68,11 @@ function sectionContractToTreeData(
     const initiatives = obj.initiatives ?? []
 
     const initiativeChildren: TreeDataItem[] = [
-      { id: `label-initiatives-${objIdx}`, name: 'Initiatives' },
+      {
+        id: `label-initiatives-${objIdx}`,
+        name: 'Initiatives',
+        className: 'py-0 before:h-[1.25rem]',
+      },
     ]
 
     for (let initIdx = 0; initIdx < initiatives.length; initIdx++) {
@@ -77,6 +85,7 @@ function sectionContractToTreeData(
         {
           id: `label-activities-${objIdx}-${initIdx}`,
           name: 'Measurable activities',
+          className: 'py-0 before:h-[1.25rem]',
         },
       ]
 
