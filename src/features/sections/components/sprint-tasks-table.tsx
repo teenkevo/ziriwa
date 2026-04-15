@@ -76,7 +76,11 @@ interface SprintTasksTableProps {
   sectionId: string
   selectedTaskKey: string | null
   onSelectTask: (key: string | null) => void
-  onUpdateTask: (sprintId: string, taskKey: string, updates: Record<string, unknown>) => void
+  onUpdateTask: (
+    sprintId: string,
+    taskKey: string,
+    updates: Record<string, unknown>,
+  ) => void
   isSaving: boolean
 }
 
@@ -90,11 +94,12 @@ export function SprintTasksTable({
   isSaving,
 }: SprintTasksTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    [],
+  )
 
   const hasSubmissions = React.useCallback(
-    (task: AcceptedSprintTask) =>
-      (task.workSubmissions ?? []).length > 0,
+    (task: AcceptedSprintTask) => (task.workSubmissions ?? []).length > 0,
     [],
   )
 
@@ -125,7 +130,9 @@ export function SprintTasksTable({
           <Select
             value={row.original.priority ?? 'medium'}
             onValueChange={v =>
-              onUpdateTask(row.original.sprintId, row.original._key, { priority: v })
+              onUpdateTask(row.original.sprintId, row.original._key, {
+                priority: v,
+              })
             }
             disabled={isSaving}
           >
@@ -186,7 +193,8 @@ export function SprintTasksTable({
             row.original,
             row.original.weekStart,
           )
-          const label = TASK_STATUSES.find(s => s.value === status)?.label ?? status
+          const label =
+            TASK_STATUSES.find(s => s.value === status)?.label ?? status
           const variant =
             status === 'done'
               ? 'default'
@@ -194,7 +202,10 @@ export function SprintTasksTable({
                 ? 'secondary'
                 : 'outline'
           return (
-            <Badge variant={variant as 'default' | 'secondary' | 'outline'} className='text-xs'>
+            <Badge
+              variant={variant as 'default' | 'secondary' | 'outline'}
+              className='text-xs'
+            >
               {label}
             </Badge>
           )
@@ -234,7 +245,8 @@ export function SprintTasksTable({
             <Input
               placeholder='Search tasks...'
               value={
-                (table.getColumn('description')?.getFilterValue() as string) ?? ''
+                (table.getColumn('description')?.getFilterValue() as string) ??
+                ''
               }
               onChange={e =>
                 table.getColumn('description')?.setFilterValue(e.target.value)

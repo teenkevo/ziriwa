@@ -150,10 +150,10 @@ export function CreateDivisionDialog({
               {isCreating ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Creating...
+                  Adding...
                 </>
               ) : (
-                'Create Division'
+                'Add Division'
               )}
             </Button>
           </DialogFooter>

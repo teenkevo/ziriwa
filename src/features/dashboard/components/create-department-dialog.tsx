@@ -83,10 +83,7 @@ export function CreateDepartmentDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Department</DialogTitle>
-          <DialogDescription>
-            Add a department (e.g. Information Technology and Innovation
-            Department). You can add divisions after it exists.
-          </DialogDescription>
+          <DialogDescription>Add a new department</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>

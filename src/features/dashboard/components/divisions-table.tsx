@@ -242,16 +242,15 @@ function buildColumns(
               <DropdownMenuItem asChild>Actions</DropdownMenuItem>
               {canManage && (
                 <>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onEdit(div)}>
-                    <Pencil className='h-4 w-4 mr-2' />
+                    <Pencil />
                     Edit division
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className='text-destructive focus:text-destructive'
                     onClick={() => onDelete(div)}
                   >
-                    <Trash2 className='h-4 w-4 mr-2' />
+                    <Trash2 />
                     Delete division
                   </DropdownMenuItem>
                 </>

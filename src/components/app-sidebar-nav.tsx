@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Building2, ChevronRight, Landmark, PenLine } from 'lucide-react'
+import { Building, Building2, ChevronRight, Landmark } from 'lucide-react'
 
 import {
   Collapsible,
@@ -16,25 +16,20 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
-
-export type AppSidebarDivision = {
-  _id: string
-  name: string
-  slug?: { current: string }
-  fullName?: string
-}
-
-const appraisalItems: { title: string; url: string; icon: typeof PenLine }[] =
-  []
+import type { SidebarDepartmentWithDivisions } from '@/sanity/lib/departments/get-departments-with-divisions-for-sidebar'
 
 export function AppSidebarNav({
-  divisions,
+  departmentsTree,
 }: {
-  divisions: AppSidebarDivision[]
+  departmentsTree: SidebarDepartmentWithDivisions[]
 }) {
   const pathname = usePathname()
   const [sectionDivisionId, setSectionDivisionId] = React.useState<
@@ -70,123 +65,165 @@ export function AppSidebarNav({
     return () => ac.abort()
   }, [pathname])
 
+  const autoOpenDeptIds = React.useMemo(() => {
+    const ids = new Set<string>()
+    const deptPath = pathname.match(/^\/departments\/([^/]+)/)
+    if (deptPath?.[1]) {
+      const slug = decodeURIComponent(deptPath[1])
+      const d = departmentsTree.find(
+        x => x.slug?.current === slug || x._id === slug,
+      )
+      if (d) ids.add(d._id)
+    }
+    const divPath = pathname.match(/^\/divisions\/([^/]+)/)
+    if (divPath?.[1]) {
+      const slug = decodeURIComponent(divPath[1])
+      for (const d of departmentsTree) {
+        if (
+          d.divisions.some(
+            div => div.slug?.current === slug || div._id === slug,
+          )
+        ) {
+          ids.add(d._id)
+          break
+        }
+      }
+    }
+    if (sectionDivisionId) {
+      for (const d of departmentsTree) {
+        if (d.divisions.some(div => div._id === sectionDivisionId)) {
+          ids.add(d._id)
+          break
+        }
+      }
+    }
+    return ids
+  }, [pathname, departmentsTree, sectionDivisionId])
+
+  const [openDeptIds, setOpenDeptIds] = React.useState<Set<string>>(
+    () => new Set(),
+  )
+
+  React.useEffect(() => {
+    setOpenDeptIds(prev => {
+      const next = new Set(prev)
+      autoOpenDeptIds.forEach(id => next.add(id))
+      return next
+    })
+  }, [autoOpenDeptIds])
+
   const departmentsNavActive =
     pathname === '/departments' || pathname.startsWith('/departments/')
 
   return (
     <SidebarContent>
       <SidebarGroup>
+        <SidebarGroupLabel>Departments</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={departmentsNavActive}
-                tooltip='Departments'
-              >
-                <Link href='/departments'>
-                  <Landmark />
-                  <span>Departments</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {departmentsTree.length === 0 ? (
+              <SidebarMenuItem>
+                <span className='block px-2 py-1.5 text-xs text-muted-foreground'>
+                  No departments yet
+                </span>
+              </SidebarMenuItem>
+            ) : (
+              departmentsTree.map(dept => {
+                const deptLabel = dept.fullName || dept.name
+                const deptHref = `/departments/${dept.slug?.current ?? dept._id}`
+                const deptPathMatch = pathname.match(/^\/departments\/([^/]+)/)
+                const deptSlugFromPath = deptPathMatch?.[1]
+                  ? decodeURIComponent(deptPathMatch[1])
+                  : null
+                const departmentLinkActive =
+                  deptSlugFromPath != null &&
+                  (dept.slug?.current === deptSlugFromPath ||
+                    dept._id === deptSlugFromPath)
+
+                return (
+                  <Collapsible
+                    key={dept._id}
+                    open={openDeptIds.has(dept._id)}
+                    onOpenChange={open => {
+                      setOpenDeptIds(prev => {
+                        const next = new Set(prev)
+                        if (open) next.add(dept._id)
+                        else next.delete(dept._id)
+                        return next
+                      })
+                    }}
+                    asChild
+                  >
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={departmentLinkActive}
+                        tooltip={deptLabel}
+                      >
+                        <Link href={deptHref}>
+                          <Building />
+                          <span className='truncate'>{deptLabel}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuAction
+                          className={cn(
+                            'transition-transform data-[state=open]:rotate-90',
+                          )}
+                          aria-label={
+                            openDeptIds.has(dept._id)
+                              ? 'Collapse divisions'
+                              : 'Expand divisions'
+                          }
+                        >
+                          <ChevronRight />
+                        </SidebarMenuAction>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {dept.divisions.length === 0 ? (
+                            <SidebarMenuSubItem>
+                              <span className='block px-2 py-1 text-xs text-muted-foreground'>
+                                No divisions
+                              </span>
+                            </SidebarMenuSubItem>
+                          ) : (
+                            dept.divisions.map(div => {
+                              const href = `/divisions/${div.slug?.current ?? div._id}`
+                              const label = div.fullName || div.name
+                              const onDivisionRoute =
+                                pathname === href ||
+                                pathname.startsWith(`${href}/`)
+                              const onSectionInThisDivision =
+                                sectionDivisionId != null &&
+                                sectionDivisionId === div._id
+                              const active =
+                                onDivisionRoute || onSectionInThisDivision
+                              return (
+                                <SidebarMenuSubItem key={div._id}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={active}
+                                    size='sm'
+                                  >
+                                    <Link href={href}>
+                                      <span className='truncate'>{label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              )
+                            })
+                          )}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )
+              })
+            )}
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
-
-      <Collapsible defaultOpen className='group/collapsible'>
-        <SidebarGroup>
-          <SidebarGroupLabel asChild>
-            <CollapsibleTrigger
-              className={cn(
-                'flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-xs font-medium text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-[margin,opacity] hover:bg-sidebar-accent/50 focus-visible:ring-2',
-                '[&[data-state=open]>svg]:rotate-90',
-              )}
-            >
-              Divisions
-              <ChevronRight className='ml-auto size-4 shrink-0 transition-transform duration-200' />
-            </CollapsibleTrigger>
-          </SidebarGroupLabel>
-          <CollapsibleContent>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {divisions.length === 0 ? (
-                  <SidebarMenuItem>
-                    <span className='block px-2 py-1.5 text-xs text-muted-foreground'>
-                      No divisions yet
-                    </span>
-                  </SidebarMenuItem>
-                ) : (
-                  divisions.map(div => {
-                    const href = `/divisions/${div.slug?.current ?? div._id}`
-                    const label = div.fullName || div.name
-                    const onDivisionRoute =
-                      pathname === href || pathname.startsWith(`${href}/`)
-                    const onSectionInThisDivision =
-                      sectionDivisionId != null &&
-                      sectionDivisionId === div._id
-                    const active = onDivisionRoute || onSectionInThisDivision
-                    return (
-                      <SidebarMenuItem key={div._id}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={active}
-                          tooltip={label}
-                        >
-                          <Link href={href}>
-                            <Building2 />
-                            <span className='truncate'>{label}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })
-                )}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </CollapsibleContent>
-        </SidebarGroup>
-      </Collapsible>
-
-      <Collapsible defaultOpen className='group/collapsible'>
-        <SidebarGroup>
-          <SidebarGroupLabel asChild>
-            <CollapsibleTrigger
-              className={cn(
-                'flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-xs font-medium text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-[margin,opacity] hover:bg-sidebar-accent/50 focus-visible:ring-2',
-                '[&[data-state=open]>svg]:rotate-90',
-              )}
-            >
-              Appraisal
-              <ChevronRight className='ml-auto size-4 shrink-0 transition-transform duration-200' />
-            </CollapsibleTrigger>
-          </SidebarGroupLabel>
-          <CollapsibleContent>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {appraisalItems.map(item => {
-                  const Icon = item.icon
-                  const active = pathname.startsWith(item.url)
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={active}
-                        tooltip={item.title}
-                      >
-                        <Link href={item.url}>
-                          {/* <Icon /> */}
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </CollapsibleContent>
-        </SidebarGroup>
-      </Collapsible>
     </SidebarContent>
   )
 }

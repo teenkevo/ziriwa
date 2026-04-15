@@ -162,8 +162,7 @@ export function SprintTaskDetailsPanel({
   const sprintStarted = isSprintWeekStarted(task.weekStart)
   const taskStatus = getEffectiveTaskStatus(task, task.weekStart)
   const isDone = taskStatus === 'done'
-  const preSprintLocked =
-    task.status === 'accepted' && !sprintStarted
+  const preSprintLocked = task.status === 'accepted' && !sprintStarted
   const isCompliance = task.activityCategory === 'compliance'
 
   const handleAddSubmission = async () => {
@@ -190,280 +189,275 @@ export function SprintTaskDetailsPanel({
 
   return (
     <div className='w-full space-y-6 p-4'>
+      <div>
+        <p className='text-lg font-bold mt-1'>{task.description}</p>
+      </div>
+
+      {task.activityCategory && (
         <div>
           <Label className='text-xs text-muted-foreground'>
-            Task Description
+            Activity Category
           </Label>
-          <p className='text-sm mt-1'>{task.description}</p>
+          <p className='text-sm mt-1'>
+            {CATEGORY_LABELS[task.activityCategory] ?? task.activityCategory}
+          </p>
         </div>
+      )}
 
-        {task.activityCategory && (
-          <div>
-            <Label className='text-xs text-muted-foreground'>
-              Activity Category
-            </Label>
-            <p className='text-sm mt-1'>
-              {CATEGORY_LABELS[task.activityCategory] ?? task.activityCategory}
-            </p>
-          </div>
-        )}
-
-        {task.initiativeTitle && (
-          <div>
-            <Label className='text-xs text-muted-foreground'>
-              Related Initiative
-            </Label>
-            <p className='text-sm mt-1'>{task.initiativeTitle}</p>
-          </div>
-        )}
-
-        {task.activityTitle && (
-          <div>
-            <Label className='text-xs text-muted-foreground'>
-              Related Measurable Activity
-            </Label>
-            <p className='text-sm mt-1'>{task.activityTitle}</p>
-          </div>
-        )}
-
-        <div>
-          <Label className='text-xs text-muted-foreground'>Week</Label>
-          <p className='text-sm mt-1'>{task.weekLabel}</p>
-        </div>
-
+      {task.initiativeTitle && (
         <div>
           <Label className='text-xs text-muted-foreground'>
-            Sprint runs from Monday 10 AM to Friday 5 PM
+            Related Initiative
           </Label>
-          <SprintWeekTimer
-            weekStart={task.weekStart}
-            weekEnd={task.weekEnd}
-            variant='detail'
+          <p className='text-sm mt-1'>{task.initiativeTitle}</p>
+        </div>
+      )}
+
+      {task.activityTitle && (
+        <div>
+          <Label className='text-xs text-muted-foreground'>
+            Related Measurable Activity
+          </Label>
+          <p className='text-sm mt-1'>{task.activityTitle}</p>
+        </div>
+      )}
+
+      <div>
+        <Label className='text-xs text-muted-foreground'>Week</Label>
+        <p className='text-sm mt-1'>{task.weekLabel}</p>
+      </div>
+
+      <div>
+        <Label className='text-xs text-muted-foreground'>
+          Sprint runs from Monday 10 AM to Friday 5 PM
+        </Label>
+        <SprintWeekTimer
+          weekStart={task.weekStart}
+          weekEnd={task.weekEnd}
+          variant='detail'
+        />
+      </div>
+
+      <div>
+        <Label className='text-xs text-muted-foreground'>Priority</Label>
+        <Select
+          value={task.priority ?? 'medium'}
+          onValueChange={v =>
+            onUpdate(task.sprintId, task._key, { priority: v })
+          }
+          disabled={isSaving}
+        >
+          <SelectTrigger className='mt-1'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PRIORITIES.map(p => (
+              <SelectItem key={p.value} value={p.value}>
+                {p.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className='text-xs text-muted-foreground'>Status</Label>
+        <Select
+          value={taskStatus}
+          onValueChange={v =>
+            onUpdate(task.sprintId, task._key, { taskStatus: v })
+          }
+          disabled={isSaving || !task.assignee || isDone || preSprintLocked}
+        >
+          <SelectTrigger className='mt-1'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TASK_STATUSES.map(s => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {preSprintLocked && (
+          <p className='text-xs text-muted-foreground mt-1'>
+            Status stays To do until the sprint week starts (Monday 10 AM).
+          </p>
+        )}
+      </div>
+
+      <div>
+        <Label className='text-xs text-muted-foreground'>Assignee</Label>
+        <div className='mt-1'>
+          <OfficerSwitcher
+            officers={officers}
+            value={task.assignee ?? null}
+            onChange={id =>
+              onUpdate(task.sprintId, task._key, { assignee: id })
+            }
+            disabled={isSaving || hasSubmissions}
+            placeholder='Select officer'
+            sectionId={sectionId}
           />
         </div>
+        {!task.assignee && (
+          <p className='text-xs text-muted-foreground mt-1'>
+            Assign an officer to enable work submissions.
+          </p>
+        )}
+        {hasSubmissions && (
+          <p className='text-xs text-muted-foreground mt-1'>
+            Assignee cannot be changed once work submissions exist.
+          </p>
+        )}
+      </div>
 
-        <div>
-          <Label className='text-xs text-muted-foreground'>Priority</Label>
-          <Select
-            value={task.priority ?? 'medium'}
-            onValueChange={v =>
-              onUpdate(task.sprintId, task._key, { priority: v })
-            }
-            disabled={isSaving}
-          >
-            <SelectTrigger className='mt-1'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PRIORITIES.map(p => (
-                <SelectItem key={p.value} value={p.value}>
-                  {p.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label className='text-xs text-muted-foreground'>Status</Label>
-          <Select
-            value={taskStatus}
-            onValueChange={v =>
-              onUpdate(task.sprintId, task._key, { taskStatus: v })
-            }
-            disabled={isSaving || !task.assignee || isDone || preSprintLocked}
-          >
-            <SelectTrigger className='mt-1'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_STATUSES.map(s => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {preSprintLocked && (
-            <p className='text-xs text-muted-foreground mt-1'>
-              Status stays To do until the sprint week starts (Monday 10 AM).
-            </p>
-          )}
-        </div>
-
-        <div>
-          <Label className='text-xs text-muted-foreground'>Assignee</Label>
-          <div className='mt-1'>
-            <OfficerSwitcher
-              officers={officers}
-              value={task.assignee ?? null}
-              onChange={id =>
-                onUpdate(task.sprintId, task._key, { assignee: id })
-              }
-              disabled={isSaving || hasSubmissions}
-              placeholder='Select officer'
-              sectionId={sectionId}
-            />
-          </div>
-          {!task.assignee && (
-            <p className='text-xs text-muted-foreground mt-1'>
-              Assign an officer to enable work submissions.
-            </p>
-          )}
-          {hasSubmissions && (
-            <p className='text-xs text-muted-foreground mt-1'>
-              Assignee cannot be changed once work submissions exist.
-            </p>
-          )}
-        </div>
-
-        {task.assignee && (
-          <div className='pb-10'>
-            <div className='flex items-center justify-between mb-3'>
-              <Label className='text-xs text-muted-foreground'>
-                Work Submissions ({(task.workSubmissions ?? []).length})
-              </Label>
-              {!isDone && sprintStarted && (
-                <Dialog
-                  open={addDialogOpen}
-                  onOpenChange={open => {
-                    setAddDialogOpen(open)
-                    if (!open) resetAddForm()
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    <Button type='button' variant='outline' size='sm'>
-                      <Plus className='h-3.5 w-3.5 mr-1' />
-                      Submit Output
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className='max-w-md'>
-                    <DialogHeader>
-                      <DialogTitle>Submit Output</DialogTitle>
-                      <DialogDescription>
-                        Time is tracked automatically from the sprint start
-                        (Monday 10 AM).
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className='space-y-4 py-2'>
-                      <div>
-                        <Label className='text-xs' required>
-                          Description of Work Done
-                        </Label>
-                        <textarea
-                          value={newDescription}
-                          onChange={e => setNewDescription(e.target.value)}
-                          disabled={isAdding}
-                          rows={3}
-                          className='mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50'
-                          placeholder='Describe what was accomplished...'
-                        />
-                      </div>
-                      <div>
-                        <Label className='text-xs' required>
-                          Output (Evidence File)
-                        </Label>
-                        <input
-                          ref={outputFileRef}
-                          type='file'
-                          className='hidden'
-                          accept='application/pdf,.pdf'
-                          onChange={e => {
-                            const f = e.target.files?.[0]
-                            if (f) setNewOutputFile(f)
-                            e.target.value = ''
-                          }}
-                        />
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='sm'
-                          className='mt-1 w-full justify-start'
-                          onClick={() => outputFileRef.current?.click()}
-                          disabled={isAdding}
-                        >
-                          <Paperclip className='h-4 w-4 mr-1.5' />
-                          {newOutputFile
-                            ? newOutputFile.name
-                            : 'Attach PDF output'}
-                        </Button>
-                      </div>
-                      {isCompliance && (
-                        <div>
-                          <Label className='text-xs'>Revenue Assessed</Label>
-                          <Input
-                            type='number'
-                            step='0.01'
-                            min='0'
-                            value={newRevenue}
-                            onChange={e => setNewRevenue(e.target.value)}
-                            disabled={isAdding}
-                            className='mt-1'
-                            placeholder='0.00'
-                          />
-                        </div>
-                      )}
+      {task.assignee && (
+        <div className='pb-10'>
+          <div className='flex items-center justify-between mb-3'>
+            <Label className='text-xs text-muted-foreground'>
+              Work Submissions ({(task.workSubmissions ?? []).length})
+            </Label>
+            {!isDone && sprintStarted && (
+              <Dialog
+                open={addDialogOpen}
+                onOpenChange={open => {
+                  setAddDialogOpen(open)
+                  if (!open) resetAddForm()
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button type='button' variant='outline' size='sm'>
+                    <Plus className='h-3.5 w-3.5 mr-1' />
+                    Submit Output
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className='max-w-md'>
+                  <DialogHeader>
+                    <DialogTitle>Submit Output</DialogTitle>
+                    <DialogDescription>
+                      Time is tracked automatically from the sprint start
+                      (Monday 10 AM).
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className='space-y-4 py-2'>
+                    <div>
+                      <Label className='text-xs' required>
+                        Description of Work Done
+                      </Label>
+                      <textarea
+                        value={newDescription}
+                        onChange={e => setNewDescription(e.target.value)}
+                        disabled={isAdding}
+                        rows={3}
+                        className='mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50'
+                        placeholder='Describe what was accomplished...'
+                      />
                     </div>
-                    <DialogFooter>
-                      <Button
-                        variant='outline'
-                        onClick={() => {
-                          resetAddForm()
-                          setAddDialogOpen(false)
+                    <div>
+                      <Label className='text-xs' required>
+                        Output (Evidence File)
+                      </Label>
+                      <input
+                        ref={outputFileRef}
+                        type='file'
+                        className='hidden'
+                        accept='application/pdf,.pdf'
+                        onChange={e => {
+                          const f = e.target.files?.[0]
+                          if (f) setNewOutputFile(f)
+                          e.target.value = ''
                         }}
+                      />
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='sm'
+                        className='mt-1 w-full justify-start'
+                        onClick={() => outputFileRef.current?.click()}
                         disabled={isAdding}
                       >
-                        Cancel
+                        <Paperclip className='h-4 w-4 mr-1.5' />
+                        {newOutputFile
+                          ? newOutputFile.name
+                          : 'Attach PDF output'}
                       </Button>
-                      <Button
-                        onClick={handleAddSubmission}
-                        disabled={
-                          isAdding || !newDescription.trim() || !newOutputFile
-                        }
-                      >
-                        {isAdding ? (
-                          <Loader2 className='h-4 w-4 animate-spin' />
-                        ) : (
-                          'Submit'
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-            {!isDone && !sprintStarted && (
-              <p className='text-xs text-muted-foreground mb-3'>
-                Work submissions open when the sprint week starts (Monday 10 AM).
-              </p>
-            )}
-
-            {(task.workSubmissions ?? []).length === 0 ? (
-              <p className='text-xs text-muted-foreground'>
-                No submissions yet.
-              </p>
-            ) : (
-              <div className='space-y-3'>
-                {(task.workSubmissions ?? []).map(sub => (
-                  <WorkSubmissionCard
-                    key={sub._key}
-                    submission={sub}
-                    sprintId={task.sprintId}
-                    taskKey={task._key}
-                    weekStart={task.weekStart}
-                    weekEnd={task.weekEnd}
-                    sprintStarted={sprintStarted}
-                    isCompliance={isCompliance}
-                    onApprove={onApproveSubmission}
-                    onReject={onRejectSubmission}
-                    onRespond={onRespondToSubmissionRejection}
-                    isSaving={isSaving}
-                  />
-                ))}
-              </div>
+                    </div>
+                    {isCompliance && (
+                      <div>
+                        <Label className='text-xs'>Revenue Assessed</Label>
+                        <Input
+                          type='number'
+                          step='0.01'
+                          min='0'
+                          value={newRevenue}
+                          onChange={e => setNewRevenue(e.target.value)}
+                          disabled={isAdding}
+                          className='mt-1'
+                          placeholder='0.00'
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant='outline'
+                      onClick={() => {
+                        resetAddForm()
+                        setAddDialogOpen(false)
+                      }}
+                      disabled={isAdding}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAddSubmission}
+                      disabled={
+                        isAdding || !newDescription.trim() || !newOutputFile
+                      }
+                    >
+                      {isAdding ? (
+                        <Loader2 className='h-4 w-4 animate-spin' />
+                      ) : (
+                        'Submit'
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
-        )}
+          {!isDone && !sprintStarted && (
+            <p className='text-xs text-muted-foreground mb-3'>
+              Work submissions open when the sprint week starts (Monday 10 AM).
+            </p>
+          )}
+
+          {(task.workSubmissions ?? []).length === 0 ? (
+            <p className='text-xs text-muted-foreground'>No submissions yet.</p>
+          ) : (
+            <div className='space-y-3'>
+              {(task.workSubmissions ?? []).map(sub => (
+                <WorkSubmissionCard
+                  key={sub._key}
+                  submission={sub}
+                  sprintId={task.sprintId}
+                  taskKey={task._key}
+                  weekStart={task.weekStart}
+                  weekEnd={task.weekEnd}
+                  sprintStarted={sprintStarted}
+                  isCompliance={isCompliance}
+                  onApprove={onApproveSubmission}
+                  onReject={onRejectSubmission}
+                  onRespond={onRespondToSubmissionRejection}
+                  isSaving={isSaving}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

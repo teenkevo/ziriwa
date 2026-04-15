@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 export function SidebarChromeHeader() {
   return (
     <SidebarHeader className='gap-2 border-b border-sidebar-border p-2'>
-      <div className='flex items-center gap-2 px-1 py-4'>
+      <div className='flex items-center gap-2 px-1'>
         <SidebarBrand />
       </div>
       {/* <div className='px-1'>

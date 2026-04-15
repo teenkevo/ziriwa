@@ -191,9 +191,9 @@ export function SectionPageContent({
   }
 
   return (
-    <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
-      {/* Main content - left scroll area */}
-      <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
+    <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>
+      {/* Main column: scrolls independently; shell height is capped (h-svh + flex chain) */}
+      <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
         <div className='mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
           <div>
             <h1 className='text-2xl font-bold'>{section.name}</h1>
@@ -205,7 +205,7 @@ export function SectionPageContent({
           {allowSectionActions && section.division?._id && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant='outline' size='sm' className='shrink-0'>
+                <Button size='sm' className='shrink-0'>
                   Actions
                   <ChevronDown className='h-4 w-4 ml-1 opacity-70' />
                 </Button>
@@ -287,8 +287,8 @@ export function SectionPageContent({
         >
           <TabsList>
             {tabTriggers.map(({ value, label, icon: Icon }) => (
-              <TabsTrigger key={value} value={value}>
-                <Icon className='h-4 w-4 mr-2' />
+              <TabsTrigger key={value} value={value} className='group'>
+                <Icon className='h-4 w-4 mr-2 text-muted-foreground group-data-[state=active]:text-primary' />
                 {label}
               </TabsTrigger>
             ))}
@@ -388,7 +388,7 @@ export function SectionPageContent({
       {activeTab === 'weekly-sprint' && sprintSubTab === 'accepted' ? (
         <div
           ref={panelPortalRef}
-          className='flex max-h-[calc(100vh-5rem)] min-h-0 w-full shrink-0 flex-col overflow-y-auto overscroll-contain border-l bg-muted/20 lg:w-[29rem]'
+          className='flex h-full min-h-0 w-full shrink-0 flex-col overflow-y-auto overscroll-contain border-l bg-muted/20 lg:w-[24rem]'
         />
       ) : (
         <aside className='w-full lg:w-72 shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>

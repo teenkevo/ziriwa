@@ -12,6 +12,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { ModeToggle } from '@/components/modeToggle'
+import { GlobalSearch } from '@/components/global-search'
 import { UserNav } from '@/features/dashboard/components/user-nav'
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
@@ -23,32 +24,41 @@ export function AppTopBar() {
   return (
     <header className='flex h-14 shrink-0 items-center gap-3 border-b px-4'>
       <SidebarTrigger className='-ml-1 shrink-0' />
-      {items.length > 0 && (
-        <Breadcrumb className='min-w-0 flex-1 text-muted-foreground'>
-          <BreadcrumbList className='flex-nowrap overflow-hidden'>
-            {items.map((item, i) => (
-              <React.Fragment key={`${item.label}-${i}`}>
-                {i > 0 && <BreadcrumbSeparator />}
-                <BreadcrumbItem className='min-w-0 max-w-[min(40vw,12rem)] sm:max-w-[16rem]'>
-                  {item.href ? (
-                    <BreadcrumbLink asChild>
-                      <Link href={item.href} className='truncate'>
+      <div className='flex min-w-0 flex-1 items-center gap-2 sm:gap-3'>
+        {items.length > 0 && (
+          <Breadcrumb className='min-w-0 flex-1 text-muted-foreground md:max-w-[min(50%,20rem)]'>
+            <BreadcrumbList className='flex-nowrap overflow-hidden'>
+              {items.map((item, i) => (
+                <React.Fragment key={`${item.label}-${i}`}>
+                  {i > 0 && <BreadcrumbSeparator />}
+                  <BreadcrumbItem className='min-w-0 max-w-[min(40vw,12rem)] sm:max-w-[16rem]'>
+                    {item.href ? (
+                      <BreadcrumbLink asChild>
+                        <Link href={item.href} className='truncate'>
+                          {item.label}
+                        </Link>
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage className='truncate' title={item.label}>
                         {item.label}
-                      </Link>
-                    </BreadcrumbLink>
-                  ) : (
-                    <BreadcrumbPage className='truncate' title={item.label}>
-                      {item.label}
-                    </BreadcrumbPage>
-                  )}
-                </BreadcrumbItem>
-              </React.Fragment>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
-      )}
-      {items.length === 0 && <div className='min-w-0 flex-1' />}
+                      </BreadcrumbPage>
+                    )}
+                  </BreadcrumbItem>
+                </React.Fragment>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+        )}
+        {items.length === 0 && (
+          <SignedOut>
+            <div className='min-w-0 flex-1' />
+          </SignedOut>
+        )}
+      </div>
       <div className='flex shrink-0 items-center gap-2'>
+        <SignedIn>
+          <GlobalSearch className='w-[min(22rem,40vw)]' />
+        </SignedIn>
         <ModeToggle />
         <SignedIn>
           <UserNav />

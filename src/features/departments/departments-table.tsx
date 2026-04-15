@@ -51,6 +51,7 @@ import {
 } from 'lucide-react'
 
 import type { DepartmentListRow } from '@/sanity/lib/departments/get-all-departments-for-list'
+import { DropdownMenuLabel } from '@radix-ui/react-dropdown-menu'
 
 export type DepartmentRow = DepartmentListRow
 
@@ -226,24 +227,18 @@ function buildColumns(
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-44'>
-              <DropdownMenuItem asChild>
-                <Link href={href} prefetch={false}>
-                  View department
-                </Link>
-              </DropdownMenuItem>
               {canManage && (
                 <>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onEdit(d)}>
-                    <Pencil className='h-4 w-4 mr-2' />
-                    Edit department
+                    <Pencil />
+                    Edit
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className='text-destructive focus:text-destructive'
                     onClick={() => onDelete(d)}
                   >
-                    <Trash2 className='h-4 w-4 mr-2' />
-                    Delete department
+                    <Trash2 />
+                    Delete
                   </DropdownMenuItem>
                 </>
               )}

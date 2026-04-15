@@ -10,7 +10,10 @@ import { Loader2, Plus } from 'lucide-react'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import { useViewMode } from '@/hooks/use-view-mode'
 import { ViewModeToggle } from '@/components/view-mode-toggle'
-import { DepartmentsTable, type DepartmentRow } from '@/features/departments/departments-table'
+import {
+  DepartmentsTable,
+  type DepartmentRow,
+} from '@/features/departments/departments-table'
 import { CreateDepartmentDialog } from '@/features/dashboard/components/create-department-dialog'
 import { EditDepartmentDialog } from '@/features/dashboard/components/edit-department-dialog'
 import { hasRoleAtLeast } from '@/lib/app-role'
@@ -166,9 +169,7 @@ export function DepartmentsListPage({
       router.refresh()
     } catch (err) {
       console.error(err)
-      alert(
-        err instanceof Error ? err.message : 'Failed to delete departments',
-      )
+      alert(err instanceof Error ? err.message : 'Failed to delete departments')
     } finally {
       setBulkDeleting(false)
     }
@@ -186,11 +187,7 @@ export function DepartmentsListPage({
           </div>
           <div className='flex flex-wrap items-center gap-2 justify-end shrink-0'>
             {canManageDepartments && (
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => setShowCreateDepartment(true)}
-              >
+              <Button size='sm' onClick={() => setShowCreateDepartment(true)}>
                 <Plus className='h-4 w-4 mr-1' />
                 Create department
               </Button>
@@ -210,9 +207,7 @@ export function DepartmentsListPage({
               />
             </div>
           ) : (
-            <p className='text-sm text-muted-foreground'>
-              No departments yet.
-            </p>
+            <p className='text-sm text-muted-foreground'>No departments yet.</p>
           )
         ) : (
           <>
@@ -227,8 +222,8 @@ export function DepartmentsListPage({
                 />
                 {search.trim() ? (
                   <p className='text-sm text-muted-foreground sm:text-right'>
-                    {filteredForGrid.length} of {departments.length}{' '}
-                    department{departments.length === 1 ? '' : 's'} (filtered)
+                    {filteredForGrid.length} of {departments.length} department
+                    {departments.length === 1 ? '' : 's'} (filtered)
                   </p>
                 ) : null}
               </div>
@@ -242,12 +237,16 @@ export function DepartmentsListPage({
                 onEditDepartment={d => setEditingDepartment(d)}
                 onDeleteDepartment={d => setDeletingDepartment(d)}
                 onBulkDeleteDepartments={
-                  canManageDepartments ? ids => setBulkDeleteIds(ids) : undefined
+                  canManageDepartments
+                    ? ids => setBulkDeleteIds(ids)
+                    : undefined
                 }
               />
             ) : filteredForGrid.length === 0 ? (
               <div className='space-y-4'>
-                <p className='text-sm text-muted-foreground'>{emptyTableLabel}</p>
+                <p className='text-sm text-muted-foreground'>
+                  {emptyTableLabel}
+                </p>
                 {canManageDepartments && (
                   <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
                     <DepartmentsCreateCard
@@ -261,6 +260,7 @@ export function DepartmentsListPage({
                 {filteredForGrid.map(dept => {
                   const href = `/departments/${dept.slug?.current ?? dept._id}`
                   const title = dept.fullName || dept.name
+                  const divisionCount = dept.divisionNames?.length ?? 0
                   return (
                     <Card
                       key={dept._id}
@@ -279,11 +279,17 @@ export function DepartmentsListPage({
                         </CardHeader>
                         <CardContent>
                           <div className='text-lg font-bold'>{title}</div>
-                          {dept.commissioner?.fullName && (
-                            <p className='text-xs text-muted-foreground mt-1'>
-                              Commissioner - {dept.commissioner.fullName}
-                            </p>
-                          )}
+                          <div className='mt-1 flex items-start justify-between gap-2 text-xs text-muted-foreground'>
+                            <span className='min-w-0 truncate'>
+                              Commissioner -{' '}
+                              {dept.commissioner?.fullName?.trim() || '—'}
+                            </span>
+                            <span className='shrink-0 tabular-nums'>
+                              {divisionCount === 1
+                                ? '1 division'
+                                : `${divisionCount} divisions`}
+                            </span>
+                          </div>
                         </CardContent>
                       </Link>
                     </Card>
@@ -380,7 +386,9 @@ export function DepartmentsListPage({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={bulkDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={bulkDeleting}>
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={e => {
                   e.preventDefault()

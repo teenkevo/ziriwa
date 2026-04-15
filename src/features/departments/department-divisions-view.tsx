@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 import { Plus, Loader2, ChevronDown, Pencil, Trash2 } from 'lucide-react'
 import { hasRoleAtLeast } from '@/lib/app-role'
@@ -20,7 +21,10 @@ import {
 import { EditDepartmentDialog } from '@/features/dashboard/components/edit-department-dialog'
 import { CreateDivisionDialog } from '@/features/dashboard/components/create-division-dialog'
 import { EditDivisionDialog } from '@/features/dashboard/components/edit-division-dialog'
-import { DivisionsTable, type DivisionRow } from '@/features/dashboard/components/divisions-table'
+import {
+  DivisionsTable,
+  type DivisionRow,
+} from '@/features/dashboard/components/divisions-table'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +73,27 @@ type CommissionerMember = {
   staffId?: string
 }
 
+function filterDivisionsForGrid(
+  divisions: DepartmentDivisionsDivision[],
+  query: string,
+): DepartmentDivisionsDivision[] {
+  const q = query.toLowerCase().trim()
+  if (!q) return divisions
+  return divisions.filter(d => {
+    const hay = [
+      d.fullName,
+      d.name,
+      d.acronym,
+      d.assistantCommissioner?.fullName,
+      ...(d.sectionNames ?? []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return hay.includes(q)
+  })
+}
+
 export function DepartmentDivisionsView({
   department,
   divisions,
@@ -97,6 +122,7 @@ export function DepartmentDivisionsView({
   const [deletingDivisionLoading, setDeletingDivisionLoading] = useState(false)
   const [bulkDeleteIds, setBulkDeleteIds] = useState<string[] | null>(null)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [gridSearch, setGridSearch] = useState('')
   const { mode: viewMode, setMode: setViewMode } = useViewMode(
     'dashboard-divisions-view',
   )
@@ -108,8 +134,7 @@ export function DepartmentDivisionsView({
   const allowDepartmentActions = canCreateDeptOrDivision
   const departmentName = department?.name ?? 'the current department'
 
-  const divisionLabel = (d: DepartmentDivisionsDivision) =>
-    d.fullName || d.name
+  const divisionLabel = (d: DepartmentDivisionsDivision) => d.fullName || d.name
 
   const handleDeleteDivision = async () => {
     if (!deletingDivision) return
@@ -169,6 +194,11 @@ export function DepartmentDivisionsView({
     }
   }
 
+  const filteredDivisionsForGrid = React.useMemo(
+    () => filterDivisionsForGrid(divisions, gridSearch),
+    [divisions, gridSearch],
+  )
+
   const handleBulkDeleteDivisions = async () => {
     if (!bulkDeleteIds?.length) return
     setBulkDeleting(true)
@@ -208,8 +238,8 @@ export function DepartmentDivisionsView({
                 size='sm'
                 onClick={() => setShowCreateDivision(true)}
               >
-                <Plus className='h-4 w-4 mr-1' />
-                Create division
+                <Plus className='h-4 w-4 mr-1 text-primary' />
+                Add a division
               </Button>
             )}
             {allowDepartmentActions && (
@@ -249,47 +279,81 @@ export function DepartmentDivisionsView({
             }
           />
         ) : (
-          <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-            {divisions.map(div => (
-              <Card
-                key={div._id}
-                className='md:hover:shadow-lg md:hover:border-primary bg-primary/5 md:hover:bg-primary/10 shadow-md transition-all'
-              >
-                <Link
-                  href={`/divisions/${div.slug?.current ?? div._id}`}
-                  prefetch={false}
+          <>
+            {divisions.length > 0 && (
+              <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+                <Input
+                  placeholder='Search by division, acronym, commissioner, or section…'
+                  value={gridSearch}
+                  onChange={e => setGridSearch(e.target.value)}
+                  className='max-w-md'
+                  aria-label='Search divisions'
+                />
+                {gridSearch.trim() ? (
+                  <p className='text-sm text-muted-foreground sm:text-right'>
+                    {filteredDivisionsForGrid.length} of {divisions.length}{' '}
+                    division{divisions.length === 1 ? '' : 's'} (filtered)
+                  </p>
+                ) : null}
+              </div>
+            )}
+            {filteredDivisionsForGrid.length === 0 &&
+              divisions.length > 0 &&
+              gridSearch.trim() && (
+                <p className='text-sm text-muted-foreground'>
+                  No divisions match your search.
+                </p>
+              )}
+            <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+              {filteredDivisionsForGrid.map(div => (
+                <Card
+                  key={div._id}
+                  className='md:hover:shadow-lg md:hover:border-primary bg-primary/5 md:hover:bg-primary/10 shadow-md transition-all'
                 >
-                  <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                    <CardTitle className='text-xs font-medium text-muted-foreground'>
-                      Division
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className='text-lg font-bold'>{div.fullName}</div>
+                  <Link
+                    href={`/divisions/${div.slug?.current ?? div._id}`}
+                    prefetch={false}
+                  >
+                    <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                      <CardTitle className='text-xs font-medium text-muted-foreground'>
+                        Division
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className='text-lg font-bold'>
+                        {div.fullName || div.name}
+                      </div>
+                      <div className='mt-1 flex items-start justify-between gap-2 text-xs text-muted-foreground'>
+                        <span className='min-w-0 truncate'>
+                          Assistant Commissioner -{' '}
+                          {div.assistantCommissioner?.fullName?.trim() || '—'}
+                        </span>
+                        <span className='shrink-0 tabular-nums'>
+                          {div.sectionCount === 1
+                            ? '1 section'
+                            : `${div.sectionCount ?? 0} sections`}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Link>
+                </Card>
+              ))}
+              {canCreateDivision && (
+                <Card
+                  className='cursor-pointer border-2 border-primary border-dashed hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[120px]'
+                  onClick={() => setShowCreateDivision(true)}
+                >
+                  <CardContent className='flex flex-col items-center justify-center pt-6'>
+                    <Plus className='h-10 w-10 text-primary mb-2' />
+                    <p className='text-sm font-medium'>Create Division</p>
                     <p className='text-xs text-muted-foreground'>
-                      {div.sectionCount === 1
-                        ? '1 section'
-                        : `${div.sectionCount ?? 0} sections`}
+                      Add a division to {departmentName}
                     </p>
                   </CardContent>
-                </Link>
-              </Card>
-            ))}
-            {canCreateDivision && (
-              <Card
-                className='cursor-pointer border-2 border-primary border-dashed hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[120px]'
-                onClick={() => setShowCreateDivision(true)}
-              >
-                <CardContent className='flex flex-col items-center justify-center pt-6'>
-                  <Plus className='h-10 w-10 text-primary mb-2' />
-                  <p className='text-sm font-medium'>Create Division</p>
-                  <p className='text-xs text-muted-foreground'>
-                    Add a division to {departmentName}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                </Card>
+              )}
+            </div>
+          </>
         )}
 
         {allowDepartmentActions && department && (
@@ -316,9 +380,10 @@ export function DepartmentDivisionsView({
                 <strong className='text-destructive'>
                   everything under it
                 </strong>
-                : all divisions, sections, performance contracts, weekly sprints,
-                stakeholder records, and uploaded files. Staff assignments to
-                this department will be cleared. This cannot be undone.
+                : all divisions, sections, performance contracts, weekly
+                sprints, stakeholder records, and uploaded files. Staff
+                assignments to this department will be cleared. This cannot be
+                undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

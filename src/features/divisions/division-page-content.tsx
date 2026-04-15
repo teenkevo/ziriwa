@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import {
   DropdownMenu,
@@ -63,6 +64,21 @@ type StaffMember = {
   staffId?: string
 }
 
+function filterSectionsForGrid(
+  list: SectionWithMetrics[],
+  query: string,
+): SectionWithMetrics[] {
+  const q = query.toLowerCase().trim()
+  if (!q) return list
+  return list.filter(s => {
+    const hay = [s.name, s.manager?.fullName]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return hay.includes(q)
+  })
+}
+
 export function DivisionPageContent({
   division,
   sections,
@@ -88,6 +104,7 @@ export function DivisionPageContent({
     string[] | null
   >(null)
   const [bulkDeletingSections, setBulkDeletingSections] = useState(false)
+  const [gridSearch, setGridSearch] = useState('')
 
   const { mode: viewMode, setMode: setViewMode } = useViewMode(
     'division-sections-view',
@@ -120,6 +137,11 @@ export function DivisionPageContent({
   const openDeleteSection = React.useCallback((s: SectionRow) => {
     setDeletingSection(s as SectionWithMetrics)
   }, [])
+
+  const filteredSectionsForGrid = React.useMemo(
+    () => filterSectionsForGrid(sections, gridSearch),
+    [sections, gridSearch],
+  )
 
   const handleDeleteDivision = async () => {
     setDeletingDivision(true)
@@ -196,14 +218,14 @@ export function DivisionPageContent({
           </div>
           <div className='flex flex-wrap items-center gap-2 justify-end shrink-0'>
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
-            {allowSectionActions && viewMode === 'table' && (
+            {allowSectionActions && (
               <Button
                 variant='outline'
                 size='sm'
                 onClick={() => setShowCreateSection(true)}
               >
-                <Plus className='h-4 w-4 mr-1' />
-                Create section
+                <Plus className='h-4 w-4 mr-1 text-primary' />
+                Add a section
               </Button>
             )}
             {allowDivisionActions && (
@@ -245,78 +267,73 @@ export function DivisionPageContent({
             }
           />
         ) : (
-          <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-            {sections.map(section => (
-              <Card
-                key={section._id}
-                className='md:hover:shadow-lg md:hover:border-primary bg-primary/5 md:hover:bg-primary/10 shadow-md transition-all overflow-hidden'
-              >
-                <CardHeader className='flex flex-row items-start justify-between space-y-0 pb-2 gap-2'>
-                  <CardTitle className='text-xs font-medium text-muted-foreground'>
-                    Section
-                  </CardTitle>
-                  {allowSectionActions && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          className='h-8 shrink-0 -mr-2 -mt-1 gap-1 px-2'
-                          aria-label='Section actions'
-                        >
-                          Actions
-                          <ChevronDown className='h-3.5 w-3.5 opacity-70' />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align='end'>
-                        <DropdownMenuItem
-                          onClick={() => openEditSection(section)}
-                        >
-                          <Pencil className='h-4 w-4 mr-2' />
-                          Edit section
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className='text-destructive focus:text-destructive'
-                          onClick={() => openDeleteSection(section)}
-                        >
-                          <Trash2 className='h-4 w-4 mr-2' />
-                          Delete section
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </CardHeader>
-                <Link
-                  href={`/sections/${section.slug?.current ?? section._id}`}
-                  prefetch={false}
-                  className='block'
-                >
-                  <CardContent>
-                    <div className='font-bold text-lg'>{section.name}</div>
-                    {section.manager && (
-                      <p className='mt-1 text-xs text-muted-foreground'>
-                        Managed by {section.manager.fullName}
-                      </p>
-                    )}
-                  </CardContent>
-                </Link>
-              </Card>
-            ))}
-            {allowSectionActions && (
-              <Card
-                className='cursor-pointer border-2 border-primary border-dashed hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[120px]'
-                onClick={() => setShowCreateSection(true)}
-              >
-                <CardContent className='flex flex-col items-center justify-center pt-6'>
-                  <Plus className='h-10 w-10 text-primary mb-2' />
-                  <p className='text-sm font-medium'>Create Section</p>
-                  <p className='text-xs text-muted-foreground'>
-                    Add a section to {division.name}
+          <>
+            {sections.length > 0 && (
+              <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+                <Input
+                  placeholder='Search by section or manager…'
+                  value={gridSearch}
+                  onChange={e => setGridSearch(e.target.value)}
+                  className='max-w-md'
+                  aria-label='Search sections'
+                />
+                {gridSearch.trim() ? (
+                  <p className='text-sm text-muted-foreground sm:text-right'>
+                    {filteredSectionsForGrid.length} of {sections.length}{' '}
+                    section{sections.length === 1 ? '' : 's'} (filtered)
                   </p>
-                </CardContent>
-              </Card>
+                ) : null}
+              </div>
             )}
-          </div>
+            {filteredSectionsForGrid.length === 0 &&
+              sections.length > 0 &&
+              gridSearch.trim() && (
+                <p className='text-sm text-muted-foreground'>
+                  No sections match your search.
+                </p>
+              )}
+            <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+              {filteredSectionsForGrid.map(section => (
+                <Card
+                  key={section._id}
+                  className='md:hover:shadow-lg md:hover:border-primary bg-primary/5 md:hover:bg-primary/10 shadow-md transition-all overflow-hidden'
+                >
+                  <Link
+                    href={`/sections/${section.slug?.current ?? section._id}`}
+                    prefetch={false}
+                  >
+                    <CardHeader className='space-y-0 pb-2'>
+                      <CardTitle className='text-xs font-medium text-muted-foreground'>
+                        Section
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className='font-bold text-lg'>{section.name}</div>
+                      {section.manager && (
+                        <p className='mt-1 text-xs text-muted-foreground'>
+                          Managed by {section.manager.fullName}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Link>
+                </Card>
+              ))}
+              {allowSectionActions && (
+                <Card
+                  className='cursor-pointer border-2 border-primary border-dashed hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center min-h-[120px]'
+                  onClick={() => setShowCreateSection(true)}
+                >
+                  <CardContent className='flex flex-col items-center justify-center pt-6'>
+                    <Plus className='h-10 w-10 text-primary mb-2' />
+                    <p className='text-sm font-medium'>Create Section</p>
+                    <p className='text-xs text-muted-foreground'>
+                      Add a section to {division.name}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </>
         )}
 
         {allowSectionActions && (
