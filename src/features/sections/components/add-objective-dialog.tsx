@@ -141,8 +141,8 @@ export function AddObjectiveDialog({
         <DialogHeader>
           <DialogTitle>Add SSMARTA Objective</DialogTitle>
           <DialogDescription>
-            Add a top-level objective. Initiatives (cross-cutting or KPI-driven)
-            will be added under each objective.
+            Add a top-level objective. Initiatives will be added under each
+            objective.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

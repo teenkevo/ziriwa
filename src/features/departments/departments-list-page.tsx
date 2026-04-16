@@ -182,10 +182,10 @@ export function DepartmentsListPage({
           <div>
             <h1 className='text-2xl font-bold tracking-tight'>Departments</h1>
             <p className='text-sm text-muted-foreground'>
-              Choose a department to view its divisions
+              Choose a department to manage or view its divisions
             </p>
           </div>
-          <div className='flex flex-wrap items-center gap-2 justify-end shrink-0'>
+          <div className='flex flex-wrap items-center gap-2 justify-between sm:justify-end shrink-0'>
             {canManageDepartments && (
               <Button size='sm' onClick={() => setShowCreateDepartment(true)}>
                 <Plus className='h-4 w-4 mr-1' />
@@ -211,24 +211,6 @@ export function DepartmentsListPage({
           )
         ) : (
           <>
-            {viewMode === 'grid' && (
-              <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                <Input
-                  placeholder='Search by department, acronym, commissioner, or division…'
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className='max-w-md'
-                  aria-label='Search departments'
-                />
-                {search.trim() ? (
-                  <p className='text-sm text-muted-foreground sm:text-right'>
-                    {filteredForGrid.length} of {departments.length} department
-                    {departments.length === 1 ? '' : 's'} (filtered)
-                  </p>
-                ) : null}
-              </div>
-            )}
-
             {viewMode === 'table' ? (
               <DepartmentsTable
                 data={departments}

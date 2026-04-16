@@ -230,41 +230,43 @@ export function DepartmentDivisionsView({
             </h1>
             <p className='text-sm text-muted-foreground'>Divisions</p>
           </div>
-          <div className='flex flex-wrap items-center gap-2 justify-end shrink-0'>
+          <div className='flex w-full flex-wrap items-center gap-2 justify-between sm:w-auto sm:justify-end shrink-0'>
+            <div className='flex flex-wrap items-center gap-2'>
+              {canCreateDivision && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setShowCreateDivision(true)}
+                >
+                  <Plus className='h-4 w-4 mr-1 text-primary' />
+                  Add a division
+                </Button>
+              )}
+              {allowDepartmentActions && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size='sm' className='shrink-0'>
+                      Actions
+                      <ChevronDown className='h-4 w-4 ml-1 opacity-70' />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align='end'>
+                    <DropdownMenuItem onClick={() => setShowEditDepartment(true)}>
+                      <Pencil className='h-4 w-4 mr-2' />
+                      Edit department
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className='text-destructive focus:text-destructive'
+                      onClick={() => setShowDeleteDepartment(true)}
+                    >
+                      <Trash2 className='h-4 w-4 mr-2' />
+                      Delete department
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
-            {canCreateDivision && (
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => setShowCreateDivision(true)}
-              >
-                <Plus className='h-4 w-4 mr-1 text-primary' />
-                Add a division
-              </Button>
-            )}
-            {allowDepartmentActions && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size='sm' className='shrink-0'>
-                    Actions
-                    <ChevronDown className='h-4 w-4 ml-1 opacity-70' />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align='end'>
-                  <DropdownMenuItem onClick={() => setShowEditDepartment(true)}>
-                    <Pencil className='h-4 w-4 mr-2' />
-                    Edit department
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className='text-destructive focus:text-destructive'
-                    onClick={() => setShowDeleteDepartment(true)}
-                  >
-                    <Trash2 className='h-4 w-4 mr-2' />
-                    Delete department
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </div>
         </div>
 
@@ -280,23 +282,6 @@ export function DepartmentDivisionsView({
           />
         ) : (
           <>
-            {divisions.length > 0 && (
-              <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                <Input
-                  placeholder='Search by division, acronym, commissioner, or section…'
-                  value={gridSearch}
-                  onChange={e => setGridSearch(e.target.value)}
-                  className='max-w-md'
-                  aria-label='Search divisions'
-                />
-                {gridSearch.trim() ? (
-                  <p className='text-sm text-muted-foreground sm:text-right'>
-                    {filteredDivisionsForGrid.length} of {divisions.length}{' '}
-                    division{divisions.length === 1 ? '' : 's'} (filtered)
-                  </p>
-                ) : null}
-              </div>
-            )}
             {filteredDivisionsForGrid.length === 0 &&
               divisions.length > 0 &&
               gridSearch.trim() && (

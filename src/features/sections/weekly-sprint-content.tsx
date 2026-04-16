@@ -51,7 +51,10 @@ import type {
   SprintTask,
 } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { Input } from '@/components/ui/input'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useAppRole } from '@/hooks/use-app-role'
+import { useIsLg } from '@/hooks/use-is-lg'
+import { getEffectiveTaskStatus } from '@/lib/sprint-week'
 
 export type InitiativeWithActivities = {
   key: string
@@ -165,6 +168,10 @@ const ACTIVITY_CATEGORIES = [
   { label: 'Stakeholder Engagement', value: 'stakeholder_engagement' },
 ]
 
+/** Ready / In Review / Drafts — active tab uses primary bottom border */
+const weeklySprintSubTabTriggerClassName =
+  'inline-flex items-center rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-muted-foreground shadow-none transition-colors -mb-px data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
+
 type DraftTask = {
   /** Preserved when editing an existing sprint task */
   _key?: string
@@ -213,6 +220,7 @@ export function WeeklySprintContent({
   const router = useRouter()
   const { role, isLoaded } = useAppRole()
   const isOfficer = isLoaded && role === 'officer'
+  const isLg = useIsLg()
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editingSprintId, setEditingSprintId] = React.useState<string | null>(
@@ -239,7 +247,7 @@ export function WeeklySprintContent({
   const [reviseManagerFeedback, setReviseManagerFeedback] = React.useState('')
   const [isSavingRevise, setIsSavingRevise] = React.useState(false)
 
-  const [sprintTab, setSprintTabInternal] = React.useState('draft')
+  const [sprintTab, setSprintTabInternal] = React.useState('ready')
   const setSprintTab = React.useCallback(
     (tab: string) => {
       setSprintTabInternal(tab)
@@ -260,10 +268,39 @@ export function WeeklySprintContent({
 
   const fyWeeks = React.useMemo(() => getFYWeeks(), [])
   const [selectedWeekIdx, setSelectedWeekIdx] = React.useState('0')
+  const todayStart = React.useMemo(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  }, [])
+  const existingSprintWeeks = React.useMemo(() => {
+    const set = new Set<string>()
+    for (const s of sprints) {
+      if (s.weekStart && s.weekEnd) {
+        set.add(`${s.weekStart}__${s.weekEnd}`)
+      }
+    }
+    return set
+  }, [sprints])
+  const currentWeekIdx = React.useMemo(() => {
+    const idx = fyWeeks.findIndex(w => {
+      const start = parseYMDLocal(w.start)
+      const end = endOfDayLocal(parseYMDLocal(w.end))
+      return todayStart >= start && todayStart <= end
+    })
+    return idx >= 0 ? String(idx) : '0'
+  }, [fyWeeks, todayStart])
+  const firstAvailableWeekIdx = React.useMemo(() => {
+    const idx = fyWeeks.findIndex(w => {
+      const isPast = endOfDayLocal(parseYMDLocal(w.end)) < todayStart
+      const hasSprint = existingSprintWeeks.has(`${w.start}__${w.end}`)
+      return !isPast && !hasSprint
+    })
+    return idx >= 0 ? String(idx) : currentWeekIdx
+  }, [fyWeeks, todayStart, existingSprintWeeks, currentWeekIdx])
 
   React.useEffect(() => {
     if (isOfficer) {
-      onSprintTabChange?.('accepted')
+      onSprintTabChange?.('ready')
     }
   }, [isOfficer, onSprintTabChange])
 
@@ -290,7 +327,7 @@ export function WeeklySprintContent({
   const openNewSprintDialog = () => {
     setEditingSprintId(null)
     setDraftTasks([{ ...emptyDraftTask }])
-    setSelectedWeekIdx('0')
+    setSelectedWeekIdx(firstAvailableWeekIdx)
     setCreateOpen(true)
   }
 
@@ -310,6 +347,21 @@ export function WeeklySprintContent({
     const validTasks = draftTasks.filter(isDraftTaskComplete)
     const week = fyWeeks[Number(selectedWeekIdx)]
     if (validTasks.length === 0 || !week) return
+    if (endOfDayLocal(parseYMDLocal(week.end)) < todayStart) {
+      alert(
+        'Past sprint weeks are locked. Please select the current week or a future week.',
+      )
+      return
+    }
+    if (
+      !editingSprintId &&
+      existingSprintWeeks.has(`${week.start}__${week.end}`)
+    ) {
+      alert(
+        'A sprint already exists for this week. Please choose a different week.',
+      )
+      return
+    }
 
     setIsSavingSprint(true)
     try {
@@ -559,6 +611,15 @@ export function WeeklySprintContent({
     [sprints],
   )
 
+  const currentWeekNonDraftSprints = React.useMemo(() => {
+    const now = new Date()
+    return nonDraftSprints.filter(s => {
+      const start = parseYMDLocal(s.weekStart)
+      const end = endOfDayLocal(parseYMDLocal(s.weekEnd))
+      return now >= start && now <= end
+    })
+  }, [nonDraftSprints])
+
   const selectedAcceptedTask = React.useMemo(
     () => tasksForAcceptedUi.find(t => t._key === selectedTaskKey) ?? null,
     [tasksForAcceptedUi, selectedTaskKey],
@@ -710,9 +771,9 @@ export function WeeklySprintContent({
     router.refresh()
   }
 
-  const openExtraTaskDialog = () => {
+  const openExtraTaskDialog = (sprintId?: string) => {
     setExtraTaskDraft({ ...emptyDraftTask })
-    setExtraTaskSprintId(nonDraftSprints[0]?._id ?? '')
+    setExtraTaskSprintId(sprintId ?? currentWeekNonDraftSprints[0]?._id ?? '')
     setExtraTaskOpen(true)
   }
 
@@ -771,9 +832,14 @@ export function WeeklySprintContent({
 
   const draftSprints = sprints.filter(s => s.status === 'draft')
   /** Submitted (awaiting / in review) and reviewed (all tasks decided) — both stay visible here. */
-  const submittedOrReviewedSprints = sprints.filter(
-    s => s.status === 'submitted' || s.status === 'reviewed',
-  )
+  const submittedOrReviewedSprints = sprints.filter(s => {
+    if (s.status === 'submitted') return true
+    if (s.status !== 'reviewed') return false
+    const tasks = s.tasks ?? []
+    const allAccepted =
+      tasks.length > 0 && tasks.every(t => t.status === 'accepted')
+    return !allAccepted
+  })
 
   const detailPanel = (
     <SprintTaskDetailsPanel
@@ -798,28 +864,6 @@ export function WeeklySprintContent({
         </div>
       ) : isOfficer ? (
         <>
-          <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
-            <Button
-              type='button'
-              onClick={openExtraTaskDialog}
-              variant='outline'
-              size='sm'
-              className='shrink-0'
-              disabled={
-                nonDraftSprints.length === 0 || initiatives.length === 0
-              }
-              title={
-                nonDraftSprints.length === 0
-                  ? 'No submitted or reviewed sprints yet'
-                  : initiatives.length === 0
-                    ? 'Add initiatives and measurable activities to the section contract first'
-                    : undefined
-              }
-            >
-              <Plus className='h-4 w-4' />
-              Add extra task
-            </Button>
-          </div>
           <div className='mt-4 space-y-4'>
             {groupsForAcceptedUi.length === 0 ? (
               <Card>
@@ -827,7 +871,7 @@ export function WeeklySprintContent({
                   <p className='text-sm text-muted-foreground'>
                     {!viewerStaffId
                       ? 'Your account could not be matched to a staff record for this section. Ensure your sign-in email matches your staff profile.'
-                      : 'No accepted tasks assigned to you yet.'}
+                      : 'No tasks assigned to you yet.'}
                   </p>
                 </CardContent>
               </Card>
@@ -843,28 +887,38 @@ export function WeeklySprintContent({
                   onSelectTask={setSelectedTaskKey}
                   onUpdateTask={handleUpdateTask}
                   isSaving={isSavingTask}
+                  canAddExtraTask={initiatives.length > 0}
+                  onAddExtraTask={id => openExtraTaskDialog(id)}
                 />
               ))
             )}
-            {panelPortalNode && createPortal(detailPanel, panelPortalNode)}
+            {panelPortalNode &&
+              isLg &&
+              createPortal(detailPanel, panelPortalNode)}
           </div>
         </>
       ) : (
         <Tabs value={sprintTab} onValueChange={setSprintTab}>
           <div className='flex items-center justify-between'>
-            <TabsList>
-              <TabsTrigger value='draft'>
-                In draft
-                {draftSprints.length > 0 && (
+            <TabsList className='inline-flex h-auto w-auto flex-wrap items-stretch gap-1 rounded-none border-b border-border bg-transparent p-0'>
+              <TabsTrigger
+                value='ready'
+                className={weeklySprintSubTabTriggerClassName}
+              >
+                Ready
+                {tasksForAcceptedUi.length > 0 && (
                   <Badge
                     variant='secondary'
                     className='ml-1.5 text-[10px] px-1.5 py-0'
                   >
-                    {draftSprints.length}
+                    {tasksForAcceptedUi.length}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value='in-review'>
+              <TabsTrigger
+                value='in-review'
+                className={weeklySprintSubTabTriggerClassName}
+              >
                 In Review
                 {submittedOrReviewedSprints.length > 0 && (
                   <Badge
@@ -875,14 +929,17 @@ export function WeeklySprintContent({
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value='accepted'>
-                Accepted
-                {tasksForAcceptedUi.length > 0 && (
+              <TabsTrigger
+                value='draft'
+                className={weeklySprintSubTabTriggerClassName}
+              >
+                Drafts
+                {draftSprints.length > 0 && (
                   <Badge
                     variant='secondary'
                     className='ml-1.5 text-[10px] px-1.5 py-0'
                   >
-                    {tasksForAcceptedUi.length}
+                    {draftSprints.length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -891,26 +948,6 @@ export function WeeklySprintContent({
               <Button onClick={openNewSprintDialog} size='sm'>
                 <Plus className='h-4 w-4' />
                 New Sprint
-              </Button>
-            ) : sprintTab === 'accepted' ? (
-              <Button
-                onClick={openExtraTaskDialog}
-                variant='outline'
-                type='button'
-                size='sm'
-                disabled={
-                  nonDraftSprints.length === 0 || initiatives.length === 0
-                }
-                title={
-                  nonDraftSprints.length === 0
-                    ? 'No submitted or reviewed sprints yet'
-                    : initiatives.length === 0
-                      ? 'Add initiatives and measurable activities to the section contract first'
-                      : undefined
-                }
-              >
-                <Plus className='h-4 w-4' />
-                Add extra task
               </Button>
             ) : null}
           </div>
@@ -945,7 +982,7 @@ export function WeeklySprintContent({
               <Card>
                 <CardContent className='pt-6'>
                   <p className='text-sm text-muted-foreground'>
-                    No submitted or reviewed sprints yet.
+                    No sprints in review.
                   </p>
                 </CardContent>
               </Card>
@@ -965,13 +1002,12 @@ export function WeeklySprintContent({
             )}
           </TabsContent>
 
-          <TabsContent value='accepted' className='mt-4 space-y-4'>
+          <TabsContent value='ready' className='mt-4 space-y-4'>
             {groupsForAcceptedUi.length === 0 ? (
               <Card>
                 <CardContent className='pt-6'>
                   <p className='text-sm text-muted-foreground'>
-                    No accepted tasks yet. Review submitted sprints to accept
-                    tasks.
+                    No tasks yet. Review submitted sprints to accept tasks.
                   </p>
                 </CardContent>
               </Card>
@@ -987,13 +1023,35 @@ export function WeeklySprintContent({
                   onSelectTask={setSelectedTaskKey}
                   onUpdateTask={handleUpdateTask}
                   isSaving={isSavingTask}
+                  canAddExtraTask={initiatives.length > 0}
+                  onAddExtraTask={id => openExtraTaskDialog(id)}
                 />
               ))
             )}
-            {panelPortalNode && createPortal(detailPanel, panelPortalNode)}
+            {panelPortalNode &&
+              isLg &&
+              createPortal(detailPanel, panelPortalNode)}
           </TabsContent>
         </Tabs>
       )}
+
+      {!isLg && (isOfficer || sprintTab === 'ready') ? (
+        <Sheet
+          open={Boolean(selectedTaskKey)}
+          onOpenChange={open => {
+            if (!open) setSelectedTaskKey(null)
+          }}
+        >
+          <SheetContent
+            side='right'
+            className='flex h-full max-h-[100dvh] w-full flex-col gap-0 p-0 sm:max-w-[24rem]'
+          >
+            <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-14'>
+              {detailPanel}
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
 
       {/* Create Sprint Dialog */}
       <Dialog
@@ -1036,11 +1094,23 @@ export function WeeklySprintContent({
                     <SelectValue placeholder='Select week' />
                   </SelectTrigger>
                   <SelectContent>
-                    {fyWeeks.map((w, i) => (
-                      <SelectItem key={i} value={String(i)}>
-                        {w.label}
-                      </SelectItem>
-                    ))}
+                    {fyWeeks.map((w, i) => {
+                      const isPast =
+                        endOfDayLocal(parseYMDLocal(w.end)) < todayStart
+                      const hasSprint = existingSprintWeeks.has(
+                        `${w.start}__${w.end}`,
+                      )
+                      const disabled = isPast || (!editingSprintId && hasSprint)
+                      return (
+                        <SelectItem
+                          key={i}
+                          value={String(i)}
+                          disabled={disabled}
+                        >
+                          {w.label}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -1071,7 +1141,7 @@ export function WeeklySprintContent({
                           </Button>
                         )}
                       </div>
-                      <Label className='text-xs' required>
+                      <Label className='text-xs ' required>
                         Description
                       </Label>
                       <Textarea
@@ -1237,23 +1307,23 @@ export function WeeklySprintContent({
           <DialogHeader>
             <DialogTitle>Add extra task</DialogTitle>
             <DialogDescription>
-              Add an accepted task to an existing sprint week
+              Add an extra task to the current sprint week
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateExtraTask}>
             <div className='space-y-3 py-2 pb-4'>
-              <div className='space-y-2'>
+              <div className='space-y-2 pb-4'>
                 <Label required>Week</Label>
                 <Select
                   value={extraTaskSprintId}
                   onValueChange={setExtraTaskSprintId}
-                  disabled={isSavingExtraTask}
+                  disabled
                 >
                   <SelectTrigger>
                     <SelectValue placeholder='Select week' />
                   </SelectTrigger>
                   <SelectContent>
-                    {nonDraftSprints.map(s => (
+                    {currentWeekNonDraftSprints.map(s => (
                       <SelectItem key={s._id} value={s._id}>
                         {s.weekLabel}
                       </SelectItem>
@@ -1265,6 +1335,7 @@ export function WeeklySprintContent({
                 Description
               </Label>
               <Textarea
+                autoFocus={true}
                 className='text-xs'
                 placeholder='Describe the task...'
                 value={extraTaskDraft.description}
@@ -1634,6 +1705,8 @@ function AcceptedSprintTasksCard({
   onSelectTask,
   onUpdateTask,
   isSaving,
+  canAddExtraTask,
+  onAddExtraTask,
 }: {
   sprint: WeeklySprint
   tasks: AcceptedSprintTask[]
@@ -1647,33 +1720,111 @@ function AcceptedSprintTasksCard({
     updates: Record<string, unknown>,
   ) => void
   isSaving: boolean
+  canAddExtraTask: boolean
+  onAddExtraTask: (sprintId: string) => void
 }) {
-  const [open, setOpen] = React.useState(true)
+  const weekStartDate = parseYMDLocal(sprint.weekStart)
+  const weekEndDate = parseYMDLocal(sprint.weekEnd)
+  const now = new Date()
+  const sprintNotStarted = now < weekStartDate
+  const sprintCompleted = now > endOfDayLocal(weekEndDate)
+  const sprintOngoing = !sprintNotStarted && !sprintCompleted
+  const isCurrentWeek =
+    now >= weekStartDate && now <= endOfDayLocal(weekEndDate)
+
+  const [open, setOpen] = React.useState(isCurrentWeek)
+
+  const pendingCount = React.useMemo(() => {
+    return tasks.filter(
+      t => getEffectiveTaskStatus(t, sprint.weekStart) !== 'done',
+    ).length
+  }, [tasks, sprint.weekStart])
+
+  const statusBadge = React.useMemo(() => {
+    if (sprintNotStarted) {
+      return {
+        variant: 'outline' as const,
+        className: '',
+        label: `Starting in ${formatTimeUntil(weekStartDate, now)}`,
+      }
+    }
+    if (sprintOngoing) {
+      return {
+        variant: 'secondary' as const,
+        className: 'bg-orange-500 text-white border-orange-500',
+        label: 'Ongoing',
+      }
+    }
+    if (pendingCount > 0) {
+      return {
+        variant: 'destructive' as const,
+        className: '',
+        label: `Completed with ${pendingCount} task${pendingCount === 1 ? '' : 's'} pending`,
+      }
+    }
+    return {
+      variant: 'default' as const,
+      className: 'bg-green-700 text-white border-green-700',
+      label: 'Completed',
+    }
+  }, [sprintNotStarted, sprintOngoing, pendingCount, weekStartDate, now])
 
   return (
     <Card>
       <Collapsible open={open} onOpenChange={setOpen}>
         <CardHeader className='pb-3'>
-          <div className='flex items-center justify-between gap-2'>
-            <div className='space-y-1 min-w-0'>
-              <CardTitle className='text-base'>{sprint.weekLabel}</CardTitle>
+          <div className='space-y-2'>
+            <div className='flex items-start justify-between gap-2'>
+              <CardTitle className='min-w-0 text-base font-medium truncate'>
+                {sprint.weekLabel}
+              </CardTitle>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  className='h-8 w-8 p-0 shrink-0'
+                >
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+
+            <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
               <p className='text-xs text-muted-foreground'>
                 {sprint.supervisor?.fullName &&
                   `By ${sprint.supervisor.fullName} · `}
-                {tasks.length} accepted task{tasks.length === 1 ? '' : 's'}
+                {tasks.length} task{tasks.length === 1 ? '' : 's'}
               </p>
+
+              <div className='flex flex-wrap items-center gap-2'>
+                {isCurrentWeek && (
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    className='h-8'
+                    onClick={() => onAddExtraTask(sprint._id)}
+                    disabled={isSaving || !canAddExtraTask}
+                    title={
+                      !canAddExtraTask
+                        ? 'Add initiatives and measurable activities to the section contract first'
+                        : undefined
+                    }
+                  >
+                    <Plus className='h-4 w-4 mr-2' />
+                    Add extra task
+                  </Button>
+                )}
+                <Badge
+                  variant={statusBadge.variant}
+                  className={`${statusBadge.className} pointer-events-none select-none`}
+                >
+                  {statusBadge.label}
+                </Badge>
+              </div>
             </div>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant='ghost'
-                size='sm'
-                className='h-8 w-8 p-0 shrink-0'
-              >
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
-                />
-              </Button>
-            </CollapsibleTrigger>
           </div>
         </CardHeader>
         <CollapsibleContent>
@@ -1692,6 +1843,25 @@ function AcceptedSprintTasksCard({
       </Collapsible>
     </Card>
   )
+}
+
+function parseYMDLocal(s: string) {
+  const [y, m, d] = s.split('-').map(n => parseInt(n, 10))
+  return new Date(y, (m ?? 1) - 1, d ?? 1)
+}
+
+function endOfDayLocal(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+}
+
+function formatTimeUntil(target: Date, from: Date) {
+  const ms = Math.max(0, target.getTime() - from.getTime())
+  const totalMinutes = Math.round(ms / 60000)
+  if (totalMinutes < 60) return `${totalMinutes}m`
+  const totalHours = Math.round(totalMinutes / 60)
+  if (totalHours < 48) return `${totalHours}h`
+  const totalDays = Math.round(totalHours / 24)
+  return `${totalDays}d`
 }
 
 function SprintCard({

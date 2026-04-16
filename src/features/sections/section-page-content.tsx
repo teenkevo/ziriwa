@@ -31,6 +31,9 @@ import {
   Pencil,
   Trash2,
   ChevronDown,
+  ChevronsDown,
+  ChevronsUp,
+  Plus,
 } from 'lucide-react'
 import { canCreateSection } from '@/lib/app-role'
 import { useAppRole } from '@/hooks/use-app-role'
@@ -126,15 +129,16 @@ export function SectionPageContent({
   const [activeTab, setActiveTab] = useState('contract')
   const tabTriggers = [
     { value: 'contract', label: 'Contract', icon: FileText },
-    { value: 'weekly-sprint', label: 'Weekly Sprint', icon: Zap },
+    { value: 'weekly-sprint', label: 'Sprints', icon: Zap },
     {
       value: 'stakeholder-engagements',
-      label: 'Stakeholder engagements',
+      label: 'Stakeholders',
       icon: Handshake,
     },
-    { value: 'reports', label: 'Reports', icon: FileBarChart },
+    // { value: 'reports', label: 'Reports', icon: FileBarChart },
   ] as const
-  const [sprintSubTab, setSprintSubTab] = useState('draft')
+  /** Mirrors Weekly Sprint sub-tabs (Ready is default there). */
+  const [sprintSubTab, setSprintSubTab] = useState('ready')
   const [panelPortalNode, setPanelPortalNode] = useState<HTMLDivElement | null>(
     null,
   )
@@ -145,6 +149,12 @@ export function SectionPageContent({
   const currentFY = sectionContract?.financialYearLabel ?? 'current FY'
   const manager = section.manager
   const hasManager = !!manager?._id
+  /** Start at 1 so the contract tree mounts fully expanded. */
+  const [expandAllSignal, setExpandAllSignal] = useState(1)
+  const [collapseAllSignal, setCollapseAllSignal] = useState(0)
+  /** Tracks bulk expand/collapse toggle label (tree may diverge if nodes toggled manually). */
+  const [treeBulkExpanded, setTreeBulkExpanded] = useState(true)
+  const [addObjectiveSignal, setAddObjectiveSignal] = useState(0)
 
   const breadcrumbItems = React.useMemo(() => {
     const out: { label: string; href?: string }[] = [
@@ -194,7 +204,7 @@ export function SectionPageContent({
     <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>
       {/* Main column: scrolls independently; shell height is capped (h-svh + flex chain) */}
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
-        <div className='mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+        <div className='mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-start sm:justify-between'>
           <div>
             <h1 className='text-2xl font-bold'>{section.name}</h1>
             <p className='text-muted-foreground'>
@@ -298,13 +308,55 @@ export function SectionPageContent({
               <CardContent className='pt-6'>
                 {sectionContract ? (
                   <div className='space-y-4'>
-                    <div className='text-sm flex items-center gap-2 text-muted-foreground'>
-                      <FileText className='h-5 w-5' />
-                      <span>{currentFY}</span>
+                    <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+                      <div className='text-sm flex items-center gap-2 text-muted-foreground min-w-0'>
+                        <FileText className='h-5 w-5 shrink-0' />
+                        <span className='truncate'>{currentFY}</span>
+                      </div>
+                      <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
+                        <Button
+                          type='button'
+                          size='sm'
+                          onClick={() => setAddObjectiveSignal(s => s + 1)}
+                        >
+                          <Plus className='h-4 w-4 mr-2' />
+                          Add SSMARTA objective
+                        </Button>
+                        <Button
+                          type='button'
+                          size='sm'
+                          variant='outline'
+                          onClick={() => {
+                            if (treeBulkExpanded) {
+                              setCollapseAllSignal(s => s + 1)
+                              setTreeBulkExpanded(false)
+                            } else {
+                              setExpandAllSignal(s => s + 1)
+                              setTreeBulkExpanded(true)
+                            }
+                          }}
+                        >
+                          {treeBulkExpanded ? (
+                            <>
+                              <ChevronsUp className='h-4 w-4' />
+                            </>
+                          ) : (
+                            <>
+                              <ChevronsDown className='h-4 w-4' />
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                     <ContractTree
                       sectionContract={sectionContract}
                       sectionSlug={section.slug?.current ?? ''}
+                      expandAllSignal={expandAllSignal}
+                      collapseAllSignal={collapseAllSignal}
+                      addObjectiveSignal={addObjectiveSignal}
+                      onAddObjectiveRequestConsumed={() =>
+                        setAddObjectiveSignal(0)
+                      }
                     />
                   </div>
                 ) : (
@@ -385,22 +437,26 @@ export function SectionPageContent({
         </Tabs>
       </div>
 
-      {activeTab === 'weekly-sprint' && sprintSubTab === 'accepted' ? (
-        <div
-          ref={panelPortalRef}
-          className='flex h-full min-h-0 w-full shrink-0 flex-col overflow-y-auto overscroll-contain border-l bg-muted/20 lg:w-[24rem]'
-        />
-      ) : (
-        <aside className='w-full lg:w-72 shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
-          <div className='p-4 md:p-6'>
-            <DueTodayThisWeek
-              dueToday={dueToday}
-              dueThisWeek={dueThisWeek}
-              dueThisMonth={dueThisMonth}
-              dueThisQuarter={dueThisQuarter}
+      {activeTab === 'stakeholder-engagements' ? null : (
+        <div className='hidden h-full min-h-0 shrink-0 border-l bg-muted/20 lg:flex'>
+          {activeTab === 'weekly-sprint' && sprintSubTab === 'ready' ? (
+            <div
+              ref={panelPortalRef}
+              className='flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-contain lg:w-[24rem]'
             />
-          </div>
-        </aside>
+          ) : (
+            <aside className='flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-contain lg:w-72'>
+              <div className='p-4 md:p-6'>
+                <DueTodayThisWeek
+                  dueToday={dueToday}
+                  dueThisWeek={dueThisWeek}
+                  dueThisMonth={dueThisMonth}
+                  dueThisQuarter={dueThisQuarter}
+                />
+              </div>
+            </aside>
+          )}
+        </div>
       )}
     </div>
   )

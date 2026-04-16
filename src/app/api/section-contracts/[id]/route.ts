@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
+import {
+  duplicateAmongStrings,
+  initiativeCodeMatchesObjective,
+  remapInitiativeCodeForObjectiveRename,
+} from '@/lib/contract-code-validation'
 
 /**
  * PATCH /api/section-contracts/[id] - Add objective, initiative, or activity
@@ -48,22 +53,67 @@ export async function PATCH(
         }
 
         const contract = await writeClient.fetch<{
-          objectives?: { code?: string }[]
-        }>(`*[_id == $id][0]{ objectives[] { code } }`, { id })
-        const existingCodes = (contract?.objectives ?? [])
-          .map(o => o.code?.trim())
-          .filter(Boolean)
-        const currentCode = existingCodes[objectiveIndex] ?? null
-        if (
-          trimmedCode !== (currentCode ?? '').trim() &&
-          existingCodes.includes(trimmedCode)
-        ) {
+          objectives?: {
+            code?: string
+            initiatives?: { code?: string }[]
+          }[]
+        }>(
+          `*[_id == $id][0]{ objectives[] { code, initiatives[] { code } } }`,
+          { id },
+        )
+        const objectives = contract?.objectives ?? []
+        const currentObjective = objectives[objectiveIndex]
+        const currentCode = currentObjective?.code?.trim() ?? ''
+        const objectiveCodeInUseElsewhere = objectives.some(
+          (o, i) =>
+            i !== objectiveIndex && (o.code?.trim() ?? '') === trimmedCode,
+        )
+        if (trimmedCode !== currentCode && objectiveCodeInUseElsewhere) {
           return NextResponse.json(
             {
               error: `SSMARTA objective with code "${trimmedCode}" already exists`,
             },
             { status: 409 },
           )
+        }
+
+        const oldObjectiveCode =
+          currentCode || String(objectiveIndex + 1)
+        const initiatives = currentObjective?.initiatives ?? []
+
+        if (trimmedCode !== oldObjectiveCode) {
+          const remapped = initiatives.map(init =>
+            remapInitiativeCodeForObjectiveRename(
+              init.code ?? '',
+              oldObjectiveCode,
+              trimmedCode,
+            ),
+          )
+
+          const allInitiativeCodesAfter: string[] = []
+          for (let oi = 0; oi < objectives.length; oi++) {
+            const inits = objectives[oi].initiatives ?? []
+            for (let ii = 0; ii < inits.length; ii++) {
+              if (oi === objectiveIndex) {
+                allInitiativeCodesAfter.push(remapped[ii] ?? '')
+              } else {
+                allInitiativeCodesAfter.push(inits[ii].code?.trim() ?? '')
+              }
+            }
+          }
+          const dupMsg = duplicateAmongStrings(allInitiativeCodesAfter)
+          if (dupMsg) {
+            return NextResponse.json({ error: dupMsg }, { status: 409 })
+          }
+
+          for (let j = 0; j < remapped.length; j++) {
+            const prev = initiatives[j]?.code?.trim() ?? ''
+            if (remapped[j] !== prev) {
+              setPayload[
+                `objectives[${objectiveIndex}].initiatives[${j}].code`
+              ] = remapped[j]
+            }
+          }
         }
 
         setPayload[`objectives[${objectiveIndex}].code`] = trimmedCode
@@ -115,11 +165,23 @@ export async function PATCH(
         }
 
         const contract = await writeClient.fetch<{
+          objectiveCode?: string
           initiatives?: { code?: string }[]
         }>(
-          `*[_id == $id][0]{ "initiatives": objectives[$objIdx].initiatives[] { code } }`,
+          `*[_id == $id][0]{ "objectiveCode": objectives[$objIdx].code, "initiatives": objectives[$objIdx].initiatives[] { code } }`,
           { id, objIdx: objectiveIndex },
         )
+        const objectiveCode =
+          contract?.objectiveCode?.trim() ?? String(objectiveIndex + 1)
+        if (!initiativeCodeMatchesObjective(trimmedCode, objectiveCode)) {
+          return NextResponse.json(
+            {
+              error: `Initiative code must nest under this objective (e.g. "${objectiveCode}.1"), not another branch.`,
+            },
+            { status: 400 },
+          )
+        }
+
         const initiatives = contract?.initiatives ?? []
         const existingCodes = initiatives.map(i => i.code?.trim()).filter(Boolean)
         const currentCode = existingCodes[initiativeIndex] ?? null
@@ -259,11 +321,22 @@ export async function PATCH(
         )
       }
       const contract = await writeClient.fetch<{
+        objectiveCode?: string
         initiatives?: { code?: string }[]
       }>(
-        `*[_id == $id][0]{ "initiatives": objectives[$objIdx].initiatives[] { code } }`,
+        `*[_id == $id][0]{ "objectiveCode": objectives[$objIdx].code, "initiatives": objectives[$objIdx].initiatives[] { code } }`,
         { id, objIdx: objectiveIndex },
       )
+      const objectiveCode =
+        contract?.objectiveCode?.trim() ?? String(objectiveIndex + 1)
+      if (!initiativeCodeMatchesObjective(trimmedCode, objectiveCode)) {
+        return NextResponse.json(
+          {
+            error: `Initiative code must start with "${objectiveCode}." (under this SSMARTA objective).`,
+          },
+          { status: 400 },
+        )
+      }
       const initiatives = contract?.initiatives ?? []
       const existingCodes = initiatives.map(i => i.code?.trim()).filter(Boolean)
       if (existingCodes.includes(trimmedCode)) {

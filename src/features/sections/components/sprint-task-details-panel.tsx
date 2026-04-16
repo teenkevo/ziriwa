@@ -245,7 +245,7 @@ export function SprintTaskDetailsPanel({
           onValueChange={v =>
             onUpdate(task.sprintId, task._key, { priority: v })
           }
-          disabled={isSaving}
+          disabled={isSaving || isDone}
         >
           <SelectTrigger className='mt-1'>
             <SelectValue />
@@ -546,24 +546,11 @@ function WorkSubmissionCard({
     <div className='rounded-md border bg-muted/20'>
       <div className='p-3 space-y-2'>
         <div className='flex items-center justify-between'>
-          <div className='flex items-center gap-2'>
-            <span className='text-xs font-medium'>
-              {submission.date ?? '—'}
-            </span>
-            <span className='text-xs text-muted-foreground'>
-              {submission.startTime}–{submission.endTime}
-            </span>
-            <Badge variant='outline' className='text-[10px] px-1.5 py-0'>
-              <Clock className='h-3 w-3 mr-0.5' />
-              {submission.totalHours ?? 0}h
-            </Badge>
-          </div>
-          <Badge
-            variant={statusBadge.variant}
-            className='text-[10px] px-1.5 py-0'
-          >
-            {statusBadge.label}
-          </Badge>
+          <span className='text-xs font-medium'>
+            {submission.submittedAt
+              ? format(new Date(submission.submittedAt), 'PPp')
+              : '—'}
+          </span>
         </div>
 
         <p className='text-sm'>{submission.description}</p>

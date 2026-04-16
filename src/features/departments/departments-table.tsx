@@ -148,13 +148,15 @@ function buildColumns(
         const label = d.fullName || d.name
         const href = `/departments/${d.slug?.current ?? d._id}`
         return (
-          <Link
-            href={href}
-            prefetch={false}
-            className='font-medium hover:underline'
-          >
-            {label}
-          </Link>
+          <div className='min-w-[120px]'>
+            <Link
+              href={href}
+              prefetch={false}
+              className='font-medium hover:underline'
+            >
+              {label}
+            </Link>
+          </div>
         )
       },
     },
@@ -305,13 +307,6 @@ export function DepartmentsTable({
   return (
     <div className='space-y-4'>
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-        <Input
-          placeholder='Search by department, acronym, commissioner, or division…'
-          value={globalFilter}
-          onChange={e => setGlobalFilter(e.target.value)}
-          className='max-w-md'
-          aria-label='Search departments'
-        />
         {canManageDepartments &&
           selectedCount > 0 &&
           onBulkDeleteDepartments && (

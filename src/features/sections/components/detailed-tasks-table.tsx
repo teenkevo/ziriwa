@@ -228,7 +228,7 @@ export function DetailedTasksTable({
           <DataTableColumnHeader column={column} title='Detailed Task' />
         ),
         cell: ({ row }) => (
-          <span className='min-w-[256px] block break-words'>
+          <span className='min-w-[200px] block break-words'>
             {row.original.task || '—'}
           </span>
         ),
@@ -480,7 +480,7 @@ export function DetailedTasksTable({
                   {headerGroup.headers.map((header, index) => (
                     <TableHead
                       key={header.id}
-                      className={index === 0 ? 'min-w-[320px] pl-4' : undefined}
+                      className={index === 0 ? ' pl-2' : undefined}
                     >
                       {header.isPlaceholder
                         ? null

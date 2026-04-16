@@ -46,6 +46,7 @@ import { DataTableFacetedFilter } from '@/components/data-table/data-table-facet
 import { OfficerSwitcher, type Officer } from './officer-switcher'
 import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getEffectiveTaskStatus } from '@/lib/sprint-week'
+import { cn } from '@/lib/utils'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -126,31 +127,36 @@ export function SprintTasksTable({
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title='Priority' />
         ),
-        cell: ({ row }) => (
-          <Select
-            value={row.original.priority ?? 'medium'}
-            onValueChange={v =>
-              onUpdateTask(row.original.sprintId, row.original._key, {
-                priority: v,
-              })
-            }
-            disabled={isSaving}
-          >
-            <SelectTrigger
-              className='h-9 w-[120px]'
-              onClick={e => e.stopPropagation()}
+        cell: ({ row }) => {
+          const isDone =
+            getEffectiveTaskStatus(row.original, row.original.weekStart) ===
+            'done'
+          return (
+            <Select
+              value={row.original.priority ?? 'medium'}
+              onValueChange={v =>
+                onUpdateTask(row.original.sprintId, row.original._key, {
+                  priority: v,
+                })
+              }
+              disabled={isSaving || isDone}
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PRIORITIES.map(p => (
-                <SelectItem key={p.value} value={p.value}>
-                  {p.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ),
+              <SelectTrigger
+                className='h-9 w-[120px]'
+                onClick={e => e.stopPropagation()}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map(p => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        },
         filterFn: (row, id, value) => value.includes(row.getValue(id)),
       },
       {
@@ -197,14 +203,17 @@ export function SprintTasksTable({
             TASK_STATUSES.find(s => s.value === status)?.label ?? status
           const variant =
             status === 'done'
-              ? 'default'
+              ? 'ghost'
               : status === 'in_review'
                 ? 'secondary'
                 : 'outline'
           return (
             <Badge
               variant={variant as 'default' | 'secondary' | 'outline'}
-              className='text-xs'
+              className={cn(
+                'text-xs',
+                status === 'done' && 'bg-green-700 text-white border-none',
+              )}
             >
               {label}
             </Badge>

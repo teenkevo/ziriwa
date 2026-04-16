@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { DotIcon, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -34,6 +34,12 @@ import { EditInitiativeDialog } from '@/features/sections/components/edit-initia
 interface ContractTreeProps {
   sectionContract: SectionContract
   sectionSlug?: string
+  expandAllSignal?: number
+  collapseAllSignal?: number
+  /** Increment to open the add SSMARTA objective dialog (from parent toolbar). */
+  addObjectiveSignal?: number
+  /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
+  onAddObjectiveRequestConsumed?: () => void
 }
 
 const nodeMeta = new Map<
@@ -57,7 +63,7 @@ function sectionContractToTreeData(
     {
       id: 'label-objectives',
       name: 'SSMARTA objectives',
-      className: 'py-0 before:h-[1.25rem]',
+      className: 'py-1 before:h-[1.25rem] text-primary',
     },
   ]
 
@@ -71,7 +77,7 @@ function sectionContractToTreeData(
       {
         id: `label-initiatives-${objIdx}`,
         name: 'Initiatives',
-        className: 'py-0 before:h-[1.25rem]',
+        className: 'py-1 before:h-[1.25rem] text-primary',
       },
     ]
 
@@ -85,7 +91,7 @@ function sectionContractToTreeData(
         {
           id: `label-activities-${objIdx}-${initIdx}`,
           name: 'Measurable activities',
-          className: 'py-0 before:h-[1.25rem]',
+          className: 'py-1 before:h-[1.25rem] text-primary',
         },
       ]
 
@@ -135,8 +141,13 @@ function sectionContractToTreeData(
 export function ContractTree({
   sectionContract,
   sectionSlug = '',
+  expandAllSignal,
+  collapseAllSignal,
+  addObjectiveSignal = 0,
+  onAddObjectiveRequestConsumed,
 }: ContractTreeProps) {
   const router = useRouter()
+  const [openMenu, setOpenMenu] = React.useState<string | null>(null)
   const [objectiveDialogOpen, setObjectiveDialogOpen] = React.useState(false)
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
   const [initiativeDialogObjIdx, setInitiativeDialogObjIdx] =
@@ -165,6 +176,11 @@ export function ContractTree({
   } | null>(null)
 
   const objectives = sectionContract.objectives ?? []
+
+  React.useEffect(() => {
+    if (addObjectiveSignal === 0) return
+    setObjectiveDialogOpen(true)
+  }, [addObjectiveSignal])
 
   const treeData = React.useMemo(
     () => sectionContractToTreeData(sectionContract),
@@ -244,202 +260,263 @@ export function ContractTree({
     [sectionSlug, sectionContract._id, router],
   )
 
-  const renderItem = React.useCallback((params: TreeRenderItemParams) => {
-    const { item, level, isLeaf } = params
+  const renderItem = React.useCallback(
+    (params: TreeRenderItemParams) => {
+      const { item, level, isLeaf } = params
 
-    if (item.id.startsWith('label-')) {
-      return (
-        <p className='text-[10px] font-light uppercase tracking-wider text-muted-foreground'>
-          {item.name}
-        </p>
-      )
-    }
-
-    const meta = nodeMeta.get(item.id)
-    const code = meta?.code
-    const isObjectiveRow =
-      typeof meta?.objIdx === 'number' && typeof meta?.initIdx !== 'number'
-    const isInitiativeRow =
-      typeof meta?.objIdx === 'number' &&
-      typeof meta?.initIdx === 'number' &&
-      typeof meta?.actIdx !== 'number'
-
-    return (
-      <div className='flex items-center gap-4 min-w-0'>
-        {code && (
-          <span className='font-mono text-xs leading-4 text-muted-foreground shrink-0'>
-            {code}
-          </span>
-        )}
-        <div className='flex-1 min-w-0'>
-          <div className='flex items-center gap-1 min-w-0'>
-            <p className='text-sm font-medium leading-4 truncate'>
+      if (item.id.startsWith('label-')) {
+        const hint = item.id.startsWith('label-objectives')
+          ? '(Click an objective below to see its initiatives)'
+          : item.id.startsWith('label-initiatives')
+            ? '(Click an initiative below to see its measurable activities)'
+            : item.id.startsWith('label-activities')
+              ? '(Click a measurable activity below to manage its detailed tasks)'
+              : undefined
+        return (
+          <div className='flex items-baseline gap-2 min-w-0'>
+            <span
+              className={`flex text-[11px] min-w-[${item.name === 'SSMARTA objectives' ? '120px' : item.name === 'Initiatives' ? '90px' : item.name === 'Measurable activities' ? '130px' : '100px'}] font-bold uppercase tracking-normal  truncate`}
+            >
               {item.name}
-            </p>
-            {isObjectiveRow && (
-              <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-6 w-6 shrink-0'
-                      onClick={e => e.stopPropagation()}
-                      aria-label='Objective options'
-                      title='Objective options'
-                    >
-                      <MoreVertical className='h-4 w-4' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align='start'>
-                    <DropdownMenuItem
-                      onClick={e => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setEditingObjectiveIndex(meta!.objIdx!)
-                        setEditObjectiveOpen(true)
-                      }}
-                    >
-                      <Pencil className='mr-2 h-4 w-4' />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className='text-destructive focus:text-destructive'
-                      onClick={e => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setDeleteObjectiveIndex(meta!.objIdx!)
-                      }}
-                    >
-                      <Trash2 className='mr-2 h-4 w-4' />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  className='h-6 w-6 shrink-0'
-                  onClick={e => {
-                    e.stopPropagation()
-                    setInitiativeDialogObjIdx(meta!.objIdx!)
-                    setInitiativeDialogOpen(true)
-                  }}
-                  aria-label='Add initiative'
-                  title='Add initiative'
-                >
-                  <Plus className='h-4 w-4' />
-                </Button>
-              </>
-            )}
-            {isInitiativeRow && (
-              <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-6 w-6 shrink-0'
-                      onClick={e => e.stopPropagation()}
-                      aria-label='Initiative options'
-                      title='Initiative options'
-                    >
-                      <MoreVertical className='h-4 w-4' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align='start'>
-                    <DropdownMenuItem
-                      onClick={e => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setEditingInitiative({
-                          objIdx: meta!.objIdx!,
-                          initIdx: meta!.initIdx!,
-                        })
-                        setEditInitiativeOpen(true)
-                      }}
-                    >
-                      <Pencil className='mr-2 h-4 w-4' />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className='text-destructive focus:text-destructive'
-                      onClick={e => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setDeleteInitiative({
-                          objIdx: meta!.objIdx!,
-                          initIdx: meta!.initIdx!,
-                        })
-                      }}
-                    >
-                      <Trash2 className='mr-2 h-4 w-4' />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-6 w-6 shrink-0'
-                      onClick={e => e.stopPropagation()}
-                      aria-label='Add measurable activity'
-                      title='Add measurable activity'
-                    >
-                      <Plus className='h-4 w-4' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align='start'>
-                    <DropdownMenuItem
-                      onClick={e => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setActivityDialogParams({
-                          objIdx: meta!.objIdx!,
-                          initIdx: meta!.initIdx!,
-                          type: 'kpi',
-                        })
-                        setActivityDialogOpen(true)
-                      }}
-                    >
-                      Core KPI Task
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={e => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setActivityDialogParams({
-                          objIdx: meta!.objIdx!,
-                          initIdx: meta!.initIdx!,
-                          type: 'cross-cutting',
-                        })
-                        setActivityDialogOpen(true)
-                      }}
-                    >
-                      Cross-cutting activity
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
+            </span>
+            {hint && (
+              <span className='text-[11px] font-light normal-case tracking-normal text-muted-foreground truncate'>
+                {hint}
+              </span>
             )}
           </div>
-          {meta?.aim && isLeaf && (
-            <p className='text-xs text-muted-foreground mt-0.5'>{meta.aim}</p>
+        )
+      }
+
+      const meta = nodeMeta.get(item.id)
+      const code = meta?.code
+      const isObjectiveRow =
+        typeof meta?.objIdx === 'number' && typeof meta?.initIdx !== 'number'
+      const isInitiativeRow =
+        typeof meta?.objIdx === 'number' &&
+        typeof meta?.initIdx === 'number' &&
+        typeof meta?.actIdx !== 'number'
+      const isActivityRow = isLeaf && typeof meta?.actIdx === 'number'
+
+      return (
+        <div
+          className={`flex gap-4 min-w-0 ${isActivityRow ? 'items-start' : 'items-center'}`}
+        >
+          {code && (
+            <span
+              className={`font-mono text-xs leading-4 shrink-0 ${isActivityRow ? 'self-start' : ''}`}
+            >
+              {code}
+            </span>
           )}
+          <div className='flex-1 min-w-0'>
+            <div className='flex items-center gap-1 min-w-0'>
+              <p className='text-sm leading-4 truncate'>{item.name}</p>
+              {isObjectiveRow && (
+                <>
+                  <DropdownMenu
+                    open={openMenu === `${item.id}:objective-options`}
+                    onOpenChange={open =>
+                      setOpenMenu(open ? `${item.id}:objective-options` : null)
+                    }
+                  >
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='h-6 w-6 shrink-0'
+                        onClick={e => e.stopPropagation()}
+                        onPointerDown={e => e.stopPropagation()}
+                        aria-label='Objective options'
+                        title='Objective options'
+                      >
+                        <MoreVertical className='h-4 w-4' />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align='start'
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <DropdownMenuItem
+                        onSelect={e => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setTimeout(() => setOpenMenu(null), 0)
+                          setEditingObjectiveIndex(meta!.objIdx!)
+                          setEditObjectiveOpen(true)
+                        }}
+                      >
+                        <Pencil className='mr-2 h-4 w-4' />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className='text-destructive focus:text-destructive'
+                        onSelect={e => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setTimeout(() => setOpenMenu(null), 0)
+                          setDeleteObjectiveIndex(meta!.objIdx!)
+                        }}
+                      >
+                        <Trash2 className='mr-2 h-4 w-4' />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    className='h-6 w-6 shrink-0'
+                    onClick={e => {
+                      e.stopPropagation()
+                      setInitiativeDialogObjIdx(meta!.objIdx!)
+                      setInitiativeDialogOpen(true)
+                    }}
+                    aria-label='Add initiative'
+                    title='Add initiative'
+                  >
+                    <Plus className='h-4 w-4' />
+                  </Button>
+                </>
+              )}
+              {isInitiativeRow && (
+                <>
+                  <DropdownMenu
+                    open={openMenu === `${item.id}:initiative-options`}
+                    onOpenChange={open =>
+                      setOpenMenu(open ? `${item.id}:initiative-options` : null)
+                    }
+                  >
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='h-6 w-6 shrink-0'
+                        onClick={e => e.stopPropagation()}
+                        onPointerDown={e => e.stopPropagation()}
+                        aria-label='Initiative options'
+                        title='Initiative options'
+                      >
+                        <MoreVertical className='h-4 w-4' />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align='start'
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <DropdownMenuItem
+                        onSelect={e => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setTimeout(() => setOpenMenu(null), 0)
+                          setEditingInitiative({
+                            objIdx: meta!.objIdx!,
+                            initIdx: meta!.initIdx!,
+                          })
+                          setEditInitiativeOpen(true)
+                        }}
+                      >
+                        <Pencil className='mr-2 h-4 w-4' />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className='text-destructive focus:text-destructive'
+                        onSelect={e => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setTimeout(() => setOpenMenu(null), 0)
+                          setDeleteInitiative({
+                            objIdx: meta!.objIdx!,
+                            initIdx: meta!.initIdx!,
+                          })
+                        }}
+                      >
+                        <Trash2 className='mr-2 h-4 w-4' />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu
+                    open={openMenu === `${item.id}:add-activity`}
+                    onOpenChange={open =>
+                      setOpenMenu(open ? `${item.id}:add-activity` : null)
+                    }
+                  >
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='h-6 w-6 shrink-0'
+                        onClick={e => e.stopPropagation()}
+                        onPointerDown={e => e.stopPropagation()}
+                        aria-label='Add measurable activity'
+                        title='Add measurable activity'
+                      >
+                        <Plus className='h-4 w-4' />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align='start'
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <DropdownMenuItem
+                        onSelect={e => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setTimeout(() => setOpenMenu(null), 0)
+                          setActivityDialogParams({
+                            objIdx: meta!.objIdx!,
+                            initIdx: meta!.initIdx!,
+                            type: 'kpi',
+                          })
+                          setActivityDialogOpen(true)
+                        }}
+                      >
+                        Core KPI Task
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={e => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setTimeout(() => setOpenMenu(null), 0)
+                          setActivityDialogParams({
+                            objIdx: meta!.objIdx!,
+                            initIdx: meta!.initIdx!,
+                            type: 'cross-cutting',
+                          })
+                          setActivityDialogOpen(true)
+                        }}
+                      >
+                        Cross-cutting activity
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              )}
+            </div>
+            {meta?.aim && isLeaf && (
+              <p className='text-xs text-muted-foreground mt-0.5'>{meta.aim}</p>
+            )}
+          </div>
         </div>
-      </div>
-    )
-  }, [])
+      )
+    },
+    [openMenu],
+  )
 
   return (
     <>
       <AddObjectiveDialog
         open={objectiveDialogOpen}
-        onOpenChange={setObjectiveDialogOpen}
+        onOpenChange={open => {
+          setObjectiveDialogOpen(open)
+          if (!open) onAddObjectiveRequestConsumed?.()
+        }}
         sectionContractId={sectionContract._id}
       />
       <EditObjectiveDialog
@@ -456,6 +533,10 @@ export function ContractTree({
         sectionContractId={sectionContract._id}
         objectiveIndex={editingInitiative?.objIdx ?? 0}
         initiativeIndex={editingInitiative?.initIdx ?? 0}
+        objectiveCode={
+          objectives[editingInitiative?.objIdx ?? 0]?.code ??
+          String((editingInitiative?.objIdx ?? 0) + 1)
+        }
         initialCode={
           objectives[editingInitiative?.objIdx ?? 0]?.initiatives?.[
             editingInitiative?.initIdx ?? 0
@@ -527,6 +608,10 @@ export function ContractTree({
         onOpenChange={setInitiativeDialogOpen}
         sectionContractId={sectionContract._id}
         objectiveIndex={initiativeDialogObjIdx}
+        objectiveCode={
+          objectives[initiativeDialogObjIdx]?.code ??
+          String(initiativeDialogObjIdx + 1)
+        }
         nextOrder={
           (objectives[initiativeDialogObjIdx]?.initiatives?.length ?? 0) + 1
         }
@@ -562,7 +647,8 @@ export function ContractTree({
       <TreeView
         data={treeData}
         renderItem={renderItem}
-        expandAll
+        expandAllSignal={expandAllSignal}
+        collapseAllSignal={collapseAllSignal}
         onSelectChange={handleSelectChange}
       />
     </>

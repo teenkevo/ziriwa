@@ -102,7 +102,10 @@ export function EditObjectiveDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit SSMARTA Objective</DialogTitle>
-          <DialogDescription>Update the objective code or text.</DialogDescription>
+          <DialogDescription>
+            Update the objective code or text. Changing the code renumbers initiatives
+            under this objective to keep the same structure (e.g. 4.1.x becomes 5.2.x).
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>

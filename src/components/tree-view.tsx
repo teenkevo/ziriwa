@@ -47,10 +47,49 @@ type TreeProps = React.HTMLAttributes<HTMLDivElement> & {
   initialSelectedItemId?: string
   onSelectChange?: (item: TreeDataItem | undefined) => void
   expandAll?: boolean
+  /** Increment to programmatically expand all nodes. */
+  expandAllSignal?: number
+  /** Increment to programmatically collapse all nodes. */
+  collapseAllSignal?: number
   defaultNodeIcon?: React.ComponentType<{ className?: string }>
   defaultLeafIcon?: React.ComponentType<{ className?: string }>
   onDocumentDrag?: (sourceItem: TreeDataItem, targetItem: TreeDataItem) => void
   renderItem?: (params: TreeRenderItemParams) => React.ReactNode
+}
+
+function collectExpandableIds(items: TreeDataItem[] | TreeDataItem): string[] {
+  const out: string[] = []
+  const walk = (node: TreeDataItem[] | TreeDataItem) => {
+    if (Array.isArray(node)) {
+      for (const it of node) {
+        if (it.children?.length) {
+          out.push(it.id)
+          walk(it.children)
+        }
+      }
+    } else if (node.children?.length) {
+      out.push(node.id)
+      walk(node.children)
+    }
+  }
+  walk(items)
+  return out
+}
+
+type TreeExpansionContextValue = {
+  expandedIds: ReadonlySet<string>
+  setExpandedId: (id: string, open: boolean) => void
+}
+
+const TreeExpansionContext =
+  React.createContext<TreeExpansionContextValue | null>(null)
+
+function useTreeExpansion() {
+  const ctx = React.useContext(TreeExpansionContext)
+  if (!ctx) {
+    throw new Error('useTreeExpansion must be used within TreeView')
+  }
+  return ctx
 }
 
 const TreeView = React.forwardRef<HTMLDivElement, TreeProps>(
@@ -60,6 +99,8 @@ const TreeView = React.forwardRef<HTMLDivElement, TreeProps>(
       initialSelectedItemId,
       onSelectChange,
       expandAll,
+      expandAllSignal,
+      collapseAllSignal,
       defaultLeafIcon,
       defaultNodeIcon,
       className,
@@ -69,6 +110,53 @@ const TreeView = React.forwardRef<HTMLDivElement, TreeProps>(
     },
     ref,
   ) => {
+    const allExpandableIds = React.useMemo(
+      () => collectExpandableIds(data),
+      [data],
+    )
+
+    const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => {
+      if (!expandAllSignal) return new Set()
+      return new Set(collectExpandableIds(data))
+    })
+
+    React.useEffect(() => {
+      if (!expandAllSignal) return
+      setExpandedIds(new Set(allExpandableIds))
+    }, [expandAllSignal, allExpandableIds])
+
+    React.useEffect(() => {
+      if (!collapseAllSignal) return
+      setExpandedIds(new Set())
+    }, [collapseAllSignal])
+
+    React.useEffect(() => {
+      const allowed = new Set(allExpandableIds)
+      setExpandedIds(prev => {
+        let changed = false
+        const next = new Set<string>()
+        for (const id of prev) {
+          if (allowed.has(id)) next.add(id)
+          else changed = true
+        }
+        return changed ? next : prev
+      })
+    }, [allExpandableIds])
+
+    const setExpandedId = React.useCallback((id: string, open: boolean) => {
+      setExpandedIds(prev => {
+        const next = new Set(prev)
+        if (open) next.add(id)
+        else next.delete(id)
+        return next
+      })
+    }, [])
+
+    const expansionValue = React.useMemo<TreeExpansionContextValue>(
+      () => ({ expandedIds, setExpandedId }),
+      [expandedIds, setExpandedId],
+    )
+
     const [selectedItemId, setSelectedItemId] = React.useState<
       string | undefined
     >(initialSelectedItemId)
@@ -133,21 +221,23 @@ const TreeView = React.forwardRef<HTMLDivElement, TreeProps>(
 
     return (
       <div className={cn('overflow-hidden relative', className)}>
-        <TreeItem
-          data={data}
-          ref={ref}
-          selectedItemId={selectedItemId}
-          handleSelectChange={handleSelectChange}
-          expandedItemIds={expandedItemIds}
-          defaultLeafIcon={defaultLeafIcon}
-          defaultNodeIcon={defaultNodeIcon}
-          handleDragStart={handleDragStart}
-          handleDrop={handleDrop}
-          draggedItem={draggedItem}
-          renderItem={renderItem}
-          level={0}
-          {...props}
-        />
+        <TreeExpansionContext.Provider value={expansionValue}>
+          <TreeItem
+            data={data}
+            ref={ref}
+            selectedItemId={selectedItemId}
+            handleSelectChange={handleSelectChange}
+            expandedItemIds={expandedItemIds}
+            defaultLeafIcon={defaultLeafIcon}
+            defaultNodeIcon={defaultNodeIcon}
+            handleDragStart={handleDragStart}
+            handleDrop={handleDrop}
+            draggedItem={draggedItem}
+            renderItem={renderItem}
+            level={0}
+            {...props}
+          />
+        </TreeExpansionContext.Provider>
         {onDocumentDrag ? (
           <div
             className='w-full h-3'
@@ -266,13 +356,13 @@ const TreeNode = ({
   renderItem?: (params: TreeRenderItemParams) => React.ReactNode
   level?: number
 }) => {
-  const [value, setValue] = React.useState(
-    expandedItemIds.includes(item.id) ? [item.id] : [],
-  )
+  const { expandedIds, setExpandedId } = useTreeExpansion()
   const [isDragOver, setIsDragOver] = React.useState(false)
   const hasChildren = !!item.children?.length
   const isSelected = selectedItemId === item.id
-  const isOpen = value.includes(item.id)
+  const isOpen = hasChildren && expandedIds.has(item.id)
+
+  const accordionValue = isOpen ? [item.id] : []
 
   const onDragStart = (e: React.DragEvent) => {
     if (!item.draggable) {
@@ -303,8 +393,10 @@ const TreeNode = ({
   return (
     <AccordionPrimitive.Root
       type='multiple'
-      value={value}
-      onValueChange={s => setValue(s)}
+      value={accordionValue}
+      onValueChange={s => {
+        setExpandedId(item.id, s.includes(item.id))
+      }}
     >
       <AccordionPrimitive.Item value={item.id}>
         <AccordionTrigger

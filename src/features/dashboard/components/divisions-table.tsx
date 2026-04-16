@@ -160,13 +160,15 @@ function buildColumns(
         const label = div.fullName || div.name
         const href = `/divisions/${div.slug?.current ?? div._id}`
         return (
-          <Link
-            href={href}
-            prefetch={false}
-            className='font-medium hover:underline'
-          >
-            {label}
-          </Link>
+          <div className='min-w-[170px]'>
+            <Link
+              href={href}
+              prefetch={false}
+              className='font-medium hover:underline'
+            >
+              {label}
+            </Link>
+          </div>
         )
       },
     },
@@ -189,9 +191,11 @@ function buildColumns(
       id: 'ac',
       header: 'Assistant Commissioner',
       cell: ({ row }) => (
-        <span className='text-sm text-muted-foreground'>
-          {row.original.assistantCommissioner?.fullName?.trim() || '—'}
-        </span>
+        <div className='min-w-[170px]'>
+          <span className=' text-sm text-muted-foreground'>
+            {row.original.assistantCommissioner?.fullName?.trim() || '—'}
+          </span>
+        </div>
       ),
     },
     {
@@ -316,13 +320,6 @@ export function DivisionsTable({
   return (
     <div className='space-y-4'>
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-        <Input
-          placeholder='Search by division, acronym, commissioner, or section…'
-          value={globalFilter}
-          onChange={e => setGlobalFilter(e.target.value)}
-          className='max-w-md'
-          aria-label='Search divisions'
-        />
         {canManageDivisions && selectedCount > 0 && onBulkDeleteDivisions && (
           <Button
             variant='destructive'

@@ -3,7 +3,7 @@ import { contractInitiative } from './contract-initiative'
 
 /**
  * SSMARTA objective under a section contract.
- * Contains initiatives (cross-cutting or KPI-driven).
+ * Contains initiatives.
  * Number governed as 1.1.1, 1.1.2, etc.
  */
 export const ssmartaObjective = defineType({

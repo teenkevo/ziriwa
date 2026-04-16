@@ -203,6 +203,7 @@ export function TaskDetailsPanel({
 
   const isSavingTask = isSaving || waitingForSave
   const isKPI = activityType === 'kpi'
+  const isDone = (task?.status ?? '') === 'done'
   const taskConfigLocked = task ? hasOfficerContent(task) : false
   const assigneeLocked = taskConfigLocked
   const expectedDeliverableSet = !!task?.expectedDeliverable?.trim()
@@ -405,7 +406,7 @@ export function TaskDetailsPanel({
 
   if (!task) {
     return (
-      <aside className='w-full lg:w-[29rem] shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
+      <aside className='w-full lg:w-[24rem] shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
         <div className='p-6 flex flex-1 items-center justify-center'>
           <p className='text-sm text-muted-foreground text-center'>
             Select a task to view and edit details
@@ -416,7 +417,7 @@ export function TaskDetailsPanel({
   }
 
   return (
-    <aside className='w-full lg:w-[29rem] shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
+    <aside className='w-full lg:w-[24rem] shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
       <div className='p-4 space-y-6 flex-1 min-h-0'>
         <div>
           <Label className='text-xs text-muted-foreground'>Detailed Task</Label>
@@ -429,7 +430,7 @@ export function TaskDetailsPanel({
                   if (e.key === 'Escape') handleCancelTask()
                 }}
                 autoFocus
-                disabled={isSavingTask}
+                disabled={isSavingTask || isDone}
                 rows={3}
                 className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
                 placeholder='Task description'
@@ -441,7 +442,7 @@ export function TaskDetailsPanel({
                   size='icon'
                   className='h-8 w-8'
                   onClick={handleConfirmTask}
-                  disabled={isSavingTask || !taskEditValue.trim()}
+                  disabled={isSavingTask || isDone || !taskEditValue.trim()}
                 >
                   {isSavingTask ? (
                     <Loader2 className='h-4 w-4 animate-spin' />
@@ -455,7 +456,7 @@ export function TaskDetailsPanel({
                   size='icon'
                   className='h-8 w-8'
                   onClick={handleCancelTask}
-                  disabled={isSavingTask}
+                  disabled={isSavingTask || isDone}
                 >
                   <X className='h-4 w-4' />
                 </Button>
@@ -463,8 +464,14 @@ export function TaskDetailsPanel({
             </div>
           ) : (
             <p
-              className='text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]'
+              className={cn(
+                'text-sm rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]',
+                isDone
+                  ? 'text-muted-foreground cursor-not-allowed'
+                  : 'cursor-pointer hover:bg-muted/50',
+              )}
               onClick={() => {
+                if (isDone) return
                 setTaskEditValue(task.task)
                 setIsEditingTask(true)
               }}
@@ -480,7 +487,7 @@ export function TaskDetailsPanel({
               officers={officers}
               value={task.assignee}
               onChange={id => onUpdate({ assignee: id })}
-              disabled={isSaving || assigneeLocked}
+              disabled={isSaving || isDone || assigneeLocked}
               placeholder='Select officer'
               sectionId={sectionId}
             />
@@ -502,7 +509,7 @@ export function TaskDetailsPanel({
           <Select
             value={task.status}
             onValueChange={v => onUpdate({ status: v })}
-            disabled={isSaving || !task.assignee}
+            disabled={isSaving || isDone || !task.assignee}
           >
             <SelectTrigger className='mt-1'>
               <SelectValue />
@@ -560,7 +567,7 @@ export function TaskDetailsPanel({
           <Select
             value={task.priority}
             onValueChange={v => onUpdate({ priority: v })}
-            disabled={isSaving}
+            disabled={isSaving || isDone}
           >
             <SelectTrigger className='mt-1'>
               <SelectValue />
@@ -1413,168 +1420,193 @@ export function TaskDetailsPanel({
                                       entry.action === 'respond') && (
                                       <div className='flex flex-wrap gap-2 pt-1'>
                                         <Dialog
-                                  open={approveDialogOpen}
-                                  onOpenChange={open => {
-                                    if (
-                                      !open &&
-                                      (isSavingTask || waitingForApprove)
-                                    )
-                                      return
-                                    setApproveDialogOpen(open)
-                                    if (!open) setApproveReason('')
-                                  }}
-                                >
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      type='button'
-                                      variant='outline'
-                                      size='sm'
-                                      disabled={isSaving}
-                                    >
-                                      <ThumbsUp className='h-4 w-4' />
-                                      <span className='ml-1.5'>Approve</span>
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Approve inputs</DialogTitle>
-                                      <DialogDescription>
-                                        Approval of inputs will allow the task
-                                        to start (In progress).
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <div className='py-4'>
-                                      <Label className='text-xs'>
-                                        Reason (optional)
-                                      </Label>
-                                      <textarea
-                                        value={approveReason}
-                                        onChange={e =>
-                                          setApproveReason(e.target.value)
-                                        }
-                                        disabled={
-                                          isSavingTask || waitingForApprove
-                                        }
-                                        className='mt-1 w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50'
-                                        placeholder='Add an optional note...'
-                                      />
-                                    </div>
-                                    <DialogFooter>
-                                      <Button
-                                        variant='outline'
-                                        onClick={() => {
-                                          setApproveReason('')
-                                          setApproveDialogOpen(false)
-                                        }}
-                                        disabled={
-                                          isSavingTask || waitingForApprove
-                                        }
-                                      >
-                                        Cancel
-                                      </Button>
-                                      <Button
-                                        onClick={() => {
-                                          setWaitingForSave(true)
-                                          setWaitingForApprove(true)
-                                          onApproveInputs(
-                                            approveReason.trim() || undefined,
-                                          )
-                                        }}
-                                        disabled={
-                                          isSavingTask || waitingForApprove
-                                        }
-                                      >
-                                        {isSavingTask || waitingForApprove ? (
-                                          <Loader2 className='h-4 w-4 animate-spin' />
-                                        ) : (
-                                          'Approve'
-                                        )}
-                                      </Button>
-                                    </DialogFooter>
-                                  </DialogContent>
-                                </Dialog>
-                                <Dialog
-                                  open={rejectDialogOpen}
-                                  onOpenChange={open => {
-                                    if (
-                                      !open &&
-                                      (isSavingTask || waitingForReject)
-                                    )
-                                      return
-                                    setRejectDialogOpen(open)
-                                    if (!open) setRejectMessage('')
-                                  }}
-                                >
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      type='button'
-                                      variant='outline'
-                                      size='sm'
-                                      disabled={isSaving}
-                                    >
-                                      <ThumbsDown className='h-4 w-4' />
-                                      <span className='ml-1.5'>Reject</span>
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Reject inputs</DialogTitle>
-                                      <DialogDescription>
-                                        The task will not proceed and the
-                                        officer needs to resubmit inputs. A
-                                        rejection reason is required.
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                    <div className='py-4'>
-                                      <Label className='text-xs' required>
-                                        Rejection reason
-                                      </Label>
-                                      <textarea
-                                        value={rejectMessage}
-                                        onChange={e =>
-                                          setRejectMessage(e.target.value)
-                                        }
-                                        disabled={
-                                          isSavingTask || waitingForReject
-                                        }
-                                        className='mt-1 w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50'
-                                        placeholder='Explain what needs to be changed...'
-                                      />
-                                    </div>
-                                    <DialogFooter>
-                                      <Button
-                                        variant='outline'
-                                        onClick={() => {
-                                          setRejectMessage('')
-                                          setRejectDialogOpen(false)
-                                        }}
-                                        disabled={
-                                          isSavingTask || waitingForReject
-                                        }
-                                      >
-                                        Cancel
-                                      </Button>
-                                      <Button
-                                        onClick={() => {
-                                          setWaitingForSave(true)
-                                          setWaitingForReject(true)
-                                          onRejectInputs(rejectMessage)
-                                        }}
-                                        disabled={
-                                          !rejectMessage.trim() ||
-                                          isSavingTask ||
-                                          waitingForReject
-                                        }
-                                      >
-                                        {isSavingTask || waitingForReject ? (
-                                          <Loader2 className='h-4 w-4 animate-spin' />
-                                        ) : (
-                                          'Reject'
-                                        )}
-                                      </Button>
-                                    </DialogFooter>
-                                  </DialogContent>
-                                </Dialog>
+                                          open={approveDialogOpen}
+                                          onOpenChange={open => {
+                                            if (
+                                              !open &&
+                                              (isSavingTask ||
+                                                waitingForApprove)
+                                            )
+                                              return
+                                            setApproveDialogOpen(open)
+                                            if (!open) setApproveReason('')
+                                          }}
+                                        >
+                                          <DialogTrigger asChild>
+                                            <Button
+                                              type='button'
+                                              variant='outline'
+                                              size='sm'
+                                              disabled={isSaving}
+                                            >
+                                              <ThumbsUp className='h-4 w-4' />
+                                              <span className='ml-1.5'>
+                                                Approve
+                                              </span>
+                                            </Button>
+                                          </DialogTrigger>
+                                          <DialogContent>
+                                            <DialogHeader>
+                                              <DialogTitle>
+                                                Approve inputs
+                                              </DialogTitle>
+                                              <DialogDescription>
+                                                Approval of inputs will allow
+                                                the task to start (In progress).
+                                              </DialogDescription>
+                                            </DialogHeader>
+                                            <div className='py-4'>
+                                              <Label className='text-xs'>
+                                                Reason (optional)
+                                              </Label>
+                                              <textarea
+                                                value={approveReason}
+                                                onChange={e =>
+                                                  setApproveReason(
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                disabled={
+                                                  isSavingTask ||
+                                                  waitingForApprove
+                                                }
+                                                className='mt-1 w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50'
+                                                placeholder='Add an optional note...'
+                                              />
+                                            </div>
+                                            <DialogFooter>
+                                              <Button
+                                                variant='outline'
+                                                onClick={() => {
+                                                  setApproveReason('')
+                                                  setApproveDialogOpen(false)
+                                                }}
+                                                disabled={
+                                                  isSavingTask ||
+                                                  waitingForApprove
+                                                }
+                                              >
+                                                Cancel
+                                              </Button>
+                                              <Button
+                                                onClick={() => {
+                                                  setWaitingForSave(true)
+                                                  setWaitingForApprove(true)
+                                                  onApproveInputs(
+                                                    approveReason.trim() ||
+                                                      undefined,
+                                                  )
+                                                }}
+                                                disabled={
+                                                  isSavingTask ||
+                                                  waitingForApprove
+                                                }
+                                              >
+                                                {isSavingTask ||
+                                                waitingForApprove ? (
+                                                  <Loader2 className='h-4 w-4 animate-spin' />
+                                                ) : (
+                                                  'Approve'
+                                                )}
+                                              </Button>
+                                            </DialogFooter>
+                                          </DialogContent>
+                                        </Dialog>
+                                        <Dialog
+                                          open={rejectDialogOpen}
+                                          onOpenChange={open => {
+                                            if (
+                                              !open &&
+                                              (isSavingTask || waitingForReject)
+                                            )
+                                              return
+                                            setRejectDialogOpen(open)
+                                            if (!open) setRejectMessage('')
+                                          }}
+                                        >
+                                          <DialogTrigger asChild>
+                                            <Button
+                                              type='button'
+                                              variant='outline'
+                                              size='sm'
+                                              disabled={isSaving}
+                                            >
+                                              <ThumbsDown className='h-4 w-4' />
+                                              <span className='ml-1.5'>
+                                                Reject
+                                              </span>
+                                            </Button>
+                                          </DialogTrigger>
+                                          <DialogContent>
+                                            <DialogHeader>
+                                              <DialogTitle>
+                                                Reject inputs
+                                              </DialogTitle>
+                                              <DialogDescription>
+                                                The task will not proceed and
+                                                the officer needs to resubmit
+                                                inputs. A rejection reason is
+                                                required.
+                                              </DialogDescription>
+                                            </DialogHeader>
+                                            <div className='py-4'>
+                                              <Label
+                                                className='text-xs'
+                                                required
+                                              >
+                                                Rejection reason
+                                              </Label>
+                                              <textarea
+                                                value={rejectMessage}
+                                                onChange={e =>
+                                                  setRejectMessage(
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                disabled={
+                                                  isSavingTask ||
+                                                  waitingForReject
+                                                }
+                                                className='mt-1 w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50'
+                                                placeholder='Explain what needs to be changed...'
+                                              />
+                                            </div>
+                                            <DialogFooter>
+                                              <Button
+                                                variant='outline'
+                                                onClick={() => {
+                                                  setRejectMessage('')
+                                                  setRejectDialogOpen(false)
+                                                }}
+                                                disabled={
+                                                  isSavingTask ||
+                                                  waitingForReject
+                                                }
+                                              >
+                                                Cancel
+                                              </Button>
+                                              <Button
+                                                onClick={() => {
+                                                  setWaitingForSave(true)
+                                                  setWaitingForReject(true)
+                                                  onRejectInputs(rejectMessage)
+                                                }}
+                                                disabled={
+                                                  !rejectMessage.trim() ||
+                                                  isSavingTask ||
+                                                  waitingForReject
+                                                }
+                                              >
+                                                {isSavingTask ||
+                                                waitingForReject ? (
+                                                  <Loader2 className='h-4 w-4 animate-spin' />
+                                                ) : (
+                                                  'Reject'
+                                                )}
+                                              </Button>
+                                            </DialogFooter>
+                                          </DialogContent>
+                                        </Dialog>
                                       </div>
                                     )}
                                 </div>

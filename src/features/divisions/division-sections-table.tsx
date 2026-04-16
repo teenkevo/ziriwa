@@ -151,13 +151,15 @@ function buildColumns(
         const s = row.original
         const href = `/sections/${s.slug?.current ?? s._id}`
         return (
-          <Link
-            href={href}
-            prefetch={false}
-            className='font-medium hover:underline'
-          >
-            {s.name}
-          </Link>
+          <div className='min-w-[250px]'>
+            <Link
+              href={href}
+              prefetch={false}
+              className='font-medium hover:underline'
+            >
+              {s.name}
+            </Link>
+          </div>
         )
       },
     },
@@ -165,9 +167,11 @@ function buildColumns(
       id: 'manager',
       header: 'Manager',
       cell: ({ row }) => (
-        <span className='text-sm text-muted-foreground'>
-          {row.original.manager?.fullName ?? '—'}
-        </span>
+        <div className='min-w-[150px]'>
+          <span className='text-sm text-muted-foreground'>
+            {row.original.manager?.fullName ?? '—'}
+          </span>
+        </div>
       ),
     },
     {
@@ -287,13 +291,6 @@ export function DivisionSectionsTable({
   return (
     <div className='space-y-4'>
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-        <Input
-          placeholder='Search by section or manager…'
-          value={globalFilter}
-          onChange={e => setGlobalFilter(e.target.value)}
-          className='max-w-md'
-          aria-label='Search sections'
-        />
         {allowSectionActions && selectedCount > 0 && onBulkDeleteSections && (
           <Button
             variant='destructive'

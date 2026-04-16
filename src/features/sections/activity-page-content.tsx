@@ -3,14 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { endOfMonth, endOfQuarter, endOfWeek, format } from 'date-fns'
-import {
-  CalendarIcon,
-  Check,
-  Loader2,
-  Plus,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { CalendarIcon, Check, Loader2, Plus, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -121,19 +114,16 @@ function tasksToPayload(rows: TaskRow[]) {
     task: r.task,
     priority: r.priority,
     assignee: r.assignee,
-    inputs:
-      r.inputs?.file?.asset?._id
-        ? {
-            file: { asset: { _ref: r.inputs.file.asset._id } },
-            submittedAt: r.inputs.submittedAt ?? new Date().toISOString(),
-          }
-        : undefined,
+    inputs: r.inputs?.file?.asset?._id
+      ? {
+          file: { asset: { _ref: r.inputs.file.asset._id } },
+          submittedAt: r.inputs.submittedAt ?? new Date().toISOString(),
+        }
+      : undefined,
     inputsReviewThread: (r.inputsReviewThread ?? []).map(entry => {
       const assetId = entry.file?.asset?._id
       const authorId =
-        typeof entry.author === 'string'
-          ? entry.author
-          : entry.author?._id
+        typeof entry.author === 'string' ? entry.author : entry.author?._id
       return {
         _key: entry._key,
         author: authorId,
@@ -149,9 +139,7 @@ function tasksToPayload(rows: TaskRow[]) {
     deliverableReviewThread: (r.deliverableReviewThread ?? []).map(entry => {
       const assetId = entry.file?.asset?._id
       const authorId =
-        typeof entry.author === 'string'
-          ? entry.author
-          : entry.author?._id
+        typeof entry.author === 'string' ? entry.author : entry.author?._id
       return {
         _key: entry._key,
         author: authorId,
@@ -182,28 +170,24 @@ function tasksToPayload(rows: TaskRow[]) {
           tag: e.tag === 'main' ? 'main' : 'support',
           locked: e.locked ?? false,
         })),
-      deliverableReviewThread: (pd.deliverableReviewThread ?? []).map(
-        entry => {
-          const assetId = entry.file?.asset?._id
-          const authorId =
-            typeof entry.author === 'string'
-              ? entry.author
-              : entry.author?._id
-          return {
-            _key: entry._key,
-            author: authorId
-              ? { _type: 'reference' as const, _ref: authorId }
-              : undefined,
-            role: entry.role,
-            action: entry.action,
-            message: entry.message,
-            createdAt: entry.createdAt,
-            ...(assetId && {
-              file: { asset: { _ref: assetId } },
-            }),
-          }
-        },
-      ),
+      deliverableReviewThread: (pd.deliverableReviewThread ?? []).map(entry => {
+        const assetId = entry.file?.asset?._id
+        const authorId =
+          typeof entry.author === 'string' ? entry.author : entry.author?._id
+        return {
+          _key: entry._key,
+          author: authorId
+            ? { _type: 'reference' as const, _ref: authorId }
+            : undefined,
+          role: entry.role,
+          action: entry.action,
+          message: entry.message,
+          createdAt: entry.createdAt,
+          ...(assetId && {
+            file: { asset: { _ref: assetId } },
+          }),
+        }
+      }),
     })),
     deliverable: (r.deliverable ?? [])
       .filter(e => e.file?.asset?._id)
@@ -293,17 +277,8 @@ export function ActivityPageContent({
       })
     }
     out.push({ label: section.name, href: sectionHref })
-    out.push({
-      label: title.trim() || activity.title || 'Activity',
-    })
     return out
-  }, [
-    section.division,
-    section.name,
-    sectionHref,
-    title,
-    activity.title,
-  ])
+  }, [section.division, section.name, sectionHref])
 
   useRegisterPageBreadcrumbs(breadcrumbItems)
 
@@ -896,13 +871,15 @@ export function ActivityPageContent({
     async (message: string, replacementFile?: File) => {
       if (!selectedTaskKey) return
       let inputs = selectedTask?.inputs
-      let fileAsset: {
-        _id: string
-        url?: string
-        originalFilename?: string
-        size?: number
-        mimeType?: string
-      } | undefined
+      let fileAsset:
+        | {
+            _id: string
+            url?: string
+            originalFilename?: string
+            size?: number
+            mimeType?: string
+          }
+        | undefined
       if (replacementFile) {
         const fd = new FormData()
         fd.append('file', replacementFile)
@@ -1081,11 +1058,17 @@ export function ActivityPageContent({
   }
 
   const updatePeriodDeliverable = React.useCallback(
-    (periodKey: string, updater: (pd: NonNullable<TaskRow['periodDeliverables']>[0]) => NonNullable<TaskRow['periodDeliverables']>[0]) => {
+    (
+      periodKey: string,
+      updater: (
+        pd: NonNullable<TaskRow['periodDeliverables']>[0],
+      ) => NonNullable<TaskRow['periodDeliverables']>[0],
+    ) => {
       if (!selectedTaskKey) return
       const existing = selectedTask?.periodDeliverables ?? []
       const idx = existing.findIndex(p => p.periodKey === periodKey)
-      const pd = idx >= 0 ? existing[idx] : getOrCreatePeriodDeliverable(periodKey)
+      const pd =
+        idx >= 0 ? existing[idx] : getOrCreatePeriodDeliverable(periodKey)
       const updatedPd = updater(pd)
       const updated =
         idx >= 0
@@ -1160,8 +1143,7 @@ export function ActivityPageContent({
         )
         const wasMain = (item?.tag ?? 'support') === 'main'
         const newStatus =
-          wasMain &&
-          (pd.status === 'delivered' || pd.status === 'in_review')
+          wasMain && (pd.status === 'delivered' || pd.status === 'in_review')
             ? 'pending'
             : pd.status
         return {
@@ -1361,72 +1343,20 @@ export function ActivityPageContent({
   return (
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
       <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
-      <div>
-        <div className='max-w-prose'>
-          {isEditingTitle ? (
-            <div ref={titleEditRef} className='space-y-2'>
-              <textarea
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Escape') handleCancelTitle()
-                }}
-                autoFocus
-                disabled={isSavingActivity}
-                rows={2}
-                className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-2xl font-bold placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
-              />
-              <div className='flex gap-1'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='icon'
-                  className='h-8 w-8'
-                  onClick={handleConfirmTitle}
-                  disabled={isSavingActivity || !title.trim()}
-                >
-                  <Check className='h-4 w-4' />
-                </Button>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='icon'
-                  className='h-8 w-8'
-                  onClick={handleCancelTitle}
-                  disabled={isSavingActivity}
-                >
-                  <X className='h-4 w-4' />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <h1
-              className='text-2xl font-bold cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1'
-              onClick={() => {
-                setTitleBeforeEdit(title)
-                setIsEditingTitle(true)
-              }}
-            >
-              {activityCode} – {title}
-            </h1>
-          )}
-        </div>
-        {isKPI && (
-          <div className='mt-6 max-w-prose'>
-            <Label className='text-sm font-medium'>AIM</Label>
-            {isEditingAim ? (
-              <div ref={aimEditRef} className='space-y-2 mt-1'>
+        <div>
+          <div className='max-w-prose'>
+            {isEditingTitle ? (
+              <div ref={titleEditRef} className='space-y-2'>
                 <textarea
-                  value={aim}
-                  onChange={e => setAim(e.target.value)}
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === 'Escape') handleCancelAim()
+                    if (e.key === 'Escape') handleCancelTitle()
                   }}
                   autoFocus
                   disabled={isSavingActivity}
                   rows={2}
-                  className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
-                  placeholder='Scope, design, and validate...'
+                  className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-2xl font-bold placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
                 />
                 <div className='flex gap-1'>
                   <Button
@@ -1434,8 +1364,8 @@ export function ActivityPageContent({
                     variant='outline'
                     size='icon'
                     className='h-8 w-8'
-                    onClick={handleConfirmAim}
-                    disabled={isSavingActivity}
+                    onClick={handleConfirmTitle}
+                    disabled={isSavingActivity || !title.trim()}
                   >
                     <Check className='h-4 w-4' />
                   </Button>
@@ -1444,7 +1374,7 @@ export function ActivityPageContent({
                     variant='outline'
                     size='icon'
                     className='h-8 w-8'
-                    onClick={handleCancelAim}
+                    onClick={handleCancelTitle}
                     disabled={isSavingActivity}
                   >
                     <X className='h-4 w-4' />
@@ -1452,20 +1382,73 @@ export function ActivityPageContent({
                 </div>
               </div>
             ) : (
-              <p
-                className='text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 min-h-[2rem] mt-1'
+              <h1
+                className='text-2xl font-bold cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1'
                 onClick={() => {
-                  setAimBeforeEdit(aim)
-                  setIsEditingAim(true)
+                  setTitleBeforeEdit(title)
+                  setIsEditingTitle(true)
                 }}
               >
-                {aim || 'Click to add AIM...'}
-              </p>
+                <span className='font-bold'>{activityCode} - </span>{' '}
+                <span className='font-normal'>{title}</span>
+              </h1>
             )}
           </div>
-        )}
+          {isKPI && (
+            <div className='mt-6 max-w-prose'>
+              <Label className='text-sm font-medium'>AIM</Label>
+              {isEditingAim ? (
+                <div ref={aimEditRef} className='space-y-2 mt-1'>
+                  <textarea
+                    value={aim}
+                    onChange={e => setAim(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Escape') handleCancelAim()
+                    }}
+                    autoFocus
+                    disabled={isSavingActivity}
+                    rows={2}
+                    className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
+                    placeholder='Scope, design, and validate...'
+                  />
+                  <div className='flex gap-1'>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon'
+                      className='h-8 w-8'
+                      onClick={handleConfirmAim}
+                      disabled={isSavingActivity}
+                    >
+                      <Check className='h-4 w-4' />
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon'
+                      className='h-8 w-8'
+                      onClick={handleCancelAim}
+                      disabled={isSavingActivity}
+                    >
+                      <X className='h-4 w-4' />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p
+                  className='text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 min-h-[2rem] mt-1'
+                  onClick={() => {
+                    setAimBeforeEdit(aim)
+                    setIsEditingAim(true)
+                  }}
+                >
+                  {aim || 'Click to add AIM...'}
+                </p>
+              )}
+            </div>
+          )}
           {!isKPI && (
-        <div className='flex flex-wrap items-start gap-8 mt-8 max-w-prose'>
+            <div className='flex flex-wrap items-start gap-8 mt-8 max-w-prose'>
               <Card className='w-full max-w-prose'>
                 <CardHeader className='flex flex-row items-center justify-between space-y-0'>
                   <div>
@@ -1523,160 +1506,160 @@ export function ActivityPageContent({
                 {reportingFrequency !== 'n/a' && (
                   <CardContent className='pt-0 space-y-2'>
                     <Label className='text-sm mb-2'>Reporting frequency</Label>
-            <div className='flex items-center gap-2'>
-              <Select
-                value={reportingFrequency}
-                onValueChange={handleReportingFrequencyChange}
-                disabled={isSavingActivity}
-              >
-                <SelectTrigger className='h-9 min-w-[140px]'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='weekly'>Weekly</SelectItem>
-                  <SelectItem value='monthly'>Monthly</SelectItem>
-                  <SelectItem value='quarterly'>Quarterly</SelectItem>
-                </SelectContent>
-              </Select>
-              {isSavingReportingFrequency && (
-                <Loader2 className='h-4 w-4 shrink-0 animate-spin text-muted-foreground' />
-              )}
-            </div>
+                    <div className='flex items-center gap-2'>
+                      <Select
+                        value={reportingFrequency}
+                        onValueChange={handleReportingFrequencyChange}
+                        disabled={isSavingActivity}
+                      >
+                        <SelectTrigger className='h-9 min-w-[140px]'>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='weekly'>Weekly</SelectItem>
+                          <SelectItem value='monthly'>Monthly</SelectItem>
+                          <SelectItem value='quarterly'>Quarterly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {isSavingReportingFrequency && (
+                        <Loader2 className='h-4 w-4 shrink-0 animate-spin text-muted-foreground' />
+                      )}
+                    </div>
                   </CardContent>
                 )}
               </Card>
-          <div className='flex flex-col gap-1'>
+              <div className='flex flex-col gap-1'>
                 <Label className='text-sm mb-2'>Due Date</Label>
-            <div className='flex items-center gap-2'>
-            {reportingFrequency === 'weekly' ? (
-              <div className='flex h-9 min-w-[200px] items-center gap-2 rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground'>
-                <CalendarIcon className='h-4 w-4 shrink-0' />
-                <span>
+                <div className='flex items-center gap-2'>
+                  {reportingFrequency === 'weekly' ? (
+                    <div className='flex h-9 min-w-[200px] items-center gap-2 rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground'>
+                      <CalendarIcon className='h-4 w-4 shrink-0' />
+                      <span>
                         Due end of this week (
                         {format(endOfWeek(new Date()), 'PPP')})
-                </span>
-              </div>
-            ) : (
-              <>
+                      </span>
+                    </div>
+                  ) : (
+                    <>
                       <Popover
                         open={datePopoverOpen}
                         onOpenChange={setDatePopoverOpen}
                       >
-              <PopoverTrigger asChild>
-                <Button
-                  variant='outline'
-                  disabled={isSavingActivity}
-                  className={cn(
-                    'h-9 justify-between text-left font-normal min-w-[200px]',
-                    !targetDate && 'text-muted-foreground',
-                  )}
-                >
-                  <span className='flex items-center gap-2'>
-                    <CalendarIcon className='h-4 w-4 shrink-0' />
-                    {targetDate ? (
-                      format(new Date(targetDate), 'PPP')
-                    ) : (
-                      <span>Pick a date</span>
-                    )}
-                  </span>
-                  {isSavingDate && (
-                    <Loader2 className='h-4 w-4 shrink-0 animate-spin' />
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className='w-auto p-0' align='start'>
-                <Calendar
-                  mode='single'
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant='outline'
+                            disabled={isSavingActivity}
+                            className={cn(
+                              'h-9 justify-between text-left font-normal min-w-[200px]',
+                              !targetDate && 'text-muted-foreground',
+                            )}
+                          >
+                            <span className='flex items-center gap-2'>
+                              <CalendarIcon className='h-4 w-4 shrink-0' />
+                              {targetDate ? (
+                                format(new Date(targetDate), 'PPP')
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                            </span>
+                            {isSavingDate && (
+                              <Loader2 className='h-4 w-4 shrink-0 animate-spin' />
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className='w-auto p-0' align='start'>
+                          <Calendar
+                            mode='single'
                             selected={
                               targetDate ? new Date(targetDate) : undefined
                             }
-                  onSelect={handleTargetDateChange}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            {reportingFrequency === 'monthly' && (
-              <Button
-                type='button'
-                variant='ghost'
-                size='sm'
-                className='h-9 text-muted-foreground'
-                disabled={isSavingActivity}
-                onClick={() => {
-                  const now = new Date()
-                  handleTargetDateChange(endOfMonth(now))
-                }}
-              >
-                Set to end of period
-              </Button>
-            )}
-              </>
-            )}
+                            onSelect={handleTargetDateChange}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {reportingFrequency === 'monthly' && (
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='sm'
+                          className='h-9 text-muted-foreground'
+                          disabled={isSavingActivity}
+                          onClick={() => {
+                            const now = new Date()
+                            handleTargetDateChange(endOfMonth(now))
+                          }}
+                        >
+                          Set to end of period
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className='flex flex-col gap-1'>
+                <Label className='text-sm mb-2'>Status</Label>
+                <div className='flex items-center gap-2'>
+                  <Select
+                    value={status}
+                    onValueChange={handleStatusChange}
+                    disabled={isSavingActivity}
+                  >
+                    <SelectTrigger className='h-9 min-w-[140px]'>
+                      <SelectValue placeholder='Select status' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='not_started'>Not started</SelectItem>
+                      <SelectItem value='in_progress'>In progress</SelectItem>
+                      <SelectItem value='completed'>Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isSavingStatus && (
+                    <Loader2 className='h-4 w-4 shrink-0 animate-spin text-muted-foreground' />
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className='flex flex-col gap-1'>
-            <Label className='text-sm mb-2'>Status</Label>
-            <div className='flex items-center gap-2'>
-              <Select
-                value={status}
-                onValueChange={handleStatusChange}
-                disabled={isSavingActivity}
-              >
-                <SelectTrigger className='h-9 min-w-[140px]'>
-                  <SelectValue placeholder='Select status' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='not_started'>Not started</SelectItem>
-                  <SelectItem value='in_progress'>In progress</SelectItem>
-                  <SelectItem value='completed'>Completed</SelectItem>
-                </SelectContent>
-              </Select>
-              {isSavingStatus && (
-                <Loader2 className='h-4 w-4 shrink-0 animate-spin text-muted-foreground' />
-              )}
-            </div>
-          </div>
-        </div>
           )}
 
           <div className='space-y-4 flex-1 min-w-0 mt-10'>
-        <h2 className='text-sm font-semibold'>Detailed Tasks</h2>
-        <DetailedTasksTable
-          tasks={tasks}
-          officers={officers}
-          sectionId={section._id}
-          selectedTaskKey={selectedTaskKey}
-          onSelectTask={setSelectedTaskKey}
-          onUpdateTask={updateTaskByKey}
-          onRemoveTask={removeTaskByKey}
-          isSaving={isSavingTasks}
-        />
-        <div className='flex gap-2'>
-          <Input
-            placeholder='Add a task...'
-            value={newTask}
-            onChange={e => setNewTask(e.target.value)}
-            onKeyDown={e =>
-              e.key === 'Enter' && (e.preventDefault(), handleAddTask())
-            }
-            disabled={isSavingTasks || isAddingTask}
-          />
-          <Button
-            type='button'
-            variant='default'
-            size='icon'
-            onClick={handleAddTask}
-            disabled={isSavingTasks || isAddingTask || !newTask.trim()}
-          >
-            {isAddingTask ? (
-              <Loader2 className='h-4 w-4 animate-spin' />
-            ) : (
-              <Plus className='h-4 w-4' />
-            )}
-          </Button>
+            <h2 className='text-sm font-semibold'>Detailed Tasks</h2>
+            <DetailedTasksTable
+              tasks={tasks}
+              officers={officers}
+              sectionId={section._id}
+              selectedTaskKey={selectedTaskKey}
+              onSelectTask={setSelectedTaskKey}
+              onUpdateTask={updateTaskByKey}
+              onRemoveTask={removeTaskByKey}
+              isSaving={isSavingTasks}
+            />
+            <div className='flex gap-2'>
+              <Input
+                placeholder='Add a task...'
+                value={newTask}
+                onChange={e => setNewTask(e.target.value)}
+                onKeyDown={e =>
+                  e.key === 'Enter' && (e.preventDefault(), handleAddTask())
+                }
+                disabled={isSavingTasks || isAddingTask}
+              />
+              <Button
+                type='button'
+                variant='default'
+                size='icon'
+                onClick={handleAddTask}
+                disabled={isSavingTasks || isAddingTask || !newTask.trim()}
+              >
+                {isAddingTask ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : (
+                  <Plus className='h-4 w-4' />
+                )}
+              </Button>
             </div>
+          </div>
         </div>
-      </div>
       </div>
       <TaskDetailsPanel
         task={selectedTask}

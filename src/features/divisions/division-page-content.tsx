@@ -216,41 +216,43 @@ export function DivisionPageContent({
             </h1>
             <p className='text-sm text-muted-foreground'>Sections</p>
           </div>
-          <div className='flex flex-wrap items-center gap-2 justify-end shrink-0'>
+          <div className='flex w-full flex-wrap items-center gap-2 justify-between sm:w-auto sm:justify-end shrink-0'>
+            <div className='flex flex-wrap items-center gap-2'>
+              {allowSectionActions && (
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setShowCreateSection(true)}
+                >
+                  <Plus className='h-4 w-4 mr-1 text-primary' />
+                  Add a section
+                </Button>
+              )}
+              {allowDivisionActions && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size='sm' className='shrink-0'>
+                      Actions
+                      <ChevronDown className='h-4 w-4 ml-1 opacity-70' />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align='end'>
+                    <DropdownMenuItem onClick={() => setShowEditDivision(true)}>
+                      <Pencil className='h-4 w-4 mr-2' />
+                      Edit division
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className='text-destructive focus:text-destructive'
+                      onClick={() => setShowDeleteDivision(true)}
+                    >
+                      <Trash2 className='h-4 w-4 mr-2' />
+                      Delete division
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
-            {allowSectionActions && (
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => setShowCreateSection(true)}
-              >
-                <Plus className='h-4 w-4 mr-1 text-primary' />
-                Add a section
-              </Button>
-            )}
-            {allowDivisionActions && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size='sm' className='shrink-0'>
-                    Actions
-                    <ChevronDown className='h-4 w-4 ml-1 opacity-70' />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align='end'>
-                  <DropdownMenuItem onClick={() => setShowEditDivision(true)}>
-                    <Pencil className='h-4 w-4 mr-2' />
-                    Edit division
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className='text-destructive focus:text-destructive'
-                    onClick={() => setShowDeleteDivision(true)}
-                  >
-                    <Trash2 className='h-4 w-4 mr-2' />
-                    Delete division
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </div>
         </div>
 
@@ -268,23 +270,6 @@ export function DivisionPageContent({
           />
         ) : (
           <>
-            {sections.length > 0 && (
-              <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                <Input
-                  placeholder='Search by section or manager…'
-                  value={gridSearch}
-                  onChange={e => setGridSearch(e.target.value)}
-                  className='max-w-md'
-                  aria-label='Search sections'
-                />
-                {gridSearch.trim() ? (
-                  <p className='text-sm text-muted-foreground sm:text-right'>
-                    {filteredSectionsForGrid.length} of {sections.length}{' '}
-                    section{sections.length === 1 ? '' : 's'} (filtered)
-                  </p>
-                ) : null}
-              </div>
-            )}
             {filteredSectionsForGrid.length === 0 &&
               sections.length > 0 &&
               gridSearch.trim() && (

@@ -16,6 +16,7 @@ import { GlobalSearch } from '@/components/global-search'
 import { UserNav } from '@/features/dashboard/components/user-nav'
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useAppBreadcrumb } from '@/contexts/app-breadcrumb-context'
 
 export function AppTopBar() {
@@ -26,20 +27,20 @@ export function AppTopBar() {
       <SidebarTrigger className='-ml-1 shrink-0' />
       <div className='flex min-w-0 flex-1 items-center gap-2 sm:gap-3'>
         {items.length > 0 && (
-          <Breadcrumb className='min-w-0 flex-1 text-muted-foreground md:max-w-[min(50%,20rem)]'>
-            <BreadcrumbList className='flex-nowrap overflow-hidden'>
+          <Breadcrumb className='hidden min-w-0 flex-1 text-muted-foreground lg:flex lg:items-center'>
+            <BreadcrumbList className='flex-wrap'>
               {items.map((item, i) => (
                 <React.Fragment key={`${item.label}-${i}`}>
                   {i > 0 && <BreadcrumbSeparator />}
-                  <BreadcrumbItem className='min-w-0 max-w-[min(40vw,12rem)] sm:max-w-[16rem]'>
+                  <BreadcrumbItem className='min-w-0'>
                     {item.href ? (
                       <BreadcrumbLink asChild>
-                        <Link href={item.href} className='truncate'>
+                        <Link href={item.href} title={item.label}>
                           {item.label}
                         </Link>
                       </BreadcrumbLink>
                     ) : (
-                      <BreadcrumbPage className='truncate' title={item.label}>
+                      <BreadcrumbPage title={item.label}>
                         {item.label}
                       </BreadcrumbPage>
                     )}
@@ -49,6 +50,14 @@ export function AppTopBar() {
             </BreadcrumbList>
           </Breadcrumb>
         )}
+        <SignedIn>
+          <GlobalSearch
+            className={cn(
+              'min-w-0 w-full flex-1 sm:w-[min(22rem,40vw)] sm:flex-none sm:shrink-0',
+              items.length === 0 && 'sm:ml-auto',
+            )}
+          />
+        </SignedIn>
         {items.length === 0 && (
           <SignedOut>
             <div className='min-w-0 flex-1' />
@@ -56,9 +65,6 @@ export function AppTopBar() {
         )}
       </div>
       <div className='flex shrink-0 items-center gap-2'>
-        <SignedIn>
-          <GlobalSearch className='w-[min(22rem,40vw)]' />
-        </SignedIn>
         <ModeToggle />
         <SignedIn>
           <UserNav />
