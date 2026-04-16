@@ -1,0 +1,44 @@
+services:
+  # Nginx service (use with: docker compose up nextjs-static-export --build)
+  nextjs-static-export:
+    env_file:
+      - .env.local
+    build:
+      context: .
+      dockerfile: Dockerfile.serve
+      args:
+        NEXT_PUBLIC_SANITY_PROJECT_ID: ${NEXT_PUBLIC_SANITY_PROJECT_ID}
+        NEXT_PUBLIC_SANITY_DATASET: ${NEXT_PUBLIC_SANITY_DATASET}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        SANITY_PROJECT_ID: ${SANITY_PROJECT_ID}
+        SANITY_DATASET: ${SANITY_DATASET}
+        SANITY_API_TOKEN: ${SANITY_API_TOKEN}
+        SANITY_API_READ_TOKEN: ${SANITY_API_READ_TOKEN}
+        SANITY_REVALIDATE_SECRET: ${SANITY_REVALIDATE_SECRET}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+        CLERK_WEBHOOK_SIGNING_SECRET: ${CLERK_WEBHOOK_SIGNING_SECRET}
+    image: nextjs-static-export-image
+    container_name: nextjs-static-export-container
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
+
+  # Serve variant (use with: docker compose up nextjs-static-export-with-serve --build)
+  nextjs-static-export-with-serve:
+    env_file:
+      - .env.local
+    build:
+      context: .
+      dockerfile: Dockerfile.serve
+    image: nextjs-static-export-serve-image
+    container_name: nextjs-static-export-serve-container
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
