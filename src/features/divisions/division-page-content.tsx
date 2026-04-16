@@ -361,9 +361,8 @@ export function DivisionPageContent({
               <AlertDialogDescription>
                 This action will{' '}
                 <strong className='text-destructive'>permanently delete</strong>{' '}
-                &quot;{divisionLabel}&quot; and all of its sections. Related
-                contracts, weekly sprints, stakeholder records, and uploaded
-                files will be removed. This action cannot be undone.
+                &quot;{divisionLabel}&quot; and all of its sections. This action
+                cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

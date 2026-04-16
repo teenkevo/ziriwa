@@ -122,7 +122,7 @@ export default function HeroSection() {
   return (
     <>
       <Navbar />
-      <section className='min-h-max bg-white dark:bg-gray-950'>
+      <section className='min-h-screen bg-white dark:bg-gray-950'>
         <div className='relative mx-auto pt-32 pb-24 lg:max-w-7xl w-full px-5 sm:px-10 md:px-12 lg:px-5 text-center space-y-10'>
           {/* Animate the main heading */}
           <motion.div
@@ -131,7 +131,12 @@ export default function HeroSection() {
             transition={{ duration: 1 }}
           >
             <h1 className='text-gray-900 dark:text-white mx-auto max-w-5xl font-bold text-4xl/tight sm:text-5xl/tight lg:text-5xl/tight xl:text-6xl/tight'>
-              Ziriwa
+              <span className='inline-flex items-center gap-3'>
+                <span>Ziriwa</span>
+                <span className='inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-semibold tracking-wide text-gray-700 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200'>
+                  Beta
+                </span>
+              </span>
             </h1>
           </motion.div>
 

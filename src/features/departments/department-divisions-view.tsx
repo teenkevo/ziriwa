@@ -251,7 +251,9 @@ export function DepartmentDivisionsView({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align='end'>
-                    <DropdownMenuItem onClick={() => setShowEditDepartment(true)}>
+                    <DropdownMenuItem
+                      onClick={() => setShowEditDepartment(true)}
+                    >
                       <Pencil className='h-4 w-4 mr-2' />
                       Edit department
                     </DropdownMenuItem>
@@ -361,14 +363,7 @@ export function DepartmentDivisionsView({
                 <strong className='text-destructive'>permanently delete</strong>{' '}
                 &quot;
                 {department ? department.fullName || department.name : ''}
-                &quot; and{' '}
-                <strong className='text-destructive'>
-                  everything under it
-                </strong>
-                : all divisions, sections, performance contracts, weekly
-                sprints, stakeholder records, and uploaded files. Staff
-                assignments to this department will be cleared. This cannot be
-                undone.
+                &quot; and all of its divisions. This cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -475,9 +470,7 @@ export function DepartmentDivisionsView({
                 <strong className='text-destructive'>permanently delete</strong>{' '}
                 &quot;
                 {deletingDivision ? divisionLabel(deletingDivision) : ''}
-                &quot; and all of its sections. Related contracts, weekly
-                sprints, stakeholder records, and uploaded files will be
-                removed. This action cannot be undone.
+                &quot; and all of its sections. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

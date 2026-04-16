@@ -103,8 +103,8 @@ export function EditObjectiveDialog({
         <DialogHeader>
           <DialogTitle>Edit SSMARTA Objective</DialogTitle>
           <DialogDescription>
-            Update the objective code or text. Changing the code renumbers initiatives
-            under this objective to keep the same structure (e.g. 4.1.x becomes 5.2.x).
+            Changing the code renumbers initiatives under this objective to keep
+            the same structural consistency.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -167,7 +167,10 @@ export function EditObjectiveDialog({
               >
                 Cancel
               </Button>
-              <Button type='submit' disabled={isSaving || !form.formState.isValid}>
+              <Button
+                type='submit'
+                disabled={isSaving || !form.formState.isValid}
+              >
                 {isSaving ? (
                   <>
                     <Loader2 className='mr-2 h-4 w-4 animate-spin' />
@@ -184,4 +187,3 @@ export function EditObjectiveDialog({
     </Dialog>
   )
 }
-

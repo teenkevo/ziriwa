@@ -93,8 +93,7 @@ export function EditSectionDialog({
         <DialogHeader>
           <DialogTitle>Edit section</DialogTitle>
           <DialogDescription>
-            Update the section name and manager. Changing the name may update
-            the URL slug.
+            Update the section name and manager.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
