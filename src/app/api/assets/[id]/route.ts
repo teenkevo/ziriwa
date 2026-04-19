@@ -3,7 +3,7 @@ import oracledb from 'oracledb'
 import { withOracleConnection } from '@/lib/oracle/client'
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
@@ -58,12 +58,103 @@ export async function GET(
     buf.byteOffset + buf.byteLength,
   ) as ArrayBuffer
 
+  // Support Range requests for built-in PDF viewers (Chrome/Safari).
+  const range = req.headers.get('range')
+  if (range) {
+    const m = /^bytes=(\d*)-(\d*)$/i.exec(range.trim())
+    if (!m) {
+      return new NextResponse(null, {
+        status: 416,
+        headers: {
+          'Content-Range': `bytes */${buf.byteLength}`,
+          'Cache-Control': 'no-store',
+          'Accept-Ranges': 'bytes',
+        },
+      })
+    }
+
+    const size = buf.byteLength
+    const startRaw = m[1]
+    const endRaw = m[2]
+
+    let start: number
+    let end: number
+
+    if (startRaw === '' && endRaw === '') {
+      return new NextResponse(null, {
+        status: 416,
+        headers: {
+          'Content-Range': `bytes */${size}`,
+          'Cache-Control': 'no-store',
+          'Accept-Ranges': 'bytes',
+        },
+      })
+    }
+
+    if (startRaw === '') {
+      // Suffix range: bytes=-N (last N bytes)
+      const suffixLen = Number(endRaw)
+      if (!Number.isFinite(suffixLen) || suffixLen <= 0) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: {
+            'Content-Range': `bytes */${size}`,
+            'Cache-Control': 'no-store',
+            'Accept-Ranges': 'bytes',
+          },
+        })
+      }
+      start = Math.max(0, size - suffixLen)
+      end = size - 1
+    } else {
+      start = Number(startRaw)
+      end = endRaw === '' ? size - 1 : Number(endRaw)
+    }
+
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      start < 0 ||
+      end < start ||
+      start >= size
+    ) {
+      return new NextResponse(null, {
+        status: 416,
+        headers: {
+          'Content-Range': `bytes */${size}`,
+          'Cache-Control': 'no-store',
+          'Accept-Ranges': 'bytes',
+        },
+      })
+    }
+    end = Math.min(end, size - 1)
+
+    const chunk = buf.subarray(start, end + 1)
+    const chunkBody = chunk.buffer.slice(
+      chunk.byteOffset,
+      chunk.byteOffset + chunk.byteLength,
+    ) as ArrayBuffer
+
+    return new NextResponse(chunkBody, {
+      status: 206,
+      headers: {
+        'Content-Type': mime,
+        'Content-Disposition': `inline; filename="${originalName}"`,
+        'Content-Length': String(chunk.byteLength),
+        'Content-Range': `bytes ${start}-${end}/${size}`,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-store',
+      },
+    })
+  }
+
   return new NextResponse(body, {
     status: 200,
     headers: {
       'Content-Type': mime,
       'Content-Disposition': `inline; filename="${originalName}"`,
       'Content-Length': String(buf.byteLength),
+      'Accept-Ranges': 'bytes',
       'Cache-Control': 'no-store',
     },
   })

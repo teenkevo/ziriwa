@@ -812,6 +812,78 @@ export async function PATCH(
             )
           }
 
+          // Prevent deletion of tasks that already have submitted work.
+          const existing = await conn.execute(
+            `
+              SELECT
+                t.task_key AS "task_key",
+                CASE
+                  WHEN t.status IS NOT NULL
+                    AND t.status NOT IN ('to_do', 'not_started') THEN 1
+                  WHEN EXISTS (SELECT 1 FROM activity_task_inputs i WHERE i.task_id = t.id) THEN 1
+                  WHEN EXISTS (SELECT 1 FROM activity_task_deliverables d WHERE d.task_id = t.id) THEN 1
+                  WHEN EXISTS (
+                    SELECT 1 FROM activity_task_review_thread rt
+                    WHERE rt.task_id = t.id
+                      AND (
+                        rt.asset_id IS NOT NULL
+                        OR (rt.message IS NOT NULL AND LENGTH(TRIM(rt.message)) > 0)
+                        OR (rt.action IS NOT NULL AND LENGTH(TRIM(rt.action)) > 0)
+                      )
+                  ) THEN 1
+                  WHEN EXISTS (
+                    SELECT 1 FROM activity_task_period_deliverables pd
+                    WHERE pd.period_id IN (SELECT id FROM activity_task_periods p WHERE p.task_id = t.id)
+                  ) THEN 1
+                  WHEN EXISTS (
+                    SELECT 1 FROM activity_task_period_review_thread prt
+                    WHERE prt.period_id IN (SELECT id FROM activity_task_periods p WHERE p.task_id = t.id)
+                      AND (
+                        prt.asset_id IS NOT NULL
+                        OR (prt.message IS NOT NULL AND LENGTH(TRIM(prt.message)) > 0)
+                        OR (prt.action IS NOT NULL AND LENGTH(TRIM(prt.action)) > 0)
+                      )
+                  ) THEN 1
+                  WHEN EXISTS (
+                    SELECT 1 FROM activity_task_periods p
+                    WHERE p.task_id = t.id
+                      AND (
+                        (p.submitted_at IS NOT NULL)
+                        OR (p.status IS NOT NULL AND p.status <> 'pending')
+                      )
+                  ) THEN 1
+                  ELSE 0
+                END AS "has_work"
+              FROM activity_tasks t
+              WHERE t.activity_id = :activityId
+            `,
+            { activityId } as any,
+          )
+          const existingRows = (existing.rows ?? []) as Array<{
+            task_key: string
+            has_work: number
+          }>
+
+          const incomingKeys = new Set<string>()
+          for (const t of tasks as any[]) {
+            const k =
+              typeof t === 'string'
+                ? null
+                : typeof t?._key === 'string'
+                  ? t._key
+                  : null
+            if (k) incomingKeys.add(k)
+          }
+          const deletedWithWork = existingRows.find(
+            r => r.has_work === 1 && r.task_key && !incomingKeys.has(r.task_key),
+          )
+          if (deletedWithWork) {
+            return NextResponse.json(
+              { error: 'Tasks with submitted work cannot be deleted' },
+              { status: 409 },
+            )
+          }
+
           // Delete existing task subtree for this activity.
           await conn.execute(
             `DELETE FROM activity_task_period_review_thread WHERE period_id IN (

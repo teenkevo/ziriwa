@@ -180,13 +180,25 @@ export type TaskRow = {
   deliverable?: DeliverableItem[]
 }
 
-/** True when inputs or any deliverables (one-off or period) exist. Locks assignee and task config. */
+/**
+ * True when the task has progressed beyond a blank draft (uploads, review thread entries,
+ * non-default status, or period activity). Locks assignee and task configuration.
+ */
 export function hasOfficerContent(task: TaskRow): boolean {
   if (task.inputs?.file?.asset?.url) return true
+  if ((task.inputsReviewThread ?? []).length > 0) return true
+  if ((task.deliverableReviewThread ?? []).length > 0) return true
+  if (task.status && task.status !== 'to_do') return true
   if ((task.deliverable ?? []).some(e => e.file?.asset?.url)) return true
   if (
     (task.periodDeliverables ?? []).some(pd =>
       (pd.deliverable ?? []).some(d => d.file?.asset?.url),
+    )
+  )
+    return true
+  if (
+    (task.periodDeliverables ?? []).some(
+      pd => (pd.deliverableReviewThread ?? []).length > 0,
     )
   )
     return true
@@ -378,7 +390,7 @@ export function DetailedTasksTable({
               e.stopPropagation()
               setDeleteTaskKey(row.original._key ?? '')
             }}
-            disabled={isSaving}
+            disabled={isSaving || hasOfficerContent(row.original)}
           >
             <Trash2 className='h-4 w-4' />
           </Button>

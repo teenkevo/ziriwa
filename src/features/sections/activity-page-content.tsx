@@ -44,6 +44,7 @@ import type { MeasurableActivity } from '@/sanity/lib/section-contracts/get-sect
 import type { Officer } from '@/features/sections/components/officer-switcher'
 import {
   DetailedTasksTable,
+  hasOfficerContent,
   type TaskRow,
 } from '@/features/sections/components/detailed-tasks-table'
 import { TaskDetailsPanel } from '@/features/sections/components/task-details-panel'
@@ -1337,8 +1338,14 @@ export function ActivityPageContent({
   }
 
   const removeTaskByKey = React.useCallback((key: string) => {
-    setTasks(prev => prev.filter(row => (row._key ?? '') !== key))
-  }, [])
+    const row = tasks.find(t => (t._key ?? '') === key)
+    if (row && hasOfficerContent(row)) {
+      alert('This task has submitted work and cannot be deleted.')
+      return
+    }
+
+    setTasks(prev => prev.filter(t => (t._key ?? '') !== key))
+  }, [tasks])
 
   return (
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
