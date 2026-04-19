@@ -15,11 +15,14 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SupervisorSwitcher } from '@/features/sections/components/supervisor-switcher'
 
 interface AddMeasurableActivityDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   sectionContractId: string
+  sectionId: string
+  supervisors: { _id: string; fullName: string; staffId?: string }[]
   objectiveIndex: number
   initiativeIndex: number
   initiativeCode?: string
@@ -32,6 +35,8 @@ export function AddMeasurableActivityDialog({
   open,
   onOpenChange,
   sectionContractId,
+  sectionId,
+  supervisors,
   objectiveIndex,
   initiativeIndex,
   initiativeCode,
@@ -44,6 +49,9 @@ export function AddMeasurableActivityDialog({
   const [title, setTitle] = React.useState('')
   const [aim, setAim] = React.useState('')
   const [targetDate, setTargetDate] = React.useState('')
+  const [supervisorId, setSupervisorId] = React.useState<string>(
+    supervisors[0]?._id ?? '',
+  )
 
   const isKPI = activityType === 'kpi'
 
@@ -110,7 +118,9 @@ export function AddMeasurableActivityDialog({
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>
             <div className='space-y-2'>
-              <Label htmlFor='title' required>Title</Label>
+              <Label htmlFor='title' required>
+                Title
+              </Label>
               <Input
                 id='title'
                 placeholder='e.g. Submit completed forms to HR'
@@ -122,7 +132,9 @@ export function AddMeasurableActivityDialog({
             </div>
             {isKPI && (
               <div className='space-y-2'>
-                <Label htmlFor='aim' required>AIM</Label>
+                <Label htmlFor='aim' required>
+                  AIM
+                </Label>
                 <textarea
                   id='aim'
                   className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
@@ -134,13 +146,14 @@ export function AddMeasurableActivityDialog({
               </div>
             )}
             <div className='space-y-2'>
-              <Label htmlFor='targetDate'>Due Date (optional)</Label>
-              <Input
-                id='targetDate'
-                type='date'
-                value={targetDate}
-                onChange={e => setTargetDate(e.target.value)}
+              <Label required>Supervisor for this activity</Label>
+              <SupervisorSwitcher
+                supervisors={supervisors}
+                value={supervisorId}
+                onChange={setSupervisorId}
                 disabled={isCreating}
+                sectionId={sectionId}
+                placeholder='Select or create supervisor'
               />
             </div>
           </div>

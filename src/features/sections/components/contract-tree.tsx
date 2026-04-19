@@ -34,6 +34,8 @@ import { EditInitiativeDialog } from '@/features/sections/components/edit-initia
 
 interface ContractTreeProps {
   sectionContract: SectionContract
+  sectionId: string
+  supervisors: { _id: string; fullName: string; staffId?: string }[]
   sectionSlug?: string
   expandAllSignal?: number
   collapseAllSignal?: number
@@ -141,6 +143,8 @@ function sectionContractToTreeData(
 
 export function ContractTree({
   sectionContract,
+  sectionId,
+  supervisors,
   sectionSlug = '',
   expandAllSignal,
   collapseAllSignal,
@@ -638,6 +642,8 @@ export function ContractTree({
           open={activityDialogOpen}
           onOpenChange={setActivityDialogOpen}
           sectionContractId={contract._id}
+          sectionId={sectionId}
+          supervisors={supervisors}
           objectiveIndex={activityDialogParams.objIdx}
           initiativeIndex={activityDialogParams.initIdx}
           initiativeCode={

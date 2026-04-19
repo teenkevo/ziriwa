@@ -348,6 +348,8 @@ export function SectionPageContent({
                     </div>
                     <ContractTree
                       sectionContract={sectionContract}
+                      sectionId={section._id}
+                      supervisors={supervisors}
                       sectionSlug={section.slug?.current ?? ''}
                       expandAllSignal={expandAllSignal}
                       collapseAllSignal={collapseAllSignal}
@@ -413,6 +415,7 @@ export function SectionPageContent({
               sprints={sprints}
               initiatives={flattenInitiativesWithActivities(sectionContract)}
               officers={officers}
+              supervisors={supervisors}
               onSprintTabChange={setSprintSubTab}
               panelPortalNode={panelPortalNode}
               viewerStaffId={viewerStaffId}

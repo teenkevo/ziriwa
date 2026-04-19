@@ -69,30 +69,33 @@ export async function getSectionContractOracle(
   const objectiveRows = await oracleQuery<ObjectiveRow>(
     `
       SELECT
-        co.objective_key AS objective_key,
-        co.code AS objective_code,
-        co.title AS objective_title,
-        co.objective_order AS objective_order,
+        co.objective_key AS "objective_key",
+        co.code AS "objective_code",
+        co.title AS "objective_title",
+        co.objective_order AS "objective_order",
 
-        ci.initiative_key AS initiative_key,
-        ci.code AS initiative_code,
-        ci.title AS initiative_title,
-        ci.initiative_order AS initiative_order,
+        ci.initiative_key AS "initiative_key",
+        ci.code AS "initiative_code",
+        ci.title AS "initiative_title",
+        ci.initiative_order AS "initiative_order",
 
-        ma.id AS activity_id,
-        ma.activity_key AS activity_key,
-        ma.activity_type AS activity_type,
-        ma.title AS activity_title,
-        ma.aim AS activity_aim,
-        ma.activity_order AS activity_order,
-        ma.target_date AS activity_target_date,
-        ma.status AS activity_status,
-        ma.reporting_frequency AS reporting_frequency
+        ma.id AS "activity_id",
+        ma.activity_key AS "activity_key",
+        ma.activity_type AS "activity_type",
+        ma.title AS "activity_title",
+        DBMS_LOB.SUBSTR(ma.aim, 4000, 1) AS "activity_aim",
+        ma.activity_order AS "activity_order",
+        ma.target_date AS "activity_target_date",
+        ma.status AS "activity_status",
+        ma.reporting_frequency AS "reporting_frequency"
       FROM contract_objectives co
-      JOIN contract_initiatives ci ON ci.objective_id = co.id
+      LEFT JOIN contract_initiatives ci ON ci.objective_id = co.id
       LEFT JOIN measurable_activities ma ON ma.initiative_id = ci.id
       WHERE co.contract_id = :contractId
-      ORDER BY co.objective_order, ci.initiative_order, ma.activity_order NULLS LAST
+      ORDER BY
+        co.objective_order,
+        ci.initiative_order NULLS LAST,
+        ma.activity_order NULLS LAST
     `,
     { contractId: cr._id },
   )

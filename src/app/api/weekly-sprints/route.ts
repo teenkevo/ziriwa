@@ -27,11 +27,15 @@ export async function POST(req: NextRequest) {
       }
 
       const body = await req.json()
-      const { sectionId, weekLabel, weekStart, weekEnd, tasks } = body
+      const { sectionId, supervisorId, weekLabel, weekStart, weekEnd, tasks } =
+        body
 
-      if (!sectionId || !weekLabel || !weekStart || !weekEnd) {
+      if (!sectionId || !supervisorId || !weekLabel || !weekStart || !weekEnd) {
         return NextResponse.json(
-          { error: 'sectionId, weekLabel, weekStart, and weekEnd are required' },
+          {
+            error:
+              'sectionId, supervisorId, weekLabel, weekStart, and weekEnd are required',
+          },
           { status: 400 },
         )
       }
@@ -47,22 +51,23 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Supervisor is required in our relational model; drafts choose a supervisor for the section.
+      // Supervisor is required in our relational model; validate supervisor belongs to section.
       const supervisors = await oracleQuery<{ id: string }>(
         `
           SELECT id AS "id"
           FROM staff
           WHERE role = 'supervisor'
             AND section_id = :sectionId
+            AND id = :supervisorId
             AND status = 'active'
           FETCH FIRST 1 ROWS ONLY
         `,
-        { sectionId },
+        { sectionId, supervisorId },
       )
-      const supervisorId = supervisors[0]?.id
-      if (!supervisorId) {
+      const validSupervisorId = supervisors[0]?.id
+      if (!validSupervisorId) {
         return NextResponse.json(
-          { error: 'No active supervisor found for this section' },
+          { error: 'Selected supervisor is not active in this section' },
           { status: 400 },
         )
       }
@@ -85,7 +90,7 @@ export async function POST(req: NextRequest) {
             week_start: weekStartDate,
             week_end: weekEndDate,
             status: 'draft',
-            supervisor_staff_id: supervisorId,
+            supervisor_staff_id: validSupervisorId,
           },
           { autoCommit: false },
         )
@@ -151,12 +156,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { sectionId, supervisorId, weekLabel, weekStart, weekEnd, tasks } =
-      body
+    const { sectionId, supervisorId, weekLabel, weekStart, weekEnd, tasks } = body
 
-    if (!sectionId || !weekLabel || !weekStart || !weekEnd) {
+    if (!sectionId || !supervisorId || !weekLabel || !weekStart || !weekEnd) {
       return NextResponse.json(
-        { error: 'sectionId, weekLabel, weekStart, and weekEnd are required' },
+        {
+          error:
+            'sectionId, supervisorId, weekLabel, weekStart, and weekEnd are required',
+        },
         { status: 400 },
       )
     }
@@ -178,9 +185,7 @@ export async function POST(req: NextRequest) {
     const doc = {
       _type: 'weeklySprint',
       section: { _type: 'reference', _ref: sectionId },
-      ...(supervisorId && {
-        supervisor: { _type: 'reference', _ref: supervisorId },
-      }),
+      supervisor: { _type: 'reference', _ref: supervisorId },
       weekLabel,
       weekStart,
       weekEnd,

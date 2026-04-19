@@ -46,6 +46,7 @@ import {
 } from './components/sprint-tasks-table'
 import { SprintTaskDetailsPanel } from './components/sprint-task-details-panel'
 import type { Officer } from './components/officer-switcher'
+import { SupervisorSwitcher } from './components/supervisor-switcher'
 import type {
   WeeklySprint,
   SprintTask,
@@ -68,6 +69,7 @@ interface WeeklySprintContentProps {
   sprints: WeeklySprint[]
   initiatives?: InitiativeWithActivities[]
   officers?: Officer[]
+  supervisors?: { _id: string; fullName: string; staffId?: string }[]
   onSprintTabChange?: (tab: string) => void
   panelPortalNode?: HTMLDivElement | null
   /** Sanity staff id for signed-in user in this section — filters accepted tasks for officers. */
@@ -213,6 +215,7 @@ export function WeeklySprintContent({
   sprints,
   initiatives = [],
   officers = [],
+  supervisors = [],
   onSprintTabChange,
   panelPortalNode,
   viewerStaffId,
@@ -226,6 +229,8 @@ export function WeeklySprintContent({
   const [editingSprintId, setEditingSprintId] = React.useState<string | null>(
     null,
   )
+  const [selectedSupervisorId, setSelectedSupervisorId] =
+    React.useState<string>('')
   const [isSavingSprint, setIsSavingSprint] = React.useState(false)
   const [draftTasks, setDraftTasks] = React.useState<DraftTask[]>([
     { ...emptyDraftTask },
@@ -328,6 +333,7 @@ export function WeeklySprintContent({
     setEditingSprintId(null)
     setDraftTasks([{ ...emptyDraftTask }])
     setSelectedWeekIdx(firstAvailableWeekIdx)
+    setSelectedSupervisorId(supervisors[0]?._id ?? '')
     setCreateOpen(true)
   }
 
@@ -339,6 +345,12 @@ export function WeeklySprintContent({
       w => w.start === sprint.weekStart && w.end === sprint.weekEnd,
     )
     setSelectedWeekIdx(idx >= 0 ? String(idx) : '0')
+    setSelectedSupervisorId(
+      (sprint as any)?.supervisor?._id ??
+        (sprint as any)?.supervisorId ??
+        supervisors[0]?._id ??
+        '',
+    )
     setCreateOpen(true)
   }
 
@@ -347,6 +359,10 @@ export function WeeklySprintContent({
     const validTasks = draftTasks.filter(isDraftTaskComplete)
     const week = fyWeeks[Number(selectedWeekIdx)]
     if (validTasks.length === 0 || !week) return
+    if (!selectedSupervisorId) {
+      alert('Please select a supervisor for this sprint.')
+      return
+    }
     if (endOfDayLocal(parseYMDLocal(week.end)) < todayStart) {
       alert(
         'Past sprint weeks are locked. Please select the current week or a future week.',
@@ -401,6 +417,7 @@ export function WeeklySprintContent({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sectionId,
+            supervisorId: selectedSupervisorId,
             weekLabel: week.label,
             weekStart: week.start,
             weekEnd: week.end,
@@ -416,6 +433,7 @@ export function WeeklySprintContent({
       setDraftTasks([{ ...emptyDraftTask }])
       setSelectedWeekIdx('0')
       setEditingSprintId(null)
+      setSelectedSupervisorId('')
       setCreateOpen(false)
       await router.refresh()
     } catch (err) {
@@ -1062,10 +1080,11 @@ export function WeeklySprintContent({
             setEditingSprintId(null)
             setDraftTasks([{ ...emptyDraftTask }])
             setSelectedWeekIdx('0')
+            setSelectedSupervisorId('')
           }
         }}
       >
-        <DialogContent className='w-full max-w-lg max-h-[85vh] overflow-y-auto'>
+        <DialogContent className='w-full max-w-lg h-[85dvh] max-h-[85dvh] flex flex-col overflow-hidden'>
           <DialogHeader>
             <DialogTitle>
               {editingSprintId ? 'Edit draft sprint' : 'New Weekly Sprint'}
@@ -1081,8 +1100,20 @@ export function WeeklySprintContent({
               e.stopPropagation()
               handleSaveSprint(e)
             }}
+            className='min-h-0 flex flex-1 flex-col'
           >
-            <div className='space-y-4 py-2 pb-4'>
+            <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4 py-2 pb-4 px-1'>
+              <div className='space-y-2'>
+                <Label required>Supervisor in charge of this sprint</Label>
+                <SupervisorSwitcher
+                  supervisors={supervisors}
+                  value={selectedSupervisorId}
+                  onChange={setSelectedSupervisorId}
+                  disabled={isSavingSprint}
+                  sectionId={sectionId}
+                  placeholder='Select or create supervisor'
+                />
+              </div>
               <div className='space-y-2'>
                 <Label required>Week</Label>
                 <Select
@@ -1725,12 +1756,14 @@ function AcceptedSprintTasksCard({
 }) {
   const weekStartDate = parseYMDLocal(sprint.weekStart)
   const weekEndDate = parseYMDLocal(sprint.weekEnd)
+  const sprintStartTime = parseLocalDateAtTime(sprint.weekStart, 10, 0)
+  const sprintEndTime = parseLocalDateAtTime(sprint.weekEnd, 17, 0)
   const now = new Date()
-  const sprintNotStarted = now < weekStartDate
-  const sprintCompleted = now > endOfDayLocal(weekEndDate)
+  const sprintNotStarted = now < sprintStartTime
+  const sprintCompleted = now >= sprintEndTime
   const sprintOngoing = !sprintNotStarted && !sprintCompleted
   const isCurrentWeek =
-    now >= weekStartDate && now <= endOfDayLocal(weekEndDate)
+    now >= sprintStartTime && now < sprintEndTime
 
   const [open, setOpen] = React.useState(isCurrentWeek)
 
@@ -1745,7 +1778,7 @@ function AcceptedSprintTasksCard({
       return {
         variant: 'outline' as const,
         className: '',
-        label: `Starting in ${formatTimeUntil(weekStartDate, now)}`,
+        label: `Starting in ${formatDuration(sprintStartTime.getTime() - now.getTime())}`,
       }
     }
     if (sprintOngoing) {
@@ -1767,7 +1800,7 @@ function AcceptedSprintTasksCard({
       className: 'bg-green-700 text-white border-green-700',
       label: 'Completed',
     }
-  }, [sprintNotStarted, sprintOngoing, pendingCount, weekStartDate, now])
+  }, [sprintNotStarted, sprintOngoing, pendingCount, sprintStartTime, now])
 
   return (
     <Card>
@@ -1794,7 +1827,7 @@ function AcceptedSprintTasksCard({
             <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
               <p className='text-xs text-muted-foreground'>
                 {sprint.supervisor?.fullName &&
-                  `By ${sprint.supervisor.fullName} · `}
+                  `Supervised by ${sprint.supervisor.fullName} · `}
                 {tasks.length} task{tasks.length === 1 ? '' : 's'}
               </p>
 
@@ -1854,14 +1887,25 @@ function endOfDayLocal(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
 }
 
-function formatTimeUntil(target: Date, from: Date) {
-  const ms = Math.max(0, target.getTime() - from.getTime())
-  const totalMinutes = Math.round(ms / 60000)
-  if (totalMinutes < 60) return `${totalMinutes}m`
-  const totalHours = Math.round(totalMinutes / 60)
-  if (totalHours < 48) return `${totalHours}h`
-  const totalDays = Math.round(totalHours / 24)
-  return `${totalDays}d`
+function parseLocalDateAtTime(dateStr: string, hour: number, minute = 0): Date {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day, hour, minute, 0, 0)
+}
+
+function formatDuration(ms: number): string {
+  if (ms <= 0) return '0m'
+
+  const totalMinutes = Math.floor(ms / 60_000)
+  const days = Math.floor(totalMinutes / (24 * 60))
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+  const minutes = totalMinutes % 60
+
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days}d`)
+  if (hours > 0) parts.push(`${hours}h`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`)
+
+  return parts.join(' ')
 }
 
 function SprintCard({
@@ -1910,7 +1954,7 @@ function SprintCard({
               <CardTitle className='text-base'>{sprint.weekLabel}</CardTitle>
               <p className='text-xs text-muted-foreground'>
                 {sprint.supervisor?.fullName &&
-                  `By ${sprint.supervisor.fullName} · `}
+                  `Supervised by ${sprint.supervisor.fullName} · `}
                 {accepted}/{total} accepted
               </p>
             </div>

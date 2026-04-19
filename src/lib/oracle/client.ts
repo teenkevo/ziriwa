@@ -20,6 +20,17 @@ function getGlobalPoolPromise() {
   return globalThis.__ORACLE_POOL_PROMISE__
 }
 
+async function resetGlobalPool(): Promise<void> {
+  const p = getGlobalPoolPromise()
+  globalThis.__ORACLE_POOL_PROMISE__ = undefined
+  try {
+    const pool = await p
+    await pool?.close(0)
+  } catch {
+    // best-effort: pool may be half-initialized or already closed
+  }
+}
+
 async function createGlobalPool(): Promise<oracledb.Pool> {
   const env = getOracleEnv()
   const connectString = buildConnectString(env)
@@ -35,6 +46,9 @@ async function createGlobalPool(): Promise<oracledb.Pool> {
     poolMin: 0,
     poolMax: 5,
     poolIncrement: 1,
+    // Work around sporadic Thin-driver buffer errors by disabling
+    // the statement cache (observed as ERR_BUFFER_OUT_OF_BOUNDS in dev).
+    stmtCacheSize: 0,
   }) as unknown as Promise<oracledb.Pool>
 }
 
@@ -61,12 +75,29 @@ export async function oracleQuery<T>(
   sql: string,
   binds?: SqlParams,
 ): Promise<T[]> {
-  return withOracleConnection(async conn => {
-    const res = await conn.execute(sql, (binds ?? {}) as any, {
-      outFormat: oracledb.OUT_FORMAT_OBJECT,
+  const run = () =>
+    withOracleConnection(async conn => {
+      const res = await conn.execute(sql, (binds ?? {}) as any, {
+        outFormat: oracledb.OUT_FORMAT_OBJECT,
+      })
+      return (res.rows as T[]) ?? []
     })
-    return (res.rows as T[]) ?? []
-  })
+
+  try {
+    return await run()
+  } catch (err) {
+    const code =
+      err && typeof err === 'object' && 'code' in err
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (err as any).code
+        : undefined
+
+    if (code === 'ERR_BUFFER_OUT_OF_BOUNDS') {
+      await resetGlobalPool()
+      return await run()
+    }
+    throw err
+  }
 }
 
 export async function oracleExecute(
