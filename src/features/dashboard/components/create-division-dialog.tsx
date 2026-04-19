@@ -66,16 +66,16 @@ export function CreateDivisionDialog({
         throw new Error(data.error || 'Failed to create division')
       }
       const { id } = await res.json()
-      setFullName('')
-      setAcronym('')
-      setAssistantCommissionerId('')
-      onOpenChange(false)
       await fetch('/api/division/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      router.refresh()
+      await router.refresh()
+      setFullName('')
+      setAcronym('')
+      setAssistantCommissionerId('')
+      onOpenChange(false)
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create division')
@@ -85,7 +85,13 @@ export function CreateDivisionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={next => {
+        if (!next && isCreating) return
+        onOpenChange(next)
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add Division</DialogTitle>

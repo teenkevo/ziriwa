@@ -303,7 +303,7 @@ export function ActivityPageContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to save')
       }
-      router.refresh()
+      await router.refresh()
       setIsEditingTitle(false)
     } catch (err) {
       console.error(err)
@@ -345,7 +345,7 @@ export function ActivityPageContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to save')
       }
-      router.refresh()
+      await router.refresh()
       setIsEditingAim(false)
     } catch (err) {
       console.error(err)
@@ -418,7 +418,7 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
         }
-        router.refresh()
+        await router.refresh()
       } catch (err) {
         console.error(err)
         setTargetDate(targetDate)
@@ -464,7 +464,7 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
         }
-        router.refresh()
+        await router.refresh()
       } catch (err) {
         console.error(err)
         setStatus(status)
@@ -511,7 +511,7 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
         }
-        router.refresh()
+        await router.refresh()
       } catch (err) {
         console.error(err)
         setReportingFrequency(reportingFrequency)
@@ -560,7 +560,7 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
         }
-        router.refresh()
+        await router.refresh()
       } catch (err) {
         console.error(err)
         setReportingFrequency(reportingFrequency)
@@ -605,7 +605,7 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save tasks')
         }
-        router.refresh()
+        await router.refresh()
       } catch (err) {
         console.error(err)
         alert(err instanceof Error ? err.message : 'Failed to save tasks')
@@ -1489,7 +1489,7 @@ export function ActivityPageContent({
                           const data = await res.json()
                           throw new Error(data.error || 'Failed to save')
                         }
-                        router.refresh()
+                        await router.refresh()
                       } catch (err) {
                         console.error(err)
                         setReportingFrequency(reportingFrequency)

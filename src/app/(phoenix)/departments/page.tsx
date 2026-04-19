@@ -1,5 +1,5 @@
-import { getAllDepartmentsForList } from '@/sanity/lib/departments/get-all-departments-for-list'
-import { getCommissioners } from '@/sanity/lib/staff/get-commissioners'
+import { getAllDepartmentsForList } from '@/oracle/lib/departments/get-all-departments-for-list'
+import { getCommissioners } from '@/oracle/lib/staff/get-commissioners'
 import { DepartmentsListPage } from '@/features/departments/departments-list-page'
 
 export default async function DepartmentsIndexPage() {

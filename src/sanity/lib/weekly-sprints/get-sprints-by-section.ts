@@ -1,5 +1,6 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import { getSprintsBySectionOracle } from '@/oracle/lib/weekly-sprints/get-sprints-by-section'
 
 export type WorkSubmissionReviewEntry = {
   _key?: string
@@ -62,6 +63,10 @@ export type WeeklySprint = {
 export async function getSprintsBySection(
   sectionId: string,
 ): Promise<WeeklySprint[]> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getSprintsBySectionOracle(sectionId)
+  }
+
   const query = defineQuery(`
     *[_type == "weeklySprint" && section._ref == $sectionId] | order(weekStart desc) {
       _id,

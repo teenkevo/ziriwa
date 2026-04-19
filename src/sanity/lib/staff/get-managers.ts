@@ -1,5 +1,9 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import {
+  getManagersOracle,
+  getManagersByDivisionOracle,
+} from '@/oracle/lib/staff/get-managers'
 
 export type StaffMember = {
   _id: string
@@ -8,6 +12,10 @@ export type StaffMember = {
 }
 
 export async function getManagers(): Promise<StaffMember[]> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getManagersOracle()
+  }
+
   const query = defineQuery(`
     *[_type == "staff" && role == "manager" && status == "active"] | order(coalesce(fullName, firstName + " " + lastName) asc) {
       _id,
@@ -30,6 +38,10 @@ export async function getManagersByDivision(
   divisionId: string,
 ): Promise<StaffMember[]> {
   if (!divisionId) return []
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getManagersByDivisionOracle(divisionId)
+  }
+
   const query = defineQuery(`
     *[_type == "staff" && role == "manager" && status == "active" && (
       division._ref == $divisionId ||

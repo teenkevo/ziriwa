@@ -1,5 +1,6 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import { getDivisionBySlugOracle } from '@/oracle/lib/divisions/get-division-by-slug'
 
 export type Division = {
   _id: string
@@ -20,6 +21,9 @@ export type Division = {
 export async function getDivisionBySlug(
   slug: string,
 ): Promise<Division | null> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getDivisionBySlugOracle(slug)
+  }
   const query = defineQuery(`
     *[_type == "division" && slug.current == $slug][0] {
       _id,

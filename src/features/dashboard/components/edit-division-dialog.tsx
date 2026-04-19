@@ -85,8 +85,8 @@ export function EditDivisionDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to update division')
       }
+      await router.refresh()
       onOpenChange(false)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to update division')
@@ -96,7 +96,13 @@ export function EditDivisionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={next => {
+        if (!next && isSaving) return
+        onOpenChange(next)
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit division</DialogTitle>

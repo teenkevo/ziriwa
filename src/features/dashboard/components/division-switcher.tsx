@@ -94,8 +94,8 @@ export default function DivisionSwitcher({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: division._id }),
       })
+      await router.refresh()
       setOpen(false)
-      router.refresh()
     } finally {
       setIsSelecting(false)
     }
@@ -121,17 +121,17 @@ export default function DivisionSwitcher({
         throw new Error(data.error || 'Failed to create')
       }
       const { id } = await res.json()
-      setCreateFullName('')
-      setCreateAcronym('')
-      setCreateAssistantCommissionerId('')
-      setShowCreateDialog(false)
-      setOpen(false)
       await fetch('/api/division/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      router.refresh()
+      await router.refresh()
+      setCreateFullName('')
+      setCreateAcronym('')
+      setCreateAssistantCommissionerId('')
+      setShowCreateDialog(false)
+      setOpen(false)
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create division')
@@ -142,7 +142,13 @@ export default function DivisionSwitcher({
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={next => {
+          if (!next && isSelecting) return
+          setOpen(next)
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             variant='outline'
@@ -225,7 +231,13 @@ export default function DivisionSwitcher({
         </PopoverContent>
       </Popover>
       {canCreateDivision && (
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog
+          open={showCreateDialog}
+          onOpenChange={next => {
+            if (!next && isCreating) return
+            setShowCreateDialog(next)
+          }}
+        >
           <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Division</DialogTitle>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { STAFF_ROLE_OPTIONS, URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
+import { withOracleConnection } from '@/lib/oracle/client'
+import oracledb from 'oracledb'
 
 const VALID_ROLES = new Set(STAFF_ROLE_OPTIONS.map(r => r.value))
 
@@ -84,6 +86,36 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         )
       }
+      if (process.env.CMS_PROVIDER === 'oracle') {
+        const chain = await withOracleConnection(async conn => {
+          const res = await conn.execute(
+            `
+              SELECT
+                s.id AS "section_id",
+                s.division_id AS "division_id",
+                d.department_id AS "department_id"
+              FROM sections s
+              JOIN divisions d ON d.id = s.division_id
+              WHERE s.id = :sectionId
+              FETCH FIRST 1 ROWS ONLY
+            `,
+            { sectionId } as any,
+            { outFormat: oracledb.OUT_FORMAT_OBJECT },
+          )
+          return (res.rows?.[0] ?? null) as
+            | { section_id: string; division_id: string; department_id: string }
+            | null
+        })
+        if (!chain?.division_id || !chain.department_id) {
+          return NextResponse.json(
+            { error: 'Section must belong to a division with a department' },
+            { status: 400 },
+          )
+        }
+        sectionRef = chain.section_id
+        divisionRef = chain.division_id
+        departmentRef = chain.department_id
+      } else {
       const chain = await writeClient.fetch<{
         _id: string
         division: { _id: string; department: { _id: string } | null } | null
@@ -103,8 +135,43 @@ export async function POST(req: NextRequest) {
       sectionRef = chain._id
       divisionRef = chain.division._id
       departmentRef = chain.division.department._id
+      }
     } else if (role === 'manager') {
       if (sectionId && typeof sectionId === 'string') {
+        if (process.env.CMS_PROVIDER === 'oracle') {
+          const chain = await withOracleConnection(async conn => {
+            const res = await conn.execute(
+              `
+                SELECT
+                  s.id AS "section_id",
+                  s.division_id AS "division_id",
+                  d.department_id AS "department_id"
+                FROM sections s
+                JOIN divisions d ON d.id = s.division_id
+                WHERE s.id = :sectionId
+                FETCH FIRST 1 ROWS ONLY
+              `,
+              { sectionId } as any,
+              { outFormat: oracledb.OUT_FORMAT_OBJECT },
+            )
+            return (res.rows?.[0] ?? null) as
+              | {
+                  section_id: string
+                  division_id: string
+                  department_id: string
+                }
+              | null
+          })
+          if (!chain?.division_id || !chain.department_id) {
+            return NextResponse.json(
+              { error: 'Section must belong to a division with a department' },
+              { status: 400 },
+            )
+          }
+          sectionRef = chain.section_id
+          divisionRef = chain.division_id
+          departmentRef = chain.department_id
+        } else {
         const chain = await writeClient.fetch<{
           _id: string
           division: { _id: string; department: { _id: string } | null } | null
@@ -124,7 +191,35 @@ export async function POST(req: NextRequest) {
         sectionRef = chain._id
         divisionRef = chain.division._id
         departmentRef = chain.division.department._id
+        }
       } else if (divisionId) {
+        if (process.env.CMS_PROVIDER === 'oracle') {
+          const div = await withOracleConnection(async conn => {
+            const res = await conn.execute(
+              `
+                SELECT
+                  id AS "division_id",
+                  department_id AS "department_id"
+                FROM divisions
+                WHERE id = :divisionId
+                FETCH FIRST 1 ROWS ONLY
+              `,
+              { divisionId } as any,
+              { outFormat: oracledb.OUT_FORMAT_OBJECT },
+            )
+            return (res.rows?.[0] ?? null) as
+              | { division_id: string; department_id: string }
+              | null
+          })
+          if (!div?.department_id) {
+            return NextResponse.json(
+              { error: 'Division must belong to a department' },
+              { status: 400 },
+            )
+          }
+          divisionRef = div.division_id
+          departmentRef = div.department_id
+        } else {
         const div = await writeClient.fetch<{
           _id: string
           department: { _id: string } | null
@@ -140,6 +235,7 @@ export async function POST(req: NextRequest) {
         }
         divisionRef = div._id
         departmentRef = div.department._id
+        }
       } else {
         return NextResponse.json(
           { error: 'Division (or section) is required for manager' },
@@ -148,6 +244,33 @@ export async function POST(req: NextRequest) {
       }
     } else if (role === 'assistant_commissioner') {
       if (divisionId) {
+        if (process.env.CMS_PROVIDER === 'oracle') {
+          const div = await withOracleConnection(async conn => {
+            const res = await conn.execute(
+              `
+                SELECT
+                  id AS "division_id",
+                  department_id AS "department_id"
+                FROM divisions
+                WHERE id = :divisionId
+                FETCH FIRST 1 ROWS ONLY
+              `,
+              { divisionId } as any,
+              { outFormat: oracledb.OUT_FORMAT_OBJECT },
+            )
+            return (res.rows?.[0] ?? null) as
+              | { division_id: string; department_id: string }
+              | null
+          })
+          if (!div?.department_id) {
+            return NextResponse.json(
+              { error: 'Division must belong to a department' },
+              { status: 400 },
+            )
+          }
+          divisionRef = div.division_id
+          departmentRef = div.department_id
+        } else {
         const div = await writeClient.fetch<{
           _id: string
           department: { _id: string } | null
@@ -163,6 +286,7 @@ export async function POST(req: NextRequest) {
         }
         divisionRef = div._id
         departmentRef = div.department._id
+        }
       } else if (departmentId) {
         departmentRef = departmentId
       } else {
@@ -176,6 +300,21 @@ export async function POST(req: NextRequest) {
       }
 
       if (departmentRef && !reportsToId) {
+        if (process.env.CMS_PROVIDER === 'oracle') {
+          const dept = await withOracleConnection(async conn => {
+            const res = await conn.execute(
+              `SELECT commissioner_id AS "commissioner_id" FROM departments WHERE id = :id FETCH FIRST 1 ROWS ONLY`,
+              { id: departmentRef } as any,
+              { outFormat: oracledb.OUT_FORMAT_OBJECT },
+            )
+            return (res.rows?.[0] ?? null) as
+              | { commissioner_id: string | null }
+              | null
+          })
+          if (dept?.commissioner_id) {
+            reportsToId = dept.commissioner_id
+          }
+        } else {
         const dept = await writeClient.fetch<{
           commissioner: { _id: string } | null
         } | null>(
@@ -185,11 +324,69 @@ export async function POST(req: NextRequest) {
         if (dept?.commissioner?._id) {
           reportsToId = dept.commissioner._id
         }
+        }
       }
     } else if (role === 'commissioner') {
       if (departmentId) {
         departmentRef = departmentId
       }
+    }
+
+    if (process.env.CMS_PROVIDER === 'oracle') {
+      const staffId = crypto.randomUUID()
+      await withOracleConnection(async conn => {
+        await conn.execute(
+          `
+            INSERT INTO staff (
+              id, first_name, last_name, full_name, id_number, email,
+              role, phone, status,
+              department_id, division_id, section_id, reports_to_id
+            ) VALUES (
+              :id, :first_name, :last_name, :full_name, :id_number, :email,
+              :role, :phone, :status,
+              :department_id, :division_id, :section_id, :reports_to_id
+            )
+          `,
+          {
+            id: staffId,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            full_name: fullName,
+            id_number: idNumber.trim(),
+            email: emailLower,
+            role,
+            phone: phone ? String(phone).trim() : null,
+            status: 'active',
+            department_id: departmentRef ?? null,
+            division_id: divisionRef ?? null,
+            section_id: sectionRef ?? null,
+            reports_to_id: reportsToId ?? null,
+          } as any,
+          { autoCommit: false },
+        )
+
+        if (role === 'commissioner' && departmentRef) {
+          await conn.execute(
+            `UPDATE departments SET commissioner_id = :sid WHERE id = :id`,
+            { sid: staffId, id: departmentRef } as any,
+            { autoCommit: false },
+          )
+        }
+        if (role === 'assistant_commissioner' && divisionRef) {
+          await conn.execute(
+            `UPDATE divisions SET assistant_commissioner_id = :sid WHERE id = :id`,
+            { sid: staffId, id: divisionRef } as any,
+            { autoCommit: false },
+          )
+        }
+
+        await conn.commit()
+      })
+
+      return NextResponse.json(
+        { id: staffId, fullName, role },
+        { status: 201 },
+      )
     }
 
     const result = await writeClient.create({

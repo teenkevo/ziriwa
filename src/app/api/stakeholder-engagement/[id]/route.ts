@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { getStakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import { withOracleConnection } from '@/lib/oracle/client'
 
 const POWER_VALUES = ['H', 'M', 'L'] as const
 const STAKEHOLDER_CATEGORIES = [
@@ -20,6 +21,78 @@ const MODE_OPTIONS = [
   'site_visit',
   'other',
 ] as const
+
+function mapPayloadToDbFields(payload: Record<string, unknown>) {
+  const fields: Record<string, unknown> = {
+    name: String(payload.name || '').trim(),
+  }
+  if (typeof payload.sn === 'number') fields.sn = payload.sn
+  if (
+    STAKEHOLDER_CATEGORIES.includes(
+      payload.stakeholder as (typeof STAKEHOLDER_CATEGORIES)[number],
+    )
+  )
+    fields.stakeholder = payload.stakeholder
+  if (typeof payload.designation === 'string')
+    fields.designation = payload.designation.trim()
+  if (typeof payload.phoneNumber === 'string')
+    fields.phone_number = payload.phoneNumber.trim()
+  if (typeof payload.emailAddress === 'string')
+    fields.email_address = payload.emailAddress.trim()
+  if (typeof payload.address === 'string') fields.address = payload.address.trim()
+  if (typeof payload.objectiveOfEngagement === 'string')
+    fields.objective_of_engagement = payload.objectiveOfEngagement.trim()
+  if (typeof payload.initiativeCode === 'string')
+    fields.initiative_code = payload.initiativeCode.trim() || null
+  if (POWER_VALUES.includes(payload.power as (typeof POWER_VALUES)[number]))
+    fields.power = payload.power
+  if (POWER_VALUES.includes(payload.interest as (typeof POWER_VALUES)[number]))
+    fields.interest = payload.interest
+  if (POWER_VALUES.includes(payload.priority as (typeof POWER_VALUES)[number]))
+    fields.priority = payload.priority
+  if (typeof payload.stakeholderExpectations === 'string')
+    fields.stakeholder_expectations = payload.stakeholderExpectations.trim()
+  if (typeof payload.uraExpectations === 'string')
+    fields.ura_expectations = payload.uraExpectations.trim()
+  if (typeof payload.proposedDateOfEngagement === 'string')
+    fields.proposed_date_of_engagement = payload.proposedDateOfEngagement
+  if (typeof payload.engagementReport === 'string')
+    fields.engagement_report = payload.engagementReport.trim()
+  if (
+    MODE_OPTIONS.includes(payload.modeOfEngagement as (typeof MODE_OPTIONS)[number])
+  )
+    fields.mode_of_engagement = payload.modeOfEngagement
+  if (typeof payload.budgetHighlights === 'string')
+    fields.budget_highlights = payload.budgetHighlights.trim()
+  if (typeof payload.totalCost === 'number') fields.total_cost = payload.totalCost
+  if (payload.uraDelegation && typeof payload.uraDelegation === 'string')
+    fields.ura_delegation_staff_id = payload.uraDelegation
+  return fields
+}
+
+async function resolveStakeholderEntryIdByIndex(
+  conn: any,
+  engagementId: string,
+  stakeholderIndex: number,
+): Promise<string | null> {
+  const rn = stakeholderIndex + 1
+  const res = await conn.execute(
+    `
+      SELECT entry_id AS "entry_id"
+      FROM (
+        SELECT
+          id AS entry_id,
+          ROW_NUMBER() OVER (ORDER BY sn NULLS LAST, name ASC, id ASC) AS rn
+        FROM stakeholder_entries
+        WHERE engagement_id = :id
+      )
+      WHERE rn = :rn
+    `,
+    { id: engagementId, rn } as any,
+  )
+  const row = res.rows?.[0] as { entry_id?: string } | undefined
+  return row?.entry_id ?? null
+}
 
 function buildStakeholderDoc(payload: Record<string, unknown>) {
   const doc: Record<string, unknown> = {
@@ -79,6 +152,234 @@ export async function PATCH(
         { error: 'op and payload are required' },
         { status: 400 },
       )
+    }
+
+    if (process.env.CMS_PROVIDER === 'oracle') {
+      return withOracleConnection(async conn => {
+        const existsRes = await conn.execute(
+          `SELECT id AS "id" FROM stakeholder_engagements WHERE id = :id FETCH FIRST 1 ROWS ONLY`,
+          { id } as any,
+        )
+        if (!existsRes.rows?.[0]) {
+          return NextResponse.json(
+            { error: 'Stakeholder engagement not found' },
+            { status: 404 },
+          )
+        }
+
+        if (op === 'addStakeholder') {
+          if (!payload.name || typeof payload.name !== 'string') {
+            return NextResponse.json({ error: 'name is required' }, { status: 400 })
+          }
+
+          const entryId = crypto.randomUUID()
+          const stakeholderKey = crypto.randomUUID()
+          const fields = mapPayloadToDbFields(payload)
+
+          await conn.execute(
+            `
+              INSERT INTO stakeholder_entries (
+                id, engagement_id, stakeholder_key,
+                sn, stakeholder, designation, name,
+                phone_number, email_address, address,
+                objective_of_engagement, initiative_code,
+                power, interest, priority,
+                stakeholder_expectations, ura_expectations,
+                proposed_date_of_engagement, mode_of_engagement,
+                engagement_report, budget_highlights, total_cost,
+                ura_delegation_staff_id
+              ) VALUES (
+                :id, :engagement_id, :stakeholder_key,
+                :sn, :stakeholder, :designation, :name,
+                :phone_number, :email_address, :address,
+                :objective_of_engagement, :initiative_code,
+                :power, :interest, :priority,
+                :stakeholder_expectations, :ura_expectations,
+                :proposed_date_of_engagement, :mode_of_engagement,
+                :engagement_report, :budget_highlights, :total_cost,
+                :ura_delegation_staff_id
+              )
+            `,
+            {
+              id: entryId,
+              engagement_id: id,
+              stakeholder_key: stakeholderKey,
+              sn: fields.sn ?? null,
+              stakeholder: fields.stakeholder ?? null,
+              designation: fields.designation ?? null,
+              name: fields.name,
+              phone_number: fields.phone_number ?? null,
+              email_address: fields.email_address ?? null,
+              address: fields.address ?? null,
+              objective_of_engagement: fields.objective_of_engagement ?? null,
+              initiative_code: fields.initiative_code ?? null,
+              power: fields.power ?? null,
+              interest: fields.interest ?? null,
+              priority: fields.priority ?? null,
+              stakeholder_expectations: fields.stakeholder_expectations ?? null,
+              ura_expectations: fields.ura_expectations ?? null,
+              proposed_date_of_engagement:
+                fields.proposed_date_of_engagement ?? null,
+              mode_of_engagement: fields.mode_of_engagement ?? null,
+              engagement_report: fields.engagement_report ?? null,
+              budget_highlights: fields.budget_highlights ?? null,
+              total_cost: fields.total_cost ?? null,
+              ura_delegation_staff_id: fields.ura_delegation_staff_id ?? null,
+            } as any,
+            { autoCommit: true },
+          )
+
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'updateStakeholder') {
+          const { stakeholderIndex, ...fieldsRaw } = payload as {
+            stakeholderIndex?: number
+            [key: string]: unknown
+          }
+          if (typeof stakeholderIndex !== 'number') {
+            return NextResponse.json(
+              { error: 'stakeholderIndex is required' },
+              { status: 400 },
+            )
+          }
+
+          const entryId = await resolveStakeholderEntryIdByIndex(
+            conn,
+            id,
+            stakeholderIndex,
+          )
+          if (!entryId) {
+            return NextResponse.json({ error: 'Stakeholder not found' }, { status: 404 })
+          }
+
+          const fields = mapPayloadToDbFields({
+            ...fieldsRaw,
+            name: fieldsRaw.name ?? '',
+          })
+
+          await conn.execute(
+            `
+              UPDATE stakeholder_entries
+              SET
+                sn = :sn,
+                stakeholder = :stakeholder,
+                designation = :designation,
+                name = :name,
+                phone_number = :phone_number,
+                email_address = :email_address,
+                address = :address,
+                objective_of_engagement = :objective_of_engagement,
+                initiative_code = :initiative_code,
+                power = :power,
+                interest = :interest,
+                priority = :priority,
+                stakeholder_expectations = :stakeholder_expectations,
+                ura_expectations = :ura_expectations,
+                proposed_date_of_engagement = :proposed_date_of_engagement,
+                mode_of_engagement = :mode_of_engagement,
+                engagement_report = :engagement_report,
+                budget_highlights = :budget_highlights,
+                total_cost = :total_cost,
+                ura_delegation_staff_id = :ura_delegation_staff_id
+              WHERE id = :id
+            `,
+            {
+              id: entryId,
+              sn: fields.sn ?? null,
+              stakeholder: fields.stakeholder ?? null,
+              designation: fields.designation ?? null,
+              name: fields.name,
+              phone_number: fields.phone_number ?? null,
+              email_address: fields.email_address ?? null,
+              address: fields.address ?? null,
+              objective_of_engagement: fields.objective_of_engagement ?? null,
+              initiative_code: fields.initiative_code ?? null,
+              power: fields.power ?? null,
+              interest: fields.interest ?? null,
+              priority: fields.priority ?? null,
+              stakeholder_expectations: fields.stakeholder_expectations ?? null,
+              ura_expectations: fields.ura_expectations ?? null,
+              proposed_date_of_engagement:
+                fields.proposed_date_of_engagement ?? null,
+              mode_of_engagement: fields.mode_of_engagement ?? null,
+              engagement_report: fields.engagement_report ?? null,
+              budget_highlights: fields.budget_highlights ?? null,
+              total_cost: fields.total_cost ?? null,
+              ura_delegation_staff_id: fields.ura_delegation_staff_id ?? null,
+            } as any,
+            { autoCommit: true },
+          )
+
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'updateReport') {
+          const { stakeholderIndex, engagementReport } = payload as {
+            stakeholderIndex?: number
+            engagementReport?: unknown
+          }
+          if (typeof stakeholderIndex !== 'number') {
+            return NextResponse.json(
+              { error: 'stakeholderIndex is required' },
+              { status: 400 },
+            )
+          }
+          if (
+            engagementReport !== undefined &&
+            typeof engagementReport !== 'string'
+          ) {
+            return NextResponse.json(
+              { error: 'engagementReport must be a string' },
+              { status: 400 },
+            )
+          }
+
+          const entryId = await resolveStakeholderEntryIdByIndex(
+            conn,
+            id,
+            stakeholderIndex,
+          )
+          if (!entryId) {
+            return NextResponse.json({ error: 'Stakeholder not found' }, { status: 404 })
+          }
+
+          await conn.execute(
+            `UPDATE stakeholder_entries SET engagement_report = :r WHERE id = :id`,
+            { r: String(engagementReport ?? '').trim(), id: entryId } as any,
+            { autoCommit: true },
+          )
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'deleteStakeholder') {
+          const { stakeholderIndex } = payload as { stakeholderIndex?: number }
+          if (typeof stakeholderIndex !== 'number') {
+            return NextResponse.json(
+              { error: 'stakeholderIndex is required' },
+              { status: 400 },
+            )
+          }
+
+          const entryId = await resolveStakeholderEntryIdByIndex(
+            conn,
+            id,
+            stakeholderIndex,
+          )
+          if (!entryId) {
+            return NextResponse.json({ error: 'Stakeholder not found' }, { status: 404 })
+          }
+
+          await conn.execute(
+            `DELETE FROM stakeholder_entries WHERE id = :id`,
+            { id: entryId } as any,
+            { autoCommit: true },
+          )
+          return NextResponse.json({ ok: true })
+        }
+
+        return NextResponse.json({ error: 'Unknown op' }, { status: 400 })
+      })
     }
 
     if (op === 'addStakeholder') {

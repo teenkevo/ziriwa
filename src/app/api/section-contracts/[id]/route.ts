@@ -1,10 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
+import { withOracleConnection } from '@/lib/oracle/client'
+import oracledb from 'oracledb'
 import {
   duplicateAmongStrings,
   initiativeCodeMatchesObjective,
   remapInitiativeCodeForObjectiveRename,
 } from '@/lib/contract-code-validation'
+
+function isYmd(v: unknown): v is string {
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+}
+
+function parseDateOrNull(v: unknown): Date | null {
+  if (!v) return null
+  if (v instanceof Date) return v
+  if (isYmd(v)) return new Date(`${v}T00:00:00.000Z`)
+  if (typeof v === 'string') {
+    const d = new Date(v)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  return null
+}
+
+async function resolveObjectiveIdByIndex(
+  conn: any,
+  contractId: string,
+  objectiveIndex: number,
+): Promise<{ id: string; code: string | null } | null> {
+  const rn = objectiveIndex + 1
+  const res = await conn.execute(
+    `
+      SELECT id AS "id", code AS "code"
+      FROM (
+        SELECT
+          id,
+          code,
+          ROW_NUMBER() OVER (
+            ORDER BY objective_order ASC, code NULLS LAST, id
+          ) AS rn
+        FROM contract_objectives
+        WHERE contract_id = :contractId
+      )
+      WHERE rn = :rn
+    `,
+    { contractId, rn } as any,
+    { outFormat: oracledb.OUT_FORMAT_OBJECT },
+  )
+  return (res.rows?.[0] as any) ?? null
+}
+
+async function resolveInitiativeIdByIndex(
+  conn: any,
+  objectiveId: string,
+  initiativeIndex: number,
+): Promise<{ id: string; code: string | null } | null> {
+  const rn = initiativeIndex + 1
+  const res = await conn.execute(
+    `
+      SELECT id AS "id", code AS "code"
+      FROM (
+        SELECT
+          id,
+          code,
+          ROW_NUMBER() OVER (
+            ORDER BY initiative_order ASC, code NULLS LAST, id
+          ) AS rn
+        FROM contract_initiatives
+        WHERE objective_id = :objectiveId
+      )
+      WHERE rn = :rn
+    `,
+    { objectiveId, rn } as any,
+    { outFormat: oracledb.OUT_FORMAT_OBJECT },
+  )
+  return (res.rows?.[0] as any) ?? null
+}
+
+async function resolveActivityIdByIndex(
+  conn: any,
+  initiativeId: string,
+  activityIndex: number,
+): Promise<string | null> {
+  const rn = activityIndex + 1
+  const res = await conn.execute(
+    `
+      SELECT id AS "id"
+      FROM (
+        SELECT
+          id,
+          ROW_NUMBER() OVER (
+            ORDER BY activity_order NULLS LAST, target_date NULLS LAST, id
+          ) AS rn
+        FROM measurable_activities
+        WHERE initiative_id = :initiativeId
+      )
+      WHERE rn = :rn
+    `,
+    { initiativeId, rn } as any,
+    { outFormat: oracledb.OUT_FORMAT_OBJECT },
+  )
+  const row = res.rows?.[0] as { id?: string } | undefined
+  return row?.id ?? null
+}
 
 /**
  * PATCH /api/section-contracts/[id] - Add objective, initiative, or activity
@@ -24,6 +122,1013 @@ export async function PATCH(
         { error: 'op and payload are required' },
         { status: 400 },
       )
+    }
+
+    if (process.env.CMS_PROVIDER === 'oracle') {
+      return withOracleConnection(async conn => {
+        const existsRes = await conn.execute(
+          `SELECT id AS "id" FROM section_contracts WHERE id = :id FETCH FIRST 1 ROWS ONLY`,
+          { id } as any,
+          { outFormat: oracledb.OUT_FORMAT_OBJECT },
+        )
+        if (!existsRes.rows?.[0]) {
+          return NextResponse.json(
+            { error: 'Contract not found' },
+            { status: 404 },
+          )
+        }
+
+        if (op === 'deleteObjective') {
+          const { objectiveIndex } = payload as { objectiveIndex?: number }
+          if (typeof objectiveIndex !== 'number') {
+            return NextResponse.json(
+              { error: 'objectiveIndex is required' },
+              { status: 400 },
+            )
+          }
+          const obj = await resolveObjectiveIdByIndex(conn, id, objectiveIndex)
+          if (!obj?.id) {
+            return NextResponse.json(
+              { error: 'Objective not found' },
+              { status: 404 },
+            )
+          }
+          await conn.execute(
+            `DELETE FROM measurable_activity_evidence WHERE activity_id IN (
+              SELECT ma.id FROM measurable_activities ma
+              JOIN contract_initiatives ci ON ci.id = ma.initiative_id
+              WHERE ci.objective_id = :objId
+            )`,
+            { objId: obj.id } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM measurable_activities WHERE initiative_id IN (
+              SELECT id FROM contract_initiatives WHERE objective_id = :objId
+            )`,
+            { objId: obj.id } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM contract_initiatives WHERE objective_id = :objId`,
+            { objId: obj.id } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM contract_objectives WHERE id = :objId`,
+            { objId: obj.id } as any,
+            { autoCommit: false },
+          )
+          await conn.commit()
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'deleteInitiative') {
+          const { objectiveIndex, initiativeIndex } = payload as {
+            objectiveIndex?: number
+            initiativeIndex?: number
+          }
+          if (
+            typeof objectiveIndex !== 'number' ||
+            typeof initiativeIndex !== 'number'
+          ) {
+            return NextResponse.json(
+              { error: 'objectiveIndex and initiativeIndex are required' },
+              { status: 400 },
+            )
+          }
+          const obj = await resolveObjectiveIdByIndex(conn, id, objectiveIndex)
+          if (!obj?.id) {
+            return NextResponse.json(
+              { error: 'Objective not found' },
+              { status: 404 },
+            )
+          }
+          const init = await resolveInitiativeIdByIndex(conn, obj.id, initiativeIndex)
+          if (!init?.id) {
+            return NextResponse.json(
+              { error: 'Initiative not found' },
+              { status: 404 },
+            )
+          }
+          await conn.execute(
+            `DELETE FROM measurable_activity_evidence WHERE activity_id IN (
+              SELECT id FROM measurable_activities WHERE initiative_id = :initId
+            )`,
+            { initId: init.id } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM measurable_activities WHERE initiative_id = :initId`,
+            { initId: init.id } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM contract_initiatives WHERE id = :initId`,
+            { initId: init.id } as any,
+            { autoCommit: false },
+          )
+          await conn.commit()
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'addObjective') {
+          const { code, title, order } = payload as {
+            code?: string
+            title?: string
+            order?: number
+          }
+          if (!code || typeof code !== 'string') {
+            return NextResponse.json({ error: 'code is required' }, { status: 400 })
+          }
+          const trimmedCode = code.trim()
+          if (!/^\d+\.\d+$/.test(trimmedCode)) {
+            return NextResponse.json(
+              { error: 'code must match format 1.1, 1.2, 2.1' },
+              { status: 400 },
+            )
+          }
+          if (!title || typeof title !== 'string') {
+            return NextResponse.json({ error: 'title is required' }, { status: 400 })
+          }
+          const existing = await conn.execute(
+            `SELECT COUNT(*) AS "c" FROM contract_objectives WHERE contract_id = :id AND code = :code`,
+            { id, code: trimmedCode } as any,
+            { outFormat: oracledb.OUT_FORMAT_OBJECT },
+          )
+          const c = Number((existing.rows?.[0] as any)?.c ?? 0)
+          if (c > 0) {
+            return NextResponse.json(
+              { error: `SSMARTA objective with code "${trimmedCode}" already exists` },
+              { status: 409 },
+            )
+          }
+
+          const orderNumber =
+            typeof order === 'number'
+              ? order
+              : Number(
+                  (((await conn.execute(
+                    `SELECT NVL(MAX(objective_order), 0) + 1 AS "n" FROM contract_objectives WHERE contract_id = :id`,
+                    { id } as any,
+                    { outFormat: oracledb.OUT_FORMAT_OBJECT },
+                  )).rows?.[0] as any)?.n ?? 1),
+                )
+
+          await conn.execute(
+            `
+              INSERT INTO contract_objectives (id, contract_id, objective_key, code, title, objective_order)
+              VALUES (:id, :contract_id, :objective_key, :code, :title, :objective_order)
+            `,
+            {
+              id: crypto.randomUUID(),
+              contract_id: id,
+              objective_key: crypto.randomUUID(),
+              code: trimmedCode,
+              title: title.trim(),
+              objective_order: orderNumber,
+            } as any,
+            { autoCommit: true },
+          )
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'addInitiative') {
+          const { objectiveIndex, code, title, order } = payload as {
+            objectiveIndex?: number
+            code?: string
+            title?: string
+            order?: number
+          }
+          if (
+            typeof objectiveIndex !== 'number' ||
+            !code ||
+            typeof code !== 'string' ||
+            !title ||
+            typeof title !== 'string'
+          ) {
+            return NextResponse.json(
+              { error: 'objectiveIndex, code, and title are required' },
+              { status: 400 },
+            )
+          }
+          const trimmedCode = code.trim()
+          if (!/^\d+\.\d+\.\d+$/.test(trimmedCode)) {
+            return NextResponse.json(
+              { error: 'code must match format 1.1.1, 1.1.2' },
+              { status: 400 },
+            )
+          }
+
+          const obj = await resolveObjectiveIdByIndex(conn, id, objectiveIndex)
+          if (!obj?.id) {
+            return NextResponse.json(
+              { error: 'Objective not found' },
+              { status: 404 },
+            )
+          }
+          const objectiveCode = obj.code?.trim() ?? String(objectiveIndex + 1)
+          if (!initiativeCodeMatchesObjective(trimmedCode, objectiveCode)) {
+            return NextResponse.json(
+              {
+                error: `Initiative code must start with "${objectiveCode}." (under this SSMARTA objective).`,
+              },
+              { status: 400 },
+            )
+          }
+          const dupeRes = await conn.execute(
+            `SELECT COUNT(*) AS "c" FROM contract_initiatives WHERE objective_id = :objective_id AND code = :code`,
+            { objective_id: obj.id, code: trimmedCode } as any,
+            { outFormat: oracledb.OUT_FORMAT_OBJECT },
+          )
+          const c = Number((dupeRes.rows?.[0] as any)?.c ?? 0)
+          if (c > 0) {
+            return NextResponse.json(
+              { error: `Initiative with code "${trimmedCode}" already exists.` },
+              { status: 409 },
+            )
+          }
+
+          const orderNumber =
+            typeof order === 'number'
+              ? order
+              : Number(
+                  (((await conn.execute(
+                    `SELECT NVL(MAX(initiative_order), 0) + 1 AS "n" FROM contract_initiatives WHERE objective_id = :objective_id`,
+                    { objective_id: obj.id } as any,
+                    { outFormat: oracledb.OUT_FORMAT_OBJECT },
+                  )).rows?.[0] as any)?.n ?? 1),
+                )
+
+          await conn.execute(
+            `
+              INSERT INTO contract_initiatives (
+                id, objective_id, initiative_key, code, title, initiative_order
+              ) VALUES (
+                :id, :objective_id, :initiative_key, :code, :title, :initiative_order
+              )
+            `,
+            {
+              id: crypto.randomUUID(),
+              objective_id: obj.id,
+              initiative_key: crypto.randomUUID(),
+              code: trimmedCode,
+              title: title.trim(),
+              initiative_order: orderNumber,
+            } as any,
+            { autoCommit: true },
+          )
+
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'addMeasurableActivity') {
+          const {
+            objectiveIndex,
+            initiativeIndex,
+            activityType,
+            title,
+            aim,
+            targetDate,
+            order,
+          } = payload as Record<string, unknown>
+          if (
+            typeof objectiveIndex !== 'number' ||
+            typeof initiativeIndex !== 'number' ||
+            !title ||
+            typeof title !== 'string' ||
+            !['kpi', 'cross-cutting'].includes(String(activityType))
+          ) {
+            return NextResponse.json(
+              {
+                error:
+                  'objectiveIndex, initiativeIndex, title, and activityType (kpi|cross-cutting) are required',
+              },
+              { status: 400 },
+            )
+          }
+          const obj = await resolveObjectiveIdByIndex(conn, id, objectiveIndex)
+          if (!obj?.id) {
+            return NextResponse.json(
+              { error: 'Objective not found' },
+              { status: 404 },
+            )
+          }
+          const init = await resolveInitiativeIdByIndex(
+            conn,
+            obj.id,
+            initiativeIndex,
+          )
+          if (!init?.id) {
+            return NextResponse.json(
+              { error: 'Initiative not found' },
+              { status: 404 },
+            )
+          }
+
+          const td =
+            typeof targetDate === 'string' && targetDate
+              ? new Date(`${targetDate}T00:00:00.000Z`)
+              : null
+
+          await conn.execute(
+            `
+              INSERT INTO measurable_activities (
+                id, initiative_id, activity_key, activity_type, title, aim,
+                target_date, activity_order, status, reporting_frequency
+              ) VALUES (
+                :id, :initiative_id, :activity_key, :activity_type, :title, :aim,
+                :target_date, :activity_order, :status, :reporting_frequency
+              )
+            `,
+            {
+              id: crypto.randomUUID(),
+              initiative_id: init.id,
+              activity_key: crypto.randomUUID(),
+              activity_type: String(activityType),
+              title: title.trim(),
+              aim:
+                String(activityType) === 'kpi' && typeof aim === 'string' && aim.trim()
+                  ? aim.trim()
+                  : null,
+              target_date: td,
+              activity_order: typeof order === 'number' ? order : null,
+              status: 'not_started',
+              reporting_frequency: 'monthly',
+            } as any,
+            { autoCommit: true },
+          )
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'updateObjective') {
+          const { objectiveIndex, code, title } = payload as Record<string, unknown>
+          if (typeof objectiveIndex !== 'number') {
+            return NextResponse.json(
+              { error: 'objectiveIndex is required' },
+              { status: 400 },
+            )
+          }
+
+          const obj = await resolveObjectiveIdByIndex(conn, id, objectiveIndex)
+          if (!obj?.id) {
+            return NextResponse.json(
+              { error: 'Objective not found' },
+              { status: 404 },
+            )
+          }
+
+          const setObjective: any = {}
+          const setObjectiveSql: string[] = []
+
+          if (code !== undefined) {
+            if (typeof code !== 'string') {
+              return NextResponse.json(
+                { error: 'code must be a string' },
+                { status: 400 },
+              )
+            }
+            const trimmedCode = code.trim()
+            if (!/^\d+\.\d+$/.test(trimmedCode)) {
+              return NextResponse.json(
+                { error: 'code must match format 1.1, 1.2, 2.1' },
+                { status: 400 },
+              )
+            }
+
+            const dupeRes = await conn.execute(
+              `SELECT COUNT(*) AS "c" FROM contract_objectives WHERE contract_id = :contractId AND code = :code AND id != :id`,
+              { contractId: id, code: trimmedCode, id: obj.id } as any,
+              { outFormat: oracledb.OUT_FORMAT_OBJECT },
+            )
+            const dupe = Number((dupeRes.rows?.[0] as any)?.c ?? 0)
+            if (dupe > 0) {
+              return NextResponse.json(
+                { error: `SSMARTA objective with code "${trimmedCode}" already exists` },
+                { status: 409 },
+              )
+            }
+
+            const initiativesRes = await conn.execute(
+              `SELECT id AS "id", code AS "code" FROM contract_initiatives WHERE objective_id = :id ORDER BY initiative_order ASC, code NULLS LAST, id`,
+              { id: obj.id } as any,
+              { outFormat: oracledb.OUT_FORMAT_OBJECT },
+            )
+            const initiatives = (initiativesRes.rows ?? []) as Array<{
+              id: string
+              code: string | null
+            }>
+            const oldObjectiveCode =
+              (obj.code?.trim() ?? '') || String(objectiveIndex + 1)
+            if (trimmedCode !== oldObjectiveCode) {
+              const remapped = initiatives.map(init =>
+                remapInitiativeCodeForObjectiveRename(
+                  init.code ?? '',
+                  oldObjectiveCode,
+                  trimmedCode,
+                ),
+              )
+              const dupMsg = duplicateAmongStrings(remapped)
+              if (dupMsg) {
+                return NextResponse.json({ error: dupMsg }, { status: 409 })
+              }
+              for (let j = 0; j < initiatives.length; j++) {
+                if (remapped[j] && remapped[j] !== (initiatives[j].code ?? '')) {
+                  await conn.execute(
+                    `UPDATE contract_initiatives SET code = :code WHERE id = :id`,
+                    { code: remapped[j], id: initiatives[j].id } as any,
+                    { autoCommit: false },
+                  )
+                }
+              }
+            }
+
+            setObjectiveSql.push('code = :code')
+            setObjective.code = trimmedCode
+          }
+
+          if (title !== undefined) {
+            if (typeof title !== 'string' || !title.trim()) {
+              return NextResponse.json(
+                { error: 'title must be a non-empty string' },
+                { status: 400 },
+              )
+            }
+            setObjectiveSql.push('title = :title')
+            setObjective.title = title.trim()
+          }
+
+          if (setObjectiveSql.length) {
+            await conn.execute(
+              `UPDATE contract_objectives SET ${setObjectiveSql.join(', ')} WHERE id = :id`,
+              { ...setObjective, id: obj.id } as any,
+              { autoCommit: false },
+            )
+          }
+
+          await conn.commit()
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'updateInitiative') {
+          const { objectiveIndex, initiativeIndex, code, title } = payload as Record<
+            string,
+            unknown
+          >
+          if (
+            typeof objectiveIndex !== 'number' ||
+            typeof initiativeIndex !== 'number'
+          ) {
+            return NextResponse.json(
+              { error: 'objectiveIndex and initiativeIndex are required' },
+              { status: 400 },
+            )
+          }
+
+          const obj = await resolveObjectiveIdByIndex(conn, id, objectiveIndex)
+          if (!obj?.id) {
+            return NextResponse.json(
+              { error: 'Objective not found' },
+              { status: 404 },
+            )
+          }
+          const init = await resolveInitiativeIdByIndex(conn, obj.id, initiativeIndex)
+          if (!init?.id) {
+            return NextResponse.json(
+              { error: 'Initiative not found' },
+              { status: 404 },
+            )
+          }
+
+          const setSql: string[] = []
+          const binds: any = { id: init.id }
+
+          if (code !== undefined) {
+            if (typeof code !== 'string') {
+              return NextResponse.json(
+                { error: 'code must be a string' },
+                { status: 400 },
+              )
+            }
+            const trimmedCode = code.trim()
+            if (!/^\d+\.\d+\.\d+$/.test(trimmedCode)) {
+              return NextResponse.json(
+                { error: 'code must match format 1.1.1, 1.1.2, 1.1.3' },
+                { status: 400 },
+              )
+            }
+            const objectiveCode =
+              obj.code?.trim() ?? String(objectiveIndex + 1)
+            if (!initiativeCodeMatchesObjective(trimmedCode, objectiveCode)) {
+              return NextResponse.json(
+                {
+                  error: `Initiative code must nest under this objective (e.g. "${objectiveCode}.1"), not another branch.`,
+                },
+                { status: 400 },
+              )
+            }
+            const dupeRes = await conn.execute(
+              `SELECT COUNT(*) AS "c" FROM contract_initiatives WHERE objective_id = :objId AND code = :code AND id != :id`,
+              { objId: obj.id, code: trimmedCode, id: init.id } as any,
+              { outFormat: oracledb.OUT_FORMAT_OBJECT },
+            )
+            const dupe = Number((dupeRes.rows?.[0] as any)?.c ?? 0)
+            if (dupe > 0) {
+              return NextResponse.json(
+                { error: `Initiative with code "${trimmedCode}" already exists.` },
+                { status: 409 },
+              )
+            }
+            setSql.push('code = :code')
+            binds.code = trimmedCode
+          }
+
+          if (title !== undefined) {
+            if (typeof title !== 'string' || !title.trim()) {
+              return NextResponse.json(
+                { error: 'title must be a non-empty string' },
+                { status: 400 },
+              )
+            }
+            setSql.push('title = :title')
+            binds.title = title.trim()
+          }
+
+          if (setSql.length) {
+            await conn.execute(
+              `UPDATE contract_initiatives SET ${setSql.join(', ')} WHERE id = :id`,
+              binds,
+              { autoCommit: true },
+            )
+          }
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'updateActivity') {
+          const {
+            objectiveIndex,
+            initiativeIndex,
+            activityIndex,
+            title,
+            aim,
+            targetDate,
+            status,
+            reportingFrequency,
+          } = payload as Record<string, unknown>
+
+          if (
+            typeof objectiveIndex !== 'number' ||
+            typeof initiativeIndex !== 'number' ||
+            typeof activityIndex !== 'number'
+          ) {
+            return NextResponse.json(
+              {
+                error:
+                  'objectiveIndex, initiativeIndex, and activityIndex are required',
+              },
+              { status: 400 },
+            )
+          }
+
+          const obj = await resolveObjectiveIdByIndex(conn, id, objectiveIndex)
+          if (!obj?.id) {
+            return NextResponse.json(
+              { error: 'Objective not found' },
+              { status: 404 },
+            )
+          }
+          const init = await resolveInitiativeIdByIndex(conn, obj.id, initiativeIndex)
+          if (!init?.id) {
+            return NextResponse.json(
+              { error: 'Initiative not found' },
+              { status: 404 },
+            )
+          }
+          const activityId = await resolveActivityIdByIndex(
+            conn,
+            init.id,
+            activityIndex,
+          )
+          if (!activityId) {
+            return NextResponse.json(
+              { error: 'Activity not found' },
+              { status: 404 },
+            )
+          }
+
+          const sets: string[] = []
+          const binds: any = { id: activityId }
+
+          if (title !== undefined && typeof title === 'string') {
+            sets.push('title = :title')
+            binds.title = title.trim()
+          }
+          if (aim !== undefined) {
+            sets.push('aim = :aim')
+            binds.aim = typeof aim === 'string' ? aim.trim() : null
+          }
+          if (targetDate !== undefined) {
+            sets.push('target_date = :target_date')
+            binds.target_date =
+              typeof targetDate === 'string' && targetDate
+                ? new Date(`${targetDate}T00:00:00.000Z`)
+                : null
+          }
+          if (
+            status !== undefined &&
+            ['not_started', 'in_progress', 'completed'].includes(String(status))
+          ) {
+            sets.push('status = :status')
+            binds.status = String(status)
+          }
+          if (
+            reportingFrequency !== undefined &&
+            ['weekly', 'monthly', 'quarterly', 'n/a'].includes(
+              String(reportingFrequency),
+            )
+          ) {
+            sets.push('reporting_frequency = :reporting_frequency')
+            binds.reporting_frequency = String(reportingFrequency)
+          }
+
+          if (sets.length) {
+            await conn.execute(
+              `UPDATE measurable_activities SET ${sets.join(', ')} WHERE id = :id`,
+              binds,
+              { autoCommit: true },
+            )
+          }
+
+          return NextResponse.json({ ok: true })
+        }
+
+        if (op === 'updateActivityTasks') {
+          const { objectiveIndex, initiativeIndex, activityIndex, tasks } =
+            payload as {
+              objectiveIndex?: number
+              initiativeIndex?: number
+              activityIndex?: number
+              tasks?: unknown
+            }
+
+          if (
+            typeof objectiveIndex !== 'number' ||
+            typeof initiativeIndex !== 'number' ||
+            typeof activityIndex !== 'number' ||
+            !Array.isArray(tasks)
+          ) {
+            return NextResponse.json(
+              {
+                error:
+                  'objectiveIndex, initiativeIndex, activityIndex, and tasks (array) are required',
+              },
+              { status: 400 },
+            )
+          }
+
+          const obj = await resolveObjectiveIdByIndex(conn, id, objectiveIndex)
+          if (!obj?.id) {
+            return NextResponse.json(
+              { error: 'Objective not found' },
+              { status: 404 },
+            )
+          }
+          const init = await resolveInitiativeIdByIndex(conn, obj.id, initiativeIndex)
+          if (!init?.id) {
+            return NextResponse.json(
+              { error: 'Initiative not found' },
+              { status: 404 },
+            )
+          }
+          const activityId = await resolveActivityIdByIndex(
+            conn,
+            init.id,
+            activityIndex,
+          )
+          if (!activityId) {
+            return NextResponse.json(
+              { error: 'Activity not found' },
+              { status: 404 },
+            )
+          }
+
+          // Delete existing task subtree for this activity.
+          await conn.execute(
+            `DELETE FROM activity_task_period_review_thread WHERE period_id IN (
+              SELECT id FROM activity_task_periods WHERE task_id IN (
+                SELECT id FROM activity_tasks WHERE activity_id = :activityId
+              )
+            )`,
+            { activityId } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM activity_task_period_deliverables WHERE period_id IN (
+              SELECT id FROM activity_task_periods WHERE task_id IN (
+                SELECT id FROM activity_tasks WHERE activity_id = :activityId
+              )
+            )`,
+            { activityId } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM activity_task_periods WHERE task_id IN (
+              SELECT id FROM activity_tasks WHERE activity_id = :activityId
+            )`,
+            { activityId } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM activity_task_review_thread WHERE task_id IN (
+              SELECT id FROM activity_tasks WHERE activity_id = :activityId
+            )`,
+            { activityId } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM activity_task_deliverables WHERE task_id IN (
+              SELECT id FROM activity_tasks WHERE activity_id = :activityId
+            )`,
+            { activityId } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM activity_task_inputs WHERE task_id IN (
+              SELECT id FROM activity_tasks WHERE activity_id = :activityId
+            )`,
+            { activityId } as any,
+            { autoCommit: false },
+          )
+          await conn.execute(
+            `DELETE FROM activity_tasks WHERE activity_id = :activityId`,
+            { activityId } as any,
+            { autoCommit: false },
+          )
+
+          const insertThread = async (
+            taskId: string,
+            kind: 'inputs' | 'deliverable',
+            entry: any,
+          ) => {
+            const assetId = entry?.file?.asset?._ref ?? entry?.file?.asset?._id
+            const authorId =
+              typeof entry?.author === 'string'
+                ? entry.author
+                : typeof entry?.author?._id === 'string'
+                  ? entry.author._id
+                  : null
+            await conn.execute(
+              `
+                INSERT INTO activity_task_review_thread (
+                  id, task_id, thread_key, thread_kind,
+                  author_staff_id, role, action, message, created_at, asset_id
+                ) VALUES (
+                  :id, :task_id, :thread_key, :thread_kind,
+                  :author_staff_id, :role, :action, :message, :created_at, :asset_id
+                )
+              `,
+              {
+                id: crypto.randomUUID(),
+                task_id: taskId,
+                thread_key:
+                  typeof entry?._key === 'string' ? entry._key : crypto.randomUUID(),
+                thread_kind: kind,
+                author_staff_id: authorId,
+                role: typeof entry?.role === 'string' ? entry.role : null,
+                action: typeof entry?.action === 'string' ? entry.action : null,
+                message: typeof entry?.message === 'string' ? entry.message : null,
+                created_at: entry?.createdAt
+                  ? new Date(String(entry.createdAt))
+                  : new Date(),
+                asset_id: typeof assetId === 'string' ? assetId : null,
+              } as any,
+              { autoCommit: false },
+            )
+          }
+
+          for (let i = 0; i < tasks.length; i++) {
+            const t = tasks[i] as any
+            const isString = typeof t === 'string'
+            const taskKey =
+              (typeof t?._key === 'string' && t._key) ||
+              (isString
+                ? `task-${i}-${crypto.randomUUID().slice(0, 8)}`
+                : crypto.randomUUID())
+            const taskText = isString
+              ? String(t).trim()
+              : String(t?.task ?? '').trim()
+            const priority =
+              typeof t?.priority === 'string' ? String(t.priority) : 'medium'
+            const status =
+              typeof t?.status === 'string' ? String(t.status) : 'to_do'
+            const assigneeStaffId =
+              typeof t?.assignee === 'string'
+                ? t.assignee
+                : typeof t?.assignee?._id === 'string'
+                  ? t.assignee._id
+                  : null
+
+            const taskId = crypto.randomUUID()
+            await conn.execute(
+              `
+                INSERT INTO activity_tasks (
+                  id, activity_id, task_key, task_text, task_order,
+                  priority, status, assignee_staff_id,
+                  target_date, reporting_frequency, reporting_period_start, expected_deliverable
+                ) VALUES (
+                  :id, :activity_id, :task_key, :task_text, :task_order,
+                  :priority, :status, :assignee_staff_id,
+                  :target_date, :reporting_frequency, :reporting_period_start, :expected_deliverable
+                )
+              `,
+              {
+                id: taskId,
+                activity_id: activityId,
+                task_key: taskKey,
+                task_text: taskText,
+                task_order: i,
+                priority,
+                status,
+                assignee_staff_id: assigneeStaffId,
+                target_date: parseDateOrNull(t?.targetDate),
+                reporting_frequency:
+                  typeof t?.reportingFrequency === 'string'
+                    ? t.reportingFrequency
+                    : 'n/a',
+                reporting_period_start: parseDateOrNull(t?.reportingPeriodStart),
+                expected_deliverable:
+                  typeof t?.expectedDeliverable === 'string'
+                    ? t.expectedDeliverable
+                    : null,
+              } as any,
+              { autoCommit: false },
+            )
+
+            const inputsAssetId =
+              t?.inputs?.file?.asset?._ref ??
+              t?.inputs?.file?.asset?._id ??
+              t?.inputs?.file?.asset?.id
+            if (typeof inputsAssetId === 'string' && inputsAssetId) {
+              await conn.execute(
+                `
+                  INSERT INTO activity_task_inputs (id, task_id, asset_id, submitted_at)
+                  VALUES (:id, :task_id, :asset_id, :submitted_at)
+                `,
+                {
+                  id: crypto.randomUUID(),
+                  task_id: taskId,
+                  asset_id: inputsAssetId,
+                  submitted_at: t?.inputs?.submittedAt
+                    ? new Date(String(t.inputs.submittedAt))
+                    : new Date(),
+                } as any,
+                { autoCommit: false },
+              )
+            }
+
+            if (Array.isArray(t?.inputsReviewThread)) {
+              for (const entry of t.inputsReviewThread) {
+                // eslint-disable-next-line no-await-in-loop
+                await insertThread(taskId, 'inputs', entry)
+              }
+            }
+            if (Array.isArray(t?.deliverableReviewThread)) {
+              for (const entry of t.deliverableReviewThread) {
+                // eslint-disable-next-line no-await-in-loop
+                await insertThread(taskId, 'deliverable', entry)
+              }
+            }
+
+            if (Array.isArray(t?.deliverable)) {
+              for (const d of t.deliverable) {
+                const assetId = d?.file?.asset?._ref ?? d?.file?.asset?._id
+                if (typeof assetId !== 'string' || !assetId) continue
+                // eslint-disable-next-line no-await-in-loop
+                await conn.execute(
+                  `
+                    INSERT INTO activity_task_deliverables (
+                      id, task_id, deliverable_key, asset_id, tag, locked
+                    ) VALUES (
+                      :id, :task_id, :deliverable_key, :asset_id, :tag, :locked
+                    )
+                  `,
+                  {
+                    id: crypto.randomUUID(),
+                    task_id: taskId,
+                    deliverable_key:
+                      typeof d?._key === 'string' ? d._key : crypto.randomUUID(),
+                    asset_id: assetId,
+                    tag: d?.tag === 'main' ? 'main' : 'support',
+                    locked: d?.locked ? 1 : 0,
+                  } as any,
+                  { autoCommit: false },
+                )
+              }
+            }
+
+            if (Array.isArray(t?.periodDeliverables)) {
+              for (const pd of t.periodDeliverables) {
+                const periodId = crypto.randomUUID()
+                await conn.execute(
+                  `
+                    INSERT INTO activity_task_periods (id, task_id, period_key, status, submitted_at)
+                    VALUES (:id, :task_id, :period_key, :status, :submitted_at)
+                  `,
+                  {
+                    id: periodId,
+                    task_id: taskId,
+                    period_key:
+                      typeof pd?.periodKey === 'string'
+                        ? pd.periodKey
+                        : crypto.randomUUID(),
+                    status: typeof pd?.status === 'string' ? pd.status : 'pending',
+                    submitted_at: pd?.submittedAt
+                      ? new Date(String(pd.submittedAt))
+                      : null,
+                  } as any,
+                  { autoCommit: false },
+                )
+
+                if (Array.isArray(pd?.deliverable)) {
+                  for (const d of pd.deliverable) {
+                    const assetId = d?.file?.asset?._ref ?? d?.file?.asset?._id
+                    if (typeof assetId !== 'string' || !assetId) continue
+                    // eslint-disable-next-line no-await-in-loop
+                    await conn.execute(
+                      `
+                        INSERT INTO activity_task_period_deliverables (
+                          id, period_id, deliverable_key, asset_id, tag, locked
+                        ) VALUES (
+                          :id, :period_id, :deliverable_key, :asset_id, :tag, :locked
+                        )
+                      `,
+                      {
+                        id: crypto.randomUUID(),
+                        period_id: periodId,
+                        deliverable_key:
+                          typeof d?._key === 'string' ? d._key : crypto.randomUUID(),
+                        asset_id: assetId,
+                        tag: d?.tag === 'main' ? 'main' : 'support',
+                        locked: d?.locked ? 1 : 0,
+                      } as any,
+                      { autoCommit: false },
+                    )
+                  }
+                }
+
+                if (Array.isArray(pd?.deliverableReviewThread)) {
+                  for (const entry of pd.deliverableReviewThread) {
+                    const assetId =
+                      entry?.file?.asset?._ref ?? entry?.file?.asset?._id
+                    const authorId =
+                      typeof entry?.author === 'string'
+                        ? entry.author
+                        : typeof entry?.author?._id === 'string'
+                          ? entry.author._id
+                          : null
+                    // eslint-disable-next-line no-await-in-loop
+                    await conn.execute(
+                      `
+                        INSERT INTO activity_task_period_review_thread (
+                          id, period_id, thread_key, author_staff_id, role, action,
+                          message, created_at, asset_id
+                        ) VALUES (
+                          :id, :period_id, :thread_key, :author_staff_id, :role, :action,
+                          :message, :created_at, :asset_id
+                        )
+                      `,
+                      {
+                        id: crypto.randomUUID(),
+                        period_id: periodId,
+                        thread_key:
+                          typeof entry?._key === 'string'
+                            ? entry._key
+                            : crypto.randomUUID(),
+                        author_staff_id: authorId,
+                        role: typeof entry?.role === 'string' ? entry.role : null,
+                        action:
+                          typeof entry?.action === 'string' ? entry.action : null,
+                        message:
+                          typeof entry?.message === 'string' ? entry.message : null,
+                        created_at: entry?.createdAt
+                          ? new Date(String(entry.createdAt))
+                          : new Date(),
+                        asset_id: typeof assetId === 'string' ? assetId : null,
+                      } as any,
+                      { autoCommit: false },
+                    )
+                  }
+                }
+              }
+            }
+          }
+
+          await conn.commit()
+          return NextResponse.json({ ok: true })
+        }
+
+        return NextResponse.json({ error: 'Unknown op' }, { status: 400 })
+      })
     }
 
     if (op === 'updateObjective') {

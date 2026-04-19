@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
 import { getStakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import { oracleQuery, oracleExecute } from '@/lib/oracle/client'
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,6 +17,41 @@ export async function POST(req: NextRequest) {
     }
 
     const currentFY = getCurrentFinancialYear()
+
+    if (process.env.CMS_PROVIDER === 'oracle') {
+      const exists = await oracleQuery<{ id: string }>(
+        `
+          SELECT id AS "id"
+          FROM stakeholder_engagements
+          WHERE section_id = :sectionId
+            AND financial_year_label = :fy
+          FETCH FIRST 1 ROWS ONLY
+        `,
+        { sectionId, fy: currentFY.label },
+      )
+      if (exists.length) {
+        return NextResponse.json(
+          {
+            error:
+              'Stakeholder engagement already exists for this section and financial year',
+          },
+          { status: 409 },
+        )
+      }
+
+      const id = crypto.randomUUID()
+      await oracleExecute(
+        `
+          INSERT INTO stakeholder_engagements (id, section_id, financial_year_label)
+          VALUES (:id, :section_id, :financial_year_label)
+        `,
+        { id, section_id: sectionId, financial_year_label: currentFY.label },
+      )
+      return NextResponse.json(
+        { id, financialYearLabel: currentFY.label },
+        { status: 201 },
+      )
+    }
 
     const existing = await getStakeholderEngagement(sectionId, currentFY.label)
     if (existing) {

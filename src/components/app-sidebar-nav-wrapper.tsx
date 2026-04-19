@@ -1,4 +1,4 @@
-import { getDepartmentsWithDivisionsForSidebar } from '@/sanity/lib/departments/get-departments-with-divisions-for-sidebar'
+import { getDepartmentsWithDivisionsForSidebar } from '@/oracle/lib/departments/get-departments-with-divisions-for-sidebar'
 import { AppSidebarNav } from '@/components/app-sidebar-nav'
 
 export async function AppSidebarNavWrapper() {

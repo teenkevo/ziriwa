@@ -14,11 +14,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import {
   Popover,
   PopoverContent,
@@ -60,11 +56,11 @@ export function CommissionerSwitcher({
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
-  const handleCreateSuccess = (newStaff: StaffMember) => {
+  const handleCreateSuccess = async (newStaff: StaffMember) => {
     onChange(newStaff._id)
     setShowCreateDialog(false)
     setOpen(false)
-    router.refresh()
+    await router.refresh()
   }
 
   return (

@@ -1,5 +1,6 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import { getSectionsByDivisionOracle } from '@/oracle/lib/sections/get-sections-by-division'
 
 export type Section = {
   _id: string
@@ -15,6 +16,9 @@ export type Section = {
 export async function getSectionsByDivision(
   divisionId: string,
 ): Promise<Section[]> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getSectionsByDivisionOracle(divisionId)
+  }
   const query = defineQuery(`
     *[_type == "section" && division._ref == $divisionId] | order(order asc, name asc) {
       _id,

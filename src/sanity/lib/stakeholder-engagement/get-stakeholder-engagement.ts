@@ -1,5 +1,6 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import { getStakeholderEngagementOracle } from '@/oracle/lib/stakeholder-engagement/get-stakeholder-engagement'
 
 export type StakeholderEntry = {
   _key: string
@@ -40,6 +41,10 @@ export async function getStakeholderEngagement(
   sectionId: string,
   financialYearLabel: string,
 ): Promise<StakeholderEngagement | null> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getStakeholderEngagementOracle(sectionId, financialYearLabel)
+  }
+
   const query = defineQuery(`
     *[_type == "stakeholderEngagement" && section._ref == $sectionId && financialYearLabel == $financialYearLabel][0] {
       _id,

@@ -77,7 +77,7 @@ export function EditSectionDialog({
       if (data.slug && data.slug !== section.slug?.current) {
         router.replace(`/sections/${data.slug}`)
       } else {
-        router.refresh()
+        await router.refresh()
       }
     } catch (err) {
       console.error(err)

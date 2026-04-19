@@ -79,7 +79,7 @@ export function CreateSectionDialog({
       setName('')
       setManagerId('')
       onOpenChange(false)
-      router.refresh()
+      await router.refresh()
       onSuccess?.(newSection)
     } catch (err) {
       console.error(err)

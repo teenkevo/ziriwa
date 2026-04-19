@@ -52,7 +52,7 @@ export function OnboardContractDialog({
         throw new Error(data.error || 'Failed to onboard contract')
       }
       onOpenChange(false)
-      router.refresh()
+      await router.refresh()
       onSuccess?.()
     } catch (err) {
       console.error(err)

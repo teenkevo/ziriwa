@@ -1,5 +1,6 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import { getSectionContractOracle } from '@/oracle/lib/section-contracts/get-section-contract'
 
 export type DeliverableItem = {
   _key?: string
@@ -169,6 +170,10 @@ export async function getSectionContract(
   sectionId: string,
   financialYearLabel: string,
 ): Promise<SectionContract | null> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getSectionContractOracle(sectionId, financialYearLabel)
+  }
+
   const query = defineQuery(`
     *[_type == "sectionContract" && section._ref == $sectionId && financialYearLabel == $financialYearLabel][0] {
       _id,

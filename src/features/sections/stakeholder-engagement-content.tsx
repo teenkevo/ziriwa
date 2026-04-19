@@ -64,7 +64,7 @@ export function StakeholderEngagementContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to create engagement')
       }
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create engagement')
@@ -79,10 +79,10 @@ export function StakeholderEngagementContent({
     setAddDialogOpen(true)
   }
 
-  const handleAddSuccess = () => {
+  const handleAddSuccess = async () => {
     setEditingEntry(null)
     setEditingIndex(null)
-    router.refresh()
+    await router.refresh()
   }
 
   const handleReport = (entry: StakeholderEntry, index: number) => {
@@ -165,7 +165,9 @@ export function StakeholderEngagementContent({
           engagementId={engagement._id}
           initiatives={initiatives}
           onEdit={handleEdit}
-          onDelete={() => router.refresh()}
+          onDelete={async () => {
+            await router.refresh()
+          }}
           onReport={handleReport}
         />
       ) : (
@@ -202,7 +204,9 @@ export function StakeholderEngagementContent({
         entry={reportEntry}
         stakeholderIndex={reportIndex}
         engagementId={engagement._id}
-        onSuccess={() => router.refresh()}
+        onSuccess={async () => {
+          await router.refresh()
+        }}
       />
     </div>
   )

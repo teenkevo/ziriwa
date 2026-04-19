@@ -1,5 +1,11 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import {
+  getAssistantCommissionersAvailableForDepartmentOracle,
+  getAssistantCommissionersByDivisionOracle,
+  getAssistantCommissionersInDepartmentOracle,
+  getAssistantCommissionersOracle,
+} from '@/oracle/lib/staff/get-assistant-commissioners'
 
 export type StaffMember = {
   _id: string
@@ -8,6 +14,9 @@ export type StaffMember = {
 }
 
 export async function getAssistantCommissioners(): Promise<StaffMember[]> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getAssistantCommissionersOracle()
+  }
   const query = defineQuery(`
     *[_type == "staff" && role == "assistant_commissioner" && status == "active"] | order(coalesce(fullName, firstName + " " + lastName) asc) {
       _id,
@@ -31,6 +40,9 @@ export async function getAssistantCommissionersByDivision(
   divisionId: string,
 ): Promise<StaffMember[]> {
   if (!divisionId) return []
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getAssistantCommissionersByDivisionOracle(divisionId)
+  }
   const query = defineQuery(`
     *[_type == "staff" && role == "assistant_commissioner" && status == "active" && division._ref == $divisionId] | order(coalesce(fullName, firstName + " " + lastName) asc) {
       _id,
@@ -61,6 +73,9 @@ export async function getAssistantCommissionersInDepartment(
   departmentId: string,
 ): Promise<StaffMember[]> {
   if (!departmentId) return []
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getAssistantCommissionersInDepartmentOracle(departmentId)
+  }
   const query = defineQuery(`
     *[_type == "staff" && role == "assistant_commissioner" && status == "active" && department._ref == $departmentId] | order(coalesce(fullName, firstName + " " + lastName) asc) {
       _id,
@@ -90,6 +105,9 @@ export async function getAssistantCommissionersAvailableForDepartment(
   departmentId: string,
 ): Promise<StaffMember[]> {
   if (!departmentId) return []
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getAssistantCommissionersAvailableForDepartmentOracle(departmentId)
+  }
   const query = defineQuery(`
     *[_type == "staff" && role == "assistant_commissioner" && status == "active" && department._ref == $departmentId && !defined(division)] | order(coalesce(fullName, firstName + " " + lastName) asc) {
       _id,

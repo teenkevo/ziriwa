@@ -1,5 +1,5 @@
 import { verifyWebhook } from '@clerk/nextjs/webhooks'
-import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
+import { checkStaffEmail } from '@/lib/check-staff-email.server'
 import { clerkClient } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 

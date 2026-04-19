@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
 import { getDivisionBySlug } from '@/sanity/lib/divisions/get-division-by-slug'
 import { getSectionsByDivision } from '@/sanity/lib/sections/get-sections-by-division'
-import { getManagersByDivision } from '@/sanity/lib/staff/get-managers'
-import { getAssistantCommissionersInDepartment } from '@/sanity/lib/staff/get-assistant-commissioners'
+import { getManagers } from '@/sanity/lib/staff/get-managers'
+import { getAssistantCommissioners } from '@/sanity/lib/staff/get-assistant-commissioners'
 import { getInitiativeProgressForSections } from '@/sanity/lib/section-contracts/get-initiative-progress-for-sections'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
 import { DivisionPageContent } from '@/features/divisions/division-page-content'
@@ -17,14 +17,10 @@ export default async function DivisionPage({
 
   if (!division) notFound()
 
-  const departmentId = division.department?._id
-
   const [sections, managers, assistantCommissioners] = await Promise.all([
     getSectionsByDivision(division._id),
-    getManagersByDivision(division._id),
-    departmentId
-      ? getAssistantCommissionersInDepartment(departmentId)
-      : Promise.resolve([]),
+    getManagers(),
+    getAssistantCommissioners(),
   ])
 
   const fy = getCurrentFinancialYear()

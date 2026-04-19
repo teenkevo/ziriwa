@@ -45,10 +45,8 @@ import { StakeholderEngagementContent } from './stakeholder-engagement-content'
 import { WeeklySprintContent } from './weekly-sprint-content'
 import type { DueItem } from './components/due-today-this-week'
 import type { SectionStaff } from '@/sanity/lib/staff/get-staff-by-section'
-import {
-  type SectionContract,
-  flattenInitiatives,
-} from '@/sanity/lib/section-contracts/get-section-contract'
+import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
+import { flattenInitiatives } from '@/lib/section-contract-utils'
 import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import type { StaffMember } from '@/sanity/lib/staff/get-managers'
@@ -191,7 +189,7 @@ export function SectionPageContent({
       } else {
         router.push('/departments')
       }
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete section')

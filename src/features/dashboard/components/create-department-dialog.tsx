@@ -69,7 +69,7 @@ export function CreateDepartmentDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create department')

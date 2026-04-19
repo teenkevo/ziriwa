@@ -54,11 +54,14 @@ export function OfficerSwitcher({
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
-  const handleCreateSuccess = (newStaff: { _id: string; fullName: string }) => {
+  const handleCreateSuccess = async (newStaff: {
+    _id: string
+    fullName: string
+  }) => {
     onChange(newStaff._id)
     setShowCreateDialog(false)
     setOpen(false)
-    router.refresh()
+    await router.refresh()
   }
 
   return (

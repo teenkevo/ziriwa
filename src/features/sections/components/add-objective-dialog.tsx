@@ -127,7 +127,7 @@ export function AddObjectiveDialog({
       }
       form.reset()
       onOpenChange(false)
-      router.refresh()
+      await router.refresh()
       onSuccess?.()
     } catch (err) {
       console.error(err)

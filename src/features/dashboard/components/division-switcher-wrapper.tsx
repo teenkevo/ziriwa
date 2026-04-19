@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
-import { getAssistantCommissionersAvailableForDepartment } from '@/sanity/lib/staff/get-assistant-commissioners'
-import { getDepartmentById } from '@/sanity/lib/departments/get-department-by-id'
-import { getAllDepartments } from '@/sanity/lib/departments/get-all-departments'
+import { getAssistantCommissioners } from '@/sanity/lib/staff/get-assistant-commissioners'
+import { getDepartmentById } from '@/oracle/lib/departments/get-department-by-id'
+import { getAllDepartments } from '@/oracle/lib/departments/get-all-departments'
 import { getDivisionsByDepartment } from '@/sanity/lib/divisions/get-divisions-by-department'
 import DivisionSwitcher from './division-switcher'
 import {
@@ -30,7 +30,7 @@ export async function DivisionSwitcherWrapper() {
 
   const [divisions, assistantCommissioners] = await Promise.all([
     getDivisionsByDepartment(department._id),
-    getAssistantCommissionersAvailableForDepartment(department._id),
+    getAssistantCommissioners(),
   ])
 
   const storedDivisionId = cookieStore.get(DIVISION_COOKIE_NAME)?.value

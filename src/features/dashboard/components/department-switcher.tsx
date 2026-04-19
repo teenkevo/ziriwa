@@ -97,7 +97,7 @@ export default function DepartmentSwitcher({
         body: JSON.stringify({ id: department._id }),
       })
       setOpen(false)
-      router.refresh()
+      await router.refresh()
     } finally {
       setIsSelecting(false)
     }
@@ -132,7 +132,7 @@ export default function DepartmentSwitcher({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create department')

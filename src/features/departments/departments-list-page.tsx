@@ -28,7 +28,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import type { DepartmentListRow } from '@/sanity/lib/departments/get-all-departments-for-list'
+import type { DepartmentListRow } from '@/lib/department-types'
+import { PhoenixRouteLoading } from '@/components/phoenix-route-loading'
 
 type CommissionerMember = {
   _id: string
@@ -141,7 +142,7 @@ export function DepartmentsListPage({
         body: JSON.stringify({ clear: true }),
       })
       setDeletingDepartment(null)
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete department')
@@ -166,7 +167,7 @@ export function DepartmentsListPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clear: true }),
       })
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete departments')
@@ -186,19 +187,22 @@ export function DepartmentsListPage({
             </p>
           </div>
           <div className='flex flex-wrap items-center gap-2 justify-between sm:justify-end shrink-0'>
-            {canManageDepartments && (
-              <Button size='sm' onClick={() => setShowCreateDepartment(true)}>
-                <Plus className='h-4 w-4 mr-1' />
-                Create department
-              </Button>
-            )}
-            {departments.length > 0 && (
+            {isLoaded &&
+              canManageDepartments && (
+                <Button size='sm' onClick={() => setShowCreateDepartment(true)}>
+                  <Plus className='h-4 w-4 mr-1' />
+                  Create department
+                </Button>
+              )}
+            {isLoaded && departments.length > 0 && (
               <ViewModeToggle value={viewMode} onChange={setViewMode} />
             )}
           </div>
         </div>
 
-        {departments.length === 0 ? (
+        {!isLoaded ? (
+          <PhoenixRouteLoading />
+        ) : departments.length === 0 ? (
           canManageDepartments ? (
             <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
               <DepartmentsCreateCard

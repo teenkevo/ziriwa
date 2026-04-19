@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
-import { writeClient } from '@/sanity/lib/write-client'
-import { getAllDepartments } from '@/sanity/lib/departments/get-all-departments'
-import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
+import { getAllDepartments } from '@/oracle/lib/departments/get-all-departments'
 import { hasRoleAtLeast } from '@/lib/app-role'
 import { getAppRole } from '@/lib/clerk-app-role.server'
-
-function staffRef(id: string) {
-  return { _type: 'reference' as const, _ref: id }
-}
+import { getUserIdOrDev } from '@/lib/dev-auth.server'
+import { withOracleConnection } from '@/lib/oracle/client'
+import { generateUniqueSlugOracle } from '@/lib/oracle/unique-slug'
 
 export async function GET() {
   try {
@@ -25,7 +21,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth()
+    const userId = await getUserIdOrDev()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -53,32 +49,45 @@ export async function POST(req: NextRequest) {
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
 
-    const slug = await generateUniqueSlug(baseSlug, 'department')
+    const slug = await generateUniqueSlugOracle(baseSlug, 'departments')
+    const id = crypto.randomUUID()
 
-    const doc = {
-      _type: 'department',
-      fullName: fullName.trim(),
-      ...(acronym && { acronym: acronym.trim() }),
-      slug: { _type: 'slug', current: slug },
-      isDefault: false,
-      ...(commissionerId && {
-        commissioner: {
-          _type: 'reference',
-          _ref: commissionerId,
-        },
-      }),
-    }
+    await withOracleConnection(async conn => {
+      await conn.execute(
+        `
+          INSERT INTO departments (
+            id, full_name, acronym, slug_current, is_default, commissioner_id
+          ) VALUES (
+            :id, :full_name, :acronym, :slug_current, :is_default, :commissioner_id
+          )
+        `,
+        {
+          id,
+          full_name: fullName.trim(),
+          acronym:
+            typeof acronym === 'string' && acronym.trim() ? acronym.trim() : null,
+          slug_current: slug,
+          is_default: 0,
+          commissioner_id:
+            typeof commissionerId === 'string' && commissionerId.trim()
+              ? commissionerId.trim()
+              : null,
+        } as any,
+        { autoCommit: false },
+      )
 
-    const result = await writeClient.create(doc)
+      if (commissionerId && typeof commissionerId === 'string') {
+        await conn.execute(
+          `UPDATE staff SET department_id = :deptId WHERE id = :id`,
+          { deptId: id, id: commissionerId } as any,
+          { autoCommit: false },
+        )
+      }
 
-    if (commissionerId && typeof commissionerId === 'string') {
-      await writeClient
-        .patch(commissionerId)
-        .set({ department: staffRef(result._id) })
-        .commit()
-    }
+      await conn.commit()
+    })
 
-    return NextResponse.json({ id: result._id, slug }, { status: 201 })
+    return NextResponse.json({ id, slug }, { status: 201 })
   } catch (error) {
     console.error('Error creating department', error)
     return NextResponse.json(

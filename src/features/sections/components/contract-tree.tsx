@@ -25,6 +25,7 @@ import { TreeView, TreeDataItem } from '@/components/tree-view'
 import { measurableActivityNumber } from '@/lib/contract-numbering'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { TreeRenderItemParams } from '@/components/tree-view'
+import { useServerSyncedState } from '@/hooks/use-server-synced-state'
 import { AddObjectiveDialog } from '@/features/sections/components/add-objective-dialog'
 import { AddInitiativeDialog } from '@/features/sections/components/add-initiative-dialog'
 import { AddMeasurableActivityDialog } from '@/features/sections/components/add-measurable-activity-dialog'
@@ -147,6 +148,7 @@ export function ContractTree({
   onAddObjectiveRequestConsumed,
 }: ContractTreeProps) {
   const router = useRouter()
+  const [contract, setContract] = useServerSyncedState(sectionContract)
   const [openMenu, setOpenMenu] = React.useState<string | null>(null)
   const [objectiveDialogOpen, setObjectiveDialogOpen] = React.useState(false)
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
@@ -175,7 +177,7 @@ export function ContractTree({
     type: 'kpi' | 'cross-cutting'
   } | null>(null)
 
-  const objectives = sectionContract.objectives ?? []
+  const objectives = contract.objectives ?? []
 
   React.useEffect(() => {
     if (addObjectiveSignal === 0) return
@@ -183,48 +185,54 @@ export function ContractTree({
   }, [addObjectiveSignal])
 
   const treeData = React.useMemo(
-    () => sectionContractToTreeData(sectionContract),
-    [sectionContract],
+    () => sectionContractToTreeData(contract),
+    [contract],
   )
 
   const handleDeleteObjective = React.useCallback(async () => {
     if (deleteObjectiveIndex == null) return
+    const idx = deleteObjectiveIndex
     setDeleting(true)
     try {
-      const res = await fetch(`/api/section-contracts/${sectionContract._id}`, {
+      const res = await fetch(`/api/section-contracts/${contract._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           op: 'deleteObjective',
-          payload: { objectiveIndex: deleteObjectiveIndex },
+          payload: { objectiveIndex: idx },
         }),
       })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || 'Failed to delete objective')
       }
+      setContract(prev => ({
+        ...prev,
+        objectives: (prev.objectives ?? []).filter((_, i) => i !== idx),
+      }))
       setDeleteObjectiveIndex(null)
-      router.refresh()
+      void router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete objective')
     } finally {
       setDeleting(false)
     }
-  }, [deleteObjectiveIndex, router, sectionContract._id])
+  }, [deleteObjectiveIndex, router, contract._id, setContract])
 
   const handleDeleteInitiative = React.useCallback(async () => {
     if (!deleteInitiative) return
+    const { objIdx, initIdx } = deleteInitiative
     setDeleting(true)
     try {
-      const res = await fetch(`/api/section-contracts/${sectionContract._id}`, {
+      const res = await fetch(`/api/section-contracts/${contract._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           op: 'deleteInitiative',
           payload: {
-            objectiveIndex: deleteInitiative.objIdx,
-            initiativeIndex: deleteInitiative.initIdx,
+            objectiveIndex: objIdx,
+            initiativeIndex: initIdx,
           },
         }),
       })
@@ -232,15 +240,24 @@ export function ContractTree({
         const data = await res.json()
         throw new Error(data.error || 'Failed to delete initiative')
       }
+      setContract(prev => {
+        const objectives = [...(prev.objectives ?? [])]
+        const obj = objectives[objIdx]
+        if (!obj) return prev
+        const initiatives = [...(obj.initiatives ?? [])]
+        initiatives.splice(initIdx, 1)
+        objectives[objIdx] = { ...obj, initiatives }
+        return { ...prev, objectives }
+      })
       setDeleteInitiative(null)
-      router.refresh()
+      void router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete initiative')
     } finally {
       setDeleting(false)
     }
-  }, [deleteInitiative, router, sectionContract._id])
+  }, [deleteInitiative, router, contract._id, setContract])
 
   const handleSelectChange = React.useCallback(
     (item: { id: string } | undefined) => {
@@ -253,11 +270,11 @@ export function ContractTree({
         typeof meta.actIdx === 'number'
       ) {
         router.push(
-          `/sections/${sectionSlug}/activity/${sectionContract._id}/${meta.objIdx}/${meta.initIdx}/${meta.actIdx}`,
+          `/sections/${sectionSlug}/activity/${contract._id}/${meta.objIdx}/${meta.initIdx}/${meta.actIdx}`,
         )
       }
     },
-    [sectionSlug, sectionContract._id, router],
+    [sectionSlug, contract._id, router],
   )
 
   const renderItem = React.useCallback(
@@ -517,12 +534,12 @@ export function ContractTree({
           setObjectiveDialogOpen(open)
           if (!open) onAddObjectiveRequestConsumed?.()
         }}
-        sectionContractId={sectionContract._id}
+        sectionContractId={contract._id}
       />
       <EditObjectiveDialog
         open={editObjectiveOpen}
         onOpenChange={setEditObjectiveOpen}
-        sectionContractId={sectionContract._id}
+        sectionContractId={contract._id}
         objectiveIndex={editingObjectiveIndex}
         initialCode={objectives[editingObjectiveIndex]?.code ?? ''}
         initialTitle={objectives[editingObjectiveIndex]?.title ?? ''}
@@ -530,7 +547,7 @@ export function ContractTree({
       <EditInitiativeDialog
         open={editInitiativeOpen}
         onOpenChange={setEditInitiativeOpen}
-        sectionContractId={sectionContract._id}
+        sectionContractId={contract._id}
         objectiveIndex={editingInitiative?.objIdx ?? 0}
         initiativeIndex={editingInitiative?.initIdx ?? 0}
         objectiveCode={
@@ -606,7 +623,7 @@ export function ContractTree({
       <AddInitiativeDialog
         open={initiativeDialogOpen}
         onOpenChange={setInitiativeDialogOpen}
-        sectionContractId={sectionContract._id}
+        sectionContractId={contract._id}
         objectiveIndex={initiativeDialogObjIdx}
         objectiveCode={
           objectives[initiativeDialogObjIdx]?.code ??
@@ -620,7 +637,7 @@ export function ContractTree({
         <AddMeasurableActivityDialog
           open={activityDialogOpen}
           onOpenChange={setActivityDialogOpen}
-          sectionContractId={sectionContract._id}
+          sectionContractId={contract._id}
           objectiveIndex={activityDialogParams.objIdx}
           initiativeIndex={activityDialogParams.initIdx}
           initiativeCode={

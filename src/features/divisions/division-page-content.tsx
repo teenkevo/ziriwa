@@ -153,9 +153,7 @@ export function DivisionPageContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to delete division')
       }
-      setShowDeleteDivision(false)
       router.push('/departments')
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete division')
@@ -176,7 +174,7 @@ export function DivisionPageContent({
         throw new Error(data.error || 'Failed to delete section')
       }
       setDeletingSection(null)
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete section')
@@ -197,7 +195,7 @@ export function DivisionPageContent({
         }
       }
       setBulkDeleteSectionIds(null)
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete sections')
@@ -353,7 +351,9 @@ export function DivisionPageContent({
 
         <AlertDialog
           open={showDeleteDivision}
-          onOpenChange={setShowDeleteDivision}
+          onOpenChange={open => {
+            if (!open && !deletingDivision) setShowDeleteDivision(false)
+          }}
         >
           <AlertDialogContent>
             <AlertDialogHeader>

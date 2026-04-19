@@ -93,7 +93,7 @@ function EditInitiativeFormInner({
         throw new Error(data.error || 'Failed to update initiative')
       }
       onOpenChange(false)
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to update initiative')

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
-import { getOfficersBySection } from '@/sanity/lib/staff/get-staff-by-section'
+import { getOfficers } from '@/sanity/lib/staff/get-staff-by-section'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
 import { ActivityPageContent } from '@/features/sections/activity-page-content'
 
@@ -31,7 +31,7 @@ export default async function ActivityPage({
   const currentFY = getCurrentFinancialYear()
   const [sectionContract, officers] = await Promise.all([
     getSectionContract(section._id, currentFY.label),
-    getOfficersBySection(section._id),
+    getOfficers(),
   ])
   if (!sectionContract || sectionContract._id !== contractId) notFound()
 

@@ -50,7 +50,7 @@ import {
   Trash2,
 } from 'lucide-react'
 
-import type { DepartmentListRow } from '@/sanity/lib/departments/get-all-departments-for-list'
+import type { DepartmentListRow } from '@/lib/department-types'
 import { DropdownMenuLabel } from '@radix-ui/react-dropdown-menu'
 
 export type DepartmentRow = DepartmentListRow

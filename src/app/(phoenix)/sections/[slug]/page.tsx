@@ -3,10 +3,10 @@ import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionContractBySection } from '@/sanity/lib/section-contracts/get-section-contract-by-section'
 import { getStakeholderEngagementBySection } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement-by-section'
 import {
-  getSupervisorsBySection,
-  getOfficersBySection,
+  getSupervisors,
+  getOfficers,
 } from '@/sanity/lib/staff/get-staff-by-section'
-import { getManagersByDivision } from '@/sanity/lib/staff/get-managers'
+import { getManagers } from '@/sanity/lib/staff/get-managers'
 import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
@@ -32,10 +32,10 @@ export default async function SectionPage({
   ] = await Promise.all([
     getSectionContractBySection(section._id),
     getStakeholderEngagementBySection(section._id),
-    getSupervisorsBySection(section._id),
-    getOfficersBySection(section._id),
+    getSupervisors(),
+    getOfficers(),
     getSprintsBySection(section._id),
-    getManagersByDivision(section.division?._id ?? ''),
+    getManagers(),
   ])
 
   const today = new Date().toISOString().slice(0, 10)
@@ -94,15 +94,22 @@ export default async function SectionPage({
       )
     : []
 
-  const staffOptions: { _id: string; fullName?: string; staffId?: string }[] = [
+  const staffOptionsRaw = [
     ...(section.manager ? [section.manager] : []),
+    ...managers,
     ...supervisors,
     ...officers,
-  ].map(s => {
+  ]
+  const staffSeen = new Set<string>()
+  const staffOptions: { _id: string; fullName?: string; staffId?: string }[] =
+    []
+  for (const s of staffOptionsRaw) {
+    if (!s || staffSeen.has(s._id)) continue
+    staffSeen.add(s._id)
     const staffId =
       'staffId' in s && typeof s.staffId === 'string' ? s.staffId : undefined
-    return { _id: s._id, fullName: s.fullName, staffId }
-  })
+    staffOptions.push({ _id: s._id, fullName: s.fullName, staffId })
+  }
 
   const viewerStaffId = await getViewerStaffIdForSection(section._id)
 

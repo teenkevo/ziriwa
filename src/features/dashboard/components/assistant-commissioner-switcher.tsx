@@ -62,11 +62,11 @@ export function AssistantCommissionerSwitcher({
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
-  const handleCreateSuccess = (newStaff: StaffMember) => {
+  const handleCreateSuccess = async (newStaff: StaffMember) => {
     onChange(newStaff._id)
     setShowCreateDialog(false)
     setOpen(false)
-    router.refresh()
+    await router.refresh()
   }
 
   return (

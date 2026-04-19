@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { PhoenixRouteLoading } from '@/components/phoenix-route-loading'
 
 export type DepartmentDivisionsDivision = {
   _id: string
@@ -148,7 +149,7 @@ export function DepartmentDivisionsView({
         throw new Error(data.error || 'Failed to delete division')
       }
       setDeletingDivision(null)
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete division')
@@ -185,7 +186,6 @@ export function DepartmentDivisionsView({
       if (deleteDepartmentRedirectTo) {
         router.push(deleteDepartmentRedirectTo)
       }
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete department')
@@ -211,7 +211,7 @@ export function DepartmentDivisionsView({
         }
       }
       setBulkDeleteIds(null)
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete divisions')
@@ -232,47 +232,55 @@ export function DepartmentDivisionsView({
           </div>
           <div className='flex w-full flex-wrap items-center gap-2 justify-between sm:w-auto sm:justify-end shrink-0'>
             <div className='flex flex-wrap items-center gap-2'>
-              {canCreateDivision && (
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => setShowCreateDivision(true)}
-                >
-                  <Plus className='h-4 w-4 mr-1 text-primary' />
-                  Add a division
-                </Button>
-              )}
-              {allowDepartmentActions && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size='sm' className='shrink-0'>
-                      Actions
-                      <ChevronDown className='h-4 w-4 ml-1 opacity-70' />
+              {isLoaded ? (
+                <>
+                  {canCreateDivision && (
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => setShowCreateDivision(true)}
+                    >
+                      <Plus className='h-4 w-4 mr-1 text-primary' />
+                      Add a division
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align='end'>
-                    <DropdownMenuItem
-                      onClick={() => setShowEditDepartment(true)}
-                    >
-                      <Pencil className='h-4 w-4 mr-2' />
-                      Edit department
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className='text-destructive focus:text-destructive'
-                      onClick={() => setShowDeleteDepartment(true)}
-                    >
-                      <Trash2 className='h-4 w-4 mr-2' />
-                      Delete department
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                  )}
+                  {allowDepartmentActions && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size='sm' className='shrink-0'>
+                          Actions
+                          <ChevronDown className='h-4 w-4 ml-1 opacity-70' />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align='end'>
+                        <DropdownMenuItem
+                          onClick={() => setShowEditDepartment(true)}
+                        >
+                          <Pencil className='h-4 w-4 mr-2' />
+                          Edit department
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className='text-destructive focus:text-destructive'
+                          onClick={() => setShowDeleteDepartment(true)}
+                        >
+                          <Trash2 className='h-4 w-4 mr-2' />
+                          Delete department
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </>
+              ) : null}
             </div>
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+            {isLoaded && (
+              <ViewModeToggle value={viewMode} onChange={setViewMode} />
+            )}
           </div>
         </div>
 
-        {viewMode === 'table' ? (
+        {!isLoaded ? (
+          <PhoenixRouteLoading />
+        ) : viewMode === 'table' ? (
           <DivisionsTable
             data={divisions}
             canManageDivisions={canCreateDeptOrDivision}

@@ -24,7 +24,7 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
-import type { SidebarDepartmentWithDivisions } from '@/sanity/lib/departments/get-departments-with-divisions-for-sidebar'
+import type { SidebarDepartmentWithDivisions } from '@/lib/department-types'
 
 export function AppSidebarNav({
   departmentsTree,

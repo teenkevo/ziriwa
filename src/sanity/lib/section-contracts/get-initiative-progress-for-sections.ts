@@ -4,6 +4,7 @@ import {
   countMeasurableActivityProgress,
   type ObjectivesProgressInput,
 } from '@/lib/initiative-progress'
+import { getInitiativeProgressForSectionsOracle } from '@/oracle/lib/section-contracts/get-initiative-progress-for-sections'
 
 type ContractRow = {
   sectionId: string
@@ -17,6 +18,9 @@ export async function getInitiativeProgressForSections(
   sectionIds: string[],
   financialYearLabel: string,
 ): Promise<Map<string, { completed: number; total: number; percent: number }>> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getInitiativeProgressForSectionsOracle(sectionIds, financialYearLabel)
+  }
   const out = new Map<
     string,
     { completed: number; total: number; percent: number }

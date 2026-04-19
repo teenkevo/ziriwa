@@ -417,7 +417,7 @@ export function WeeklySprintContent({
       setSelectedWeekIdx('0')
       setEditingSprintId(null)
       setCreateOpen(false)
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to save sprint')
@@ -480,7 +480,7 @@ export function WeeklySprintContent({
       setReviseTaskDraft(null)
       setReviseSprintId('')
       setReviseManagerFeedback('')
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to save revision')
@@ -503,7 +503,7 @@ export function WeeklySprintContent({
           typeof data.error === 'string' ? data.error : 'Failed to submit',
         )
       }
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(
@@ -548,7 +548,7 @@ export function WeeklySprintContent({
         throw new Error(data.error || 'Failed to review task')
       }
       setReviewDialogOpen(false)
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to review task')
@@ -638,7 +638,7 @@ export function WeeklySprintContent({
         body: JSON.stringify({ action: 'update-task', taskKey, updates }),
       })
       if (!res.ok) throw new Error('Failed to update task')
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert('Failed to update task')
@@ -677,7 +677,7 @@ export function WeeklySprintContent({
       }),
     })
     if (!res.ok) throw new Error('Failed to add work submission')
-    router.refresh()
+    await router.refresh()
   }
 
   const handleApproveSubmission = async (
@@ -699,7 +699,7 @@ export function WeeklySprintContent({
         }),
       })
       if (!res.ok) throw new Error('Failed to approve submission')
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert('Failed to approve submission')
@@ -727,7 +727,7 @@ export function WeeklySprintContent({
         }),
       })
       if (!res.ok) throw new Error('Failed to reject submission')
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert('Failed to reject submission')
@@ -768,7 +768,7 @@ export function WeeklySprintContent({
       }),
     })
     if (!res.ok) throw new Error('Failed to respond')
-    router.refresh()
+    await router.refresh()
   }
 
   const openExtraTaskDialog = (sprintId?: string) => {
@@ -819,7 +819,7 @@ export function WeeklySprintContent({
       setExtraTaskOpen(false)
       setExtraTaskDraft({ ...emptyDraftTask })
       setExtraTaskSprintId('')
-      router.refresh()
+      await router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to add extra task')

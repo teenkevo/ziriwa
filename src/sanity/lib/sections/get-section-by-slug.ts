@@ -1,5 +1,6 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import { getSectionBySlugOracle } from '@/oracle/lib/sections/get-section-by-slug'
 
 export type Section = {
   _id: string
@@ -12,6 +13,10 @@ export type Section = {
 export async function getSectionBySlug(
   slug: string,
 ): Promise<Section | null> {
+  if (process.env.CMS_PROVIDER === 'oracle') {
+    return getSectionBySlugOracle(slug)
+  }
+
   const query = defineQuery(`
     *[_type == "section" && slug.current == $slug][0] {
       _id,

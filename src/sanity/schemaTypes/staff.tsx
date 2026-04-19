@@ -38,15 +38,6 @@ export const staff = defineType({
       title: 'Email',
       type: 'string',
       description: 'Must end with @ura.go.ug',
-      validation: Rule =>
-        Rule.required()
-          .email()
-          .custom(
-            email =>
-              !email ||
-              email.toLowerCase().endsWith('@ura.go.ug') ||
-              'Email must end with @ura.go.ug',
-          ),
     }),
     defineField({
       name: 'fullName',
