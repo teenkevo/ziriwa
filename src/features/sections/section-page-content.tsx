@@ -328,7 +328,7 @@ export function SectionPageContent({
                 {sectionContract ? (
                   <div className='space-y-4'>
                     <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                      <div className='text-sm flex items-center gap-2 text-muted-foreground min-w-0'>
+                      <div className='text-sm flex items-center gap-2 min-w-0'>
                         <FileText className='h-5 w-5 shrink-0' />
                         <span className='truncate'>{currentFY}</span>
                       </div>

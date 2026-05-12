@@ -55,6 +55,8 @@ export type AtRiskActivity = {
   daysOverdue: number
   objectiveTitle?: string
   initiativeTitle?: string
+  /** Initiative code (e.g. contract numbering) for display before title. */
+  initiativeCode?: string
   activityTitle?: string
   activityType?: 'kpi' | 'cross-cutting'
   contractId: string
@@ -88,8 +90,12 @@ export type AtRiskSprintTask = {
 export type LateEngagement = {
   _key: string
   name: string
+  designation?: string
   proposedDate: string
   daysLate: number
+  power?: 'H' | 'M' | 'L'
+  interest?: 'H' | 'M' | 'L'
+  priority?: 'H' | 'M' | 'L'
   modeOfEngagement?: string
 }
 
@@ -310,6 +316,7 @@ export function computeSectionDashboardMetrics(input: {
             daysOverdue: diffDays(due, today),
             objectiveTitle: obj.title,
             initiativeTitle: init.title,
+            initiativeCode: init.code,
             activityTitle: act.title,
             activityType: act.activityType,
             contractId,
@@ -576,8 +583,12 @@ export function computeSectionDashboardMetrics(input: {
       lateEngagements.push({
         _key: entry._key,
         name: entry.name,
+        designation: entry.designation,
         proposedDate: entry.proposedDateOfEngagement,
         daysLate: diffDays(entry.proposedDateOfEngagement, today),
+        power: entry.power,
+        interest: entry.interest,
+        priority: entry.priority,
         modeOfEngagement: entry.modeOfEngagement,
       })
     }

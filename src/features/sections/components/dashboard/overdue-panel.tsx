@@ -23,6 +23,14 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 import type {
   AtRiskActivity,
@@ -65,6 +73,8 @@ type AttentionRow = {
   statusVariant: 'destructive' | 'secondary' | 'outline'
   context?: string
   avatarPeople?: boolean
+  /** When false, detailed-task style row without initials avatar. */
+  showAvatar?: boolean
   /** Full path including query when row should navigate outside the dashboard. */
   detailHref?: string
 }
@@ -82,7 +92,7 @@ const CATEGORIES: {
 }[] = [
   {
     id: 'engagements',
-    label: 'Stakeholder Engagements past due date',
+    label: 'Stakeholder engagements past due date',
     icon: Handshake,
     countKey: 'lateEngagements',
   },
@@ -154,28 +164,9 @@ function buildAttentionRows(
   overduePeriodDeliverables: AtRiskPeriodDeliverable[],
   pendingReviewTasks: AtRiskSprintTask[],
   revisionRequestedTasks: AtRiskSprintTask[],
-  lateEngagements: LateEngagement[],
   sectionSlug?: string,
 ): AttentionRow[] {
   const rows: AttentionRow[] = []
-
-  for (const item of lateEngagements) {
-    const mode = item.modeOfEngagement
-      ? item.modeOfEngagement.replace(/_/g, ' ')
-      : undefined
-    rows.push({
-      key: `e-${item._key}`,
-      categoryId: 'engagements',
-      tab: 'stakeholder-engagements',
-      title: item.name,
-      initials: initialsFromLabel(item.name),
-      dateLine: `Proposed ${fmtDate(item.proposedDate)}`,
-      statusPill: daysLateLabel(item.daysLate),
-      statusVariant: 'destructive',
-      context: mode ? capitalizeWords(mode) : undefined,
-      avatarPeople: true,
-    })
-  }
 
   const slug = sectionSlug?.trim()
   for (const item of overdueActivities) {
@@ -188,6 +179,20 @@ function buildAttentionRows(
       item.activityIndex >= 0
         ? `/sections/${slug}/activity/${item.contractId}/${item.objectiveIndex}/${item.initiativeIndex}/${item.activityIndex}?taskKey=${encodeURIComponent(item.taskKey)}`
         : undefined
+    const initiativeLabel =
+      item.initiativeCode?.trim() && item.initiativeTitle?.trim()
+        ? `${item.initiativeCode.trim()} · ${item.initiativeTitle.trim()}`
+        : item.initiativeTitle?.trim() || item.initiativeCode?.trim() || ''
+    const activityTypeTag =
+      item.activityType === 'kpi'
+        ? 'KPI -->'
+        : item.activityType === 'cross-cutting'
+          ? 'CC -->'
+          : ''
+    const activityLabel =
+      activityTypeTag && item.activityTitle?.trim()
+        ? `${activityTypeTag} ${item.activityTitle.trim()}`
+        : item.activityTitle?.trim() || activityTypeTag
     rows.push({
       key: `a-${item._key}`,
       categoryId: 'activities',
@@ -197,9 +202,8 @@ function buildAttentionRows(
       dateLine: `Due ${fmtDate(item.targetDate)}`,
       statusPill: daysOverdueLabel(item.daysOverdue),
       statusVariant: 'destructive',
-      context: [item.activityTitle, item.initiativeTitle]
-        .filter(Boolean)
-        .join(' · '),
+      context: [activityLabel, initiativeLabel].filter(Boolean).join(' --> '),
+      showAvatar: false,
       detailHref,
     })
   }
@@ -249,10 +253,6 @@ function buildAttentionRows(
   return rows
 }
 
-function capitalizeWords(s: string): string {
-  return s.replace(/\b\w/g, c => c.toUpperCase())
-}
-
 function defaultCategoryId(
   counts: Record<(typeof CATEGORIES)[number]['countKey'], number>,
 ): CategoryId {
@@ -264,6 +264,130 @@ function defaultCategoryId(
 }
 
 const MAX_CARDS = 8
+const MAX_ENGAGEMENT_ROWS = 12
+
+const HML_LABEL: Record<'H' | 'M' | 'L', string> = {
+  H: 'High',
+  M: 'Medium',
+  L: 'Low',
+}
+
+function hmlCell(v?: 'H' | 'M' | 'L') {
+  if (!v) {
+    return <span className='text-muted-foreground'>—</span>
+  }
+  return (
+    <span
+      className='inline-flex min-w-[1.75rem] justify-center rounded-md border border-border bg-muted/50 px-1.5 py-0.5 text-xs font-semibold tabular-nums'
+      title={HML_LABEL[v]}
+    >
+      {v}
+    </span>
+  )
+}
+
+function formatEngagementMode(mode?: string): string {
+  if (!mode?.trim()) return ''
+  return mode.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function StakeholderLateTable({
+  items,
+  overflow,
+  onNavigateToTab,
+}: {
+  items: LateEngagement[]
+  overflow: number
+  onNavigateToTab?: (
+    tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
+  ) => void
+}) {
+  if (items.length === 0) {
+    return (
+      <p className='text-sm text-muted-foreground'>
+        No stakeholder engagements in this list.
+      </p>
+    )
+  }
+
+  return (
+    <div className='space-y-2'>
+      <div className='overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm'>
+        <Table>
+          <TableHeader>
+            <TableRow className='border-b hover:bg-transparent'>
+              <TableHead className='pl-3'>Stakeholder</TableHead>
+              <TableHead className='w-[1%] whitespace-nowrap text-center'>
+                Power
+              </TableHead>
+              <TableHead className='w-[1%] whitespace-nowrap text-center'>
+                Interest
+              </TableHead>
+              <TableHead className='w-[1%] whitespace-nowrap text-center'>
+                Priority
+              </TableHead>
+              <TableHead className='whitespace-nowrap'>Mode</TableHead>
+              <TableHead className='whitespace-nowrap'>Proposed date</TableHead>
+              <TableHead className=' whitespace-nowrap pr-3 text-right' />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map(entry => (
+              <TableRow
+                key={entry._key}
+                className={cn(onNavigateToTab && 'cursor-pointer')}
+                onClick={
+                  onNavigateToTab
+                    ? () => onNavigateToTab('stakeholder-engagements')
+                    : undefined
+                }
+              >
+                <TableCell className='pl-3'>
+                  <div className='font-medium leading-snug text-foreground'>
+                    {entry.name}
+                  </div>
+                  {entry.designation?.trim() ? (
+                    <div className='mt-0.5 text-xs text-muted-foreground'>
+                      {entry.designation}
+                    </div>
+                  ) : null}
+                </TableCell>
+                <TableCell className='text-center'>
+                  {hmlCell(entry.power)}
+                </TableCell>
+                <TableCell className='text-center'>
+                  {hmlCell(entry.interest)}
+                </TableCell>
+                <TableCell className='text-center'>
+                  {hmlCell(entry.priority)}
+                </TableCell>
+                <TableCell className='max-w-[10rem] text-sm'>
+                  {formatEngagementMode(entry.modeOfEngagement) || '—'}
+                </TableCell>
+                <TableCell className=''>
+                  {fmtDate(entry.proposedDate)}
+                </TableCell>
+                <TableCell className='pr-3 text-right'>
+                  <Badge
+                    variant='destructive'
+                    className='rounded-full px-2 py-0 text-[11px] font-semibold tabular-nums'
+                  >
+                    {daysLateLabel(entry.daysLate)}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {overflow > 0 ? (
+        <p className='text-xs text-muted-foreground'>
+          +{overflow} more in this category
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 function PriorityCard({
   row,
@@ -276,22 +400,25 @@ function PriorityCard({
 }) {
   const inner = (
     <>
-      <Avatar className='h-11 w-11 shrink-0'>
-        <AvatarFallback
-          className={cn(
-            'text-xs font-semibold',
-            row.avatarPeople
-              ? 'border border-pink-200 bg-pink-100 text-pink-800 dark:border-pink-900 dark:bg-pink-950 dark:text-pink-200'
-              : 'border border-border bg-muted text-muted-foreground',
-          )}
-        >
-          {row.initials}
-        </AvatarFallback>
-      </Avatar>
+      {row.showAvatar !== false ? (
+        <Avatar className='h-11 w-11 shrink-0'>
+          <AvatarFallback
+            className={cn(
+              'text-xs font-semibold',
+              row.avatarPeople
+                ? 'border border-pink-200 bg-pink-100 text-pink-800 dark:border-pink-900 dark:bg-pink-950 dark:text-pink-200'
+                : 'border border-border bg-muted text-muted-foreground',
+            )}
+          >
+            {row.initials}
+          </AvatarFallback>
+        </Avatar>
+      ) : null}
       <div className='min-w-0 flex-1'>
-        <div className='font-medium leading-snug text-foreground'>
-          {row.title}
-        </div>
+        <div className='text-sm font-medium text-foreground'>{row.title}</div>
+        {row.context ? (
+          <span className='text-xs text-muted-foreground'>{row.context}</span>
+        ) : null}
         <div className='mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground'>
           <span>{row.dateLine}</span>
           <Badge
@@ -304,11 +431,6 @@ function PriorityCard({
           >
             {row.statusPill}
           </Badge>
-          {row.context ? (
-            <span className='capitalize text-muted-foreground'>
-              {row.context}
-            </span>
-          ) : null}
         </div>
       </div>
       <ChevronRight className='h-4 w-4 shrink-0 text-muted-foreground' />
@@ -378,7 +500,6 @@ export function OverduePanel({
         overduePeriodDeliverables,
         pendingReviewTasks,
         revisionRequestedTasks,
-        lateEngagements,
         sectionSlug,
       ),
     [
@@ -438,8 +559,17 @@ export function OverduePanel({
   const filteredRows = attentionRows.filter(
     r => r.categoryId === selectedCategoryId,
   )
-  const visibleCards = filteredRows.slice(0, MAX_CARDS)
-  const overflow = filteredRows.length - visibleCards.length
+  const isEngagements = selectedCategoryId === 'engagements'
+  const visibleEngagements = isEngagements
+    ? lateEngagements.slice(0, MAX_ENGAGEMENT_ROWS)
+    : []
+  const engagementOverflow = isEngagements
+    ? Math.max(0, lateEngagements.length - visibleEngagements.length)
+    : 0
+  const visibleCards = isEngagements ? [] : filteredRows.slice(0, MAX_CARDS)
+  const overflow = isEngagements
+    ? engagementOverflow
+    : filteredRows.length - visibleCards.length
 
   return (
     <Card>
@@ -505,15 +635,15 @@ export function OverduePanel({
                     <Icon
                       className={cn(
                         'h-4 w-4 shrink-0',
-                        n > 0 ? 'text-destructive' : 'text-muted-foreground',
+                        'text-muted-foreground',
                       )}
                     />
                     <span className='min-w-0 text-sm flex-1 leading-snug'>
                       {cat.label}
                     </span>
                     <Badge
-                      variant={n > 0 ? 'destructive' : 'outline'}
-                      className='tabular-nums shrink-0'
+                      variant='outline'
+                      className={`tabular-nums shrink-0 ${n > 0 ? 'border-destructive' : ''}`}
                     >
                       {n}
                     </Badge>
@@ -534,18 +664,33 @@ export function OverduePanel({
                 </p>
               </div>
 
-              <ul className='space-y-3'>
-                {visibleCards.map(row => (
-                  <li key={row.key}>
-                    <PriorityCard row={row} onNavigateToTab={onNavigateToTab} />
-                  </li>
-                ))}
-                {overflow > 0 ? (
-                  <li className='text-xs text-muted-foreground'>
-                    +{overflow} more in this category
-                  </li>
-                ) : null}
-              </ul>
+              {selectedCount === 0 ? (
+                <p className='text-sm text-muted-foreground'>
+                  Choose another category on the left, or you are clear here.
+                </p>
+              ) : isEngagements ? (
+                <StakeholderLateTable
+                  items={visibleEngagements}
+                  overflow={engagementOverflow}
+                  onNavigateToTab={onNavigateToTab}
+                />
+              ) : (
+                <ul className='space-y-3'>
+                  {visibleCards.map(row => (
+                    <li key={row.key}>
+                      <PriorityCard
+                        row={row}
+                        onNavigateToTab={onNavigateToTab}
+                      />
+                    </li>
+                  ))}
+                  {overflow > 0 ? (
+                    <li className='text-xs text-muted-foreground'>
+                      +{overflow} more in this category
+                    </li>
+                  ) : null}
+                </ul>
+              )}
             </div>
           </div>
         )}
