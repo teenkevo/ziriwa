@@ -530,7 +530,7 @@ export function DetailedTasksTable({
                     colSpan={table.getAllColumns().length}
                     className='h-24 text-center text-muted-foreground'
                   >
-                    No tasks yet. Add one below.
+                    No tasks yet.
                   </TableCell>
                 </TableRow>
               )}
