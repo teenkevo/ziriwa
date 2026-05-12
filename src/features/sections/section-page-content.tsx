@@ -318,6 +318,7 @@ export function SectionPageContent({
               dueThisMonth={dueThisMonth}
               dueThisQuarter={dueThisQuarter}
               today={today}
+              onNavigateToTab={setActiveTab}
             />
           </TabsContent>
           <TabsContent value='contract' className='space-y-4'>

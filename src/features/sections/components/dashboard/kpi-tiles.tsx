@@ -34,9 +34,7 @@ function Tile({
     <Card>
       <CardContent className='p-4 space-y-2'>
         <div className='flex items-center justify-between gap-2'>
-          <span className='text-xs font-medium text-muted-foreground uppercase tracking-wide'>
-            {label}
-          </span>
+          <span className='text-base '>{label}</span>
           <Icon className='h-4 w-4 text-muted-foreground' />
         </div>
         <div className='flex items-baseline gap-2'>

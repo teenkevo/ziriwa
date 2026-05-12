@@ -28,6 +28,10 @@ import { format, parseISO } from 'date-fns'
 interface SectionDashboardContentProps {
   sectionName: string
   contract: SectionContract | null
+  /** Opens the matching section tab when the user picks an at-risk row. */
+  onNavigateToTab?: (
+    tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
+  ) => void
   sprints: WeeklySprint[]
   engagement: StakeholderEngagement | null
   dueToday: DueItem[]
@@ -62,6 +66,7 @@ export function SectionDashboardContent({
   dueThisMonth,
   dueThisQuarter,
   today,
+  onNavigateToTab,
 }: SectionDashboardContentProps) {
   const metrics = React.useMemo(
     () =>
@@ -93,44 +98,25 @@ export function SectionDashboardContent({
 
   return (
     <div className='space-y-4'>
-      <Card>
-        <CardContent className='flex flex-wrap items-center gap-x-6 gap-y-2 p-4 text-sm'>
+      <div className='flex flex-wrap items-center gap-x-6 gap-y-2 text-sm'>
+        <div className='inline-flex items-center gap-2'>
+          <FileText className='h-4 w-4 text-muted-foreground' />
+          <span className='font-medium'>{metrics.fyLabel ?? '—'}</span>
+        </div>
+
+        {metrics.lastSprintWeekLabel && (
           <div className='inline-flex items-center gap-2'>
-            <FileText className='h-4 w-4 text-muted-foreground' />
-            <span className='font-medium'>{metrics.fyLabel ?? '—'}</span>
-          </div>
-          {/* {metrics.contractStatus && (
-            <div className='inline-flex items-center gap-2'>
-              <span className='text-muted-foreground'>Contract</span>
-              <Badge
-                variant={statusBadgeVariant(metrics.contractStatus)}
-                className='capitalize'
-              >
-                {metrics.contractStatus}
+            <CalendarDays className='h-4 w-4 text-muted-foreground' />
+            <span className='text-muted-foreground'>Last sprint</span>
+            <span className='font-medium'>{metrics.lastSprintWeekLabel}</span>
+            {metrics.lastSprintStatus && (
+              <Badge variant='outline' className='capitalize'>
+                {metrics.lastSprintStatus.replace('_', ' ')}
               </Badge>
-            </div>
-          )} */}
-          {metrics.managerName && (
-            <div className='inline-flex items-center gap-2'>
-              <User2 className='h-4 w-4 text-muted-foreground' />
-              <span className='text-muted-foreground'>Manager</span>
-              <span className='font-medium'>{metrics.managerName}</span>
-            </div>
-          )}
-          {metrics.lastSprintWeekLabel && (
-            <div className='inline-flex items-center gap-2'>
-              <CalendarDays className='h-4 w-4 text-muted-foreground' />
-              <span className='text-muted-foreground'>Last sprint</span>
-              <span className='font-medium'>{metrics.lastSprintWeekLabel}</span>
-              {metrics.lastSprintStatus && (
-                <Badge variant='outline' className='capitalize'>
-                  {metrics.lastSprintStatus.replace('_', ' ')}
-                </Badge>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </div>
+        )}
+      </div>
 
       <KpiTiles metrics={metrics} />
 
@@ -140,6 +126,7 @@ export function SectionDashboardContent({
         pendingReviewTasks={metrics.pendingReviewTasks}
         revisionRequestedTasks={metrics.revisionRequestedTasks}
         lateEngagements={metrics.lateEngagements}
+        onNavigateToTab={onNavigateToTab}
       />
 
       <ContractSummary metrics={metrics} />

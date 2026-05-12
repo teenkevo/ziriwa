@@ -3,6 +3,17 @@
 import * as React from 'react'
 import { format, parseISO } from 'date-fns'
 import {
+  AlertTriangle,
+  CalendarX,
+  ClipboardList,
+  RefreshCcw,
+  ListChecks,
+  Handshake,
+  ChevronRight,
+} from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+import {
   Card,
   CardContent,
   CardDescription,
@@ -10,13 +21,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  AlertTriangle,
-  ClipboardList,
-  RefreshCcw,
-  CalendarX,
-  HandHelping,
-} from 'lucide-react'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 import type {
   AtRiskActivity,
@@ -31,37 +36,91 @@ interface OverduePanelProps {
   pendingReviewTasks: AtRiskSprintTask[]
   revisionRequestedTasks: AtRiskSprintTask[]
   lateEngagements: LateEngagement[]
+  /** Switch parent section tabs when a row is activated (dashboard → target tab). */
+  onNavigateToTab?: (
+    tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
+  ) => void
 }
 
-function GroupHeader({
-  icon: Icon,
-  label,
-  count,
-}: {
-  icon: React.ComponentType<{ className?: string }>
+type AttentionTab = 'contract' | 'stakeholder-engagements' | 'weekly-sprint'
+
+type CategoryId =
+  | 'activities'
+  | 'deliverables'
+  | 'review'
+  | 'revision'
+  | 'engagements'
+
+type AttentionRow = {
+  key: string
+  categoryId: CategoryId
+  tab: AttentionTab
+  title: string
+  initials: string
+  dateLine: string
+  statusPill: string
+  statusVariant: 'destructive' | 'secondary' | 'outline'
+  context?: string
+  avatarPeople?: boolean
+}
+
+const CATEGORIES: {
+  id: CategoryId
   label: string
-  count: number
-}) {
-  return (
-    <div className='flex items-center justify-between gap-2 mb-2'>
-      <div className='inline-flex items-center gap-2 text-sm font-medium'>
-        <Icon className='h-4 w-4 text-muted-foreground' />
-        {label}
-      </div>
-      <Badge
-        variant={count > 0 ? 'destructive' : 'outline'}
-        className='tabular-nums'
-      >
-        {count}
-      </Badge>
-    </div>
-  )
-}
+  icon: React.ComponentType<{ className?: string }>
+  countKey:
+    | 'overdueActivities'
+    | 'overduePeriodDeliverables'
+    | 'pendingReviewTasks'
+    | 'revisionRequestedTasks'
+    | 'lateEngagements'
+}[] = [
+  {
+    id: 'engagements',
+    label: 'Stakeholder Engagements past due date',
+    icon: Handshake,
+    countKey: 'lateEngagements',
+  },
+  {
+    id: 'activities',
+    label: 'Overdue activities',
+    icon: CalendarX,
+    countKey: 'overdueActivities',
+  },
+  {
+    id: 'deliverables',
+    label: 'Overdue period deliverables',
+    icon: ClipboardList,
+    countKey: 'overduePeriodDeliverables',
+  },
+  {
+    id: 'review',
+    label: 'Sprint tasks awaiting review',
+    icon: ListChecks,
+    countKey: 'pendingReviewTasks',
+  },
+  {
+    id: 'revision',
+    label: 'Tasks needing revision',
+    icon: RefreshCcw,
+    countKey: 'revisionRequestedTasks',
+  },
+]
 
-function EmptyHint({ children }: { children: React.ReactNode }) {
-  return (
-    <p className='text-xs text-muted-foreground italic'>{children}</p>
-  )
+/** First category with items (engagements first — usually highest visibility). */
+const CATEGORY_PRIORITY: CategoryId[] = [
+  'engagements',
+  'activities',
+  'deliverables',
+  'review',
+  'revision',
+]
+
+function initialsFromLabel(label: string): string {
+  const parts = label.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 function fmtDate(iso: string | undefined): string {
@@ -73,10 +132,191 @@ function fmtDate(iso: string | undefined): string {
   }
 }
 
-function daysLabel(n: number): string {
-  if (n <= 0) return 'today'
+function daysLateLabel(n: number): string {
+  if (n <= 0) return 'Due today'
   if (n === 1) return '1 day late'
   return `${n} days late`
+}
+
+function daysOverdueLabel(n: number): string {
+  if (n <= 0) return 'Due today'
+  if (n === 1) return '1 day overdue'
+  return `${n} days overdue`
+}
+
+function buildAttentionRows(
+  overdueActivities: AtRiskActivity[],
+  overduePeriodDeliverables: AtRiskPeriodDeliverable[],
+  pendingReviewTasks: AtRiskSprintTask[],
+  revisionRequestedTasks: AtRiskSprintTask[],
+  lateEngagements: LateEngagement[],
+): AttentionRow[] {
+  const rows: AttentionRow[] = []
+
+  for (const item of lateEngagements) {
+    const mode = item.modeOfEngagement
+      ? item.modeOfEngagement.replace(/_/g, ' ')
+      : undefined
+    rows.push({
+      key: `e-${item._key}`,
+      categoryId: 'engagements',
+      tab: 'stakeholder-engagements',
+      title: item.name,
+      initials: initialsFromLabel(item.name),
+      dateLine: `Proposed ${fmtDate(item.proposedDate)}`,
+      statusPill: daysLateLabel(item.daysLate),
+      statusVariant: 'destructive',
+      context: mode ? capitalizeWords(mode) : undefined,
+      avatarPeople: true,
+    })
+  }
+
+  for (const item of overdueActivities) {
+    rows.push({
+      key: `a-${item._key}`,
+      categoryId: 'activities',
+      tab: 'contract',
+      title: item.title,
+      initials: initialsFromLabel(item.title),
+      dateLine: `Due ${fmtDate(item.targetDate)}`,
+      statusPill: daysOverdueLabel(item.daysOverdue),
+      statusVariant: 'destructive',
+      context: item.initiativeTitle,
+    })
+  }
+
+  for (const item of overduePeriodDeliverables) {
+    rows.push({
+      key: `d-${item._key}`,
+      categoryId: 'deliverables',
+      tab: 'contract',
+      title: item.title,
+      initials: initialsFromLabel(item.title),
+      dateLine: item.periodLabel,
+      statusPill: daysOverdueLabel(item.daysOverdue),
+      statusVariant: 'destructive',
+      context: item.activityTitle,
+    })
+  }
+
+  for (const item of pendingReviewTasks) {
+    rows.push({
+      key: `pr-${item.sprintId}-${item._key}`,
+      categoryId: 'review',
+      tab: 'weekly-sprint',
+      title: item.title,
+      initials: initialsFromLabel(item.title),
+      dateLine: item.sprintWeekLabel ?? 'Sprint task',
+      statusPill: 'Awaiting review',
+      statusVariant: 'secondary',
+      context: item.assigneeName ?? undefined,
+    })
+  }
+
+  for (const item of revisionRequestedTasks) {
+    rows.push({
+      key: `rr-${item.sprintId}-${item._key}`,
+      categoryId: 'revision',
+      tab: 'weekly-sprint',
+      title: item.title,
+      initials: initialsFromLabel(item.title),
+      dateLine: item.sprintWeekLabel ?? 'Sprint task',
+      statusPill: 'Needs revision',
+      statusVariant: 'secondary',
+      context: item.assigneeName ?? undefined,
+    })
+  }
+
+  return rows
+}
+
+function capitalizeWords(s: string): string {
+  return s.replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function defaultCategoryId(
+  counts: Record<(typeof CATEGORIES)[number]['countKey'], number>,
+): CategoryId {
+  for (const id of CATEGORY_PRIORITY) {
+    const cat = CATEGORIES.find(c => c.id === id)!
+    if (counts[cat.countKey] > 0) return id
+  }
+  return 'activities'
+}
+
+const MAX_CARDS = 8
+
+function PriorityCard({
+  row,
+  interactive,
+  onNavigateToTab,
+}: {
+  row: AttentionRow
+  interactive: boolean
+  onNavigateToTab?: (
+    tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
+  ) => void
+}) {
+  const inner = (
+    <>
+      <Avatar className='h-11 w-11 shrink-0'>
+        <AvatarFallback
+          className={cn(
+            'text-xs font-semibold',
+            row.avatarPeople
+              ? 'border border-pink-200 bg-pink-100 text-pink-800 dark:border-pink-900 dark:bg-pink-950 dark:text-pink-200'
+              : 'border border-border bg-muted text-muted-foreground',
+          )}
+        >
+          {row.initials}
+        </AvatarFallback>
+      </Avatar>
+      <div className='min-w-0 flex-1'>
+        <div className='font-medium leading-snug text-foreground'>
+          {row.title}
+        </div>
+        <div className='mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground'>
+          <span>{row.dateLine}</span>
+          <Badge
+            variant={row.statusVariant}
+            className={cn(
+              'rounded-full px-2 py-0 text-[11px] font-semibold',
+              row.statusVariant === 'secondary' &&
+                'bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-100',
+            )}
+          >
+            {row.statusPill}
+          </Badge>
+          {row.context ? (
+            <span className='capitalize text-muted-foreground'>
+              {row.context}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <ChevronRight className='h-4 w-4 shrink-0 text-muted-foreground' />
+    </>
+  )
+
+  const cardClass =
+    'rounded-lg border border-border/80 bg-card p-4 shadow-sm transition-colors'
+
+  if (interactive) {
+    return (
+      <button
+        type='button'
+        onClick={() => onNavigateToTab?.(row.tab)}
+        className={cn(
+          cardClass,
+          'flex w-full items-start gap-3 text-left hover:border-primary/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
+      >
+        {inner}
+      </button>
+    )
+  }
+
+  return <div className={cn(cardClass, 'flex items-start gap-3')}>{inner}</div>
 }
 
 export function OverduePanel({
@@ -85,206 +325,205 @@ export function OverduePanel({
   pendingReviewTasks,
   revisionRequestedTasks,
   lateEngagements,
+  onNavigateToTab,
 }: OverduePanelProps) {
+  const counts = {
+    overdueActivities: overdueActivities.length,
+    overduePeriodDeliverables: overduePeriodDeliverables.length,
+    pendingReviewTasks: pendingReviewTasks.length,
+    revisionRequestedTasks: revisionRequestedTasks.length,
+    lateEngagements: lateEngagements.length,
+  }
+
   const totalAtRisk =
-    overdueActivities.length +
-    overduePeriodDeliverables.length +
-    pendingReviewTasks.length +
-    revisionRequestedTasks.length +
-    lateEngagements.length
+    counts.overdueActivities +
+    counts.overduePeriodDeliverables +
+    counts.pendingReviewTasks +
+    counts.revisionRequestedTasks +
+    counts.lateEngagements
+
+  const attentionRows = React.useMemo(
+    () =>
+      buildAttentionRows(
+        overdueActivities,
+        overduePeriodDeliverables,
+        pendingReviewTasks,
+        revisionRequestedTasks,
+        lateEngagements,
+      ),
+    [
+      overdueActivities,
+      overduePeriodDeliverables,
+      pendingReviewTasks,
+      revisionRequestedTasks,
+      lateEngagements,
+    ],
+  )
+
+  const [selectedCategoryId, setSelectedCategoryId] =
+    React.useState<CategoryId>(() => defaultCategoryId(counts))
+
+  React.useEffect(() => {
+    if (totalAtRisk === 0) return
+    setSelectedCategoryId(prev => {
+      const countFor = (id: CategoryId) => {
+        const c = CATEGORIES.find(x => x.id === id)!
+        switch (c.countKey) {
+          case 'overdueActivities':
+            return overdueActivities.length
+          case 'overduePeriodDeliverables':
+            return overduePeriodDeliverables.length
+          case 'pendingReviewTasks':
+            return pendingReviewTasks.length
+          case 'revisionRequestedTasks':
+            return revisionRequestedTasks.length
+          case 'lateEngagements':
+            return lateEngagements.length
+        }
+      }
+      if (countFor(prev) > 0) return prev
+      return defaultCategoryId({
+        overdueActivities: overdueActivities.length,
+        overduePeriodDeliverables: overduePeriodDeliverables.length,
+        pendingReviewTasks: pendingReviewTasks.length,
+        revisionRequestedTasks: revisionRequestedTasks.length,
+        lateEngagements: lateEngagements.length,
+      })
+    })
+  }, [
+    totalAtRisk,
+    overdueActivities.length,
+    overduePeriodDeliverables.length,
+    pendingReviewTasks.length,
+    revisionRequestedTasks.length,
+    lateEngagements.length,
+  ])
+
+  const selectedLabel =
+    CATEGORIES.find(c => c.id === selectedCategoryId)?.label ?? ''
+  const selectedCount =
+    counts[CATEGORIES.find(c => c.id === selectedCategoryId)!.countKey]
+
+  const filteredRows = attentionRows.filter(
+    r => r.categoryId === selectedCategoryId,
+  )
+  const visibleCards = filteredRows.slice(0, MAX_CARDS)
+  const overflow = filteredRows.length - visibleCards.length
+
+  const interactive = !!onNavigateToTab
 
   return (
     <Card>
       <CardHeader className='pb-3'>
-        <div className='flex items-center justify-between gap-3'>
-          <div>
-            <CardTitle className='flex items-center gap-2 text-base'>
-              <AlertTriangle className='h-4 w-4 text-destructive' />
-              Overdue / At risk
+        <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
+          <div className='min-w-0 space-y-1'>
+            <CardTitle className='flex items-center gap-2'>
+              <div className='flex items-center gap-2'>
+                <AlertTriangle className='h-10 w-10 shrink-0 text-destructive' />
+                <div className='flex flex-col'>
+                  <p className='text-base font-semibold'>Overdue / At risk</p>
+                  <p className='text-sm text-muted-foreground font-normal'>
+                    Items that need attention now.
+                  </p>
+                </div>
+              </div>
             </CardTitle>
-            <CardDescription>
-              Items that need attention now: missed deadlines, work waiting on
-              review, or stakeholder engagements past their date.
-            </CardDescription>
           </div>
-          <Badge
-            variant={totalAtRisk > 0 ? 'destructive' : 'secondary'}
-            className='tabular-nums'
-          >
-            {totalAtRisk}
-          </Badge>
+          <div className='flex shrink-0 flex-col items-center gap-0.5 sm:items-end'>
+            <div
+              className={cn(
+                'flex h-10 min-w-10 items-center justify-center rounded-md px-2 text-lg font-semibold tabular-nums shadow-sm',
+                totalAtRisk > 0
+                  ? 'bg-destructive text-destructive-foreground'
+                  : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {totalAtRisk}
+            </div>
+            <span className='text-[11px] font-medium text-muted-foreground'>
+              Total at risk
+            </span>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3'>
-          <div>
-            <GroupHeader
-              icon={CalendarX}
-              label='Overdue activities'
-              count={overdueActivities.length}
-            />
-            {overdueActivities.length === 0 ? (
-              <EmptyHint>Nothing overdue.</EmptyHint>
-            ) : (
-              <ul className='space-y-2'>
-                {overdueActivities.slice(0, 5).map(item => (
-                  <li
-                    key={item._key}
-                    className='text-sm border-l-2 border-destructive/60 pl-2'
-                  >
-                    <div className='font-medium truncate'>{item.title}</div>
-                    <div className='text-xs text-muted-foreground'>
-                      Due {fmtDate(item.targetDate)} · {daysLabel(item.daysOverdue)}
-                    </div>
-                    {item.initiativeTitle && (
-                      <div className='text-xs text-muted-foreground truncate'>
-                        {item.initiativeTitle}
-                      </div>
+        {totalAtRisk === 0 ? (
+          <p className='text-sm text-muted-foreground'>
+            Nothing is overdue or blocked right now.
+          </p>
+        ) : (
+          <div className='flex flex-col gap-6 lg:flex-row lg:gap-0'>
+            <nav
+              aria-label='At-risk categories'
+              className='flex shrink-0 flex-col gap-0.5 border-b border-border pb-4 lg:w-96 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5'
+            >
+              {CATEGORIES.map(cat => {
+                const n = counts[cat.countKey]
+                const selected = selectedCategoryId === cat.id
+                const Icon = cat.icon
+                return (
+                  <button
+                    key={cat.id}
+                    type='button'
+                    onClick={() => setSelectedCategoryId(cat.id)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-left text-sm transition-colors',
+                      selected
+                        ? 'bg-muted font-medium text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
                     )}
-                  </li>
-                ))}
-                {overdueActivities.length > 5 && (
-                  <li className='text-xs text-muted-foreground'>
-                    +{overdueActivities.length - 5} more
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
-
-          <div>
-            <GroupHeader
-              icon={ClipboardList}
-              label='Overdue period deliverables'
-              count={overduePeriodDeliverables.length}
-            />
-            {overduePeriodDeliverables.length === 0 ? (
-              <EmptyHint>No missed reporting periods.</EmptyHint>
-            ) : (
-              <ul className='space-y-2'>
-                {overduePeriodDeliverables.slice(0, 5).map(item => (
-                  <li
-                    key={item._key}
-                    className='text-sm border-l-2 border-destructive/60 pl-2'
                   >
-                    <div className='font-medium truncate'>{item.title}</div>
-                    <div className='text-xs text-muted-foreground'>
-                      {item.periodLabel} · {daysLabel(item.daysOverdue)}
-                    </div>
-                    {item.activityTitle && (
-                      <div className='text-xs text-muted-foreground truncate'>
-                        {item.activityTitle}
-                      </div>
-                    )}
-                  </li>
-                ))}
-                {overduePeriodDeliverables.length > 5 && (
-                  <li className='text-xs text-muted-foreground'>
-                    +{overduePeriodDeliverables.length - 5} more
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
+                    <Icon
+                      className={cn(
+                        'h-4 w-4 shrink-0',
+                        n > 0 ? 'text-destructive' : 'text-muted-foreground',
+                      )}
+                    />
+                    <span className='min-w-0 text-sm flex-1 leading-snug'>
+                      {cat.label}
+                    </span>
+                    <Badge
+                      variant={n > 0 ? 'destructive' : 'outline'}
+                      className='tabular-nums shrink-0'
+                    >
+                      {n}
+                    </Badge>
+                  </button>
+                )
+              })}
+            </nav>
 
-          <div>
-            <GroupHeader
-              icon={ClipboardList}
-              label='Sprint tasks awaiting review'
-              count={pendingReviewTasks.length}
-            />
-            {pendingReviewTasks.length === 0 ? (
-              <EmptyHint>All submitted sprint tasks reviewed.</EmptyHint>
-            ) : (
-              <ul className='space-y-2'>
-                {pendingReviewTasks.slice(0, 5).map(item => (
-                  <li
-                    key={`${item.sprintId}-${item._key}`}
-                    className='text-sm border-l-2 border-amber-500/60 pl-2'
-                  >
-                    <div className='font-medium truncate'>{item.title}</div>
-                    <div className='text-xs text-muted-foreground'>
-                      {item.sprintWeekLabel}
-                      {item.assigneeName && ` · ${item.assigneeName}`}
-                    </div>
-                  </li>
-                ))}
-                {pendingReviewTasks.length > 5 && (
-                  <li className='text-xs text-muted-foreground'>
-                    +{pendingReviewTasks.length - 5} more
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
+            <div className='min-w-0 flex-1 space-y-3 lg:pl-6'>
+              <div>
+                <h3 className='text-base font-semibold tracking-tight'>
+                  Top priority
+                </h3>
+                <p className='mt-0.5 text-xs text-muted-foreground'>
+                  {selectedCount > 0
+                    ? `${selectedLabel} — ${selectedCount} ${selectedCount === 1 ? 'item' : 'items'}`
+                    : `${selectedLabel}`}
+                </p>
+              </div>
 
-          <div>
-            <GroupHeader
-              icon={RefreshCcw}
-              label='Tasks needing revision'
-              count={revisionRequestedTasks.length}
-            />
-            {revisionRequestedTasks.length === 0 ? (
-              <EmptyHint>No revision requests outstanding.</EmptyHint>
-            ) : (
-              <ul className='space-y-2'>
-                {revisionRequestedTasks.slice(0, 5).map(item => (
-                  <li
-                    key={`${item.sprintId}-${item._key}`}
-                    className='text-sm border-l-2 border-amber-500/60 pl-2'
-                  >
-                    <div className='font-medium truncate'>{item.title}</div>
-                    <div className='text-xs text-muted-foreground'>
-                      {item.sprintWeekLabel}
-                      {item.assigneeName && ` · ${item.assigneeName}`}
-                    </div>
+              <ul className='space-y-3'>
+                {visibleCards.map(row => (
+                  <li key={row.key}>
+                    <PriorityCard
+                      row={row}
+                      interactive={interactive}
+                      onNavigateToTab={onNavigateToTab}
+                    />
                   </li>
                 ))}
-                {revisionRequestedTasks.length > 5 && (
+                {overflow > 0 ? (
                   <li className='text-xs text-muted-foreground'>
-                    +{revisionRequestedTasks.length - 5} more
+                    +{overflow} more in this category
                   </li>
-                )}
+                ) : null}
               </ul>
-            )}
+            </div>
           </div>
-
-          <div className='md:col-span-2 xl:col-span-1'>
-            <GroupHeader
-              icon={HandHelping}
-              label='Stakeholder engagements past date'
-              count={lateEngagements.length}
-            />
-            {lateEngagements.length === 0 ? (
-              <EmptyHint>All proposed engagements still upcoming.</EmptyHint>
-            ) : (
-              <ul className='space-y-2'>
-                {lateEngagements.slice(0, 5).map(item => (
-                  <li
-                    key={item._key}
-                    className='text-sm border-l-2 border-destructive/60 pl-2'
-                  >
-                    <div className='font-medium truncate'>{item.name}</div>
-                    <div className='text-xs text-muted-foreground'>
-                      Proposed {fmtDate(item.proposedDate)} ·{' '}
-                      {daysLabel(item.daysLate)}
-                    </div>
-                    {item.modeOfEngagement && (
-                      <div className='text-xs text-muted-foreground capitalize'>
-                        {item.modeOfEngagement.replace(/_/g, ' ')}
-                      </div>
-                    )}
-                  </li>
-                ))}
-                {lateEngagements.length > 5 && (
-                  <li className='text-xs text-muted-foreground'>
-                    +{lateEngagements.length - 5} more
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   )
