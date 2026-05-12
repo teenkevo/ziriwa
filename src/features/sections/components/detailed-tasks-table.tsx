@@ -461,17 +461,17 @@ export function DetailedTasksTable({
             {table.getColumn('priority') && (
               <DataTableFacetedFilter
                 column={table.getColumn('priority')}
-                title='Priority'
+                title='Filter by Priority'
                 options={priorityOptions}
               />
             )}
             {table.getColumn('status') && (
               <DataTableFacetedFilter
                 column={table.getColumn('status')}
-                title='Status'
+                title='Filter by Status'
                 options={statusOptions}
               />
-            )}
+            )} 
             {isFiltered && (
               <Button
                 variant='ghost'

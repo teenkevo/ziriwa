@@ -20,7 +20,11 @@ export async function GET(
         FETCH FIRST 1 ROWS ONLY
       `,
       { id } as any,
-      { outFormat: oracledb.OUT_FORMAT_OBJECT },
+      {
+        outFormat: oracledb.OUT_FORMAT_OBJECT,
+        // Ensure BLOB is fetched as raw bytes, not as a LOB stream.
+        fetchInfo: { blob_data: { type: oracledb.BUFFER } },
+      },
     )
 
     return (res.rows?.[0] ?? null) as {

@@ -1337,15 +1337,18 @@ export function ActivityPageContent({
     }
   }
 
-  const removeTaskByKey = React.useCallback((key: string) => {
-    const row = tasks.find(t => (t._key ?? '') === key)
-    if (row && hasOfficerContent(row)) {
-      alert('This task has submitted work and cannot be deleted.')
-      return
-    }
+  const removeTaskByKey = React.useCallback(
+    (key: string) => {
+      const row = tasks.find(t => (t._key ?? '') === key)
+      if (row && hasOfficerContent(row)) {
+        alert('This task has submitted work and cannot be deleted.')
+        return
+      }
 
-    setTasks(prev => prev.filter(t => (t._key ?? '') !== key))
-  }, [tasks])
+      setTasks(prev => prev.filter(t => (t._key ?? '') !== key))
+    },
+    [tasks],
+  )
 
   return (
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
@@ -1630,7 +1633,7 @@ export function ActivityPageContent({
           )}
 
           <div className='space-y-4 flex-1 min-w-0 mt-10'>
-            <h2 className='text-sm font-semibold'>Detailed Tasks</h2>
+            <h2 className=' font-semibold'>Detailed Tasks</h2>
             <DetailedTasksTable
               tasks={tasks}
               officers={officers}

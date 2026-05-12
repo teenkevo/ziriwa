@@ -94,8 +94,11 @@ export async function getSectionContractOracle(
       WHERE co.contract_id = :contractId
       ORDER BY
         co.objective_order,
+        co.objective_key,
         ci.initiative_order NULLS LAST,
-        ma.activity_order NULLS LAST
+        ci.initiative_key NULLS LAST,
+        ma.activity_order NULLS LAST,
+        ma.activity_key NULLS LAST
     `,
     { contractId: cr._id },
   )

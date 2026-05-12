@@ -508,17 +508,102 @@ export function TaskDetailsPanel({
               sectionId={sectionId}
             />
           </div>
-          {!task.assignee && (
-            <p className='text-xs text-muted-foreground mt-1'>
-              Assign an officer to enable inputs, deliverables, and status
-              updates.
-            </p>
-          )}
+
           {assigneeLocked && (
             <p className='text-xs text-muted-foreground mt-1'>
               Assignee cannot be changed once work has been submitted.
             </p>
           )}
+        </div>
+
+        <div className='grid grid-cols-2 gap-3'>
+          <div>
+            <Label className='text-xs text-muted-foreground'>Status</Label>
+            <Select
+              value={task.status}
+              onValueChange={v => onUpdate({ status: v })}
+              disabled={
+                isSaving ||
+                isDone ||
+                !task.assignee ||
+                dueDateRequiredMissing ||
+                periodicScheduleMissing
+              }
+            >
+              <SelectTrigger className='mt-1'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_STATUSES.map(s => {
+                  const currentStatus = task.status ?? ''
+                  const hasInputs = !!task.inputs?.file?.asset?.url
+                  const disabled =
+                    currentStatus === 'to_do' && !hasInputs
+                      ? s.value !== 'to_do'
+                      : currentStatus === 'inputs_submitted'
+                        ? s.value !== 'inputs_submitted'
+                        : currentStatus === 'in_progress'
+                          ? [
+                              'to_do',
+                              'inputs_submitted',
+                              'delivered',
+                              'in_review',
+                              'done',
+                            ].includes(s.value)
+                          : currentStatus === 'delivered'
+                            ? [
+                                'to_do',
+                                'inputs_submitted',
+                                'in_progress',
+                                'in_review',
+                                'done',
+                              ].includes(s.value)
+                            : currentStatus === 'in_review'
+                              ? [
+                                  'to_do',
+                                  'inputs_submitted',
+                                  'in_progress',
+                                  'delivered',
+                                  'done',
+                                ].includes(s.value)
+                              : ['to_do', 'inputs_submitted'].includes(s.value)
+                  return (
+                    <SelectItem
+                      key={s.value}
+                      value={s.value}
+                      disabled={disabled}
+                    >
+                      <span className='flex w-full items-center justify-between'>
+                        <span>{s.label}</span>
+                        {disabled && (
+                          <Lock className='ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground' />
+                        )}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className='text-xs text-muted-foreground'>Priority</Label>
+            <Select
+              value={task.priority}
+              onValueChange={v => onUpdate({ priority: v })}
+              disabled={isSaving || isDone || !hasAssignee}
+            >
+              <SelectTrigger className='mt-1'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map(p => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {hasAssignee && (
@@ -730,16 +815,6 @@ export function TaskDetailsPanel({
                           </p>
                         )}
                       </div>
-                      {(!expectedDeliverableSet ||
-                        !task.reportingPeriodStart) && (
-                        <div className='bg-orange-700 p-2 rounded-md flex items-center gap-2'>
-                          <InfoCircledIcon />
-                          <p className='text-xs text-foreground'>
-                            Required fields above are needed for the officer to
-                            progress with this task.
-                          </p>
-                        </div>
-                      )}
                     </CardContent>
                   )}
                   {taskFreq === 'n/a' && (
@@ -759,7 +834,9 @@ export function TaskDetailsPanel({
                             <PopoverTrigger asChild>
                               <Button
                                 variant='outline'
-                                disabled={isSaving || taskConfigLocked || !hasAssignee}
+                                disabled={
+                                  isSaving || taskConfigLocked || !hasAssignee
+                                }
                                 className={cn(
                                   'h-9 justify-between text-left font-normal min-w-[180px]',
                                   !task.targetDate && 'text-muted-foreground',
@@ -881,110 +958,11 @@ export function TaskDetailsPanel({
                           </p>
                         )}
                       </div>
-                      {(!task.targetDate || !expectedDeliverableSet) && (
-                        <div className='bg-orange-700 p-2 rounded-md flex items-center gap-2'>
-                          <InfoCircledIcon />
-                          <p className='text-xs text-foreground'>
-                            Required fields above are needed for the officer to
-                            progress with this task.
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
                 </Card>
               </>
             )}
-
-            <div>
-              <Label className='text-xs text-muted-foreground'>Status</Label>
-              <Select
-                value={task.status}
-                onValueChange={v => onUpdate({ status: v })}
-                disabled={
-                  isSaving ||
-                  isDone ||
-                  !task.assignee ||
-                  dueDateRequiredMissing ||
-                  periodicScheduleMissing
-                }
-              >
-                <SelectTrigger className='mt-1'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TASK_STATUSES.map(s => {
-                    const currentStatus = task.status ?? ''
-                    const hasInputs = !!task.inputs?.file?.asset?.url
-                    const disabled =
-                      currentStatus === 'to_do' && !hasInputs
-                        ? s.value !== 'to_do'
-                        : currentStatus === 'inputs_submitted'
-                          ? s.value !== 'inputs_submitted'
-                          : currentStatus === 'in_progress'
-                            ? [
-                                'to_do',
-                                'inputs_submitted',
-                                'delivered',
-                                'in_review',
-                                'done',
-                              ].includes(s.value)
-                            : currentStatus === 'delivered'
-                              ? [
-                                  'to_do',
-                                  'inputs_submitted',
-                                  'in_progress',
-                                  'in_review',
-                                  'done',
-                                ].includes(s.value)
-                              : currentStatus === 'in_review'
-                                ? [
-                                    'to_do',
-                                    'inputs_submitted',
-                                    'in_progress',
-                                    'delivered',
-                                    'done',
-                                  ].includes(s.value)
-                                : ['to_do', 'inputs_submitted'].includes(
-                                    s.value,
-                                  )
-                    return (
-                      <SelectItem
-                        key={s.value}
-                        value={s.value}
-                        disabled={disabled}
-                      >
-                        <span className='flex w-full items-center justify-between'>
-                          <span>{s.label}</span>
-                          {disabled && (
-                            <Lock className='ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground' />
-                          )}
-                        </span>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className='text-xs text-muted-foreground'>Priority</Label>
-              <Select
-                value={task.priority}
-                onValueChange={v => onUpdate({ priority: v })}
-                disabled={isSaving || isDone || !hasAssignee}
-              >
-                <SelectTrigger className='mt-1'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITIES.map(p => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             {task.assignee &&
               [
@@ -1001,7 +979,8 @@ export function TaskDetailsPanel({
                       <Lock className='h-4 w-4 text-muted-foreground' />
                     )}
                     <Label className='text-xs text-muted-foreground'>
-                      Inputs and dependencies for this task to start
+                      Officer to submit inputs and dependencies for this task to
+                      start
                     </Label>
                   </div>
 
@@ -1354,9 +1333,6 @@ export function TaskDetailsPanel({
                             {task.status === 'to_do' &&
                             !task.inputs?.file?.asset?.url ? (
                               <div className='p-2.5 space-y-2'>
-                                <p className='text-xs'>
-                                  Officer to submit inputs
-                                </p>
                                 <input
                                   ref={inputsFileRef}
                                   type='file'

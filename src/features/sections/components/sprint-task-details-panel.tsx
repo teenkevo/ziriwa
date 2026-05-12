@@ -301,11 +301,7 @@ export function SprintTaskDetailsPanel({
             sectionId={sectionId}
           />
         </div>
-        {!task.assignee && (
-          <p className='text-xs text-muted-foreground mt-1'>
-            Assign an officer to enable work submissions.
-          </p>
-        )}
+
         {hasSubmissions && (
           <p className='text-xs text-muted-foreground mt-1'>
             Assignee cannot be changed once work submissions exist.
