@@ -343,7 +343,7 @@ export function ContractTree({
                     variant='outline'
                     className='shrink-0 px-1.5 py-1 text-[10px] border-primary text-primary font-medium leading-none'
                   >
-                    Click to manage detailed tasks
+                    Click to manage
                   </Badge>
                 )}
                 <p className='text-sm leading-4 truncate'>{item.name}</p>

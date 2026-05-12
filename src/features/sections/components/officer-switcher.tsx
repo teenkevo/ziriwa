@@ -35,6 +35,8 @@ interface OfficerSwitcherProps {
   disabled?: boolean
   placeholder?: string
   sectionId: string
+  /** Smaller trigger and dropdown text (e.g. dense tables). */
+  compact?: boolean
 }
 
 export function OfficerSwitcher({
@@ -44,6 +46,7 @@ export function OfficerSwitcher({
   disabled = false,
   placeholder = 'Select or create officer',
   sectionId,
+  compact = false,
 }: OfficerSwitcherProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
@@ -74,16 +77,37 @@ export function OfficerSwitcher({
             aria-expanded={open}
             aria-label='Select officer'
             disabled={disabled}
-            className={cn('w-full justify-between')}
+            className={cn(
+              'w-full justify-between',
+              compact && 'h-9 text-xs font-normal',
+            )}
           >
-            <User className='h-4 w-4 shrink-0 text-muted-foreground' />
+            <User
+              className={cn(
+                'shrink-0 text-muted-foreground',
+                compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
+              )}
+            />
             {displayLabel}
-            <ChevronsUpDown className='ml-auto h-4 w-4 shrink-0 opacity-50' />
+            <ChevronsUpDown
+              className={cn(
+                'ml-auto shrink-0 opacity-50',
+                compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
+              )}
+            />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className='w-[var(--radix-popover-trigger-width)] p-0'>
+        <PopoverContent
+          className={cn(
+            'w-[var(--radix-popover-trigger-width)] p-0',
+            compact && 'text-xs',
+          )}
+        >
           <Command>
-            <CommandInput placeholder='Search officer...' />
+            <CommandInput
+              placeholder='Search officer...'
+              className={cn(compact && 'h-8 py-2 text-xs')}
+            />
             <CommandList>
               <CommandEmpty>No officer found.</CommandEmpty>
               <CommandGroup heading='Officers'>
@@ -92,11 +116,12 @@ export function OfficerSwitcher({
                     onChange(null)
                     setOpen(false)
                   }}
-                  className='text-sm'
+                  className={cn(compact ? 'text-xs' : 'text-sm')}
                 >
                   <Check
                     className={cn(
-                      'mr-2 h-5 w-5',
+                      'mr-2 shrink-0',
+                      compact ? 'h-4 w-4' : 'h-5 w-5',
                       !value ? 'opacity-100' : 'opacity-0',
                     )}
                   />
@@ -109,11 +134,12 @@ export function OfficerSwitcher({
                       onChange(o._id)
                       setOpen(false)
                     }}
-                    className='text-sm'
+                    className={cn(compact ? 'text-xs' : 'text-sm')}
                   >
                     <Check
                       className={cn(
-                        'mr-2 h-5 w-5',
+                        'mr-2 shrink-0',
+                        compact ? 'h-4 w-4' : 'h-5 w-5',
                         value === o._id ? 'opacity-100' : 'opacity-0',
                       )}
                     />
@@ -129,8 +155,14 @@ export function OfficerSwitcher({
                       setOpen(false)
                       setShowCreateDialog(true)
                     }}
+                    className={cn(compact ? 'text-xs' : 'text-sm')}
                   >
-                    <PlusCircle className='h-5 w-5' />
+                    <PlusCircle
+                      className={cn(
+                        'shrink-0',
+                        compact ? 'h-4 w-4' : 'h-5 w-5',
+                      )}
+                    />
                     Create Officer
                   </CommandItem>
                 </DialogTrigger>
