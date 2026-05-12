@@ -149,11 +149,10 @@ export function SectionPageContent({
   const currentFY = sectionContract?.financialYearLabel ?? 'current FY'
   const manager = section.manager
   const hasManager = !!manager?._id
-  /** Start at 1 so the contract tree mounts fully expanded. */
-  const [expandAllSignal, setExpandAllSignal] = useState(1)
+  const [expandAllSignal, setExpandAllSignal] = useState(0)
   const [collapseAllSignal, setCollapseAllSignal] = useState(0)
   /** Tracks bulk expand/collapse toggle label (tree may diverge if nodes toggled manually). */
-  const [treeBulkExpanded, setTreeBulkExpanded] = useState(true)
+  const [treeBulkExpanded, setTreeBulkExpanded] = useState(false)
   const [addObjectiveSignal, setAddObjectiveSignal] = useState(0)
 
   const breadcrumbItems = React.useMemo(() => {
