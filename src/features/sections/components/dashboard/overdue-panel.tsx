@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { format, parseISO } from 'date-fns'
 import {
   AlertTriangle,
@@ -36,7 +37,9 @@ interface OverduePanelProps {
   pendingReviewTasks: AtRiskSprintTask[]
   revisionRequestedTasks: AtRiskSprintTask[]
   lateEngagements: LateEngagement[]
-  /** Switch parent section tabs when a row is activated (dashboard → target tab). */
+  /** Section slug for deep links to measurable activity + task (e.g. overdue detailed tasks). */
+  sectionSlug?: string
+  /** Switch parent section tabs when a row has no deep link. */
   onNavigateToTab?: (
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
@@ -62,6 +65,8 @@ type AttentionRow = {
   statusVariant: 'destructive' | 'secondary' | 'outline'
   context?: string
   avatarPeople?: boolean
+  /** Full path including query when row should navigate outside the dashboard. */
+  detailHref?: string
 }
 
 const CATEGORIES: {
@@ -83,7 +88,7 @@ const CATEGORIES: {
   },
   {
     id: 'activities',
-    label: 'Overdue activities',
+    label: 'Overdue detailed tasks',
     icon: CalendarX,
     countKey: 'overdueActivities',
   },
@@ -150,6 +155,7 @@ function buildAttentionRows(
   pendingReviewTasks: AtRiskSprintTask[],
   revisionRequestedTasks: AtRiskSprintTask[],
   lateEngagements: LateEngagement[],
+  sectionSlug?: string,
 ): AttentionRow[] {
   const rows: AttentionRow[] = []
 
@@ -171,7 +177,17 @@ function buildAttentionRows(
     })
   }
 
+  const slug = sectionSlug?.trim()
   for (const item of overdueActivities) {
+    const detailHref =
+      slug &&
+      item.contractId &&
+      item.taskKey &&
+      item.objectiveIndex >= 0 &&
+      item.initiativeIndex >= 0 &&
+      item.activityIndex >= 0
+        ? `/sections/${slug}/activity/${item.contractId}/${item.objectiveIndex}/${item.initiativeIndex}/${item.activityIndex}?taskKey=${encodeURIComponent(item.taskKey)}`
+        : undefined
     rows.push({
       key: `a-${item._key}`,
       categoryId: 'activities',
@@ -181,7 +197,10 @@ function buildAttentionRows(
       dateLine: `Due ${fmtDate(item.targetDate)}`,
       statusPill: daysOverdueLabel(item.daysOverdue),
       statusVariant: 'destructive',
-      context: item.initiativeTitle,
+      context: [item.activityTitle, item.initiativeTitle]
+        .filter(Boolean)
+        .join(' · '),
+      detailHref,
     })
   }
 
@@ -248,11 +267,9 @@ const MAX_CARDS = 8
 
 function PriorityCard({
   row,
-  interactive,
   onNavigateToTab,
 }: {
   row: AttentionRow
-  interactive: boolean
   onNavigateToTab?: (
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
@@ -300,16 +317,27 @@ function PriorityCard({
 
   const cardClass =
     'rounded-lg border border-border/80 bg-card p-4 shadow-sm transition-colors'
+  const interactiveClass =
+    'flex w-full items-start gap-3 text-left hover:border-primary/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
-  if (interactive) {
+  if (row.detailHref) {
+    return (
+      <Link
+        href={row.detailHref}
+        prefetch={false}
+        className={cn(cardClass, interactiveClass)}
+      >
+        {inner}
+      </Link>
+    )
+  }
+
+  if (onNavigateToTab) {
     return (
       <button
         type='button'
-        onClick={() => onNavigateToTab?.(row.tab)}
-        className={cn(
-          cardClass,
-          'flex w-full items-start gap-3 text-left hover:border-primary/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        )}
+        onClick={() => onNavigateToTab(row.tab)}
+        className={cn(cardClass, interactiveClass)}
       >
         {inner}
       </button>
@@ -325,6 +353,7 @@ export function OverduePanel({
   pendingReviewTasks,
   revisionRequestedTasks,
   lateEngagements,
+  sectionSlug,
   onNavigateToTab,
 }: OverduePanelProps) {
   const counts = {
@@ -350,6 +379,7 @@ export function OverduePanel({
         pendingReviewTasks,
         revisionRequestedTasks,
         lateEngagements,
+        sectionSlug,
       ),
     [
       overdueActivities,
@@ -357,6 +387,7 @@ export function OverduePanel({
       pendingReviewTasks,
       revisionRequestedTasks,
       lateEngagements,
+      sectionSlug,
     ],
   )
 
@@ -409,8 +440,6 @@ export function OverduePanel({
   )
   const visibleCards = filteredRows.slice(0, MAX_CARDS)
   const overflow = filteredRows.length - visibleCards.length
-
-  const interactive = !!onNavigateToTab
 
   return (
     <Card>
@@ -508,11 +537,7 @@ export function OverduePanel({
               <ul className='space-y-3'>
                 {visibleCards.map(row => (
                   <li key={row.key}>
-                    <PriorityCard
-                      row={row}
-                      interactive={interactive}
-                      onNavigateToTab={onNavigateToTab}
-                    />
+                    <PriorityCard row={row} onNavigateToTab={onNavigateToTab} />
                   </li>
                 ))}
                 {overflow > 0 ? (

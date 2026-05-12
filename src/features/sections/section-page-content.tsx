@@ -310,6 +310,7 @@ export function SectionPageContent({
           <TabsContent value='dashboard' className='space-y-4'>
             <SectionDashboardContent
               sectionName={section.name}
+              sectionSlug={section.slug?.current}
               contract={sectionContract}
               sprints={sprints}
               engagement={stakeholderEngagement}

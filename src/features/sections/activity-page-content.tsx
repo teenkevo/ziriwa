@@ -111,6 +111,15 @@ function normalizeTasks(
   })
 }
 
+function resolveInitialSelectedTaskKey(
+  activity: MeasurableActivity,
+  initialTaskKey?: string,
+): string | null {
+  if (!initialTaskKey?.trim()) return null
+  const rows = normalizeTasks(activity.tasks)
+  return rows.some(r => (r._key ?? '') === initialTaskKey) ? initialTaskKey : null
+}
+
 function tasksToPayload(rows: TaskRow[]) {
   return rows.map(r => ({
     _key: r._key,
@@ -211,6 +220,8 @@ interface ActivityPageContentProps {
   initiativeIndex: number
   activityIndex: number
   officers: Officer[]
+  /** When set (e.g. `?taskKey=` from dashboard), select this task in the details panel. */
+  initialTaskKey?: string
 }
 
 export function ActivityPageContent({
@@ -221,6 +232,7 @@ export function ActivityPageContent({
   initiativeIndex,
   activityIndex,
   officers,
+  initialTaskKey,
 }: ActivityPageContentProps) {
   const router = useRouter()
   const isLg = useIsLg()
@@ -659,7 +671,7 @@ export function ActivityPageContent({
   }, [tasks, saveTasks])
 
   const [selectedTaskKey, setSelectedTaskKey] = React.useState<string | null>(
-    null,
+    () => resolveInitialSelectedTaskKey(activity, initialTaskKey),
   )
   const [pendingSubmitForReviewTaskKey, setPendingSubmitForReviewTaskKey] =
     React.useState<string | null>(null)

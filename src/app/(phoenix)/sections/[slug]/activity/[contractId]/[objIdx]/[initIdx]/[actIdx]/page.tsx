@@ -7,6 +7,7 @@ import { ActivityPageContent } from '@/features/sections/activity-page-content'
 
 export default async function ActivityPage({
   params,
+  searchParams,
 }: {
   params: Promise<{
     slug: string
@@ -15,8 +16,17 @@ export default async function ActivityPage({
     initIdx: string
     actIdx: string
   }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { slug, contractId, objIdx, initIdx, actIdx } = await params
+  const sp = await searchParams
+  const rawTaskKey = sp.taskKey
+  const initialTaskKey =
+    typeof rawTaskKey === 'string'
+      ? rawTaskKey
+      : Array.isArray(rawTaskKey)
+        ? rawTaskKey[0]
+        : undefined
   const objIndex = parseInt(objIdx, 10)
   const initIndex = parseInt(initIdx, 10)
   const actIndex = parseInt(actIdx, 10)
@@ -49,6 +59,7 @@ export default async function ActivityPage({
       initiativeIndex={initIndex}
       activityIndex={actIndex}
       officers={officers}
+      initialTaskKey={initialTaskKey}
     />
   )
 }

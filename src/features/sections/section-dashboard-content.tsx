@@ -27,6 +27,8 @@ import { format, parseISO } from 'date-fns'
 
 interface SectionDashboardContentProps {
   sectionName: string
+  /** Used for overdue detailed task links to activity pages. */
+  sectionSlug?: string
   contract: SectionContract | null
   /** Opens the matching section tab when the user picks an at-risk row. */
   onNavigateToTab?: (
@@ -58,6 +60,7 @@ function statusBadgeVariant(
 
 export function SectionDashboardContent({
   sectionName,
+  sectionSlug,
   contract,
   sprints,
   engagement,
@@ -126,6 +129,7 @@ export function SectionDashboardContent({
         pendingReviewTasks={metrics.pendingReviewTasks}
         revisionRequestedTasks={metrics.revisionRequestedTasks}
         lateEngagements={metrics.lateEngagements}
+        sectionSlug={sectionSlug}
         onNavigateToTab={onNavigateToTab}
       />
 

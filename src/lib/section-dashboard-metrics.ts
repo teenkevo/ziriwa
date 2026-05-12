@@ -18,7 +18,11 @@ import type {
   StakeholderEngagement,
   StakeholderEntry,
 } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
-import { getPeriodInfo, type ReportingFrequency } from './reporting-periods'
+import {
+  getCurrentPeriodDueDate,
+  getPeriodInfo,
+  type ReportingFrequency,
+} from './reporting-periods'
 
 const ACTIVITY_STATUSES = ['not_started', 'in_progress', 'completed'] as const
 const TASK_STATUSES = [
@@ -43,6 +47,7 @@ export type ActivityCategoryKey =
   | 'uncategorized'
 export type ReportingFrequencyKey = (typeof REPORTING_FREQUENCIES)[number]
 
+/** Contract detailed task past due without supervisor-approved main deliverable. */
 export type AtRiskActivity = {
   _key: string
   title: string
@@ -50,7 +55,14 @@ export type AtRiskActivity = {
   daysOverdue: number
   objectiveTitle?: string
   initiativeTitle?: string
+  activityTitle?: string
   activityType?: 'kpi' | 'cross-cutting'
+  contractId: string
+  objectiveIndex: number
+  initiativeIndex: number
+  activityIndex: number
+  /** Matches TaskRow._key after normalizeTasks on the activity page. */
+  taskKey: string
 }
 
 export type AtRiskPeriodDeliverable = {
@@ -180,6 +192,23 @@ function diffDays(fromIso: string, toIso: string): number {
   return Math.floor((b.getTime() - a.getTime()) / 86400000)
 }
 
+function hasSupervisorApprovedDeliverable(task: DetailedTask): boolean {
+  if (task.status === 'done') return true
+  return (task.deliverableReviewThread ?? []).some(
+    e => e.role === 'supervisor' && e.action === 'approve',
+  )
+}
+
+/** Due date used for “is this detailed task overdue?” (period end if reporting, else task target). */
+function effectiveDetailedTaskDueDate(task: DetailedTask): string | undefined {
+  const freq = task.reportingFrequency
+  if (freq && freq !== 'n/a') {
+    const d = getCurrentPeriodDueDate(freq as ReportingFrequency)
+    return d || undefined
+  }
+  return task.targetDate
+}
+
 function isSameMonth(iso: string, today: string): boolean {
   return iso.slice(0, 7) === today.slice(0, 7)
 }
@@ -228,14 +257,23 @@ export function computeSectionDashboardMetrics(input: {
   const overdueActivities: AtRiskActivity[] = []
   const overduePeriodDeliverables: AtRiskPeriodDeliverable[] = []
 
-  for (const obj of contract?.objectives ?? []) {
+  const contractId = contract?._id ?? ''
+  const objectives = contract?.objectives ?? []
+
+  for (let objIdx = 0; objIdx < objectives.length; objIdx++) {
+    const obj = objectives[objIdx]
     objectivesCount++
     let objCompleted = 0
     let objTotal = 0
 
-    for (const init of obj.initiatives ?? []) {
+    const initiatives = obj.initiatives ?? []
+    for (let initIdx = 0; initIdx < initiatives.length; initIdx++) {
+      const init = initiatives[initIdx]
       initiativesCount++
-      for (const act of init.measurableActivities ?? []) {
+
+      const measurableActivities = init.measurableActivities ?? []
+      for (let actIdx = 0; actIdx < measurableActivities.length; actIdx++) {
+        const act = measurableActivities[actIdx]
         activitiesCount++
         objTotal++
         if (act.activityType === 'kpi') kpiActivitiesCount++
@@ -256,20 +294,29 @@ export function computeSectionDashboardMetrics(input: {
         const freq = (act.reportingFrequency ?? 'n/a') as ReportingFrequencyKey
         if (freq in reportingFrequencyMix) reportingFrequencyMix[freq]++
 
-        // Overdue: activity targetDate in the past + status != completed
-        if (
-          act.targetDate &&
-          act.targetDate < today &&
-          act.status !== 'completed'
-        ) {
+        const rawTasks = act.tasks ?? []
+        for (let taskIdx = 0; taskIdx < rawTasks.length; taskIdx++) {
+          const t = rawTasks[taskIdx]
+          const task = typeof t === 'string' ? null : (t as DetailedTask)
+          if (!task) continue
+          const due = effectiveDetailedTaskDueDate(task)
+          if (!due || due >= today) continue
+          if (hasSupervisorApprovedDeliverable(task)) continue
+          const taskKey = task._key ?? `task-${taskIdx}`
           overdueActivities.push({
-            _key: act._key,
-            title: act.title,
-            targetDate: act.targetDate,
-            daysOverdue: diffDays(act.targetDate, today),
+            _key: `${act._key}-${taskKey}`,
+            title: task.task || 'Untitled task',
+            targetDate: due,
+            daysOverdue: diffDays(due, today),
             objectiveTitle: obj.title,
             initiativeTitle: init.title,
+            activityTitle: act.title,
             activityType: act.activityType,
+            contractId,
+            objectiveIndex: objIdx,
+            initiativeIndex: initIdx,
+            activityIndex: actIdx,
+            taskKey,
           })
         }
 
