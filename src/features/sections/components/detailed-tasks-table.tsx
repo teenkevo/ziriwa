@@ -200,7 +200,7 @@ interface DetailedTasksTableProps {
   selectedTaskKey: string | null
   onSelectTask: (key: string | null) => void
   onUpdateTask: (key: string, updates: Partial<TaskRow>) => void
-  onRemoveTask: (key: string) => void
+  onRemoveTask: (key: string) => void | Promise<void>
   isSaving: boolean
 }
 
@@ -228,7 +228,7 @@ export function DetailedTasksTable({
           <DataTableColumnHeader column={column} title='Detailed Task' />
         ),
         cell: ({ row }) => (
-          <span className='min-w-[200px] block break-words'>
+          <span className='min-w-[200px] text-xs block break-words'>
             {row.original.task || '—'}
           </span>
         ),
@@ -247,14 +247,14 @@ export function DetailedTasksTable({
             disabled={isSaving}
           >
             <SelectTrigger
-              className='h-9 w-[120px]'
+              className='h-9 w-[120px] text-xs'
               onClick={e => e.stopPropagation()}
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className='text-xs'>
               {PRIORITIES.map(p => (
-                <SelectItem key={p.value} value={p.value}>
+                <SelectItem key={p.value} value={p.value} className='text-xs'>
                   {p.label}
                 </SelectItem>
               ))}
@@ -281,6 +281,7 @@ export function DetailedTasksTable({
                 disabled={isSaving || assigneeLocked}
                 placeholder='Select officer'
                 sectionId={sectionId}
+                compact
               />
             </div>
           )
@@ -307,12 +308,12 @@ export function DetailedTasksTable({
               disabled={isSaving || !row.original.assignee}
             >
               <SelectTrigger
-                className='h-9 w-[130px]'
+                className='h-9 w-[130px] text-xs'
                 onClick={e => e.stopPropagation()}
               >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className='text-xs'>
                 {TASK_STATUSES.map(s => {
                   const disabled =
                     status === 'to_do' && !hasInputs
@@ -349,6 +350,7 @@ export function DetailedTasksTable({
                       key={s.value}
                       value={s.value}
                       disabled={disabled}
+                      className='text-xs'
                     >
                       <span className='flex w-full items-center justify-between'>
                         <span>{s.label}</span>
@@ -436,7 +438,7 @@ export function DetailedTasksTable({
             <div className='relative flex-1 sm:max-w-[280px]'>
               <Search className='absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
               <Input
-                placeholder='Search by task title...'
+                placeholder='Search for a task'
                 value={
                   (table.getColumn('task')?.getFilterValue() as string) ?? ''
                 }
@@ -449,14 +451,14 @@ export function DetailedTasksTable({
             {table.getColumn('priority') && (
               <DataTableFacetedFilter
                 column={table.getColumn('priority')}
-                title='Priority'
+                title='Filter by Priority'
                 options={priorityOptions}
               />
             )}
             {table.getColumn('status') && (
               <DataTableFacetedFilter
                 column={table.getColumn('status')}
-                title='Status'
+                title='Filter by Status'
                 options={statusOptions}
               />
             )}
@@ -620,11 +622,12 @@ export function DetailedTasksTable({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (deleteTaskKey) {
-                  onRemoveTask(deleteTaskKey)
-                  setDeleteTaskKey(null)
-                }
+              onClick={e => {
+                e.preventDefault()
+                if (!deleteTaskKey) return
+                const key = deleteTaskKey
+                setDeleteTaskKey(null)
+                void Promise.resolve(onRemoveTask(key)).catch(() => {})
               }}
               disabled={isSaving}
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'

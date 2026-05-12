@@ -481,30 +481,6 @@ export function TaskDetailsPanel({
           )}
         </div>
         <div>
-          <Label className='text-xs text-muted-foreground'>Assignee</Label>
-          <div className='mt-1'>
-            <OfficerSwitcher
-              officers={officers}
-              value={task.assignee}
-              onChange={id => onUpdate({ assignee: id })}
-              disabled={isSaving || isDone || assigneeLocked}
-              placeholder='Select officer'
-              sectionId={sectionId}
-            />
-          </div>
-          {!task.assignee && (
-            <p className='text-xs text-muted-foreground mt-1'>
-              Assign an officer to enable inputs, deliverables, and status
-              updates.
-            </p>
-          )}
-          {assigneeLocked && (
-            <p className='text-xs text-muted-foreground mt-1'>
-              Assignee cannot be changed once work has been submitted.
-            </p>
-          )}
-        </div>
-        <div>
           <Label className='text-xs text-muted-foreground'>Status</Label>
           <Select
             value={task.status}
@@ -562,6 +538,26 @@ export function TaskDetailsPanel({
             </SelectContent>
           </Select>
         </div>
+        <div>
+          <Label className='text-xs text-muted-foreground'>Assignee</Label>
+          <div className='mt-1'>
+            <OfficerSwitcher
+              officers={officers}
+              value={task.assignee}
+              onChange={id => onUpdate({ assignee: id })}
+              disabled={isSaving || isDone || assigneeLocked}
+              placeholder='Select officer'
+              sectionId={sectionId}
+            />
+          </div>
+
+          {assigneeLocked && (
+            <p className='text-xs text-muted-foreground mt-1'>
+              Assignee cannot be changed once work has been submitted.
+            </p>
+          )}
+        </div>
+
         <div>
           <Label className='text-xs text-muted-foreground'>Priority</Label>
           <Select

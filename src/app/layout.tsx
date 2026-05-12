@@ -3,7 +3,7 @@ import localFont from 'next/font/local'
 import { Spline_Sans } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from 'next-themes'
-import { Toaster } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
 import { ClerkProvider } from '@clerk/nextjs'
 
 const splineSans = Spline_Sans({ subsets: ['latin'] })

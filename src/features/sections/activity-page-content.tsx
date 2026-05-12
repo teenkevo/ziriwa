@@ -49,6 +49,7 @@ import {
 import { TaskDetailsPanel } from '@/features/sections/components/task-details-panel'
 import { SubmitForReviewDialog } from '@/features/sections/components/submit-for-review-dialog'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import { toast } from 'sonner'
 
 type Section = {
   _id: string
@@ -580,6 +581,12 @@ export function ActivityPageContent({
     ],
   )
 
+  const saveTimeoutRef = React.useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined)
+  /** Baseline for debounced save; avoids firing after mount (incl. React Strict Mode double-invoke). */
+  const lastSavedTasksPayloadRef = React.useRef<string | null>(null)
+
   const saveTasks = React.useCallback(
     async (tasksToSave: TaskRow[]) => {
       setIsSavingTasks(true)
@@ -605,10 +612,13 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save tasks')
         }
+        lastSavedTasksPayloadRef.current = JSON.stringify(payload)
         router.refresh()
       } catch (err) {
         console.error(err)
-        alert(err instanceof Error ? err.message : 'Failed to save tasks')
+        toast.error(
+          err instanceof Error ? err.message : 'Failed to save tasks',
+        )
         throw err
       } finally {
         setIsSavingTasks(false)
@@ -623,18 +633,22 @@ export function ActivityPageContent({
     ],
   )
 
-  const saveTimeoutRef = React.useRef<
-    ReturnType<typeof setTimeout> | undefined
-  >(undefined)
-  const isInitialMount = React.useRef(true)
   React.useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false
+    const serialized = JSON.stringify(tasksToPayload(tasks))
+    if (lastSavedTasksPayloadRef.current === null) {
+      lastSavedTasksPayloadRef.current = serialized
       return
     }
+    if (lastSavedTasksPayloadRef.current === serialized) return
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     saveTimeoutRef.current = setTimeout(() => {
-      saveTasks(tasks).catch(() => {})
+      const snap = JSON.stringify(tasksToPayload(tasks))
+      if (snap === lastSavedTasksPayloadRef.current) return
+      saveTasks(tasks).catch(err => {
+        toast.error(
+          err instanceof Error ? err.message : 'Failed to save tasks',
+        )
+      })
     }, 500)
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
@@ -771,8 +785,12 @@ export function ActivityPageContent({
           : row,
       )
       setTasks(updatedTasks)
-      await saveTasks(updatedTasks)
-      setPendingSubmitForReviewTaskKey(null)
+      try {
+        await saveTasks(updatedTasks)
+        setPendingSubmitForReviewTaskKey(null)
+      } catch {
+        /* saveTasks shows toast */
+      }
     },
     [tasks, saveTasks],
   )
@@ -1326,19 +1344,31 @@ export function ActivityPageContent({
 
     try {
       await saveTasks(updatedTasks)
+      toast.success('Task added')
     } catch (err) {
       console.error(err)
       setTasks(tasks)
       setNewTask(trimmed)
-      alert(err instanceof Error ? err.message : 'Failed to add task')
     } finally {
       setIsAddingTask(false)
     }
   }
 
-  const removeTaskByKey = React.useCallback((key: string) => {
-    setTasks(prev => prev.filter(row => (row._key ?? '') !== key))
-  }, [])
+  const handleRemoveTaskByKey = React.useCallback(
+    async (key: string) => {
+      const previous = tasks
+      const filtered = previous.filter(row => (row._key ?? '') !== key)
+      setTasks(filtered)
+      try {
+        await saveTasks(filtered)
+        toast.success('Task deleted')
+      } catch (err) {
+        console.error(err)
+        setTasks(previous)
+      }
+    },
+    [tasks, saveTasks],
+  )
 
   return (
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
@@ -1450,24 +1480,15 @@ export function ActivityPageContent({
 
           <div className='space-y-4 flex-1 min-w-0 mt-10'>
             <h2 className='text-sm font-semibold'>Detailed Tasks</h2>
-            <DetailedTasksTable
-              tasks={tasks}
-              officers={officers}
-              sectionId={section._id}
-              selectedTaskKey={selectedTaskKey}
-              onSelectTask={setSelectedTaskKey}
-              onUpdateTask={updateTaskByKey}
-              onRemoveTask={removeTaskByKey}
-              isSaving={isSavingTasks}
-            />
             <div className='flex gap-2'>
               <Input
-                placeholder='Add a task...'
+                placeholder={`Add a task to this ${isKPI ? 'KPI' : 'Cross-cutting'} measurable activity`}
                 value={newTask}
                 onChange={e => setNewTask(e.target.value)}
                 onKeyDown={e =>
                   e.key === 'Enter' && (e.preventDefault(), handleAddTask())
                 }
+                autoFocus
                 disabled={isSavingTasks || isAddingTask}
               />
               <Button
@@ -1484,6 +1505,16 @@ export function ActivityPageContent({
                 )}
               </Button>
             </div>
+            <DetailedTasksTable
+              tasks={tasks}
+              officers={officers}
+              sectionId={section._id}
+              selectedTaskKey={selectedTaskKey}
+              onSelectTask={setSelectedTaskKey}
+              onUpdateTask={updateTaskByKey}
+              onRemoveTask={handleRemoveTaskByKey}
+              isSaving={isSavingTasks}
+            />
           </div>
         </div>
       </div>
