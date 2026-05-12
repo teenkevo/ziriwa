@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { DotIcon, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -331,8 +332,22 @@ export function ContractTree({
             </span>
           )}
           <div className='flex-1 min-w-0'>
-            <div className='flex items-center gap-1 min-w-0'>
-              <p className='text-sm leading-4 truncate'>{item.name}</p>
+            <div
+              className={`flex gap-1 min-w-0 ${isActivityRow ? 'items-start' : 'items-center'}`}
+            >
+              <div
+                className={`flex min-w-0 flex-1 gap-1.5 ${isActivityRow ? 'items-start' : 'items-center'}`}
+              >
+                {isActivityRow && (
+                  <Badge
+                    variant='outline'
+                    className='shrink-0 px-1.5 py-1 text-[10px] border-primary text-primary font-medium leading-none'
+                  >
+                    Click to manage detailed tasks
+                  </Badge>
+                )}
+                <p className='text-sm leading-4 truncate'>{item.name}</p>
+              </div>
               {isObjectiveRow && (
                 <>
                   <DropdownMenu

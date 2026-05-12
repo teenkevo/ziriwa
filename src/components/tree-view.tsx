@@ -115,15 +115,19 @@ const TreeView = React.forwardRef<HTMLDivElement, TreeProps>(
       [data],
     )
 
+    const allExpandableIdsRef = React.useRef(allExpandableIds)
+    allExpandableIdsRef.current = allExpandableIds
+
     const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => {
       if (!expandAllSignal) return new Set()
       return new Set(collectExpandableIds(data))
     })
 
+    /** Only react to `expandAllSignal` bumps — not tree data changes (e.g. after refresh). */
     React.useEffect(() => {
       if (!expandAllSignal) return
-      setExpandedIds(new Set(allExpandableIds))
-    }, [expandAllSignal, allExpandableIds])
+      setExpandedIds(new Set(allExpandableIdsRef.current))
+    }, [expandAllSignal])
 
     React.useEffect(() => {
       if (!collapseAllSignal) return
