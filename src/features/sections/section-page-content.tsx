@@ -328,6 +328,7 @@ export function SectionPageContent({
                           onClick={() => {
                             if (treeBulkExpanded) {
                               setCollapseAllSignal(s => s + 1)
+                              setExpandAllSignal(0)
                               setTreeBulkExpanded(false)
                             } else {
                               setExpandAllSignal(s => s + 1)
