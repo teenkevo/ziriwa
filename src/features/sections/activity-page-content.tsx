@@ -49,6 +49,8 @@ import {
 import { TaskDetailsPanel } from '@/features/sections/components/task-details-panel'
 import { SubmitForReviewDialog } from '@/features/sections/components/submit-for-review-dialog'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { useIsLg } from '@/hooks/use-is-lg'
 import { toast } from 'sonner'
 
 type Section = {
@@ -221,6 +223,7 @@ export function ActivityPageContent({
   officers,
 }: ActivityPageContentProps) {
   const router = useRouter()
+  const isLg = useIsLg()
   const sectionSlug = section.slug?.current ?? ''
   const sectionHref = `/sections/${sectionSlug}`
 
@@ -1370,6 +1373,41 @@ export function ActivityPageContent({
     [tasks, saveTasks],
   )
 
+  const taskDetailsPanelEl = (
+    <TaskDetailsPanel
+      task={selectedTask}
+      officers={officers}
+      sectionId={section._id}
+      activityType={activity.activityType}
+      onUpdate={updates =>
+        selectedTaskKey && updateTaskByKey(selectedTaskKey, updates)
+      }
+      onAddInputs={handleAddInputs}
+      onApproveInputs={handleApproveInputs}
+      onRejectInputs={handleRejectInputs}
+      onRespondToRejection={handleRespondToRejection}
+      onAddDeliverable={handleAddDeliverable}
+      onRemoveDeliverable={handleRemoveDeliverable}
+      onSubmitForReview={
+        selectedTaskKey
+          ? () => handleSubmitForReview(selectedTaskKey)
+          : undefined
+      }
+      onApproveDeliverable={handleApproveDeliverable}
+      onRejectDeliverable={handleRejectDeliverable}
+      onRespondToDeliverableRejection={handleRespondToDeliverableRejection}
+      onAddPeriodDeliverable={handleAddPeriodDeliverable}
+      onRemovePeriodDeliverable={handleRemovePeriodDeliverable}
+      onSubmitPeriodForReview={handleSubmitPeriodForReview}
+      onApprovePeriodDeliverable={handleApprovePeriodDeliverable}
+      onRejectPeriodDeliverable={handleRejectPeriodDeliverable}
+      onRespondToPeriodDeliverableRejection={
+        handleRespondToPeriodDeliverableRejection
+      }
+      isSaving={isSavingTasks}
+    />
+  )
+
   return (
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
       <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
@@ -1518,38 +1556,24 @@ export function ActivityPageContent({
           </div>
         </div>
       </div>
-      <TaskDetailsPanel
-        task={selectedTask}
-        officers={officers}
-        sectionId={section._id}
-        activityType={activity.activityType}
-        onUpdate={updates =>
-          selectedTaskKey && updateTaskByKey(selectedTaskKey, updates)
-        }
-        onAddInputs={handleAddInputs}
-        onApproveInputs={handleApproveInputs}
-        onRejectInputs={handleRejectInputs}
-        onRespondToRejection={handleRespondToRejection}
-        onAddDeliverable={handleAddDeliverable}
-        onRemoveDeliverable={handleRemoveDeliverable}
-        onSubmitForReview={
-          selectedTaskKey
-            ? () => handleSubmitForReview(selectedTaskKey)
-            : undefined
-        }
-        onApproveDeliverable={handleApproveDeliverable}
-        onRejectDeliverable={handleRejectDeliverable}
-        onRespondToDeliverableRejection={handleRespondToDeliverableRejection}
-        onAddPeriodDeliverable={handleAddPeriodDeliverable}
-        onRemovePeriodDeliverable={handleRemovePeriodDeliverable}
-        onSubmitPeriodForReview={handleSubmitPeriodForReview}
-        onApprovePeriodDeliverable={handleApprovePeriodDeliverable}
-        onRejectPeriodDeliverable={handleRejectPeriodDeliverable}
-        onRespondToPeriodDeliverableRejection={
-          handleRespondToPeriodDeliverableRejection
-        }
-        isSaving={isSavingTasks}
-      />
+      {isLg ? taskDetailsPanelEl : null}
+      {!isLg && (
+        <Sheet
+          open={Boolean(selectedTaskKey)}
+          onOpenChange={open => {
+            if (!open) setSelectedTaskKey(null)
+          }}
+        >
+          <SheetContent
+            side='right'
+            className='flex h-full max-h-[100dvh] w-full flex-col gap-0 p-0 sm:max-w-[24rem]'
+          >
+            <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-14'>
+              {taskDetailsPanelEl}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
       <SubmitForReviewDialog
         open={!!pendingSubmitForReviewTaskKey}
         onOpenChange={open => {
