@@ -34,6 +34,7 @@ import {
   ChevronsDown,
   ChevronsUp,
   Plus,
+  LayoutDashboard,
 } from 'lucide-react'
 import { canCreateSection } from '@/lib/app-role'
 import { useAppRole } from '@/hooks/use-app-role'
@@ -43,6 +44,7 @@ import { ContractTree } from './components/contract-tree'
 import { OnboardContractDialog } from './components/onboard-contract-dialog'
 import { StakeholderEngagementContent } from './stakeholder-engagement-content'
 import { WeeklySprintContent } from './weekly-sprint-content'
+import { SectionDashboardContent } from './section-dashboard-content'
 import type { DueItem } from './components/due-today-this-week'
 import type { SectionStaff } from '@/sanity/lib/staff/get-staff-by-section'
 import {
@@ -97,6 +99,7 @@ interface SectionPageContentProps {
   dueThisWeek: DueItem[]
   dueThisMonth: DueItem[]
   dueThisQuarter: DueItem[]
+  today: string
   sprints?: WeeklySprint[]
   /** Signed-in user’s Sanity staff id for this section (for officer sprint filtering). */
   viewerStaffId?: string
@@ -115,6 +118,7 @@ export function SectionPageContent({
   dueThisWeek,
   dueThisMonth,
   dueThisQuarter,
+  today,
   sprints = [],
   viewerStaffId,
   managers,
@@ -126,8 +130,9 @@ export function SectionPageContent({
   const [showDeleteSection, setShowDeleteSection] = useState(false)
   const [deletingSection, setDeletingSection] = useState(false)
 
-  const [activeTab, setActiveTab] = useState('contract')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const tabTriggers = [
+    { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { value: 'contract', label: 'Contract', icon: FileText },
     { value: 'weekly-sprint', label: 'Sprints', icon: Zap },
     {
@@ -302,6 +307,19 @@ export function SectionPageContent({
               </TabsTrigger>
             ))}
           </TabsList>
+          <TabsContent value='dashboard' className='space-y-4'>
+            <SectionDashboardContent
+              sectionName={section.name}
+              contract={sectionContract}
+              sprints={sprints}
+              engagement={stakeholderEngagement}
+              dueToday={dueToday}
+              dueThisWeek={dueThisWeek}
+              dueThisMonth={dueThisMonth}
+              dueThisQuarter={dueThisQuarter}
+              today={today}
+            />
+          </TabsContent>
           <TabsContent value='contract' className='space-y-4'>
             <Card>
               <CardContent className='pt-6'>
@@ -437,7 +455,8 @@ export function SectionPageContent({
         </Tabs>
       </div>
 
-      {activeTab === 'stakeholder-engagements' ? null : (
+      {activeTab === 'stakeholder-engagements' ||
+      activeTab === 'dashboard' ? null : (
         <div className='hidden h-full min-h-0 shrink-0 border-l bg-muted/20 lg:flex'>
           {activeTab === 'weekly-sprint' && sprintSubTab === 'ready' ? (
             <div

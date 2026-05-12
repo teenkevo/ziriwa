@@ -118,6 +118,7 @@ export default async function SectionPage({
       dueThisWeek={dueThisWeek}
       dueThisMonth={dueThisMonth}
       dueThisQuarter={dueThisQuarter}
+      today={today}
       sprints={sprints}
       viewerStaffId={viewerStaffId ?? undefined}
       managers={managers}

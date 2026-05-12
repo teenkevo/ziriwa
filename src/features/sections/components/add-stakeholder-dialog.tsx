@@ -200,9 +200,8 @@ export function AddStakeholderDialog({
     if (step > 1) setStep(step - 1)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.name.trim()) return
+  const saveStakeholder = async () => {
+    if (!form.name.trim() || isSubmitting) return
     setIsSubmitting(true)
     try {
       const payload: Record<string, unknown> = {
@@ -267,6 +266,25 @@ export function AddStakeholderDialog({
     }
   }
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (step < TOTAL_STEPS) {
+      const el = document.activeElement
+      if (el instanceof HTMLTextAreaElement) return
+      if (canProceedFromStep(step)) handleNext()
+      return
+    }
+    void saveStakeholder()
+  }
+
+  const handlePrimaryAction = () => {
+    if (step < TOTAL_STEPS) {
+      handleNext()
+      return
+    }
+    void saveStakeholder()
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-w-xl max-h-[95vh] flex flex-col overflow-hidden'>
@@ -310,7 +328,20 @@ export function AddStakeholderDialog({
           })}
         </div>
 
-        <form onSubmit={handleSubmit} className='flex flex-col flex-1 min-h-0'>
+        <form
+          onSubmit={handleFormSubmit}
+          className='flex flex-col flex-1 min-h-0'
+        >
+          {step === TOTAL_STEPS ? (
+            <button
+              type='submit'
+              tabIndex={-1}
+              className='sr-only'
+              disabled={isSubmitting || !form.name.trim()}
+            >
+              {isEditing ? 'Update stakeholder' : 'Add stakeholder'}
+            </button>
+          ) : null}
           <div className='flex-1 min-h-0 overflow-y-auto px-1 py-1'>
             {/* Step 1: Who */}
             {step === 1 && (
@@ -503,7 +534,7 @@ export function AddStakeholderDialog({
                             ?.label ?? form.priority)
                         ) : (
                           <span className='text-muted-foreground text-xs'>
-                            Select Power & Interest
+                            Auto Calculated
                           </span>
                         )}
                       </div>
@@ -617,7 +648,7 @@ export function AddStakeholderDialog({
                     />
                   </div>
                   <div className='space-y-2'>
-                    <Label>Engagement Lead (from the section)</Label>
+                    <Label>Engagement Lead</Label>
                     <Select
                       value={form.uraDelegation}
                       onValueChange={v => update('uraDelegation', v)}
@@ -662,32 +693,32 @@ export function AddStakeholderDialog({
                     Back
                   </Button>
                 ) : null}
-                {step < TOTAL_STEPS ? (
-                  <Button
-                    type='button'
-                    onClick={handleNext}
-                    disabled={isSubmitting || !canProceedFromStep(step)}
-                  >
-                    Next
-                    <ChevronRight className='h-4 w-4 ml-1' />
-                  </Button>
-                ) : (
-                  <Button
-                    type='submit'
-                    disabled={isSubmitting || !form.name.trim()}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                        Saving...
-                      </>
-                    ) : isEditing ? (
-                      'Update Stakeholder'
-                    ) : (
-                      'Add Stakeholder'
-                    )}
-                  </Button>
-                )}
+                <Button
+                  type='button'
+                  onClick={handlePrimaryAction}
+                  disabled={
+                    isSubmitting ||
+                    (step < TOTAL_STEPS
+                      ? !canProceedFromStep(step)
+                      : !form.name.trim())
+                  }
+                >
+                  {isSubmitting && step === TOTAL_STEPS ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Saving...
+                    </>
+                  ) : step < TOTAL_STEPS ? (
+                    <>
+                      Next
+                      <ChevronRight className='h-4 w-4 ml-1' />
+                    </>
+                  ) : isEditing ? (
+                    'Update Stakeholder'
+                  ) : (
+                    'Add Stakeholder'
+                  )}
+                </Button>
               </div>
             </div>
           </DialogFooter>
