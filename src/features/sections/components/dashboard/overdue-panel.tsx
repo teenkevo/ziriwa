@@ -665,9 +665,9 @@ export function OverduePanel({
               </div>
 
               {selectedCount === 0 ? (
-                <p className='text-sm text-muted-foreground'>
-                  Choose another category on the left, or you are clear here.
-                </p>
+                <div className='text-xs text-muted-foreground'>
+                  All good here!
+                </div>
               ) : isEngagements ? (
                 <StakeholderLateTable
                   items={visibleEngagements}

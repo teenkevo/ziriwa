@@ -106,19 +106,6 @@ export function SectionDashboardContent({
           <FileText className='h-4 w-4 text-muted-foreground' />
           <span className='font-medium'>{metrics.fyLabel ?? '—'}</span>
         </div>
-
-        {metrics.lastSprintWeekLabel && (
-          <div className='inline-flex items-center gap-2'>
-            <CalendarDays className='h-4 w-4 text-muted-foreground' />
-            <span className='text-muted-foreground'>Last sprint</span>
-            <span className='font-medium'>{metrics.lastSprintWeekLabel}</span>
-            {metrics.lastSprintStatus && (
-              <Badge variant='outline' className='capitalize'>
-                {metrics.lastSprintStatus.replace('_', ' ')}
-              </Badge>
-            )}
-          </div>
-        )}
       </div>
 
       <KpiTiles metrics={metrics} />

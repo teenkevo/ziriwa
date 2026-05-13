@@ -97,14 +97,14 @@ export function KpiTiles({ metrics }: KpiTilesProps) {
         value={metrics.openSprintTasks}
         subtle='across recent sprints'
       >
-        {metrics.lastSprintWeekLabel && (
+        {/* {metrics.lastSprintWeekLabel && (
           <p className='text-xs text-muted-foreground inline-flex items-center gap-1'>
             <CalendarClock className='h-3 w-3' />
-            Last sprint: {metrics.lastSprintWeekLabel}
+            {metrics.lastSprintWeekLabel}
             {metrics.lastSprintStatus &&
               ` · ${metrics.lastSprintStatus.replace('_', ' ')}`}
           </p>
-        )}
+        )} */}
       </Tile>
 
       <Tile
