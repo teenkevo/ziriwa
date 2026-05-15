@@ -247,7 +247,7 @@ export function WeeklySprintContent({
   const [reviseManagerFeedback, setReviseManagerFeedback] = React.useState('')
   const [isSavingRevise, setIsSavingRevise] = React.useState(false)
 
-  const [sprintTab, setSprintTabInternal] = React.useState('ready')
+  const [sprintTab, setSprintTabInternal] = React.useState('draft')
   const setSprintTab = React.useCallback(
     (tab: string) => {
       setSprintTabInternal(tab)
@@ -902,19 +902,20 @@ export function WeeklySprintContent({
           <div className='flex items-center justify-between'>
             <TabsList className='inline-flex h-auto w-auto flex-wrap items-stretch gap-1 rounded-none border-b border-border bg-transparent p-0'>
               <TabsTrigger
-                value='ready'
+                value='draft'
                 className={weeklySprintSubTabTriggerClassName}
               >
-                Ready
-                {tasksForAcceptedUi.length > 0 && (
+                Drafts
+                {draftSprints.length > 0 && (
                   <Badge
                     variant='secondary'
                     className='ml-1.5 text-[10px] px-1.5 py-0'
                   >
-                    {tasksForAcceptedUi.length}
+                    {draftSprints.length}
                   </Badge>
                 )}
               </TabsTrigger>
+
               <TabsTrigger
                 value='in-review'
                 className={weeklySprintSubTabTriggerClassName}
@@ -930,16 +931,16 @@ export function WeeklySprintContent({
                 )}
               </TabsTrigger>
               <TabsTrigger
-                value='draft'
+                value='ready'
                 className={weeklySprintSubTabTriggerClassName}
               >
-                Drafts
-                {draftSprints.length > 0 && (
+                Ready
+                {tasksForAcceptedUi.length > 0 && (
                   <Badge
                     variant='secondary'
                     className='ml-1.5 text-[10px] px-1.5 py-0'
                   >
-                    {draftSprints.length}
+                    {tasksForAcceptedUi.length}
                   </Badge>
                 )}
               </TabsTrigger>
