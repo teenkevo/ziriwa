@@ -1,6 +1,15 @@
 'use client'
 
 import * as React from 'react'
+import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  useReactTable,
+  type ColumnDef,
+  type Row,
+} from '@tanstack/react-table'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -32,6 +41,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 const NO_ROLE_VALUE = '__none__'
 
@@ -53,6 +70,242 @@ export interface PendingInviteRow {
   createdAt: number
 }
 
+function memberGlobalFilter(
+  row: Row<AppMemberRow>,
+  _columnId: string,
+  filterValue: unknown,
+): boolean {
+  const q = String(filterValue ?? '')
+    .toLowerCase()
+    .trim()
+  if (!q) return true
+  const m = row.original
+  const hay = [m.email, m.name, m.staff?.departmentName, m.appRole]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return hay.includes(q)
+}
+
+interface BuildColumnsOptions {
+  savingKey: string | null
+  isPending: boolean
+  onAssignRole: (clerkUserId: string, appRole: string) => void
+}
+
+function buildColumns({
+  savingKey,
+  isPending,
+  onAssignRole,
+}: BuildColumnsOptions): ColumnDef<AppMemberRow>[] {
+  return [
+    {
+      id: 'user',
+      header: 'User',
+      accessorFn: row => row.email,
+      cell: ({ row }) => {
+        const m = row.original
+        const initials = (m.name ?? m.email)
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map(p => p[0]?.toUpperCase())
+          .join('')
+
+        return (
+          <div className='flex min-w-0 items-center gap-3'>
+            <UserAvatar imageUrl={m.imageUrl} fallback={initials} />
+            <div className='min-w-0'>
+              <div className='truncate text-sm font-medium'>{m.email}</div>
+              {m.name ? (
+                <div className='truncate text-xs text-muted-foreground'>
+                  {m.name}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )
+      },
+    },
+    {
+      id: 'appRole',
+      header: 'App role',
+      accessorKey: 'appRole',
+      cell: ({ row }) => {
+        const m = row.original
+        const key = m.clerkUserId
+
+        return (
+          <div className='flex min-w-[200px] items-center gap-2'>
+            <Select
+              value={m.appRole ?? NO_ROLE_VALUE}
+              onValueChange={nextRole => onAssignRole(key, nextRole)}
+            >
+              <SelectTrigger className='w-full'>
+                <SelectValue placeholder='Select role' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_ROLE_VALUE}>No role</SelectItem>
+                {APP_ROLE_VALUES.map(role => (
+                  <SelectItem key={role} value={role}>
+                    {APP_ROLE_LABELS[role]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isPending && savingKey === key ? (
+              <Loader2 className='size-3.5 shrink-0 animate-spin' />
+            ) : null}
+          </div>
+        )
+      },
+    },
+    {
+      id: 'department',
+      header: 'Department',
+      accessorFn: row => row.staff?.departmentName ?? '',
+      cell: ({ row }) => {
+        const departmentName = row.original.staff?.departmentName?.trim()
+        if (!departmentName) {
+          return (
+            <span className='text-sm italic text-muted-foreground'>
+              No department assigned
+            </span>
+          )
+        }
+        return (
+          <span className='truncate text-sm font-medium' title={departmentName}>
+            {departmentName}
+          </span>
+        )
+      },
+    },
+  ]
+}
+
+function MembersDataTable({
+  data,
+  savingKey,
+  isPending,
+  onAssignRole,
+}: {
+  data: AppMemberRow[]
+  savingKey: string | null
+  isPending: boolean
+  onAssignRole: (clerkUserId: string, appRole: string) => void
+}) {
+  const [globalFilter, setGlobalFilter] = React.useState('')
+
+  const columns = React.useMemo(
+    () => buildColumns({ savingKey, isPending, onAssignRole }),
+    [savingKey, isPending, onAssignRole],
+  )
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { globalFilter },
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: memberGlobalFilter,
+    getRowId: row => row.clerkUserId,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 10 } },
+    autoResetPageIndex: true,
+  })
+
+  return (
+    <div className='space-y-4'>
+      <Input
+        placeholder='Search members…'
+        value={globalFilter}
+        onChange={e => setGlobalFilter(e.target.value)}
+        className='max-w-sm'
+      />
+
+      <div className='overflow-hidden rounded-xl border bg-background'>
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map(hg => (
+              <TableRow key={hg.id}>
+                {hg.headers.map(header => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map(row => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className='h-24 text-center text-muted-foreground'
+                >
+                  {data.length === 0
+                    ? 'No signed-in users yet. Send an invite to get started.'
+                    : 'No members match your search.'}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {data.length > 0 && table.getPageCount() > 1 ? (
+        <div className='flex items-center justify-between px-1 text-sm text-muted-foreground'>
+          <span>
+            {table.getFilteredRowModel().rows.length} member
+            {table.getFilteredRowModel().rows.length === 1 ? '' : 's'}
+          </span>
+          <div className='flex items-center gap-2'>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <span>
+              Page {table.getState().pagination.pageIndex + 1} of{' '}
+              {table.getPageCount()}
+            </span>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function MembersTable({
   members,
   pendingInvites,
@@ -64,6 +317,30 @@ export function MembersTable({
   const [savingKey, setSavingKey] = React.useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = React.useState(false)
   const [inviteEmail, setInviteEmail] = React.useState('')
+
+  const handleAssignRole = React.useCallback(
+    (clerkUserId: string, nextRole: string) => {
+      setSavingKey(clerkUserId)
+      startTransition(async () => {
+        try {
+          const fd = new FormData()
+          fd.set('clerkUserId', clerkUserId)
+          fd.set('appRole', nextRole === NO_ROLE_VALUE ? '' : nextRole)
+          await assignAppRoleAction(fd)
+          toast.success(
+            nextRole === NO_ROLE_VALUE ? 'Role removed' : 'Role assigned',
+          )
+        } catch (err) {
+          toast.error(
+            err instanceof Error ? err.message : 'Failed to assign role',
+          )
+        } finally {
+          setSavingKey(null)
+        }
+      })
+    },
+    [],
+  )
 
   return (
     <div className='space-y-8'>
@@ -135,113 +412,12 @@ export function MembersTable({
           </Dialog>
         </div>
 
-        <div className='overflow-hidden rounded-xl border bg-background'>
-          <div className='grid grid-cols-[1fr_220px_1fr] gap-2 border-b px-3 py-2 text-xs text-muted-foreground'>
-            <div>User</div>
-            <div>App role</div>
-            <div>Department</div>
-          </div>
-          <div className='divide-y'>
-            {members.length === 0 ? (
-              <div className='px-3 py-8 text-center text-sm text-muted-foreground'>
-                No signed-in users yet. Send an invite to get started.
-              </div>
-            ) : (
-              members.map(m => {
-                const key = m.clerkUserId
-                const initials = (m.name ?? m.email)
-                  .split(' ')
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .map(p => p[0]?.toUpperCase())
-                  .join('')
-                const departmentLabel = m.staff?.departmentName?.trim()
-
-                return (
-                  <div
-                    key={key}
-                    className='grid grid-cols-[1fr_220px_1fr] items-center gap-2 px-3 py-2'
-                  >
-                    <div className='flex min-w-0 items-center gap-3'>
-                      <UserAvatar imageUrl={m.imageUrl} fallback={initials} />
-                      <div className='min-w-0'>
-                        <div className='truncate text-sm font-medium'>
-                          {m.email}
-                        </div>
-                        {m.name ? (
-                          <div className='truncate text-xs text-muted-foreground'>
-                            {m.name}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className='flex items-center gap-2'>
-                      <Select
-                        value={m.appRole ?? NO_ROLE_VALUE}
-                        onValueChange={nextRole => {
-                          setSavingKey(key)
-                          startTransition(async () => {
-                            try {
-                              const fd = new FormData()
-                              fd.set('clerkUserId', m.clerkUserId)
-                              fd.set(
-                                'appRole',
-                                nextRole === NO_ROLE_VALUE ? '' : nextRole,
-                              )
-                              await assignAppRoleAction(fd)
-                              toast.success(
-                                nextRole === NO_ROLE_VALUE
-                                  ? 'Role removed'
-                                  : 'Role assigned',
-                              )
-                            } catch (err) {
-                              toast.error(
-                                err instanceof Error
-                                  ? err.message
-                                  : 'Failed to assign role',
-                              )
-                            } finally {
-                              setSavingKey(null)
-                            }
-                          })
-                        }}
-                      >
-                        <SelectTrigger className='w-full'>
-                          <SelectValue placeholder='Select role' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NO_ROLE_VALUE}>No role</SelectItem>
-                          {APP_ROLE_VALUES.map(role => (
-                            <SelectItem key={role} value={role}>
-                              {APP_ROLE_LABELS[role]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {isPending && savingKey === key ? (
-                        <Loader2 className='size-3.5 animate-spin' />
-                      ) : null}
-                    </div>
-                    <div className='min-w-0 text-sm'>
-                      {departmentLabel ? (
-                        <span
-                          className='truncate font-medium'
-                          title={m.staff?.departmentName}
-                        >
-                          {departmentLabel}
-                        </span>
-                      ) : (
-                        <span className='text-sm text-muted-foreground italic'>
-                          No department assigned
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </div>
+        <MembersDataTable
+          data={members}
+          savingKey={savingKey}
+          isPending={isPending}
+          onAssignRole={handleAssignRole}
+        />
       </div>
 
       {pendingInvites.length > 0 ? (
