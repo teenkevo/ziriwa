@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { purgeSectionCascade } from '@/sanity/lib/cascade-delete'
 import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
-import { canCreateSection } from '@/lib/app-role'
-import { getAppRole } from '@/lib/clerk-app-role.server'
+import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
 
 const staffRef = (id: string) => ({ _type: 'reference' as const, _ref: id })
 
@@ -20,20 +18,14 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const role = await getAppRole()
-    if (!canCreateSection(role)) {
-      return NextResponse.json(
-        {
-          error:
-            'Only assistant commissioners and commissioners can update sections',
-        },
-        { status: 403 },
-      )
-    }
+    const authResult = await assertAuth()
+    if (authResult instanceof NextResponse) return authResult
+    const denied = await assertPermission(
+      'sections',
+      'update',
+      'Only assistant commissioners and commissioners can update sections',
+    )
+    if (denied) return denied
 
     const { id } = await params
     const body = await req.json()
@@ -155,20 +147,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const role = await getAppRole()
-    if (!canCreateSection(role)) {
-      return NextResponse.json(
-        {
-          error:
-            'Only assistant commissioners and commissioners can delete sections',
-        },
-        { status: 403 },
-      )
-    }
+    const authResult = await assertAuth()
+    if (authResult instanceof NextResponse) return authResult
+    const denied = await assertPermission(
+      'sections',
+      'delete',
+      'Only assistant commissioners and commissioners can delete sections',
+    )
+    if (denied) return denied
 
     const { id } = await params
 

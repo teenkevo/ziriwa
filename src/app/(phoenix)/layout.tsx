@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/sidebar'
 import { SidebarChromeHeader } from '@/components/sidebar-chrome-header'
 import { AppSidebarNavWrapper } from '@/components/app-sidebar-nav-wrapper'
-import { AppTopBar } from '@/components/app-top-bar'
+import { AppTopBarShell } from '@/components/app-top-bar-shell'
 import { AppBreadcrumbProvider } from '@/contexts/app-breadcrumb-context'
 
 export const metadata: Metadata = {
@@ -33,7 +33,7 @@ export default async function Layout({ children }: LayoutProps) {
       </Sidebar>
       <SidebarInset>
         <AppBreadcrumbProvider>
-          <AppTopBar />
+          <AppTopBarShell />
           <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
             {children}
           </div>

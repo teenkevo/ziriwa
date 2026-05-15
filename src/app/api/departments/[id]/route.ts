@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { purgeDepartmentCascade } from '@/sanity/lib/cascade-delete'
-import { hasRoleAtLeast } from '@/lib/app-role'
-import { getAppRole } from '@/lib/clerk-app-role.server'
+import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
 
 function staffRef(id: string) {
   return { _type: 'reference' as const, _ref: id }
@@ -19,17 +17,14 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const role = await getAppRole()
-    if (!hasRoleAtLeast(role, 'commissioner')) {
-      return NextResponse.json(
-        { error: 'Only commissioners can update departments' },
-        { status: 403 },
-      )
-    }
+    const authResult = await assertAuth()
+    if (authResult instanceof NextResponse) return authResult
+    const denied = await assertPermission(
+      'departments',
+      'update',
+      'Only commissioners can update departments',
+    )
+    if (denied) return denied
 
     const { id } = await params
     const body = await req.json()
@@ -129,17 +124,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { userId } = await auth()
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    const role = await getAppRole()
-    if (!hasRoleAtLeast(role, 'commissioner')) {
-      return NextResponse.json(
-        { error: 'Only commissioners can delete departments' },
-        { status: 403 },
-      )
-    }
+    const authResult = await assertAuth()
+    if (authResult instanceof NextResponse) return authResult
+    const denied = await assertPermission(
+      'departments',
+      'delete',
+      'Only commissioners can delete departments',
+    )
+    if (denied) return denied
 
     const { id } = await params
 

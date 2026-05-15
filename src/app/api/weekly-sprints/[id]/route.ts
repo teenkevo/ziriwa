@@ -6,7 +6,7 @@ import {
   validateSprintTaskPayload,
 } from '@/lib/sprint-task-validation'
 import { getSprintWeekStartLocal, isSprintWeekStarted } from '@/lib/sprint-week'
-import { getAppRole } from '@/lib/clerk-app-role.server'
+import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
 
 export async function PATCH(
   req: NextRequest,
@@ -18,20 +18,14 @@ export async function PATCH(
     const { action } = body
 
     if (action === 'submit' || action === 'update-draft-sprint') {
-      const { userId } = await auth()
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      const role = await getAppRole()
-      if (role === 'officer') {
-        return NextResponse.json(
-          {
-            error:
-              'Officers cannot create or edit draft weekly sprint plans',
-          },
-          { status: 403 },
-        )
-      }
+      const authResult = await assertAuth()
+      if (authResult instanceof NextResponse) return authResult
+      const denied = await assertPermission(
+        'weeklySprints',
+        'create',
+        'Officers cannot create or edit draft weekly sprint plans',
+      )
+      if (denied) return denied
     }
 
     if (action === 'submit') {

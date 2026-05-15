@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAppBreadcrumb } from '@/contexts/app-breadcrumb-context'
 
-export function AppTopBar() {
+export function AppTopBar({ adminNav }: { adminNav?: React.ReactNode }) {
   const { items } = useAppBreadcrumb()
 
   return (
@@ -51,6 +51,7 @@ export function AppTopBar() {
           </Breadcrumb>
         )}
         <SignedIn>
+          {adminNav}
           <GlobalSearch
             className={cn(
               'min-w-0 w-full flex-1 sm:w-[min(22rem,40vw)] sm:flex-none sm:shrink-0',

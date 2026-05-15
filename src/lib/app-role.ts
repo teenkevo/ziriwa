@@ -58,10 +58,10 @@ export function appRoleFromSessionClaims(
   return parseAppRole(claims?.app_role)
 }
 
-/**
- * Create sections: assistant commissioners and commissioners (includes Commissioner General).
- * Excludes manager, supervisor, and officer.
- */
-export function canCreateSection(role: AppRole | null): boolean {
-  return hasRoleAtLeast(role, 'assistant_commissioner')
-}
+export {
+  canCreateSection,
+  canManageDepartments,
+  canManageDivisions,
+  canManageWeeklySprintDrafts,
+  hasPermission,
+} from '@/lib/authz/permissions'
