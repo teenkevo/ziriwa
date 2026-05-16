@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useCallback, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,7 @@ import {
   ChevronsUp,
   Plus,
   LayoutDashboard,
+  Users,
 } from 'lucide-react'
 import { canCreateSection } from '@/lib/app-role'
 import { useAppRole } from '@/hooks/use-app-role'
@@ -45,6 +46,8 @@ import { OnboardContractDialog } from './components/onboard-contract-dialog'
 import { StakeholderEngagementContent } from './stakeholder-engagement-content'
 import { WeeklySprintContent } from './weekly-sprint-content'
 import { SectionDashboardContent } from './section-dashboard-content'
+import { SectionStaffContent } from './section-staff-content'
+import type { SectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
 import type { DueItem } from './components/due-today-this-week'
 import type { SectionStaff } from '@/sanity/lib/staff/get-staff-by-section'
 import {
@@ -79,6 +82,24 @@ function flattenInitiativesWithActivities(
   return out
 }
 
+const SECTION_TAB_VALUES = [
+  'dashboard',
+  'contract',
+  'weekly-sprint',
+  'stakeholder-engagements',
+  'staff',
+] as const
+
+type SectionTab = (typeof SECTION_TAB_VALUES)[number]
+
+function resolveSectionTabFromQuery(tab: string | null): SectionTab {
+  if (tab && SECTION_TAB_VALUES.includes(tab as SectionTab)) {
+    return tab as SectionTab
+  }
+  if (tab === 'detailed-tasks') return 'contract'
+  return 'dashboard'
+}
+
 type Section = {
   _id: string
   name: string
@@ -105,6 +126,7 @@ interface SectionPageContentProps {
   /** Signed-in user’s Sanity staff id for this section (for officer sprint filtering). */
   viewerStaffId?: string
   sectionAccess: SectionAccess
+  staffRoster: SectionStaffRoster
   /** Managers in this section’s division (edit section dialog). */
   managers: StaffMember[]
 }
@@ -124,16 +146,21 @@ export function SectionPageContent({
   sprints = [],
   viewerStaffId,
   sectionAccess,
+  staffRoster,
   managers,
 }: SectionPageContentProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { role, isLoaded } = useAppRole()
   const allowSectionActions = isLoaded && canCreateSection(role)
   const [showEditSection, setShowEditSection] = useState(false)
   const [showDeleteSection, setShowDeleteSection] = useState(false)
   const [deletingSection, setDeletingSection] = useState(false)
 
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState<SectionTab>(() =>
+    resolveSectionTabFromQuery(searchParams.get('tab')),
+  )
   const tabTriggers = [
     { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { value: 'contract', label: 'Contract', icon: FileText },
@@ -143,8 +170,30 @@ export function SectionPageContent({
       label: 'Stakeholders',
       icon: Handshake,
     },
+    { value: 'staff', label: 'Staff', icon: Users },
     // { value: 'reports', label: 'Reports', icon: FileBarChart },
   ] as const
+
+  React.useEffect(() => {
+    setActiveTab(resolveSectionTabFromQuery(searchParams.get('tab')))
+  }, [searchParams])
+
+  const setSectionTab = React.useCallback(
+    (value: string) => {
+      const tab = resolveSectionTabFromQuery(value)
+      setActiveTab(tab)
+      const params = new URLSearchParams(searchParams.toString())
+      if (tab === 'dashboard') {
+        params.delete('tab')
+      } else {
+        params.set('tab', tab)
+      }
+      const query = params.toString()
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    },
+    [pathname, router, searchParams],
+  )
+
   /** Mirrors Weekly Sprint sub-tabs (Ready is default there). */
   const [sprintSubTab, setSprintSubTab] = useState('ready')
   const [panelPortalNode, setPanelPortalNode] = useState<HTMLDivElement | null>(
@@ -302,7 +351,7 @@ export function SectionPageContent({
 
         <Tabs
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={setSectionTab}
           className='space-y-4'
         >
           <TabsList>
@@ -325,7 +374,7 @@ export function SectionPageContent({
               dueThisMonth={dueThisMonth}
               dueThisQuarter={dueThisQuarter}
               today={today}
-              onNavigateToTab={setActiveTab}
+              onNavigateToTab={setSectionTab}
             />
           </TabsContent>
           <TabsContent value='contract' className='space-y-4'>
@@ -423,6 +472,15 @@ export function SectionPageContent({
             </Card>
           </TabsContent>
 
+          <TabsContent value='staff' className='space-y-4'>
+            <SectionStaffContent
+              sectionId={section._id}
+              sectionName={section.name}
+              roster={staffRoster}
+              sectionAccess={sectionAccess}
+            />
+          </TabsContent>
+
           <TabsContent value='stakeholder-engagements' className='space-y-4'>
             <Card>
               <CardContent className='pt-6'>
@@ -468,6 +526,7 @@ export function SectionPageContent({
       </div>
 
       {activeTab === 'stakeholder-engagements' ||
+      activeTab === 'staff' ||
       activeTab === 'dashboard' ? null : (
         <div className='hidden h-full min-h-0 shrink-0 border-l bg-muted/20 lg:flex'>
           {activeTab === 'weekly-sprint' &&

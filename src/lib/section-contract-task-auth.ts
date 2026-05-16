@@ -131,6 +131,8 @@ export function assertActivityTasksUpdateAllowed(
   beforeTasks: TaskSnapshot[],
   afterTasks: TaskSnapshot[],
 ): string | null {
+  if (access.isGlobalAdmin) return null
+
   const beforeByKey = new Map(
     beforeTasks.map((t, i) => [taskKey(t, i), t] as const),
   )

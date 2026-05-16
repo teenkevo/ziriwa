@@ -45,11 +45,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const supervisorRef =
+      (typeof supervisorId === 'string' && supervisorId) ||
+      access.viewerStaffId ||
+      null
+
     const doc = {
       _type: 'weeklySprint',
       section: { _type: 'reference', _ref: sectionId },
-      ...(supervisorId && {
-        supervisor: { _type: 'reference', _ref: supervisorId },
+      ...(supervisorRef && {
+        supervisor: { _type: 'reference', _ref: supervisorRef },
       }),
       weekLabel,
       weekStart,

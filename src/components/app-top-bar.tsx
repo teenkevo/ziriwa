@@ -12,6 +12,8 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { ModeToggle } from '@/components/modeToggle'
+import { AppNotificationBell } from '@/components/app-notification-bell'
+import { TransferApprovalInbox } from '@/components/transfer-approval-inbox'
 import { GlobalSearch } from '@/components/global-search'
 import { UserNav } from '@/features/dashboard/components/user-nav'
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
@@ -65,6 +67,10 @@ export function AppTopBar() {
         )}
       </div>
       <div className='flex shrink-0 items-center gap-2'>
+        <SignedIn>
+          <TransferApprovalInbox />
+          <AppNotificationBell />
+        </SignedIn>
         <ModeToggle />
         <SignedIn>
           <UserNav />

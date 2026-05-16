@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionContractBySection } from '@/sanity/lib/section-contracts/get-section-contract-by-section'
@@ -10,6 +11,7 @@ import { getManagersForPicker } from '@/sanity/lib/staff/get-staff-for-picker'
 import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getSectionAccessForViewer } from '@/lib/section-access.server'
+import { getSectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
 import { SectionPageContent } from '@/features/sections/section-page-content'
 
 export default async function SectionPage({
@@ -29,6 +31,7 @@ export default async function SectionPage({
     officers,
     sprints,
     managers,
+    staffRoster,
   ] = await Promise.all([
     getSectionContractBySection(section._id),
     getStakeholderEngagementBySection(section._id),
@@ -36,6 +39,7 @@ export default async function SectionPage({
     getOfficersBySection(section._id),
     getSprintsBySection(section._id),
     getManagersForPicker(),
+    getSectionStaffRoster(section._id),
   ])
 
   const today = new Date().toISOString().slice(0, 10)
@@ -107,22 +111,25 @@ export default async function SectionPage({
   const sectionAccess = await getSectionAccessForViewer(section._id)
 
   return (
-    <SectionPageContent
-      section={section}
-      sectionContract={sectionContract}
-      stakeholderEngagement={stakeholderEngagement}
-      staffOptions={staffOptions}
-      supervisors={supervisors}
-      officers={officers}
-      dueToday={dueToday}
-      dueThisWeek={dueThisWeek}
-      dueThisMonth={dueThisMonth}
-      dueThisQuarter={dueThisQuarter}
-      today={today}
-      sprints={sprints}
-      viewerStaffId={sectionAccess.viewerStaffId ?? undefined}
-      sectionAccess={sectionAccess}
-      managers={managers}
-    />
+    <Suspense fallback={null}>
+      <SectionPageContent
+        section={section}
+        sectionContract={sectionContract}
+        stakeholderEngagement={stakeholderEngagement}
+        staffOptions={staffOptions}
+        supervisors={supervisors}
+        officers={officers}
+        dueToday={dueToday}
+        dueThisWeek={dueThisWeek}
+        dueThisMonth={dueThisMonth}
+        dueThisQuarter={dueThisQuarter}
+        today={today}
+        sprints={sprints}
+        viewerStaffId={sectionAccess.viewerStaffId ?? undefined}
+        sectionAccess={sectionAccess}
+        staffRoster={staffRoster}
+        managers={managers}
+      />
+    </Suspense>
   )
 }

@@ -9,8 +9,16 @@ import { getSprintWeekStartLocal, isSprintWeekStarted } from '@/lib/sprint-week'
 import { assertAuth } from '@/lib/authz/guards.server'
 import { canSubmitDetailedTaskWork } from '@/lib/section-access'
 import {
+  notifyManagerSprintTaskReview,
+  notifySprintPlanReviewComplete,
+  notifySprintPriorityChanged,
+  notifySprintTaskAssigned,
+  notifySprintWorkReview,
+  notifySupervisorsPendingSubmission,
+} from '@/lib/notifications/emit-sprint-notifications'
+import {
   assertSprintCreateAllowed,
-  assertSprintReviewAllowed,
+  assertSprintManagerPlanReviewAllowed,
   assertSprintSupervisorTaskUpdate,
   getSectionAccessForViewer,
   getSectionIdFromWeeklySprint,
@@ -143,7 +151,7 @@ export async function PATCH(
     }
 
     if (action === 'review-task') {
-      const reviewDenied = assertSprintReviewAllowed(access)
+      const reviewDenied = assertSprintManagerPlanReviewAllowed(access)
       if (reviewDenied) return reviewDenied
 
       const { taskKey, reviewStatus, revisionReason } = body
@@ -207,6 +215,46 @@ export async function PATCH(
       }
 
       await patch.commit()
+
+      if (sectionId) {
+        const sprintMeta = await writeClient.fetch<{
+          weekLabel?: string
+          supervisorId?: string
+          sectionSlug?: string
+        } | null>(
+          `*[_type == "weeklySprint" && _id == $id][0]{
+            weekLabel,
+            "supervisorId": supervisor._ref,
+            "sectionSlug": section->slug.current
+          }`,
+          { id },
+        )
+        const taskDesc = String(tasks[taskIndex]?.description ?? 'Sprint task')
+        void notifyManagerSprintTaskReview({
+          sectionId,
+          sectionSlug: sprintMeta?.sectionSlug,
+          weekLabel: sprintMeta?.weekLabel,
+          taskDescription: taskDesc,
+          reviewStatus: reviewStatus as
+            | 'accepted'
+            | 'rejected'
+            | 'revisions_requested',
+          sprintSupervisorId: sprintMeta?.supervisorId,
+          revisionReason:
+            reviewStatus === 'revisions_requested'
+              ? revisionReason?.trim()
+              : undefined,
+        })
+        if (allReviewed) {
+          void notifySprintPlanReviewComplete({
+            sectionId,
+            sectionSlug: sprintMeta?.sectionSlug,
+            weekLabel: sprintMeta?.weekLabel ?? 'Sprint',
+            sprintSupervisorId: sprintMeta?.supervisorId,
+          })
+        }
+      }
+
       return NextResponse.json({ success: true })
     }
 
@@ -236,8 +284,9 @@ export async function PATCH(
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
 
+      const assigneeRef = (task.assignee as { _ref?: string } | undefined)?._ref
+
       if (updates.taskStatus !== undefined) {
-        const assigneeRef = (task.assignee as { _ref?: string } | undefined)?._ref
         const isAssigneeUpdate = canSubmitDetailedTaskWork(access, assigneeRef)
         if (!access.canSuperviseDetailedTasks && !isAssigneeUpdate) {
           return sectionAccessDenied(
@@ -278,6 +327,15 @@ export async function PATCH(
       }
 
       await writeClient.patch(id).set(setFields).commit()
+
+      const desc = String(task.description ?? 'Sprint task')
+      if (updates.assignee && typeof updates.assignee === 'string') {
+        void notifySprintTaskAssigned(updates.assignee, desc)
+      }
+      if (updates.priority !== undefined && assigneeRef) {
+        void notifySprintPriorityChanged(assigneeRef, desc)
+      }
+
       return NextResponse.json({ success: true })
     }
 
@@ -376,6 +434,18 @@ export async function PATCH(
         })
         .commit()
 
+      if (sectionId && access.viewerStaffId) {
+        const officer = await writeClient.fetch<{ fullName?: string } | null>(
+          `*[_id == $staffId][0]{ "fullName": coalesce(fullName, firstName + " " + lastName) }`,
+          { staffId: access.viewerStaffId },
+        )
+        void notifySupervisorsPendingSubmission(
+          sectionId,
+          officer?.fullName ?? 'Officer',
+          description.trim(),
+        )
+      }
+
       return NextResponse.json({ success: true, key: newSubmission._key })
     }
 
@@ -441,6 +511,11 @@ export async function PATCH(
       }
 
       await writeClient.patch(id).set(setFields).commit()
+      const assigneeRefApprove = (task.assignee as { _ref?: string } | undefined)
+        ?._ref
+      if (assigneeRefApprove) {
+        void notifySprintWorkReview(assigneeRefApprove, true, message)
+      }
       return NextResponse.json({ success: true })
     }
 
@@ -496,6 +571,11 @@ export async function PATCH(
         .set({ [`tasks[_key=="${taskKey}"].workSubmissions`]: updated })
         .commit()
 
+      const assigneeRefReject = (task.assignee as { _ref?: string } | undefined)
+        ?._ref
+      if (assigneeRefReject) {
+        void notifySprintWorkReview(assigneeRefReject, false, message)
+      }
       return NextResponse.json({ success: true })
     }
 
@@ -790,6 +870,57 @@ export async function PATCH(
     console.error('Error updating weekly sprint', error)
     return NextResponse.json(
       { error: 'Failed to update sprint' },
+      { status: 500 },
+    )
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const authResult = await assertAuth()
+    if (authResult instanceof NextResponse) return authResult
+
+    const { id } = await params
+    const sectionId = await getSectionIdFromWeeklySprint(id)
+    if (!sectionId) {
+      return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+    }
+
+    const access = await getSectionAccessForViewer(sectionId)
+    const createDenied = assertSprintCreateAllowed(access)
+    if (createDenied) return createDenied
+
+    const doc = await writeClient.getDocument(id)
+    if (!doc || doc._type !== 'weeklySprint') {
+      return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+    }
+
+    if (doc.status !== 'draft') {
+      return NextResponse.json(
+        { error: 'Only draft sprints can be deleted' },
+        { status: 400 },
+      )
+    }
+
+    const supervisorRef = (doc.supervisor as { _ref?: string } | undefined)?._ref
+    if (
+      !access.isGlobalAdmin &&
+      supervisorRef &&
+      access.viewerStaffId &&
+      supervisorRef !== access.viewerStaffId
+    ) {
+      return sectionAccessDenied('Only the sprint creator can delete this draft')
+    }
+
+    await writeClient.delete(id)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('DELETE weekly sprint', error)
+    return NextResponse.json(
+      { error: 'Failed to delete sprint' },
       { status: 500 },
     )
   }

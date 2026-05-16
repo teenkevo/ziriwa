@@ -4,7 +4,12 @@ export interface SectionAccessInput {
   viewerStaffId: string | null
   sectionManagerId: string | null
   supervisorIds: string[]
+  /** Staff acting as manager via active delegation. */
+  actingManagerStaffIds?: string[]
+  /** Staff acting as supervisor via active delegation. */
+  actingSupervisorStaffIds?: string[]
   appRole: AppRole | null
+  isGlobalAdmin?: boolean
 }
 
 /** Section-scoped capabilities for contract, detailed tasks, and sprints. */
@@ -20,16 +25,40 @@ export interface SectionAccess {
   canCreateSprints: boolean
   canViewSprintDraftTab: boolean
   canViewSprintInReviewTab: boolean
+  canManageSectionStaff: boolean
+  /** Bootstrap / superadmin email or CG — full section capabilities. */
+  isGlobalAdmin: boolean
 }
 
 export function buildSectionAccess(input: SectionAccessInput): SectionAccess {
+  if (input.isGlobalAdmin) {
+    return {
+      viewerStaffId: input.viewerStaffId,
+      isSectionManager: true,
+      isSectionSupervisor: true,
+      isSectionOfficer: false,
+      canManageContract: true,
+      canSuperviseDetailedTasks: true,
+      canCreateSprints: true,
+      canViewSprintDraftTab: true,
+      canViewSprintInReviewTab: true,
+      canManageSectionStaff: true,
+      isGlobalAdmin: true,
+    }
+  }
+
+  const actingManagers = input.actingManagerStaffIds ?? []
+  const actingSupervisors = input.actingSupervisorStaffIds ?? []
   const isSectionManager = Boolean(
     input.viewerStaffId &&
       input.sectionManagerId &&
-      input.viewerStaffId === input.sectionManagerId,
+      (input.viewerStaffId === input.sectionManagerId ||
+        actingManagers.includes(input.viewerStaffId)),
   )
   const isSectionSupervisor = Boolean(
-    input.viewerStaffId && input.supervisorIds.includes(input.viewerStaffId),
+    input.viewerStaffId &&
+      (input.supervisorIds.includes(input.viewerStaffId) ||
+        actingSupervisors.includes(input.viewerStaffId)),
   )
   const isSectionOfficer =
     input.appRole === 'officer' &&
@@ -47,6 +76,8 @@ export function buildSectionAccess(input: SectionAccessInput): SectionAccess {
     canCreateSprints: isSectionSupervisor,
     canViewSprintDraftTab: isSectionSupervisor,
     canViewSprintInReviewTab: isSectionManager || isSectionSupervisor,
+    canManageSectionStaff: isSectionManager,
+    isGlobalAdmin: false,
   }
 }
 

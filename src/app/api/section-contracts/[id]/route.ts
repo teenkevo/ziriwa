@@ -6,11 +6,13 @@ import {
   remapInitiativeCodeForObjectiveRename,
 } from '@/lib/contract-code-validation'
 import { assertActivityTasksUpdateAllowed } from '@/lib/section-contract-task-auth'
+import { emitContractTaskReviewNotifications } from '@/lib/notifications/emit-contract-notifications'
 import {
   assertContractOpAllowed,
   getSectionAccessForViewer,
   getSectionIdFromContract,
 } from '@/lib/section-access.server'
+import { client } from '@/sanity/lib/client'
 
 /**
  * PATCH /api/section-contracts/[id] - Add objective, initiative, or activity
@@ -777,6 +779,24 @@ export async function PATCH(
         .patch(id)
         .set({ [path]: normalizedTasks })
         .commit()
+
+      const sectionMeta = await client.fetch<{ slug?: string } | null>(
+        /* groq */ `*[_type == "sectionContract" && _id == $id][0]{
+          "slug": section->slug.current
+        }`,
+        { id },
+      )
+
+      void emitContractTaskReviewNotifications({
+        beforeTasks: currentTasks as Parameters<
+          typeof emitContractTaskReviewNotifications
+        >[0]['beforeTasks'],
+        afterTasks: normalizedTasks as Parameters<
+          typeof emitContractTaskReviewNotifications
+        >[0]['afterTasks'],
+        sectionSlug: sectionMeta?.slug,
+      })
+
       return NextResponse.json({ ok: true })
     }
 

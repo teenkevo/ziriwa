@@ -13,12 +13,18 @@ import { stakeholderEngagement } from './stakeholder-engagement'
 import { sprintTask } from './sprint-task'
 import { workSubmission } from './work-submission'
 import { weeklySprint } from './weekly-sprint'
+import { sectionDelegation } from './section-delegation'
+import { staffTransferRequest } from './staff-transfer-request'
+import { appNotification } from './app-notification'
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
     department,
     division,
     staff,
     section,
+    sectionDelegation,
+    staffTransferRequest,
+    appNotification,
     sectionContract,
     detailedTask,
     measurableActivity,

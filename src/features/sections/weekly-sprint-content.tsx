@@ -20,6 +20,16 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -249,6 +259,10 @@ export function WeeklySprintContent({
   const [revisionReason, setRevisionReason] = React.useState('')
   const [isReviewing, setIsReviewing] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null)
+  const [sprintToDelete, setSprintToDelete] = React.useState<WeeklySprint | null>(
+    null,
+  )
+  const [isDeletingSprint, setIsDeletingSprint] = React.useState(false)
   const [reviseOpen, setReviseOpen] = React.useState(false)
   const [reviseSprintId, setReviseSprintId] = React.useState('')
   const [reviseTaskDraft, setReviseTaskDraft] =
@@ -524,6 +538,34 @@ export function WeeklySprintContent({
       )
     } finally {
       setIsSubmitting(null)
+    }
+  }
+
+  const confirmDeleteDraftSprint = async () => {
+    if (!sprintToDelete) return
+    setIsDeletingSprint(true)
+    try {
+      const res = await fetch(`/api/weekly-sprints/${sprintToDelete._id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(
+          typeof data.error === 'string' ? data.error : 'Failed to delete',
+        )
+      }
+      if (editingSprintId === sprintToDelete._id) {
+        setEditingSprintId(null)
+        setCreateOpen(false)
+        setDraftTasks([{ ...emptyDraftTask }])
+      }
+      setSprintToDelete(null)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      alert(err instanceof Error ? err.message : 'Failed to delete sprint')
+    } finally {
+      setIsDeletingSprint(false)
     }
   }
 
@@ -990,8 +1032,12 @@ export function WeeklySprintContent({
                     key={sprint._id}
                     sprint={sprint}
                     onSubmit={() => handleSubmitSprint(sprint._id)}
-                    isSubmitting={isSubmitting === sprint._id}
+                    isSubmitting={
+                      isSubmitting === sprint._id ||
+                      (isDeletingSprint && sprintToDelete?._id === sprint._id)
+                    }
                     onEditDraft={() => openEditDraftSprint(sprint)}
+                    onDeleteDraft={() => setSprintToDelete(sprint)}
                     onReviewTask={(task, action) =>
                       openReview(sprint._id, task, action)
                     }
@@ -1018,6 +1064,7 @@ export function WeeklySprintContent({
                     sprint={sprint}
                     onSubmit={() => handleSubmitSprint(sprint._id)}
                     isSubmitting={isSubmitting === sprint._id}
+                    canManagerReviewPlan={sectionAccess.isSectionManager}
                     onReviewTask={(task, action) =>
                       openReview(sprint._id, task, action)
                     }
@@ -1691,6 +1738,44 @@ export function WeeklySprintContent({
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={sprintToDelete !== null}
+        onOpenChange={open => !open && !isDeletingSprint && setSprintToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete draft sprint?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {sprintToDelete
+                ? `"${sprintToDelete.weekLabel}" will be permanently removed. This cannot be undone.`
+                : 'This sprint will be permanently removed.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingSprint}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={e => {
+                e.preventDefault()
+                void confirmDeleteDraftSprint()
+              }}
+              disabled={isDeletingSprint}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            >
+              {isDeletingSprint ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  Deleting…
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -1867,14 +1952,18 @@ function SprintCard({
   sprint,
   onSubmit,
   onEditDraft,
+  onDeleteDraft,
   isSubmitting,
+  canManagerReviewPlan = false,
   onReviewTask,
   onOpenRevise,
 }: {
   sprint: WeeklySprint
   onSubmit: () => void
   onEditDraft?: () => void
+  onDeleteDraft?: () => void
   isSubmitting: boolean
+  canManagerReviewPlan?: boolean
   onReviewTask: (task: SprintTask, action: string) => void
   /** Open dialog to edit this task and resubmit for manager review. */
   onOpenRevise?: (task: SprintTask) => void
@@ -1930,6 +2019,18 @@ function SprintCard({
                       Edit
                     </Button>
                   )}
+                  {onDeleteDraft && (
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      className='text-destructive hover:text-destructive'
+                      onClick={onDeleteDraft}
+                      disabled={isSubmitting}
+                    >
+                      <Trash2 className='h-4 w-4' />
+                      Delete
+                    </Button>
+                  )}
                   <Button
                     size='sm'
                     variant='outline'
@@ -1966,7 +2067,9 @@ function SprintCard({
                   variant: 'secondary' as const,
                 }
                 const canReview =
-                  sprint.status === 'submitted' && task.status === 'pending'
+                  canManagerReviewPlan &&
+                  sprint.status === 'submitted' &&
+                  task.status === 'pending'
                 const canRevise =
                   task.status === 'revisions_requested' &&
                   (sprint.status === 'submitted' ||

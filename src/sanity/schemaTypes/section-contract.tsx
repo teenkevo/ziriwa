@@ -22,7 +22,8 @@ export const sectionContract = defineType({
       name: 'financialYearLabel',
       title: 'Financial Year',
       type: 'string',
-      description: 'e.g. FY-2025/2026 (July 1 - June 30). Current FY is computed from today.',
+      description:
+        'e.g. FY-2025/2026 (July 1 - June 30). Current FY is computed from today.',
       validation: Rule => Rule.required(),
     }),
     defineField({
@@ -30,8 +31,9 @@ export const sectionContract = defineType({
       title: 'Manager',
       type: 'reference',
       to: [{ type: 'staff' }],
-      validation: Rule => Rule.required(),
-      description: 'Section manager; contract cascades to supervisors and officers under them',
+      // validation: Rule => Rule.required(),
+      description:
+        'Section manager; contract cascades to supervisors and officers under them',
     }),
     defineField({
       name: 'status',
@@ -51,7 +53,8 @@ export const sectionContract = defineType({
       title: 'SSMARTA Objectives',
       type: 'array',
       of: [{ type: 'ssmartaObjective' }],
-      description: 'Objectives with initiatives (cross-cutting or KPI-driven) and activities',
+      description:
+        'Objectives with initiatives (cross-cutting or KPI-driven) and activities',
     }),
   ],
   preview: {

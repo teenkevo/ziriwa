@@ -67,25 +67,36 @@ interface CreateStaffDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   fixedRole?: string
+  /** When set, role is chosen from this subset (dropdown enabled). */
+  allowedRoles?: readonly string[]
   /** Section for officer / supervisor / manager (when tied to an existing section). */
   fixedSectionId?: string
   /** Department context (commissioner; assistant commissioner in department before division). */
   departmentId?: string
   /** Division context (assistant commissioner; manager without section yet). */
   divisionId?: string
+  /** Override POST URL (e.g. section-scoped staff create for managers). */
+  createApiUrl?: string
   onSuccess?: (staff: StaffMember) => void
 }
 
 export function CreateStaffDialog({
   open,
   onOpenChange,
-  fixedRole = 'assistant_commissioner',
+  fixedRole,
+  allowedRoles,
   fixedSectionId,
   departmentId,
   divisionId,
+  createApiUrl,
   onSuccess,
 }: CreateStaffDialogProps) {
-  const isRoleFixed = !!fixedRole
+  const roleOptions = allowedRoles
+    ? STAFF_ROLE_OPTIONS.filter(opt => allowedRoles.includes(opt.value))
+    : STAFF_ROLE_OPTIONS
+
+  const defaultRole = fixedRole ?? allowedRoles?.[0] ?? 'assistant_commissioner'
+  const isRoleFixed = Boolean(fixedRole) && !allowedRoles
 
   const form = useForm<StaffFormValues>({
     resolver: zodResolver(staffSchema),
@@ -94,7 +105,7 @@ export function CreateStaffDialog({
       lastName: '',
       idNumber: '',
       email: '',
-      role: fixedRole,
+      role: defaultRole,
       phone: '',
     },
     mode: 'onChange',
@@ -102,15 +113,15 @@ export function CreateStaffDialog({
 
   React.useEffect(() => {
     if (open) {
-      form.setValue('role', fixedRole)
+      form.setValue('role', defaultRole)
     }
-  }, [open, fixedRole, form])
+  }, [open, defaultRole, form])
 
   const isCreating = form.formState.isSubmitting
 
   const onSubmit = async (values: StaffFormValues) => {
     try {
-      const res = await fetch('/api/staff', {
+      const res = await fetch(createApiUrl ?? '/api/staff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -118,7 +129,7 @@ export function CreateStaffDialog({
           lastName: values.lastName.trim(),
           idNumber: values.idNumber.trim(),
           email: values.email.trim().toLowerCase(),
-          role: isRoleFixed ? fixedRole : values.role,
+          role: isRoleFixed ? fixedRole! : values.role,
           phone: values.phone?.trim() || undefined,
           sectionId: fixedSectionId,
           departmentId,
@@ -153,14 +164,14 @@ export function CreateStaffDialog({
     <DialogContent>
       <DialogHeader>
         <DialogTitle>Create Staff</DialogTitle>
-        <DialogDescription>
-          Creates a staff profile and sends a Clerk invitation. Self-service
-          sign-up is disabled; they must use the invite link. Email must end with
-          @ura.go.ug.
-        </DialogDescription>
       </DialogHeader>
       <Form {...form}>
-        <form onSubmit={e => { e.stopPropagation(); form.handleSubmit(onSubmit)(e) }}>
+        <form
+          onSubmit={e => {
+            e.stopPropagation()
+            form.handleSubmit(onSubmit)(e)
+          }}
+        >
           <div className='space-y-4 py-2 pb-4'>
             <div className='grid grid-cols-2 gap-4'>
               <FormField
@@ -238,7 +249,7 @@ export function CreateStaffDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {STAFF_ROLE_OPTIONS.map(opt => (
+                      {roleOptions.map(opt => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.title}
                         </SelectItem>
