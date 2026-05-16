@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronsUpDown, PlusCircle, UserCog } from 'lucide-react'
+import { ChevronsUpDown, PlusCircle, UserCog } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
+import type { StaffPickerMember } from '@/lib/staff-picker'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,23 +25,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { StaffPickerCommandItems } from '@/components/staff/staff-picker-command-items'
 import { CreateStaffDialog } from './create-staff-dialog'
 
-export type StaffMember = {
-  _id: string
-  fullName: string
-  staffId?: string
-  idNumber?: string
-}
+export type StaffMember = StaffPickerMember
 
 interface CommissionerSwitcherProps {
-  commissioners: StaffMember[]
+  commissioners: StaffPickerMember[]
   value: string
   onChange: (id: string | null) => void
   disabled?: boolean
   placeholder?: string
   /** When set, new commissioners are linked to this department; omit for unassigned. */
   departmentId?: string
+  /** Department being edited; keeps its commissioner selectable. */
+  currentDepartmentId?: string
 }
 
 export function CommissionerSwitcher({
@@ -50,6 +49,7 @@ export function CommissionerSwitcher({
   disabled = false,
   placeholder = 'Select commissioner',
   departmentId,
+  currentDepartmentId,
 }: CommissionerSwitcherProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
@@ -90,25 +90,16 @@ export function CommissionerSwitcher({
             <CommandList>
               <CommandEmpty>No commissioner found.</CommandEmpty>
               <CommandGroup heading='Commissioners'>
-                {commissioners.map(c => (
-                  <CommandItem
-                    key={c._id}
-                    onSelect={() => {
-                      onChange(c._id)
-                      setOpen(false)
-                    }}
-                    className='text-sm'
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-5 w-5',
-                        value === c._id ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    {c.fullName}
-                    {c.staffId ? ` (${c.staffId})` : ''}
-                  </CommandItem>
-                ))}
+                <StaffPickerCommandItems
+                  members={commissioners}
+                  value={value}
+                  roleLabel='Commissioner'
+                  currentEntityId={currentDepartmentId}
+                  onSelect={id => {
+                    onChange(id)
+                    setOpen(false)
+                  }}
+                />
               </CommandGroup>
               <CommandGroup>
                 <DialogTrigger asChild>

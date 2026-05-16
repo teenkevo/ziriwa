@@ -19,6 +19,7 @@ import { APP_ROLE_LABELS } from '@/lib/authz/types'
 import { inviteMemberAction } from '@/lib/admin/invite-actions'
 import {
   assignAppRoleAction,
+  assignStaffDepartmentAction,
   revokeInvitationAction,
 } from '@/lib/admin/user-actions'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -51,6 +52,12 @@ import {
 } from '@/components/ui/table'
 
 const NO_ROLE_VALUE = '__none__'
+const NO_DEPARTMENT_VALUE = '__none__'
+
+export interface DepartmentOption {
+  _id: string
+  label: string
+}
 
 export interface AppMemberRow {
   clerkUserId: string
@@ -60,6 +67,7 @@ export interface AppMemberRow {
   appRole: AppRole | null
   staff?: {
     _id: string
+    departmentId?: string
     departmentName?: string
   } | null
 }
@@ -88,15 +96,21 @@ function memberGlobalFilter(
 }
 
 interface BuildColumnsOptions {
+  departments: DepartmentOption[]
   savingKey: string | null
   isPending: boolean
+  commissionerGeneralUserId: string | null
   onAssignRole: (clerkUserId: string, appRole: string) => void
+  onAssignDepartment: (member: AppMemberRow, departmentId: string) => void
 }
 
 function buildColumns({
+  departments,
   savingKey,
   isPending,
+  commissionerGeneralUserId,
   onAssignRole,
+  onAssignDepartment,
 }: BuildColumnsOptions): ColumnDef<AppMemberRow>[] {
   return [
     {
@@ -134,6 +148,9 @@ function buildColumns({
       cell: ({ row }) => {
         const m = row.original
         const key = m.clerkUserId
+        const cgTakenByOther =
+          commissionerGeneralUserId !== null &&
+          commissionerGeneralUserId !== key
 
         return (
           <div className='flex min-w-[200px] items-center gap-2'>
@@ -147,8 +164,15 @@ function buildColumns({
               <SelectContent>
                 <SelectItem value={NO_ROLE_VALUE}>No role</SelectItem>
                 {APP_ROLE_VALUES.map(role => (
-                  <SelectItem key={role} value={role}>
+                  <SelectItem
+                    key={role}
+                    value={role}
+                    disabled={role === 'commissioner_general' && cgTakenByOther}
+                  >
                     {APP_ROLE_LABELS[role]}
+                    {role === 'commissioner_general' && cgTakenByOther
+                      ? ' (assigned)'
+                      : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -165,18 +189,44 @@ function buildColumns({
       header: 'Department',
       accessorFn: row => row.staff?.departmentName ?? '',
       cell: ({ row }) => {
-        const departmentName = row.original.staff?.departmentName?.trim()
-        if (!departmentName) {
-          return (
-            <span className='text-sm italic text-muted-foreground'>
-              No department assigned
-            </span>
-          )
+        const m = row.original
+        const key = m.clerkUserId
+
+        if (m.appRole === 'commissioner_general') {
+          return <span className='text-sm text-muted-foreground'>—</span>
         }
+
+        const deptKey = `${key}:dept`
+        const currentDeptId = m.staff?.departmentId
+
         return (
-          <span className='truncate text-sm font-medium' title={departmentName}>
-            {departmentName}
-          </span>
+          <div className='flex min-w-[200px] items-center gap-2'>
+            <Select
+              value={currentDeptId}
+              onValueChange={nextDept => onAssignDepartment(m, nextDept)}
+            >
+              <SelectTrigger className='w-full text-muted-foreground max-w-[300px]'>
+                <SelectValue placeholder='Select department' />
+              </SelectTrigger>
+              <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
+                <SelectItem value={NO_DEPARTMENT_VALUE}>
+                  No department
+                </SelectItem>
+                {departments.map(dept => (
+                  <SelectItem
+                    key={dept._id}
+                    value={dept._id}
+                    title={dept.label}
+                  >
+                    <span className='block truncate'>{dept.label}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isPending && savingKey === deptKey ? (
+              <Loader2 className='size-3.5 shrink-0 animate-spin' />
+            ) : null}
+          </div>
         )
       },
     },
@@ -185,20 +235,41 @@ function buildColumns({
 
 function MembersDataTable({
   data,
+  departments,
+  commissionerGeneralUserId,
   savingKey,
   isPending,
   onAssignRole,
+  onAssignDepartment,
 }: {
   data: AppMemberRow[]
+  departments: DepartmentOption[]
+  commissionerGeneralUserId: string | null
   savingKey: string | null
   isPending: boolean
   onAssignRole: (clerkUserId: string, appRole: string) => void
+  onAssignDepartment: (member: AppMemberRow, departmentId: string) => void
 }) {
   const [globalFilter, setGlobalFilter] = React.useState('')
 
   const columns = React.useMemo(
-    () => buildColumns({ savingKey, isPending, onAssignRole }),
-    [savingKey, isPending, onAssignRole],
+    () =>
+      buildColumns({
+        departments,
+        savingKey,
+        isPending,
+        commissionerGeneralUserId,
+        onAssignRole,
+        onAssignDepartment,
+      }),
+    [
+      departments,
+      savingKey,
+      isPending,
+      commissionerGeneralUserId,
+      onAssignRole,
+      onAssignDepartment,
+    ],
   )
 
   const table = useReactTable({
@@ -218,7 +289,7 @@ function MembersDataTable({
   return (
     <div className='space-y-4'>
       <Input
-        placeholder='Search members…'
+        placeholder='Search staff…'
         value={globalFilter}
         onChange={e => setGlobalFilter(e.target.value)}
         className='max-w-sm'
@@ -263,8 +334,8 @@ function MembersDataTable({
                   className='h-24 text-center text-muted-foreground'
                 >
                   {data.length === 0
-                    ? 'No signed-in users yet. Send an invite to get started.'
-                    : 'No members match your search.'}
+                    ? 'No staff onboarded yet. Send an invite to get started.'
+                    : 'No staff match your search.'}
                 </TableCell>
               </TableRow>
             )}
@@ -275,7 +346,7 @@ function MembersDataTable({
       {data.length > 0 && table.getPageCount() > 1 ? (
         <div className='flex items-center justify-between px-1 text-sm text-muted-foreground'>
           <span>
-            {table.getFilteredRowModel().rows.length} member
+            {table.getFilteredRowModel().rows.length} staff
             {table.getFilteredRowModel().rows.length === 1 ? '' : 's'}
           </span>
           <div className='flex items-center gap-2'>
@@ -308,15 +379,24 @@ function MembersDataTable({
 
 export function MembersTable({
   members,
+  departments,
   pendingInvites,
 }: {
   members: AppMemberRow[]
+  departments: DepartmentOption[]
   pendingInvites: PendingInviteRow[]
 }) {
   const [isPending, startTransition] = React.useTransition()
   const [savingKey, setSavingKey] = React.useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = React.useState(false)
   const [inviteEmail, setInviteEmail] = React.useState('')
+
+  const commissionerGeneralUserId = React.useMemo(
+    () =>
+      members.find(m => m.appRole === 'commissioner_general')?.clerkUserId ??
+      null,
+    [members],
+  )
 
   const handleAssignRole = React.useCallback(
     (clerkUserId: string, nextRole: string) => {
@@ -342,28 +422,59 @@ export function MembersTable({
     [],
   )
 
+  const handleAssignDepartment = React.useCallback(
+    (member: AppMemberRow, departmentId: string) => {
+      const deptKey = `${member.clerkUserId}:dept`
+      setSavingKey(deptKey)
+      startTransition(async () => {
+        try {
+          const fd = new FormData()
+          fd.set('clerkUserId', member.clerkUserId)
+          fd.set('email', member.email)
+          if (member.name) fd.set('memberName', member.name)
+          if (member.staff?._id) fd.set('staffId', member.staff._id)
+          fd.set(
+            'departmentId',
+            departmentId === NO_DEPARTMENT_VALUE ? '' : departmentId,
+          )
+          if (member.appRole) fd.set('appRole', member.appRole)
+          await assignStaffDepartmentAction(fd)
+          toast.success(
+            departmentId === NO_DEPARTMENT_VALUE
+              ? 'Department removed'
+              : 'Department assigned',
+          )
+        } catch (err) {
+          toast.error(
+            err instanceof Error ? err.message : 'Failed to assign department',
+          )
+        } finally {
+          setSavingKey(null)
+        }
+      })
+    },
+    [],
+  )
+
   return (
     <div className='space-y-8'>
       <div className='space-y-3'>
         <div className='flex items-start justify-between gap-3'>
           <div className='space-y-1'>
-            <h2 className='text-base font-semibold tracking-tight'>Members</h2>
-            <p className='text-sm text-muted-foreground'>
-              Invite users via Clerk and assign application roles. Department is
-              resolved from the matching staff record when available.
-            </p>
+            <h2 className='text-base font-semibold tracking-tight'>
+              Onboarded Staff
+            </h2>
           </div>
 
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
             <DialogTrigger asChild>
-              <Button size='sm'>Invite member</Button>
+              <Button size='sm'>Invite Staff</Button>
             </DialogTrigger>
             <DialogContent className='sm:max-w-lg'>
               <DialogHeader>
-                <DialogTitle>Invite member</DialogTitle>
+                <DialogTitle>Invite Staff</DialogTitle>
                 <DialogDescription>
-                  Sends a Clerk invitation to a @ura.go.ug email. After signup,
-                  assign their application role below.
+                  Only @ura.go.ug email addresses can be invited.
                 </DialogDescription>
               </DialogHeader>
               <form
@@ -414,9 +525,12 @@ export function MembersTable({
 
         <MembersDataTable
           data={members}
+          departments={departments}
+          commissionerGeneralUserId={commissionerGeneralUserId}
           savingKey={savingKey}
           isPending={isPending}
           onAssignRole={handleAssignRole}
+          onAssignDepartment={handleAssignDepartment}
         />
       </div>
 

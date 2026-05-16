@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronsUpDown, PlusCircle, Users } from 'lucide-react'
+import { ChevronsUpDown, PlusCircle, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
+import type { StaffPickerMember } from '@/lib/staff-picker'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,22 +25,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { StaffPickerCommandItems } from '@/components/staff/staff-picker-command-items'
 import { CreateStaffDialog } from './create-staff-dialog'
 
-export type StaffMember = {
-  _id: string
-  fullName: string
-  staffId?: string
-  idNumber?: string
-}
+export type StaffMember = StaffPickerMember
 
 interface ManagerSwitcherProps {
-  managers: StaffMember[]
+  managers: StaffPickerMember[]
   value: string
   onChange: (id: string) => void
   disabled?: boolean
   placeholder?: string
   divisionId: string
+  /** Section being edited; keeps its manager selectable. */
+  currentSectionId?: string
 }
 
 export function ManagerSwitcher({
@@ -49,6 +48,7 @@ export function ManagerSwitcher({
   disabled = false,
   placeholder = 'Select or create manager',
   divisionId,
+  currentSectionId,
 }: ManagerSwitcherProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
@@ -67,10 +67,7 @@ export function ManagerSwitcher({
   }
 
   return (
-    <Dialog
-      open={showCreateDialog}
-      onOpenChange={setShowCreateDialog}
-    >
+    <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -92,25 +89,16 @@ export function ManagerSwitcher({
             <CommandList>
               <CommandEmpty>No manager found.</CommandEmpty>
               <CommandGroup heading='Managers'>
-                {managers.map(m => (
-                  <CommandItem
-                    key={m._id}
-                    onSelect={() => {
-                      onChange(m._id)
-                      setOpen(false)
-                    }}
-                    className='text-sm'
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-5 w-5',
-                        value === m._id ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    {m.fullName}
-                    {m.staffId ? ` (${m.staffId})` : ''}
-                  </CommandItem>
-                ))}
+                <StaffPickerCommandItems
+                  members={managers}
+                  value={value}
+                  roleLabel='Manager'
+                  currentEntityId={currentSectionId}
+                  onSelect={id => {
+                    onChange(id)
+                    setOpen(false)
+                  }}
+                />
               </CommandGroup>
               <CommandGroup>
                 <DialogTrigger asChild>

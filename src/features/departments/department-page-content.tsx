@@ -30,13 +30,11 @@ export function DepartmentPageContent({
   department,
   divisions,
   assistantCommissioners,
-  assistantCommissionersDepartment,
   commissionersForDepartmentEdit,
 }: {
   department: Department
   divisions: DepartmentDivisionsDivision[]
   assistantCommissioners: ACStaffMember[]
-  assistantCommissionersDepartment: ACStaffMember[]
   commissionersForDepartmentEdit: CommissionerMember[]
 }) {
   const breadcrumbItems = React.useMemo(
@@ -54,7 +52,6 @@ export function DepartmentPageContent({
       department={department}
       divisions={divisions}
       assistantCommissioners={assistantCommissioners}
-      assistantCommissionersDepartment={assistantCommissionersDepartment}
       commissionersForDepartmentEdit={commissionersForDepartmentEdit}
       deleteDepartmentRedirectTo='/departments'
     />

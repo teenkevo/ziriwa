@@ -136,6 +136,7 @@ export function EditDivisionDialog({
                 disabled={isSaving}
                 placeholder='Select or create assistant commissioner'
                 departmentId={departmentId}
+                currentDivisionId={division._id}
               />
             </div>
             <div className='flex items-center space-x-2'>

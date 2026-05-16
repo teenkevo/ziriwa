@@ -4,17 +4,20 @@ import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import {
   MembersTable,
   type AppMemberRow,
+  type DepartmentOption,
   type PendingInviteRow,
 } from '@/components/admin/members-table'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface UserManagementPageProps {
   members: AppMemberRow[]
+  departments: DepartmentOption[]
   pendingInvites: PendingInviteRow[]
 }
 
 export function UserManagementPage({
   members,
+  departments,
   pendingInvites,
 }: UserManagementPageProps) {
   useRegisterPageBreadcrumbs([
@@ -36,7 +39,11 @@ export function UserManagementPage({
 
         <Card>
           <CardContent className='pt-6'>
-            <MembersTable members={members} pendingInvites={pendingInvites} />
+            <MembersTable
+              members={members}
+              departments={departments}
+              pendingInvites={pendingInvites}
+            />
           </CardContent>
         </Card>
       </div>

@@ -2,13 +2,9 @@ import { notFound } from 'next/navigation'
 import { getDepartmentBySlug } from '@/sanity/lib/departments/get-department-by-slug'
 import { getDivisionsByDepartment } from '@/sanity/lib/divisions/get-divisions-by-department'
 import {
-  getAssistantCommissionersAvailableForDepartment,
-  getAssistantCommissionersInDepartment,
-} from '@/sanity/lib/staff/get-assistant-commissioners'
-import {
-  getCommissionersByDepartment,
-  getCommissionersUnassigned,
-} from '@/sanity/lib/staff/get-commissioners'
+  getAssistantCommissionersForPicker,
+  getCommissionersForPicker,
+} from '@/sanity/lib/staff/get-staff-for-picker'
 import { getSectionDivisionPairsForDepartment } from '@/sanity/lib/sections/get-section-division-pairs-for-department'
 import { getInitiativeProgressForSections } from '@/sanity/lib/section-contracts/get-initiative-progress-for-sections'
 import { aggregateProgress } from '@/lib/initiative-progress'
@@ -25,19 +21,12 @@ export default async function DepartmentPage({
 
   if (!department) notFound()
 
-  const [divisions, assistantCommissioners, assistantCommissionersDepartment, commissionersUnassigned] =
+  const [divisions, assistantCommissioners, commissionersForPicker] =
     await Promise.all([
       getDivisionsByDepartment(department._id),
-      getAssistantCommissionersAvailableForDepartment(department._id),
-      getAssistantCommissionersInDepartment(department._id),
-      getCommissionersUnassigned(),
+      getAssistantCommissionersForPicker(),
+      getCommissionersForPicker(),
     ])
-
-  const inDept = await getCommissionersByDepartment(department._id)
-  const byId = new Map<string, (typeof commissionersUnassigned)[0]>()
-  for (const c of commissionersUnassigned) byId.set(c._id, c)
-  for (const c of inDept) byId.set(c._id, c)
-  const commissionersMerged = [...byId.values()]
 
   const fy = getCurrentFinancialYear()
   const sectionPairs = await getSectionDivisionPairsForDepartment(department._id)
@@ -81,8 +70,7 @@ export default async function DepartmentPage({
       department={department}
       divisions={divisionsWithMetrics}
       assistantCommissioners={assistantCommissioners}
-      assistantCommissionersDepartment={assistantCommissionersDepartment}
-      commissionersForDepartmentEdit={commissionersMerged}
+      commissionersForDepartmentEdit={commissionersForPicker}
     />
   )
 }

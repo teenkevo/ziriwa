@@ -5,7 +5,10 @@ import { NotAuthorized } from '@/components/admin/not-authorized'
 import { UserManagementPage } from '@/features/admin/user-management-page'
 import { parseAppRole } from '@/lib/app-role'
 import { isUserAdmin } from '@/lib/authz/guards.server'
-import { staffByEmailsQuery } from '@/lib/admin/queries'
+import {
+  departmentsForAdminQuery,
+  staffByEmailsQuery,
+} from '@/lib/admin/queries'
 import type { AppMemberRow, PendingInviteRow } from '@/components/admin/members-table'
 import { client } from '@/sanity/lib/client'
 
@@ -14,7 +17,13 @@ export const dynamic = 'force-dynamic'
 type StaffByEmail = {
   _id: string
   email: string
+  departmentId?: string
   departmentName?: string
+}
+
+type DepartmentForAdmin = {
+  _id: string
+  label: string
 }
 
 export default async function AdminUsersPage() {
@@ -59,10 +68,12 @@ export default async function AdminUsersPage() {
   })
 
   const emails = membersBase.map(m => m.email)
-  const staffRows =
+  const [staffRows, departments] = await Promise.all([
     emails.length > 0
-      ? await client.fetch<StaffByEmail[]>(staffByEmailsQuery, { emails })
-      : []
+      ? client.fetch<StaffByEmail[]>(staffByEmailsQuery, { emails })
+      : Promise.resolve([] as StaffByEmail[]),
+    client.fetch<DepartmentForAdmin[]>(departmentsForAdminQuery),
+  ])
 
   const staffByEmail = new Map(staffRows.map(s => [s.email, s]))
 
@@ -80,6 +91,10 @@ export default async function AdminUsersPage() {
   )
 
   return (
-    <UserManagementPage members={members} pendingInvites={pendingInvites} />
+    <UserManagementPage
+      members={members}
+      departments={departments}
+      pendingInvites={pendingInvites}
+    />
   )
 }

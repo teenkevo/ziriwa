@@ -130,6 +130,7 @@ export function EditDepartmentDialog({
                 onChange={id => setCommissionerId(id || '')}
                 disabled={isSaving}
                 placeholder='Select or create commissioner'
+                currentDepartmentId={department._id}
               />
             </div>
           </div>

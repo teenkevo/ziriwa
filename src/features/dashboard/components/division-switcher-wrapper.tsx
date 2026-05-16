@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { getAssistantCommissionersAvailableForDepartment } from '@/sanity/lib/staff/get-assistant-commissioners'
+import { getAssistantCommissionersForPicker } from '@/sanity/lib/staff/get-staff-for-picker'
 import { getDepartmentById } from '@/sanity/lib/departments/get-department-by-id'
 import { getAllDepartments } from '@/sanity/lib/departments/get-all-departments'
 import { getDivisionsByDepartment } from '@/sanity/lib/divisions/get-divisions-by-department'
@@ -30,7 +30,7 @@ export async function DivisionSwitcherWrapper() {
 
   const [divisions, assistantCommissioners] = await Promise.all([
     getDivisionsByDepartment(department._id),
-    getAssistantCommissionersAvailableForDepartment(department._id),
+    getAssistantCommissionersForPicker(),
   ])
 
   const storedDivisionId = cookieStore.get(DIVISION_COOKIE_NAME)?.value

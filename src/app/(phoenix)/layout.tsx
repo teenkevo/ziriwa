@@ -7,6 +7,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { SidebarChromeHeader } from '@/components/sidebar-chrome-header'
+import { AppSidebarFooter } from '@/components/app-sidebar-footer'
 import { AppSidebarNavWrapper } from '@/components/app-sidebar-nav-wrapper'
 import { AppTopBarShell } from '@/components/app-top-bar-shell'
 import { AppBreadcrumbProvider } from '@/contexts/app-breadcrumb-context'
@@ -29,6 +30,7 @@ export default async function Layout({ children }: LayoutProps) {
       <Sidebar collapsible='icon' variant='inset'>
         <SidebarChromeHeader />
         <AppSidebarNavWrapper />
+        <AppSidebarFooter />
         <SidebarRail />
       </Sidebar>
       <SidebarInset>

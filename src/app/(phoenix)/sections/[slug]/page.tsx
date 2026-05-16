@@ -6,7 +6,7 @@ import {
   getSupervisorsBySection,
   getOfficersBySection,
 } from '@/sanity/lib/staff/get-staff-by-section'
-import { getManagersByDivision } from '@/sanity/lib/staff/get-managers'
+import { getManagersForPicker } from '@/sanity/lib/staff/get-staff-for-picker'
 import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
@@ -35,7 +35,7 @@ export default async function SectionPage({
     getSupervisorsBySection(section._id),
     getOfficersBySection(section._id),
     getSprintsBySection(section._id),
-    getManagersByDivision(section.division?._id ?? ''),
+    getManagersForPicker(),
   ])
 
   const today = new Date().toISOString().slice(0, 10)

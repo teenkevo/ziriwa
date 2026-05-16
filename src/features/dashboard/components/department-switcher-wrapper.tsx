@@ -1,13 +1,13 @@
 import { cookies } from 'next/headers'
 import { getAllDepartments } from '@/sanity/lib/departments/get-all-departments'
-import { getCommissionersUnassigned } from '@/sanity/lib/staff/get-commissioners'
+import { getCommissionersForPicker } from '@/sanity/lib/staff/get-staff-for-picker'
 import DepartmentSwitcher from './department-switcher'
 import { DEPARTMENT_COOKIE_NAME } from '@/lib/division'
 
 export async function DepartmentSwitcherWrapper() {
   const [departments, commissioners, cookieStore] = await Promise.all([
     getAllDepartments(),
-    getCommissionersUnassigned(),
+    getCommissionersForPicker(),
     cookies(),
   ])
 

@@ -98,7 +98,6 @@ export function DepartmentDivisionsView({
   department,
   divisions,
   assistantCommissioners = [],
-  assistantCommissionersDepartment = [],
   commissionersForDepartmentEdit = [],
   /** When set, navigate here after deleting the department (e.g. `/departments` from the department URL). */
   deleteDepartmentRedirectTo,
@@ -106,7 +105,6 @@ export function DepartmentDivisionsView({
   department: Department
   divisions: DepartmentDivisionsDivision[]
   assistantCommissioners?: ACStaffMember[]
-  assistantCommissionersDepartment?: ACStaffMember[]
   commissionersForDepartmentEdit?: CommissionerMember[]
   deleteDepartmentRedirectTo?: string | null
 }) {
@@ -414,7 +412,7 @@ export function DepartmentDivisionsView({
                 ? { _id: editingDivision.assistantCommissioner._id }
                 : undefined,
             }}
-            assistantCommissioners={assistantCommissionersDepartment}
+            assistantCommissioners={assistantCommissioners}
           />
         )}
         <AlertDialog

@@ -121,6 +121,7 @@ export function EditSectionDialog({
                 disabled={isSaving}
                 placeholder='Select or create manager'
                 divisionId={divisionId}
+                currentSectionId={section._id}
               />
             </div>
           </div>
