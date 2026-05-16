@@ -555,12 +555,6 @@ export function TaskDetailsPanel({
               sectionId={sectionId}
             />
           </div>
-
-          {assigneeLocked && (
-            <p className='text-xs text-muted-foreground mt-1'>
-              Assignee cannot be changed once work has been submitted.
-            </p>
-          )}
         </div>
 
         <div>
