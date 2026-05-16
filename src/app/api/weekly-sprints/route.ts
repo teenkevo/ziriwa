@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { validateSprintTaskPayload } from '@/lib/sprint-task-validation'
 import { assertAuth } from '@/lib/authz/guards.server'
+import { audit } from '@/lib/audit-log/events'
 import {
   assertSprintCreateAllowed,
   getSectionAccessForViewer,
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await writeClient.create(doc)
+    audit.weeklySprint.created(result._id, weekLabel, sectionId)
     return NextResponse.json({ id: result._id }, { status: 201 })
   } catch (error) {
     console.error('Error creating weekly sprint', error)

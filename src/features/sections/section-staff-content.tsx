@@ -137,7 +137,7 @@ export function SectionStaffContent({
             onRefresh={refresh}
           />
 
-          <div className='space-y-3 pt-2'>
+          {/* <div className='space-y-3 pt-2'>
             <div>
               <h3 className='text-sm font-medium'>Delegation audit log</h3>
               <p className='text-xs text-muted-foreground'>
@@ -146,7 +146,7 @@ export function SectionStaffContent({
               </p>
             </div>
             <DelegationAuditTable history={roster.delegationHistory} />
-          </div>
+          </div> */}
         </CardContent>
       </Card>
 

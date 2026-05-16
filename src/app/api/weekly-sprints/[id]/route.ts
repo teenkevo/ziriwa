@@ -16,6 +16,7 @@ import {
   notifySprintWorkReview,
   notifySupervisorsPendingSubmission,
 } from '@/lib/notifications/emit-sprint-notifications'
+import { audit } from '@/lib/audit-log/events'
 import {
   assertSprintCreateAllowed,
   assertSprintManagerPlanReviewAllowed,
@@ -65,6 +66,15 @@ export async function PATCH(
         )
       }
       await writeClient.patch(id).set({ status: 'submitted' }).commit()
+      const submitMeta = await writeClient.fetch<{ weekLabel?: string } | null>(
+        `*[_id == $id][0]{ weekLabel }`,
+        { id },
+      )
+      audit.weeklySprint.submitted(
+        id,
+        submitMeta?.weekLabel ?? 'Weekly sprint',
+        sectionId,
+      )
       return NextResponse.json({ success: true })
     }
 
@@ -147,6 +157,12 @@ export async function PATCH(
         })
         .commit()
 
+      audit.weeklySprint.updated(
+        id,
+        weekLabel,
+        'update-draft-sprint',
+        sectionId,
+      )
       return NextResponse.json({ success: true })
     }
 
@@ -253,6 +269,13 @@ export async function PATCH(
             sprintSupervisorId: sprintMeta?.supervisorId,
           })
         }
+        audit.weeklySprint.reviewed(
+          id,
+          sprintMeta?.weekLabel ?? 'Weekly sprint',
+          taskDesc,
+          reviewStatus,
+          sectionId,
+        )
       }
 
       return NextResponse.json({ success: true })
@@ -915,7 +938,10 @@ export async function DELETE(
       return sectionAccessDenied('Only the sprint creator can delete this draft')
     }
 
+    const weekLabel =
+      typeof doc.weekLabel === 'string' ? doc.weekLabel : 'Weekly sprint'
     await writeClient.delete(id)
+    audit.weeklySprint.deleted(id, weekLabel, sectionId)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('DELETE weekly sprint', error)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { assertAuth } from '@/lib/authz/guards.server'
+import { audit } from '@/lib/audit-log/events'
 import {
   assertSectionStaffManageAllowed,
   getSectionAccessForViewer,
@@ -87,6 +88,11 @@ export async function PATCH(
     }
 
     await writeClient.patch(id).set(patch).commit()
+    const label =
+      (patch.fullName as string | undefined) ??
+      `${patch.firstName ?? ''} ${patch.lastName ?? ''}`.trim() ??
+      id
+    audit.staff.updated(id, label, patch)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('PATCH staff', error)

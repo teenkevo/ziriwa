@@ -6,6 +6,7 @@ import {
   getSectionAccessForViewer,
 } from '@/lib/section-access.server'
 import { createNotification } from '@/lib/notifications/create-notification'
+import { audit } from '@/lib/audit-log/events'
 import { syncDelegationStatuses } from '@/lib/section-delegation.server'
 
 export async function POST(req: NextRequest) {
@@ -120,6 +121,13 @@ export async function POST(req: NextRequest) {
       href: `/sections`,
       metadata: { delegationId: doc._id, sectionId },
     })
+
+    audit.sectionDelegation.created(
+      doc._id,
+      `${toStaff.fullName ?? 'Staff'} acting as ${actingRole}`,
+      sectionId,
+      { fromStaffId, toStaffId, actingRole, startDate, endDate },
+    )
 
     return NextResponse.json({ id: doc._id, status }, { status: 201 })
   } catch (error) {

@@ -5,6 +5,7 @@ import {
   shouldInviteAppRole,
 } from '@/lib/admin/onboard-staff-clerk'
 import { assertAuth } from '@/lib/authz/guards.server'
+import { audit } from '@/lib/audit-log/events'
 import {
   assertSectionStaffManageAllowed,
   getSectionAccessForViewer,
@@ -93,6 +94,12 @@ export async function POST(
       const clerkResult = await inviteOrAssignClerkAppRole(emailLower, appRole)
       invited = clerkResult.invited
     }
+
+    audit.staff.created(result._id, fullName, {
+      role,
+      sectionId,
+      email: emailLower,
+    })
 
     return NextResponse.json(
       { id: result._id, fullName, role, invited },

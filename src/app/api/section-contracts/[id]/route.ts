@@ -6,6 +6,7 @@ import {
   remapInitiativeCodeForObjectiveRename,
 } from '@/lib/contract-code-validation'
 import { assertActivityTasksUpdateAllowed } from '@/lib/section-contract-task-auth'
+import { audit } from '@/lib/audit-log/events'
 import { emitContractTaskReviewNotifications } from '@/lib/notifications/emit-contract-notifications'
 import {
   assertContractOpAllowed,
@@ -41,6 +42,11 @@ export async function PATCH(
     const access = await getSectionAccessForViewer(sectionId)
     const contractOpDenied = assertContractOpAllowed(op, access)
     if (contractOpDenied) return contractOpDenied
+
+    const contractLabel = await client.fetch<string | null>(
+      `*[_type == "sectionContract" && _id == $id][0].coalesce(financialYearLabel, "Section contract")`,
+      { id },
+    )
 
     if (op === 'updateObjective') {
       const { objectiveIndex, code, title } = payload
@@ -148,6 +154,12 @@ export async function PATCH(
       if (Object.keys(setPayload).length > 0) {
         await writeClient.patch(id).set(setPayload).commit()
       }
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -231,6 +243,12 @@ export async function PATCH(
       if (Object.keys(setPayload).length > 0) {
         await writeClient.patch(id).set(setPayload).commit()
       }
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -243,6 +261,12 @@ export async function PATCH(
         )
       }
       await writeClient.patch(id).unset([`objectives[${objectiveIndex}]`]).commit()
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -263,6 +287,12 @@ export async function PATCH(
           `objectives[${objectiveIndex}].initiatives[${initiativeIndex}]`,
         ])
         .commit()
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -312,6 +342,12 @@ export async function PATCH(
           },
         ])
         .commit()
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -377,6 +413,12 @@ export async function PATCH(
           },
         ])
         .commit()
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -424,6 +466,12 @@ export async function PATCH(
         .setIfMissing({ [path]: [] })
         .append(path, [doc])
         .commit()
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -478,6 +526,12 @@ export async function PATCH(
       if (Object.keys(setPayload).length > 0) {
         await writeClient.patch(id).set(setPayload).commit()
       }
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -797,6 +851,12 @@ export async function PATCH(
         sectionSlug: sectionMeta?.slug,
       })
 
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
       return NextResponse.json({ ok: true })
     }
 

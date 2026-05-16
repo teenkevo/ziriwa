@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { purgeSectionCascade } from '@/sanity/lib/cascade-delete'
 import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
+import { audit } from '@/lib/audit-log/events'
 import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
 
 const staffRef = (id: string) => ({ _type: 'reference' as const, _ref: id })
@@ -129,6 +130,13 @@ export async function PATCH(
         .commit()
     }
 
+    audit.section.updated(id, current.name, {
+      name,
+      managerId,
+      divisionId,
+      order,
+    })
+
     return NextResponse.json({
       ok: true,
       ...(newSlug && { slug: newSlug }),
@@ -159,7 +167,7 @@ export async function DELETE(
     const { id } = await params
 
     const section = await writeClient.fetch<SectionDoc | null>(
-      `*[_type == "section" && _id == $id][0]{ _id }`,
+      `*[_type == "section" && _id == $id][0]{ _id, name }`,
       { id },
     )
 
@@ -168,6 +176,7 @@ export async function DELETE(
     }
 
     await purgeSectionCascade(writeClient, id)
+    audit.section.deleted(id, section.name)
 
     return NextResponse.json({ ok: true })
   } catch (error) {

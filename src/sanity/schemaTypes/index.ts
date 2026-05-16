@@ -16,8 +16,12 @@ import { weeklySprint } from './weekly-sprint'
 import { sectionDelegation } from './section-delegation'
 import { staffTransferRequest } from './staff-transfer-request'
 import { appNotification } from './app-notification'
+import { auditLogEntry } from './audit-log-entry'
+import { auditLogBatch } from './audit-log-batch'
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
+    auditLogEntry,
+    auditLogBatch,
     department,
     division,
     staff,

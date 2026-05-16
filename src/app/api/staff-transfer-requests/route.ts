@@ -9,6 +9,7 @@ import {
   getSectionAccessForViewer,
 } from '@/lib/section-access.server'
 import { createNotification } from '@/lib/notifications/create-notification'
+import { audit } from '@/lib/audit-log/events'
 import {
   canViewerApproveTransferStep,
   getPendingApprovalStep,
@@ -230,6 +231,16 @@ export async function POST(req: NextRequest) {
         metadata: { transferRequestId: doc._id },
       })
     }
+
+    const staffName = await writeClient.fetch<string | null>(
+      `*[_id == $staffId][0].coalesce(fullName, firstName + " " + lastName)`,
+      { staffId },
+    )
+    audit.staffTransferRequest.created(
+      doc._id,
+      staffName ?? staffId,
+      { transferType, toSectionId, toDivisionId, reason },
+    )
 
     return NextResponse.json({ id: doc._id }, { status: 201 })
   } catch (error) {

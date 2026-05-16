@@ -1,9 +1,9 @@
-import { AdminSidebarNavLink } from '@/components/admin/admin-sidebar-nav-link'
+import { AdminSidebarNav } from '@/components/admin/admin-sidebar-nav'
 import { isUserAdmin } from '@/lib/authz/guards.server'
 
 export async function AppSidebarFooter() {
   const show = await isUserAdmin()
   if (!show) return null
 
-  return <AdminSidebarNavLink />
+  return <AdminSidebarNav />
 }

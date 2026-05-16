@@ -5,6 +5,7 @@ import { writeClient } from '@/sanity/lib/write-client'
 import { parseAppRole } from '@/lib/app-role'
 import { assertAuth } from '@/lib/authz/guards.server'
 import { createNotification } from '@/lib/notifications/create-notification'
+import { audit } from '@/lib/audit-log/events'
 import {
   canViewerApproveTransferStep,
   getPendingApprovalStep,
@@ -167,6 +168,12 @@ export async function PATCH(
           body: comment?.trim() || 'Your transfer request was not approved.',
         })
       }
+      audit.staffTransferRequest.decided(
+        id,
+        staffName ?? 'Staff transfer',
+        'rejected',
+        { comment },
+      )
       return NextResponse.json({ success: true, status: 'rejected' })
     }
 
@@ -240,6 +247,12 @@ export async function PATCH(
         body: 'Your section/division transfer has been approved and applied.',
       })
     }
+
+    audit.staffTransferRequest.decided(
+      id,
+      staffName ?? 'Staff transfer',
+      'approved',
+    )
 
     return NextResponse.json({ success: true, status: 'approved' })
   } catch (error) {
