@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  inviteOrAssignClerkAppRole,
+  staffRoleToAppRole,
+  shouldInviteAppRole,
+} from '@/lib/admin/onboard-staff-clerk'
+import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { STAFF_ROLE_OPTIONS, URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
 
@@ -10,6 +16,15 @@ function ref(id: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    const authResult = await assertAuth()
+    if (authResult instanceof NextResponse) return authResult
+    const denied = await assertPermission(
+      'staff',
+      'create',
+      'You do not have permission to create staff',
+    )
+    if (denied) return denied
+
     const body = await req.json()
     const {
       firstName,
@@ -222,8 +237,15 @@ export async function POST(req: NextRequest) {
         .commit()
     }
 
+    const appRole = staffRoleToAppRole(role)
+    let invited = false
+    if (shouldInviteAppRole(appRole)) {
+      const clerkResult = await inviteOrAssignClerkAppRole(emailLower, appRole)
+      invited = clerkResult.invited
+    }
+
     return NextResponse.json(
-      { id: result._id, fullName, role },
+      { id: result._id, fullName, role, invited },
       { status: 201 },
     )
   } catch (error) {

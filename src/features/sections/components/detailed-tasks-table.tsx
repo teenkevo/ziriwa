@@ -202,6 +202,7 @@ interface DetailedTasksTableProps {
   onUpdateTask: (key: string, updates: Partial<TaskRow>) => void
   onRemoveTask: (key: string) => void | Promise<void>
   isSaving: boolean
+  canSuperviseDetailedTasks?: boolean
 }
 
 export function DetailedTasksTable({
@@ -213,6 +214,7 @@ export function DetailedTasksTable({
   onUpdateTask,
   onRemoveTask,
   isSaving,
+  canSuperviseDetailedTasks = false,
 }: DetailedTasksTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -244,7 +246,7 @@ export function DetailedTasksTable({
             onValueChange={v =>
               onUpdateTask(row.original._key ?? '', { priority: v })
             }
-            disabled={isSaving}
+            disabled={isSaving || !canSuperviseDetailedTasks}
           >
             <SelectTrigger
               className='h-9 w-[120px] text-xs'
@@ -278,7 +280,9 @@ export function DetailedTasksTable({
                 onChange={id =>
                   onUpdateTask(row.original._key ?? '', { assignee: id })
                 }
-                disabled={isSaving || assigneeLocked}
+                disabled={
+                  isSaving || assigneeLocked || !canSuperviseDetailedTasks
+                }
                 placeholder='Select officer'
                 sectionId={sectionId}
                 compact
@@ -305,7 +309,9 @@ export function DetailedTasksTable({
               onValueChange={v =>
                 onUpdateTask(row.original._key ?? '', { status: v })
               }
-              disabled={isSaving || !row.original.assignee}
+              disabled={
+                isSaving || !row.original.assignee || !canSuperviseDetailedTasks
+              }
             >
               <SelectTrigger
                 className='h-9 w-[130px] text-xs'
@@ -370,21 +376,22 @@ export function DetailedTasksTable({
       {
         id: 'actions',
         header: () => null,
-        cell: ({ row }) => (
-          <Button
-            type='button'
-            variant='ghost'
-            size='icon'
-            className='h-8 w-8 shrink-0'
-            onClick={e => {
-              e.stopPropagation()
-              setDeleteTaskKey(row.original._key ?? '')
-            }}
-            disabled={isSaving}
-          >
-            <Trash2 className='h-4 w-4' />
-          </Button>
-        ),
+        cell: ({ row }) =>
+          canSuperviseDetailedTasks ? (
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='h-8 w-8 shrink-0'
+              onClick={e => {
+                e.stopPropagation()
+                setDeleteTaskKey(row.original._key ?? '')
+              }}
+              disabled={isSaving}
+            >
+              <Trash2 className='h-4 w-4' />
+            </Button>
+          ) : null,
         enableSorting: false,
       },
     ],
@@ -394,6 +401,7 @@ export function DetailedTasksTable({
       onUpdateTask,
       onRemoveTask,
       isSaving,
+      canSuperviseDetailedTasks,
       selectedTaskKey,
       onSelectTask,
     ],

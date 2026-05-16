@@ -474,7 +474,8 @@ export function MembersTable({
               <DialogHeader>
                 <DialogTitle>Invite Staff</DialogTitle>
                 <DialogDescription>
-                  Only @ura.go.ug email addresses can be invited.
+                  Creates a staff record and sends a Clerk invitation. Only
+                  @ura.go.ug addresses; self-service sign-up is disabled.
                 </DialogDescription>
               </DialogHeader>
               <form

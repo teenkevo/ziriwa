@@ -3,12 +3,8 @@
 import { clerkClient } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
 
-import {
-  isAppRole,
-  parseAppRole,
-  type AppRole,
-} from '@/lib/app-role'
-import { URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
+import { isAppRole, parseAppRole, type AppRole } from '@/lib/app-role'
+import { ensureStaffRecord } from '@/lib/admin/onboard-staff-clerk'
 import { requireUserAdmin } from '@/lib/authz/guards.server'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
@@ -35,73 +31,6 @@ async function findCommissionerGeneralUserId(
 function getString(formData: FormData, key: string): string {
   const v = formData.get(key)
   return typeof v === 'string' ? v.trim() : ''
-}
-
-function parseMemberName(
-  name: string | undefined,
-  email: string,
-): { firstName: string; lastName: string } {
-  const trimmed = name?.trim()
-  if (trimmed) {
-    const parts = trimmed.split(/\s+/).filter(Boolean)
-    if (parts.length >= 2) {
-      return {
-        firstName: parts[0]!,
-        lastName: parts.slice(1).join(' '),
-      }
-    }
-    return { firstName: parts[0] ?? 'Staff', lastName: 'Member' }
-  }
-  const local = email.split('@')[0] ?? 'staff'
-  const fromEmail = local.replace(/[._-]+/g, ' ').trim()
-  const emailParts = fromEmail.split(/\s+/).filter(Boolean)
-  if (emailParts.length >= 2) {
-    return {
-      firstName: emailParts[0]!,
-      lastName: emailParts.slice(1).join(' '),
-    }
-  }
-  return { firstName: emailParts[0] ?? 'Staff', lastName: 'Member' }
-}
-
-function onboardingIdNumber(clerkUserId: string): string {
-  const suffix = clerkUserId.replace(/\W/g, '').slice(-12).toUpperCase()
-  return `ONB-${suffix || 'USER'}`
-}
-
-async function ensureStaffForMember(params: {
-  clerkUserId: string
-  email: string
-  memberName?: string
-  appRole?: string | null
-}): Promise<string> {
-  const email = params.email.toLowerCase()
-  if (!email.endsWith(URA_EMAIL_SUFFIX)) {
-    throw new Error(`Email must end with ${URA_EMAIL_SUFFIX}`)
-  }
-
-  const existing = await client.fetch<{ _id: string } | null>(
-    /* groq */ `*[_type == "staff" && lower(email) == $email][0]{ _id }`,
-    { email },
-  )
-  if (existing?._id) return existing._id
-
-  const { firstName, lastName } = parseMemberName(params.memberName, email)
-  const role =
-    params.appRole && isAppRole(params.appRole) ? params.appRole : 'officer'
-
-  const created = await writeClient.create({
-    _type: 'staff',
-    firstName,
-    lastName,
-    fullName: `${firstName} ${lastName}`.trim(),
-    idNumber: onboardingIdNumber(params.clerkUserId),
-    email,
-    role,
-    status: 'active' as const,
-  })
-
-  return created._id
 }
 
 async function syncStaffRoleForEmail(email: string, appRole: AppRole) {
@@ -195,11 +124,10 @@ export async function assignStaffDepartmentAction(formData: FormData) {
     if (!clerkUserId || !email) {
       throw new Error('Missing user information for staff creation')
     }
-    staffId = await ensureStaffForMember({
-      clerkUserId,
+    staffId = await ensureStaffRecord({
       email,
       memberName: memberName || undefined,
-      appRole: appRoleRaw || null,
+      appRole: appRoleRaw && isAppRole(appRoleRaw) ? appRoleRaw : null,
     })
   }
 

@@ -52,6 +52,10 @@ import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useIsLg } from '@/hooks/use-is-lg'
 import { toast } from 'sonner'
+import {
+  canSubmitDetailedTaskWork,
+  type SectionAccess,
+} from '@/lib/section-access'
 
 type Section = {
   _id: string
@@ -220,6 +224,7 @@ interface ActivityPageContentProps {
   initiativeIndex: number
   activityIndex: number
   officers: Officer[]
+  sectionAccess: SectionAccess
   /** When set (e.g. `?taskKey=` from dashboard), select this task in the details panel. */
   initialTaskKey?: string
 }
@@ -232,6 +237,7 @@ export function ActivityPageContent({
   initiativeIndex,
   activityIndex,
   officers,
+  sectionAccess,
   initialTaskKey,
 }: ActivityPageContentProps) {
   const router = useRouter()
@@ -254,6 +260,7 @@ export function ActivityPageContent({
   )
 
   const isKPI = activity.activityType === 'kpi'
+  const { canManageContract, canSuperviseDetailedTasks } = sectionAccess
 
   const [title, setTitle] = React.useState(activity.title)
   const [aim, setAim] = React.useState(activity.aim ?? '')
@@ -679,6 +686,10 @@ export function ActivityPageContent({
   const selectedTask = React.useMemo(
     () => tasks.find(t => (t._key ?? '') === selectedTaskKey) ?? null,
     [tasks, selectedTaskKey],
+  )
+  const canSubmitSelectedTaskWork = canSubmitDetailedTaskWork(
+    sectionAccess,
+    selectedTask?.assignee,
   )
 
   const updateTaskByKey = React.useCallback(
@@ -1391,6 +1402,8 @@ export function ActivityPageContent({
       officers={officers}
       sectionId={section._id}
       activityType={activity.activityType}
+      canSuperviseDetailedTasks={canSuperviseDetailedTasks}
+      canSubmitTaskWork={canSubmitSelectedTaskWork}
       onUpdate={updates =>
         selectedTaskKey && updateTaskByKey(selectedTaskKey, updates)
       }
@@ -1463,8 +1476,9 @@ export function ActivityPageContent({
               </div>
             ) : (
               <h1
-                className='text-2xl font-bold cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1'
+                className={`text-2xl font-bold rounded px-2 py-1 -mx-2 -my-1 ${canManageContract ? 'cursor-pointer hover:bg-muted/50' : ''}`}
                 onClick={() => {
+                  if (!canManageContract) return
                   setTitleBeforeEdit(title)
                   setIsEditingTitle(true)
                 }}
@@ -1516,8 +1530,9 @@ export function ActivityPageContent({
                 </div>
               ) : (
                 <p
-                  className='text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1 min-h-[2rem] mt-1'
+                  className={`text-sm text-muted-foreground rounded px-2 py-1 -mx-2 -my-1 min-h-[2rem] mt-1 ${canManageContract ? 'cursor-pointer hover:bg-muted/50' : ''}`}
                   onClick={() => {
+                    if (!canManageContract) return
                     setAimBeforeEdit(aim)
                     setIsEditingAim(true)
                   }}
@@ -1530,6 +1545,7 @@ export function ActivityPageContent({
 
           <div className='space-y-4 flex-1 min-w-0 mt-10'>
             <h2 className='text-sm font-semibold'>Detailed Tasks</h2>
+            {canSuperviseDetailedTasks ? (
             <div className='flex gap-2'>
               <Input
                 placeholder={`Add a task to this ${isKPI ? 'KPI' : 'Cross-cutting'} measurable activity`}
@@ -1555,6 +1571,7 @@ export function ActivityPageContent({
                 )}
               </Button>
             </div>
+            ) : null}
             <DetailedTasksTable
               tasks={tasks}
               officers={officers}
@@ -1564,6 +1581,7 @@ export function ActivityPageContent({
               onUpdateTask={updateTaskByKey}
               onRemoveTask={handleRemoveTaskByKey}
               isSaving={isSavingTasks}
+              canSuperviseDetailedTasks={canSuperviseDetailedTasks}
             />
           </div>
         </div>

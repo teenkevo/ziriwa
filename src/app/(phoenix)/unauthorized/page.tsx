@@ -19,8 +19,9 @@ export default function UnauthorizedPage() {
           </div>
           <CardTitle className='text-2xl'>Unauthorized Access</CardTitle>
           <CardDescription className='mt-2'>
-            Your email address is not registered as staff in this system. Please
-            contact the administrator if you believe this is an error.
+            Your account is not onboarded in this system. Access is invite-only:
+            ask an administrator to add you from User management or when setting
+            up a department, division, or section.
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>

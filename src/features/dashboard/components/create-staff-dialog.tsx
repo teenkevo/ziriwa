@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { PhoneInput } from '@/components/ui/phone-input'
+import { toast } from 'sonner'
 import { STAFF_ROLE_OPTIONS, URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
 
 export type StaffMember = {
@@ -128,10 +129,19 @@ export function CreateStaffDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to create staff')
       }
-      const { id, fullName } = await res.json()
+      const { id, fullName, invited } = (await res.json()) as {
+        id: string
+        fullName: string
+        invited?: boolean
+      }
       const newStaff: StaffMember = { _id: id, fullName }
       form.reset()
       onOpenChange(false)
+      toast.success(
+        invited
+          ? 'Staff created and invitation sent'
+          : 'Staff created; app role updated for existing user',
+      )
       onSuccess?.(newStaff)
     } catch (err) {
       console.error(err)
@@ -144,7 +154,9 @@ export function CreateStaffDialog({
       <DialogHeader>
         <DialogTitle>Create Staff</DialogTitle>
         <DialogDescription>
-          Add a new staff member. Email must end with @ura.go.ug.
+          Creates a staff profile and sends a Clerk invitation. Self-service
+          sign-up is disabled; they must use the invite link. Email must end with
+          @ura.go.ug.
         </DialogDescription>
       </DialogHeader>
       <Form {...form}>

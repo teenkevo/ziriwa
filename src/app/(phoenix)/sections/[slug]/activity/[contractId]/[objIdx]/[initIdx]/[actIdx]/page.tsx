@@ -3,6 +3,7 @@ import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { getOfficersBySection } from '@/sanity/lib/staff/get-staff-by-section'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getSectionAccessForViewer } from '@/lib/section-access.server'
 import { ActivityPageContent } from '@/features/sections/activity-page-content'
 
 export default async function ActivityPage({
@@ -39,9 +40,10 @@ export default async function ActivityPage({
   if (!section) notFound()
 
   const currentFY = getCurrentFinancialYear()
-  const [sectionContract, officers] = await Promise.all([
+  const [sectionContract, officers, sectionAccess] = await Promise.all([
     getSectionContract(section._id, currentFY.label),
     getOfficersBySection(section._id),
+    getSectionAccessForViewer(section._id),
   ])
   if (!sectionContract || sectionContract._id !== contractId) notFound()
 
@@ -59,6 +61,7 @@ export default async function ActivityPage({
       initiativeIndex={initIndex}
       activityIndex={actIndex}
       officers={officers}
+      sectionAccess={sectionAccess}
       initialTaskKey={initialTaskKey}
     />
   )

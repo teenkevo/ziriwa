@@ -1,8 +1,8 @@
 'use server'
 
-import { clerkClient } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
 
+import { onboardStaffMember } from '@/lib/admin/onboard-staff-clerk'
 import { requireUserAdmin } from '@/lib/authz/guards.server'
 import { URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
 
@@ -20,11 +20,9 @@ export async function inviteMemberAction(formData: FormData) {
     throw new Error(`Email must end with ${URA_EMAIL_SUFFIX}`)
   }
 
-  const client = await clerkClient()
-  await client.invitations.createInvitation({
-    emailAddress,
-    notify: true,
-    ignoreExisting: true,
+  await onboardStaffMember({
+    email: emailAddress,
+    appRole: 'officer',
   })
 
   revalidatePath('/admin/users')

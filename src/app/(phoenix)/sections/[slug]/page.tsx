@@ -9,7 +9,7 @@ import {
 import { getManagersForPicker } from '@/sanity/lib/staff/get-staff-for-picker'
 import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
-import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
+import { getSectionAccessForViewer } from '@/lib/section-access.server'
 import { SectionPageContent } from '@/features/sections/section-page-content'
 
 export default async function SectionPage({
@@ -104,7 +104,7 @@ export default async function SectionPage({
     return { _id: s._id, fullName: s.fullName, staffId }
   })
 
-  const viewerStaffId = await getViewerStaffIdForSection(section._id)
+  const sectionAccess = await getSectionAccessForViewer(section._id)
 
   return (
     <SectionPageContent
@@ -120,7 +120,8 @@ export default async function SectionPage({
       dueThisQuarter={dueThisQuarter}
       today={today}
       sprints={sprints}
-      viewerStaffId={viewerStaffId ?? undefined}
+      viewerStaffId={sectionAccess.viewerStaffId ?? undefined}
+      sectionAccess={sectionAccess}
       managers={managers}
     />
   )

@@ -56,6 +56,7 @@ import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-se
 import type { StaffMember } from '@/sanity/lib/staff/get-managers'
 import type { InitiativeWithActivities } from './weekly-sprint-content'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import type { SectionAccess } from '@/lib/section-access'
 
 function flattenInitiativesWithActivities(
   contract: SectionContract | null,
@@ -103,6 +104,7 @@ interface SectionPageContentProps {
   sprints?: WeeklySprint[]
   /** Signed-in user’s Sanity staff id for this section (for officer sprint filtering). */
   viewerStaffId?: string
+  sectionAccess: SectionAccess
   /** Managers in this section’s division (edit section dialog). */
   managers: StaffMember[]
 }
@@ -121,6 +123,7 @@ export function SectionPageContent({
   today,
   sprints = [],
   viewerStaffId,
+  sectionAccess,
   managers,
 }: SectionPageContentProps) {
   const router = useRouter()
@@ -333,14 +336,16 @@ export function SectionPageContent({
                         <span className='truncate'>{currentFY}</span>
                       </div>
                       <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
-                        <Button
-                          type='button'
-                          size='sm'
-                          onClick={() => setAddObjectiveSignal(s => s + 1)}
-                        >
-                          <Plus className='h-4 w-4 mr-2' />
-                          Add SSMARTA objective
-                        </Button>
+                        {sectionAccess.canManageContract ? (
+                          <Button
+                            type='button'
+                            size='sm'
+                            onClick={() => setAddObjectiveSignal(s => s + 1)}
+                          >
+                            <Plus className='h-4 w-4 mr-2' />
+                            Add SSMARTA objective
+                          </Button>
+                        ) : null}
                         <Button
                           type='button'
                           size='sm'
@@ -371,6 +376,7 @@ export function SectionPageContent({
                     <ContractTree
                       sectionContract={sectionContract}
                       sectionSlug={section.slug?.current ?? ''}
+                      canManageContract={sectionAccess.canManageContract}
                       expandAllSignal={expandAllSignal}
                       collapseAllSignal={collapseAllSignal}
                       addObjectiveSignal={addObjectiveSignal}
@@ -398,11 +404,11 @@ export function SectionPageContent({
                       Onboard a contract to add SSMARTA objectives, initiatives,
                       and KPIs.
                     </p>
-                    {hasManager ? (
+                    {hasManager && sectionAccess.canManageContract ? (
                       <Button onClick={() => setOnboardOpen(true)}>
                         Onboard Contract
                       </Button>
-                    ) : (
+                    ) : hasManager ? null : (
                       <p className='text-sm text-muted-foreground'>
                         Assign a manager to this section before onboarding a
                         contract.
@@ -438,6 +444,7 @@ export function SectionPageContent({
               onSprintTabChange={setSprintSubTab}
               panelPortalNode={panelPortalNode}
               viewerStaffId={viewerStaffId}
+              sectionAccess={sectionAccess}
             />
           </TabsContent>
 

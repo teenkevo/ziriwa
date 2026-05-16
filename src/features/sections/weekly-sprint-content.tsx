@@ -52,7 +52,11 @@ import type {
 } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { useAppRole } from '@/hooks/use-app-role'
+import {
+  canSubmitDetailedTaskWork,
+  getSprintUiMode,
+  type SectionAccess,
+} from '@/lib/section-access'
 import { useIsLg } from '@/hooks/use-is-lg'
 import { getEffectiveTaskStatus } from '@/lib/sprint-week'
 
@@ -72,6 +76,7 @@ interface WeeklySprintContentProps {
   panelPortalNode?: HTMLDivElement | null
   /** Sanity staff id for signed-in user in this section — filters accepted tasks for officers. */
   viewerStaffId?: string
+  sectionAccess: SectionAccess
 }
 
 type WeekOption = {
@@ -216,10 +221,11 @@ export function WeeklySprintContent({
   onSprintTabChange,
   panelPortalNode,
   viewerStaffId,
+  sectionAccess,
 }: WeeklySprintContentProps) {
   const router = useRouter()
-  const { role, isLoaded } = useAppRole()
-  const isOfficer = isLoaded && role === 'officer'
+  const sprintUiMode = getSprintUiMode(sectionAccess)
+  const isOfficerView = sprintUiMode === 'officer'
   const isLg = useIsLg()
 
   const [createOpen, setCreateOpen] = React.useState(false)
@@ -299,10 +305,12 @@ export function WeeklySprintContent({
   }, [fyWeeks, todayStart, existingSprintWeeks, currentWeekIdx])
 
   React.useEffect(() => {
-    if (isOfficer) {
+    if (isOfficerView) {
       onSprintTabChange?.('ready')
+    } else if (sprintUiMode === 'manager') {
+      setSprintTab('in-review')
     }
-  }, [isOfficer, onSprintTabChange])
+  }, [isOfficerView, sprintUiMode, onSprintTabChange, setSprintTab])
 
   const addTask = () => setDraftTasks(prev => [...prev, { ...emptyDraftTask }])
 
@@ -588,7 +596,7 @@ export function WeeklySprintContent({
 
   /** Officers only see accepted tasks assigned to them; others see all accepted tasks. */
   const groupsForAcceptedUi = React.useMemo(() => {
-    if (!isOfficer) return acceptedSprintGroups
+    if (!isOfficerView) return acceptedSprintGroups
     if (!viewerStaffId) return []
     return acceptedSprintGroups
       .map(g => ({
@@ -596,7 +604,7 @@ export function WeeklySprintContent({
         tasks: g.tasks.filter(t => t.assignee === viewerStaffId),
       }))
       .filter(g => g.tasks.length > 0)
-  }, [acceptedSprintGroups, isOfficer, viewerStaffId])
+  }, [acceptedSprintGroups, isOfficerView, viewerStaffId])
 
   const tasksForAcceptedUi = React.useMemo(
     () => groupsForAcceptedUi.flatMap(g => g.tasks),
@@ -841,11 +849,18 @@ export function WeeklySprintContent({
     return !allAccepted
   })
 
+  const canSubmitSprintTaskWork = canSubmitDetailedTaskWork(
+    sectionAccess,
+    selectedAcceptedTask?.assignee ?? null,
+  )
+
   const detailPanel = (
     <SprintTaskDetailsPanel
       task={selectedAcceptedTask}
       officers={officers}
       sectionId={sectionId}
+      canSuperviseDetailedTasks={sectionAccess.canSuperviseDetailedTasks}
+      canSubmitTaskWork={canSubmitSprintTaskWork}
       onUpdate={handleUpdateTask}
       onAddWorkSubmission={handleAddWorkSubmission}
       onApproveSubmission={handleApproveSubmission}
@@ -857,12 +872,7 @@ export function WeeklySprintContent({
 
   return (
     <div className='space-y-4'>
-      {!isLoaded ? (
-        <div className='space-y-4'>
-          <div className='h-9 w-full max-w-lg animate-pulse rounded-md bg-muted/50' />
-          <div className='min-h-[200px] rounded-lg border border-dashed border-muted/60 bg-muted/10' />
-        </div>
-      ) : isOfficer ? (
+      {isOfficerView ? (
         <>
           <div className='mt-4 space-y-4'>
             {groupsForAcceptedUi.length === 0 ? (
@@ -901,35 +911,39 @@ export function WeeklySprintContent({
         <Tabs value={sprintTab} onValueChange={setSprintTab}>
           <div className='flex items-center justify-between'>
             <TabsList className='inline-flex h-auto w-auto flex-wrap items-stretch gap-1 rounded-none border-b border-border bg-transparent p-0'>
-              <TabsTrigger
-                value='draft'
-                className={weeklySprintSubTabTriggerClassName}
-              >
-                Drafts
-                {draftSprints.length > 0 && (
-                  <Badge
-                    variant='secondary'
-                    className='ml-1.5 text-[10px] px-1.5 py-0'
-                  >
-                    {draftSprints.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
+              {sectionAccess.canViewSprintDraftTab ? (
+                <TabsTrigger
+                  value='draft'
+                  className={weeklySprintSubTabTriggerClassName}
+                >
+                  Drafts
+                  {draftSprints.length > 0 && (
+                    <Badge
+                      variant='secondary'
+                      className='ml-1.5 text-[10px] px-1.5 py-0'
+                    >
+                      {draftSprints.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              ) : null}
 
-              <TabsTrigger
-                value='in-review'
-                className={weeklySprintSubTabTriggerClassName}
-              >
-                In Review
-                {submittedOrReviewedSprints.length > 0 && (
-                  <Badge
-                    variant='secondary'
-                    className='ml-1.5 text-[10px] px-1.5 py-0'
-                  >
-                    {submittedOrReviewedSprints.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
+              {sectionAccess.canViewSprintInReviewTab ? (
+                <TabsTrigger
+                  value='in-review'
+                  className={weeklySprintSubTabTriggerClassName}
+                >
+                  In Review
+                  {submittedOrReviewedSprints.length > 0 && (
+                    <Badge
+                      variant='secondary'
+                      className='ml-1.5 text-[10px] px-1.5 py-0'
+                    >
+                      {submittedOrReviewedSprints.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              ) : null}
               <TabsTrigger
                 value='ready'
                 className={weeklySprintSubTabTriggerClassName}
@@ -945,7 +959,7 @@ export function WeeklySprintContent({
                 )}
               </TabsTrigger>
             </TabsList>
-            {sprintTab === 'draft' ? (
+            {sprintTab === 'draft' && sectionAccess.canCreateSprints ? (
               <Button onClick={openNewSprintDialog} size='sm'>
                 <Plus className='h-4 w-4' />
                 New Sprint
@@ -953,6 +967,7 @@ export function WeeklySprintContent({
             ) : null}
           </div>
 
+          {sectionAccess.canViewSprintDraftTab ? (
           <TabsContent value='draft' className='space-y-4 mt-4'>
             {draftSprints.length === 0 ? (
               <Card>
@@ -977,7 +992,9 @@ export function WeeklySprintContent({
               ))
             )}
           </TabsContent>
+          ) : null}
 
+          {sectionAccess.canViewSprintInReviewTab ? (
           <TabsContent value='in-review' className='space-y-4 mt-4'>
             {submittedOrReviewedSprints.length === 0 ? (
               <Card>
@@ -1002,6 +1019,7 @@ export function WeeklySprintContent({
               ))
             )}
           </TabsContent>
+          ) : null}
 
           <TabsContent value='ready' className='mt-4 space-y-4'>
             {groupsForAcceptedUi.length === 0 ? (
@@ -1036,7 +1054,7 @@ export function WeeklySprintContent({
         </Tabs>
       )}
 
-      {!isLg && (isOfficer || sprintTab === 'ready') ? (
+      {!isLg && (isOfficerView || sprintTab === 'ready') ? (
         <Sheet
           open={Boolean(selectedTaskKey)}
           onOpenChange={open => {

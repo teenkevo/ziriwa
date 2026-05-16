@@ -121,12 +121,16 @@ interface SprintTaskDetailsPanelProps {
     outputFile?: File,
   ) => Promise<void>
   isSaving: boolean
+  canSuperviseDetailedTasks?: boolean
+  canSubmitTaskWork?: boolean
 }
 
 export function SprintTaskDetailsPanel({
   task,
   officers,
   sectionId,
+  canSuperviseDetailedTasks = false,
+  canSubmitTaskWork = false,
   onUpdate,
   onAddWorkSubmission,
   onApproveSubmission,
@@ -245,7 +249,7 @@ export function SprintTaskDetailsPanel({
           onValueChange={v =>
             onUpdate(task.sprintId, task._key, { priority: v })
           }
-          disabled={isSaving || isDone}
+          disabled={isSaving || isDone || !canSuperviseDetailedTasks}
         >
           <SelectTrigger className='mt-1'>
             <SelectValue />
@@ -296,7 +300,9 @@ export function SprintTaskDetailsPanel({
             onChange={id =>
               onUpdate(task.sprintId, task._key, { assignee: id })
             }
-            disabled={isSaving || hasSubmissions}
+            disabled={
+              isSaving || hasSubmissions || !canSuperviseDetailedTasks
+            }
             placeholder='Select officer'
             sectionId={sectionId}
           />
@@ -319,7 +325,7 @@ export function SprintTaskDetailsPanel({
             <Label className='text-xs text-muted-foreground'>
               Work Submissions ({(task.workSubmissions ?? []).length})
             </Label>
-            {!isDone && sprintStarted && (
+            {!isDone && sprintStarted && canSubmitTaskWork && (
               <Dialog
                 open={addDialogOpen}
                 onOpenChange={open => {
@@ -448,6 +454,8 @@ export function SprintTaskDetailsPanel({
                   weekEnd={task.weekEnd}
                   sprintStarted={sprintStarted}
                   isCompliance={isCompliance}
+                  canSupervise={canSuperviseDetailedTasks}
+                  canRespond={canSubmitTaskWork}
                   onApprove={onApproveSubmission}
                   onReject={onRejectSubmission}
                   onRespond={onRespondToSubmissionRejection}
@@ -474,6 +482,8 @@ function WorkSubmissionCard({
   onReject,
   onRespond,
   isSaving,
+  canSupervise = false,
+  canRespond = false,
 }: {
   submission: WorkSubmission
   sprintId: string
@@ -482,6 +492,8 @@ function WorkSubmissionCard({
   weekEnd: string
   sprintStarted: boolean
   isCompliance: boolean
+  canSupervise?: boolean
+  canRespond?: boolean
   onApprove: (
     sprintId: string,
     taskKey: string,
@@ -607,7 +619,7 @@ function WorkSubmissionCard({
           </div>
         )}
 
-        {isPending && (
+        {isPending && canSupervise && (
           <div className='flex flex-wrap gap-2 pt-1'>
             <Dialog
               open={approveOpen}
@@ -741,7 +753,7 @@ function WorkSubmissionCard({
           </div>
         )}
 
-        {isRejected && lastEntry?.action === 'reject' && (
+        {isRejected && lastEntry?.action === 'reject' && canRespond && (
           <div className='space-y-2'>
             <p className='text-xs text-orange-600 dark:text-orange-400'>
               Submission rejected. Please respond or resubmit output.

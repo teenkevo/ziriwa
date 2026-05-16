@@ -20,6 +20,10 @@ export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth()
   const { pathname } = request.nextUrl
 
+  if (pathname.startsWith('/sign-up')) {
+    return NextResponse.redirect(new URL('/sign-in', request.url))
+  }
+
   // Redirect authenticated users away from homepage to departments
   if (userId && pathname === '/') {
     return NextResponse.redirect(new URL('/departments', request.url))

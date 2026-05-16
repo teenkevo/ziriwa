@@ -1,24 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { validateSprintTaskPayload } from '@/lib/sprint-task-validation'
-import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
+import { assertAuth } from '@/lib/authz/guards.server'
+import {
+  assertSprintCreateAllowed,
+  getSectionAccessForViewer,
+} from '@/lib/section-access.server'
 
 export async function POST(req: NextRequest) {
   try {
     const authResult = await assertAuth()
     if (authResult instanceof NextResponse) return authResult
-    const denied = await assertPermission(
-      'weeklySprints',
-      'create',
-      'Officers cannot create weekly sprints',
-    )
-    if (denied) return denied
 
     const body = await req.json()
     const { sectionId, supervisorId, weekLabel, weekStart, weekEnd, tasks } =
       body
 
-    if (!sectionId || !weekLabel || !weekStart || !weekEnd) {
+    if (!sectionId || typeof sectionId !== 'string') {
+      return NextResponse.json({ error: 'sectionId is required' }, { status: 400 })
+    }
+
+    const access = await getSectionAccessForViewer(sectionId)
+    const createDenied = assertSprintCreateAllowed(access)
+    if (createDenied) return createDenied
+
+    if (!weekLabel || !weekStart || !weekEnd) {
       return NextResponse.json(
         { error: 'sectionId, weekLabel, weekStart, and weekEnd are required' },
         { status: 400 },

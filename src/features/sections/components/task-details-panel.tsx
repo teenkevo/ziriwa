@@ -123,6 +123,8 @@ interface TaskDetailsPanelProps {
     replacementFile?: File,
   ) => Promise<void>
   isSaving: boolean
+  canSuperviseDetailedTasks?: boolean
+  canSubmitTaskWork?: boolean
 }
 
 export function TaskDetailsPanel({
@@ -130,6 +132,8 @@ export function TaskDetailsPanel({
   officers,
   sectionId,
   activityType,
+  canSuperviseDetailedTasks = false,
+  canSubmitTaskWork = false,
   onUpdate,
   onAddInputs,
   onApproveInputs,
@@ -205,7 +209,8 @@ export function TaskDetailsPanel({
   const isKPI = activityType === 'kpi'
   const isDone = (task?.status ?? '') === 'done'
   const taskConfigLocked = task ? hasOfficerContent(task) : false
-  const assigneeLocked = taskConfigLocked
+  const assigneeLocked = taskConfigLocked || !canSuperviseDetailedTasks
+  const priorityLocked = !canSuperviseDetailedTasks
   const expectedDeliverableSet = !!task?.expectedDeliverable?.trim()
   const inputsApproved = task
     ? ['in_progress', 'delivered', 'in_review', 'done'].includes(
@@ -563,7 +568,7 @@ export function TaskDetailsPanel({
           <Select
             value={task.priority}
             onValueChange={v => onUpdate({ priority: v })}
-            disabled={isSaving || isDone}
+            disabled={isSaving || isDone || priorityLocked}
           >
             <SelectTrigger className='mt-1'>
               <SelectValue />
@@ -1241,7 +1246,8 @@ export function TaskDetailsPanel({
                     <div className='space-y-3'>
                       <div className='rounded-md border divide-y max-h-[180px] overflow-y-auto'>
                         {task.status === 'to_do' &&
-                        !task.inputs?.file?.asset?.url ? (
+                        !task.inputs?.file?.asset?.url &&
+                        canSubmitTaskWork ? (
                           <div className='p-2.5 space-y-2'>
                             <p className='text-xs text-muted-foreground'>
                               Officer to submit inputs
@@ -1283,7 +1289,10 @@ export function TaskDetailsPanel({
                                 !inputsLocked && inputsFileRef.current?.click()
                               }
                               disabled={
-                                isSaving || uploadingInputs || inputsLocked
+                                isSaving ||
+                                uploadingInputs ||
+                                inputsLocked ||
+                                !canSubmitTaskWork
                               }
                             >
                               {uploadingInputs ? (
@@ -1410,6 +1419,7 @@ export function TaskDetailsPanel({
                                     </Button>
                                   )}
                                   {task.status === 'inputs_submitted' &&
+                                    canSuperviseDetailedTasks &&
                                     !needsOfficerResubmit &&
                                     i === 0 &&
                                     (entry.action === 'submit' ||

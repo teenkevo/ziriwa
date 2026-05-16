@@ -6,7 +6,16 @@ import {
   validateSprintTaskPayload,
 } from '@/lib/sprint-task-validation'
 import { getSprintWeekStartLocal, isSprintWeekStarted } from '@/lib/sprint-week'
-import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
+import { assertAuth } from '@/lib/authz/guards.server'
+import { canSubmitDetailedTaskWork } from '@/lib/section-access'
+import {
+  assertSprintCreateAllowed,
+  assertSprintReviewAllowed,
+  assertSprintSupervisorTaskUpdate,
+  getSectionAccessForViewer,
+  getSectionIdFromWeeklySprint,
+  sectionAccessDenied,
+} from '@/lib/section-access.server'
 
 export async function PATCH(
   req: NextRequest,
@@ -17,14 +26,17 @@ export async function PATCH(
     const body = await req.json()
     const { action } = body
 
+    const authResult = await assertAuth()
+    if (authResult instanceof NextResponse) return authResult
+
+    const sectionId = await getSectionIdFromWeeklySprint(id)
+    if (!sectionId) {
+      return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+    }
+    const access = await getSectionAccessForViewer(sectionId)
+
     if (action === 'submit' || action === 'update-draft-sprint') {
-      const authResult = await assertAuth()
-      if (authResult instanceof NextResponse) return authResult
-      const denied = await assertPermission(
-        'weeklySprints',
-        'create',
-        'Officers cannot create or edit draft weekly sprint plans',
-      )
+      const denied = assertSprintCreateAllowed(access)
       if (denied) return denied
     }
 
@@ -131,6 +143,9 @@ export async function PATCH(
     }
 
     if (action === 'review-task') {
+      const reviewDenied = assertSprintReviewAllowed(access)
+      if (reviewDenied) return reviewDenied
+
       const { taskKey, reviewStatus, revisionReason } = body
 
       if (!taskKey || !reviewStatus) {
@@ -204,6 +219,11 @@ export async function PATCH(
         )
       }
 
+      if (updates.assignee !== undefined || updates.priority !== undefined) {
+        const denied = assertSprintSupervisorTaskUpdate(access)
+        if (denied) return denied
+      }
+
       const doc = await writeClient.getDocument(id)
       if (!doc || doc._type !== 'weeklySprint') {
         return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
@@ -215,6 +235,17 @@ export async function PATCH(
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
+
+      if (updates.taskStatus !== undefined) {
+        const assigneeRef = (task.assignee as { _ref?: string } | undefined)?._ref
+        const isAssigneeUpdate = canSubmitDetailedTaskWork(access, assigneeRef)
+        if (!access.canSuperviseDetailedTasks && !isAssigneeUpdate) {
+          return sectionAccessDenied(
+            'Only the assigned officer can update task status on their sprint task',
+          )
+        }
+      }
+
       const weekStart = doc.weekStart as string
       if (
         updates.taskStatus !== undefined &&
@@ -270,6 +301,13 @@ export async function PATCH(
       )
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+      }
+
+      const assigneeRef = (task.assignee as { _ref?: string } | undefined)?._ref
+      if (!access.viewerStaffId || assigneeRef !== access.viewerStaffId) {
+        return sectionAccessDenied(
+          'Only the assigned officer can submit work for this task',
+        )
       }
 
       const now = new Date()
@@ -342,6 +380,9 @@ export async function PATCH(
     }
 
     if (action === 'approve-work-submission') {
+      const denied = assertSprintSupervisorTaskUpdate(access)
+      if (denied) return denied
+
       const { taskKey, submissionKey, message } = body
       if (!taskKey || !submissionKey) {
         return NextResponse.json(
@@ -404,6 +445,9 @@ export async function PATCH(
     }
 
     if (action === 'reject-work-submission') {
+      const denied = assertSprintSupervisorTaskUpdate(access)
+      if (denied) return denied
+
       const { taskKey, submissionKey, message } = body
       if (!taskKey || !submissionKey || !message?.trim()) {
         return NextResponse.json(
@@ -467,6 +511,18 @@ export async function PATCH(
       const doc = await writeClient.getDocument(id)
       if (!doc || doc._type !== 'weeklySprint') {
         return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+      }
+
+      const tasksForAuth = (doc.tasks as Array<Record<string, unknown>>) || []
+      const taskForAuth = tasksForAuth.find(
+        (t: Record<string, unknown>) => t._key === taskKey,
+      )
+      const assigneeRef = (taskForAuth?.assignee as { _ref?: string } | undefined)
+        ?._ref
+      if (!canSubmitDetailedTaskWork(access, assigneeRef)) {
+        return sectionAccessDenied(
+          'Only the assigned officer can respond to submission feedback',
+        )
       }
 
       const weekStart = doc.weekStart as string
@@ -539,6 +595,24 @@ export async function PATCH(
         return NextResponse.json(
           { error: 'taskKey is required' },
           { status: 400 },
+        )
+      }
+
+      const docForReviseAuth = await writeClient.getDocument(id)
+      if (!docForReviseAuth || docForReviseAuth._type !== 'weeklySprint') {
+        return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+      }
+      const reviseTasks =
+        (docForReviseAuth.tasks as Array<Record<string, unknown>>) || []
+      const reviseTask = reviseTasks.find(
+        (t: Record<string, unknown>) => t._key === taskKey,
+      )
+      const reviseAssigneeRef = (
+        reviseTask?.assignee as { _ref?: string } | undefined
+      )?._ref
+      if (!canSubmitDetailedTaskWork(access, reviseAssigneeRef)) {
+        return sectionAccessDenied(
+          'Only the assigned officer can revise this task',
         )
       }
 

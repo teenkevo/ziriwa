@@ -35,6 +35,7 @@ import { EditInitiativeDialog } from '@/features/sections/components/edit-initia
 interface ContractTreeProps {
   sectionContract: SectionContract
   sectionSlug?: string
+  canManageContract?: boolean
   expandAllSignal?: number
   collapseAllSignal?: number
   /** Increment to open the add SSMARTA objective dialog (from parent toolbar). */
@@ -142,6 +143,7 @@ function sectionContractToTreeData(
 export function ContractTree({
   sectionContract,
   sectionSlug = '',
+  canManageContract = false,
   expandAllSignal,
   collapseAllSignal,
   addObjectiveSignal = 0,
@@ -179,9 +181,9 @@ export function ContractTree({
   const objectives = sectionContract.objectives ?? []
 
   React.useEffect(() => {
-    if (addObjectiveSignal === 0) return
+    if (addObjectiveSignal === 0 || !canManageContract) return
     setObjectiveDialogOpen(true)
-  }, [addObjectiveSignal])
+  }, [addObjectiveSignal, canManageContract])
 
   const treeData = React.useMemo(
     () => sectionContractToTreeData(sectionContract),
@@ -327,7 +329,7 @@ export function ContractTree({
                 )}
                 <p className='text-sm leading-4 truncate'>{item.name}</p>
               </div>
-              {isObjectiveRow && (
+              {isObjectiveRow && canManageContract && (
                 <>
                   <DropdownMenu
                     open={openMenu === `${item.id}:objective-options`}
@@ -396,7 +398,7 @@ export function ContractTree({
                   </Button>
                 </>
               )}
-              {isInitiativeRow && (
+              {isInitiativeRow && canManageContract && (
                 <>
                   <DropdownMenu
                     open={openMenu === `${item.id}:initiative-options`}

@@ -5,6 +5,12 @@ import {
   initiativeCodeMatchesObjective,
   remapInitiativeCodeForObjectiveRename,
 } from '@/lib/contract-code-validation'
+import { assertActivityTasksUpdateAllowed } from '@/lib/section-contract-task-auth'
+import {
+  assertContractOpAllowed,
+  getSectionAccessForViewer,
+  getSectionIdFromContract,
+} from '@/lib/section-access.server'
 
 /**
  * PATCH /api/section-contracts/[id] - Add objective, initiative, or activity
@@ -25,6 +31,14 @@ export async function PATCH(
         { status: 400 },
       )
     }
+
+    const sectionId = await getSectionIdFromContract(id)
+    if (!sectionId) {
+      return NextResponse.json({ error: 'Contract not found' }, { status: 404 })
+    }
+    const access = await getSectionAccessForViewer(sectionId)
+    const contractOpDenied = assertContractOpAllowed(op, access)
+    if (contractOpDenied) return contractOpDenied
 
     if (op === 'updateObjective') {
       const { objectiveIndex, code, title } = payload
@@ -481,6 +495,27 @@ export async function PATCH(
           { status: 400 },
         )
       }
+
+      const currentTasks =
+        (await writeClient.fetch<unknown[] | null>(
+          /* groq */ `*[_type == "sectionContract" && _id == $id][0].objectives[$objIdx].initiatives[$initIdx].measurableActivities[$actIdx].tasks`,
+          {
+            id,
+            objIdx: objectiveIndex,
+            initIdx: initiativeIndex,
+            actIdx: activityIndex,
+          },
+        )) ?? []
+
+      const tasksAuthError = assertActivityTasksUpdateAllowed(
+        access,
+        currentTasks as Parameters<typeof assertActivityTasksUpdateAllowed>[1],
+        tasks as Parameters<typeof assertActivityTasksUpdateAllowed>[2],
+      )
+      if (tasksAuthError) {
+        return NextResponse.json({ error: tasksAuthError }, { status: 403 })
+      }
+
       const path = `objectives[${objectiveIndex}].initiatives[${initiativeIndex}].measurableActivities[${activityIndex}].tasks`
       const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest']
       const TASK_STATUSES = [
