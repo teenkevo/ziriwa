@@ -300,9 +300,7 @@ export function SprintTaskDetailsPanel({
             onChange={id =>
               onUpdate(task.sprintId, task._key, { assignee: id })
             }
-            disabled={
-              isSaving || hasSubmissions || !canSuperviseDetailedTasks
-            }
+            disabled={isSaving || hasSubmissions || !canSuperviseDetailedTasks}
             placeholder='Select officer'
             sectionId={sectionId}
           />

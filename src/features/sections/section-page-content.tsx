@@ -157,6 +157,9 @@ export function SectionPageContent({
   const currentFY = sectionContract?.financialYearLabel ?? 'current FY'
   const manager = section.manager
   const hasManager = !!manager?._id
+  const showSprintSubTabs =
+    sectionAccess.canViewSprintDraftTab ||
+    sectionAccess.canViewSprintInReviewTab
   const [expandAllSignal, setExpandAllSignal] = useState(0)
   const [collapseAllSignal, setCollapseAllSignal] = useState(0)
   /** Tracks bulk expand/collapse toggle label (tree may diverge if nodes toggled manually). */
@@ -467,7 +470,8 @@ export function SectionPageContent({
       {activeTab === 'stakeholder-engagements' ||
       activeTab === 'dashboard' ? null : (
         <div className='hidden h-full min-h-0 shrink-0 border-l bg-muted/20 lg:flex'>
-          {activeTab === 'weekly-sprint' && sprintSubTab === 'ready' ? (
+          {activeTab === 'weekly-sprint' &&
+          (sprintSubTab === 'ready' || !showSprintSubTabs) ? (
             <div
               ref={panelPortalRef}
               className='flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-contain lg:w-[24rem]'

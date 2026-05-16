@@ -96,10 +96,7 @@ export async function assignAppRoleAction(formData: FormData) {
           { staffId: staff._id },
         )
         if (headed?._id) {
-          await writeClient
-            .patch(headed._id)
-            .unset(['commissioner'])
-            .commit()
+          await writeClient.patch(headed._id).unset(['commissioner']).commit()
         }
         await writeClient.patch(staff._id).unset(['department']).commit()
       }
@@ -159,10 +156,7 @@ export async function assignStaffDepartmentAction(formData: FormData) {
         { staffId },
       )
       if (headed?._id) {
-        await writeClient
-          .patch(headed._id)
-          .unset(['commissioner'])
-          .commit()
+        await writeClient.patch(headed._id).unset(['commissioner']).commit()
       }
     }
     await writeClient.patch(staffId).unset(['department']).commit()
@@ -194,10 +188,7 @@ export async function assignStaffDepartmentAction(formData: FormData) {
       { staffId, departmentId },
     )
     if (previousDept?._id) {
-      await writeClient
-        .patch(previousDept._id)
-        .unset(['commissioner'])
-        .commit()
+      await writeClient.patch(previousDept._id).unset(['commissioner']).commit()
     }
 
     await writeClient

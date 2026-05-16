@@ -123,6 +123,7 @@ interface TaskDetailsPanelProps {
     replacementFile?: File,
   ) => Promise<void>
   isSaving: boolean
+  canManageContract?: boolean
   canSuperviseDetailedTasks?: boolean
   canSubmitTaskWork?: boolean
 }
@@ -132,6 +133,7 @@ export function TaskDetailsPanel({
   officers,
   sectionId,
   activityType,
+  canManageContract = false,
   canSuperviseDetailedTasks = false,
   canSubmitTaskWork = false,
   onUpdate,
@@ -211,6 +213,7 @@ export function TaskDetailsPanel({
   const taskConfigLocked = task ? hasOfficerContent(task) : false
   const assigneeLocked = taskConfigLocked || !canSuperviseDetailedTasks
   const priorityLocked = !canSuperviseDetailedTasks
+  const managerPlanningLocked = taskConfigLocked || !canManageContract
   const expectedDeliverableSet = !!task?.expectedDeliverable?.trim()
   const inputsApproved = task
     ? ['in_progress', 'delivered', 'in_review', 'done'].includes(
@@ -591,7 +594,7 @@ export function TaskDetailsPanel({
                 </div>
                 <Switch
                   checked={taskFreq !== 'n/a'}
-                  disabled={isSaving || taskConfigLocked}
+                  disabled={isSaving || managerPlanningLocked}
                   onCheckedChange={checked => {
                     onUpdate({
                       reportingFrequency: checked ? 'monthly' : 'n/a',
@@ -615,7 +618,7 @@ export function TaskDetailsPanel({
                             | 'quarterly',
                         })
                       }
-                      disabled={isSaving || taskConfigLocked}
+                      disabled={isSaving || managerPlanningLocked}
                     >
                       <SelectTrigger className='mt-1 h-9'>
                         <SelectValue />
@@ -639,7 +642,7 @@ export function TaskDetailsPanel({
                         <PopoverTrigger asChild>
                           <Button
                             variant='outline'
-                            disabled={isSaving || taskConfigLocked}
+                            disabled={isSaving || managerPlanningLocked}
                             className={cn(
                               'h-9 justify-between text-left font-normal min-w-[180px]',
                               !task.reportingPeriodStart &&
@@ -741,11 +744,11 @@ export function TaskDetailsPanel({
                       <p
                         className={cn(
                           'text-sm rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]',
-                          !taskConfigLocked &&
+                          !managerPlanningLocked &&
                             'cursor-pointer hover:bg-muted/50',
                         )}
                         onClick={() => {
-                          if (taskConfigLocked) return
+                          if (managerPlanningLocked) return
                           setDeliverableEditValue(
                             task.expectedDeliverable ?? '',
                           )
@@ -753,7 +756,9 @@ export function TaskDetailsPanel({
                         }}
                       >
                         {task.expectedDeliverable ||
-                          'Click to add expected deliverable...'}
+                          (canManageContract
+                            ? 'Click to add expected deliverable...'
+                            : '—')}
                       </p>
                     )}
                   </div>
@@ -773,7 +778,7 @@ export function TaskDetailsPanel({
                         <PopoverTrigger asChild>
                           <Button
                             variant='outline'
-                            disabled={isSaving}
+                            disabled={isSaving || managerPlanningLocked}
                             className={cn(
                               'h-9 justify-between text-left font-normal min-w-[180px]',
                               !task.targetDate && 'text-muted-foreground',
@@ -784,7 +789,11 @@ export function TaskDetailsPanel({
                               {task.targetDate ? (
                                 format(parseDateAsLocal(task.targetDate), 'PPP')
                               ) : (
-                                <span>Select due date</span>
+                                <span>
+                                  {canManageContract
+                                    ? 'Select due date'
+                                    : 'No due date'}
+                                </span>
                               )}
                             </span>
                           </Button>
@@ -862,11 +871,11 @@ export function TaskDetailsPanel({
                       <p
                         className={cn(
                           'text-sm rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]',
-                          !taskConfigLocked &&
+                          !managerPlanningLocked &&
                             'cursor-pointer hover:bg-muted/50',
                         )}
                         onClick={() => {
-                          if (taskConfigLocked) return
+                          if (managerPlanningLocked) return
                           setDeliverableEditValue(
                             task.expectedDeliverable ?? '',
                           )
@@ -874,7 +883,9 @@ export function TaskDetailsPanel({
                         }}
                       >
                         {task.expectedDeliverable ||
-                          'Click to add expected deliverable...'}
+                          (canManageContract
+                            ? 'Click to add expected deliverable...'
+                            : '—')}
                       </p>
                     )}
                   </div>

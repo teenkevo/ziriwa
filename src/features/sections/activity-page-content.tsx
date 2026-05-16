@@ -1402,6 +1402,7 @@ export function ActivityPageContent({
       officers={officers}
       sectionId={section._id}
       activityType={activity.activityType}
+      canManageContract={canManageContract}
       canSuperviseDetailedTasks={canSuperviseDetailedTasks}
       canSubmitTaskWork={canSubmitSelectedTaskWork}
       onUpdate={updates =>

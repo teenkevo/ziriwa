@@ -226,6 +226,9 @@ export function WeeklySprintContent({
   const router = useRouter()
   const sprintUiMode = getSprintUiMode(sectionAccess)
   const isOfficerView = sprintUiMode === 'officer'
+  const showSprintSubTabs =
+    sectionAccess.canViewSprintDraftTab ||
+    sectionAccess.canViewSprintInReviewTab
   const isLg = useIsLg()
 
   const [createOpen, setCreateOpen] = React.useState(false)
@@ -305,12 +308,12 @@ export function WeeklySprintContent({
   }, [fyWeeks, todayStart, existingSprintWeeks, currentWeekIdx])
 
   React.useEffect(() => {
-    if (isOfficerView) {
+    if (!showSprintSubTabs) {
       onSprintTabChange?.('ready')
     } else if (sprintUiMode === 'manager') {
       setSprintTab('in-review')
     }
-  }, [isOfficerView, sprintUiMode, onSprintTabChange, setSprintTab])
+  }, [showSprintSubTabs, sprintUiMode, onSprintTabChange, setSprintTab])
 
   const addTask = () => setDraftTasks(prev => [...prev, { ...emptyDraftTask }])
 
@@ -870,43 +873,47 @@ export function WeeklySprintContent({
     />
   )
 
+  const readySprintsEmptyMessage = isOfficerView
+    ? !viewerStaffId
+      ? 'Your account could not be matched to a staff record for this section. Ensure your sign-in email matches your staff profile.'
+      : 'No tasks assigned to you yet.'
+    : 'No sprints yet, Check back later'
+
+  const readySprintsContent = (
+    <div className='mt-4 space-y-4'>
+      {groupsForAcceptedUi.length === 0 ? (
+        <Card>
+          <CardContent className='pt-6'>
+            <p className='text-sm text-muted-foreground'>
+              {readySprintsEmptyMessage}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        groupsForAcceptedUi.map(({ sprint, tasks }) => (
+          <AcceptedSprintTasksCard
+            key={sprint._id}
+            sprint={sprint}
+            tasks={tasks}
+            officers={officers}
+            sectionId={sectionId}
+            selectedTaskKey={selectedTaskKey}
+            onSelectTask={setSelectedTaskKey}
+            onUpdateTask={handleUpdateTask}
+            isSaving={isSavingTask}
+            canAddExtraTask={initiatives.length > 0}
+            onAddExtraTask={id => openExtraTaskDialog(id)}
+          />
+        ))
+      )}
+      {panelPortalNode && isLg && createPortal(detailPanel, panelPortalNode)}
+    </div>
+  )
+
   return (
     <div className='space-y-4'>
-      {isOfficerView ? (
-        <>
-          <div className='mt-4 space-y-4'>
-            {groupsForAcceptedUi.length === 0 ? (
-              <Card>
-                <CardContent className='pt-6'>
-                  <p className='text-sm text-muted-foreground'>
-                    {!viewerStaffId
-                      ? 'Your account could not be matched to a staff record for this section. Ensure your sign-in email matches your staff profile.'
-                      : 'No tasks assigned to you yet.'}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              groupsForAcceptedUi.map(({ sprint, tasks }) => (
-                <AcceptedSprintTasksCard
-                  key={sprint._id}
-                  sprint={sprint}
-                  tasks={tasks}
-                  officers={officers}
-                  sectionId={sectionId}
-                  selectedTaskKey={selectedTaskKey}
-                  onSelectTask={setSelectedTaskKey}
-                  onUpdateTask={handleUpdateTask}
-                  isSaving={isSavingTask}
-                  canAddExtraTask={initiatives.length > 0}
-                  onAddExtraTask={id => openExtraTaskDialog(id)}
-                />
-              ))
-            )}
-            {panelPortalNode &&
-              isLg &&
-              createPortal(detailPanel, panelPortalNode)}
-          </div>
-        </>
+      {!showSprintSubTabs ? (
+        readySprintsContent
       ) : (
         <Tabs value={sprintTab} onValueChange={setSprintTab}>
           <div className='flex items-center justify-between'>
@@ -968,93 +975,66 @@ export function WeeklySprintContent({
           </div>
 
           {sectionAccess.canViewSprintDraftTab ? (
-          <TabsContent value='draft' className='space-y-4 mt-4'>
-            {draftSprints.length === 0 ? (
-              <Card>
-                <CardContent className='pt-6'>
-                  <p className='text-sm text-muted-foreground'>
-                    No draft sprints. Create a new sprint to get started.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              draftSprints.map(sprint => (
-                <SprintCard
-                  key={sprint._id}
-                  sprint={sprint}
-                  onSubmit={() => handleSubmitSprint(sprint._id)}
-                  isSubmitting={isSubmitting === sprint._id}
-                  onEditDraft={() => openEditDraftSprint(sprint)}
-                  onReviewTask={(task, action) =>
-                    openReview(sprint._id, task, action)
-                  }
-                />
-              ))
-            )}
-          </TabsContent>
+            <TabsContent value='draft' className='space-y-4 mt-4'>
+              {draftSprints.length === 0 ? (
+                <Card>
+                  <CardContent className='pt-6'>
+                    <p className='text-sm text-muted-foreground'>
+                      No draft sprints. Create a new sprint to get started.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                draftSprints.map(sprint => (
+                  <SprintCard
+                    key={sprint._id}
+                    sprint={sprint}
+                    onSubmit={() => handleSubmitSprint(sprint._id)}
+                    isSubmitting={isSubmitting === sprint._id}
+                    onEditDraft={() => openEditDraftSprint(sprint)}
+                    onReviewTask={(task, action) =>
+                      openReview(sprint._id, task, action)
+                    }
+                  />
+                ))
+              )}
+            </TabsContent>
           ) : null}
 
           {sectionAccess.canViewSprintInReviewTab ? (
-          <TabsContent value='in-review' className='space-y-4 mt-4'>
-            {submittedOrReviewedSprints.length === 0 ? (
-              <Card>
-                <CardContent className='pt-6'>
-                  <p className='text-sm text-muted-foreground'>
-                    No sprints in review.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              submittedOrReviewedSprints.map(sprint => (
-                <SprintCard
-                  key={sprint._id}
-                  sprint={sprint}
-                  onSubmit={() => handleSubmitSprint(sprint._id)}
-                  isSubmitting={isSubmitting === sprint._id}
-                  onReviewTask={(task, action) =>
-                    openReview(sprint._id, task, action)
-                  }
-                  onOpenRevise={task => openReviseDialog(sprint._id, task)}
-                />
-              ))
-            )}
-          </TabsContent>
+            <TabsContent value='in-review' className='space-y-4 mt-4'>
+              {submittedOrReviewedSprints.length === 0 ? (
+                <Card>
+                  <CardContent className='pt-6'>
+                    <p className='text-sm text-muted-foreground'>
+                      No sprints in review.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                submittedOrReviewedSprints.map(sprint => (
+                  <SprintCard
+                    key={sprint._id}
+                    sprint={sprint}
+                    onSubmit={() => handleSubmitSprint(sprint._id)}
+                    isSubmitting={isSubmitting === sprint._id}
+                    onReviewTask={(task, action) =>
+                      openReview(sprint._id, task, action)
+                    }
+                    onOpenRevise={task => openReviseDialog(sprint._id, task)}
+                  />
+                ))
+              )}
+            </TabsContent>
           ) : null}
 
           <TabsContent value='ready' className='mt-4 space-y-4'>
-            {groupsForAcceptedUi.length === 0 ? (
-              <Card>
-                <CardContent className='pt-6'>
-                  <p className='text-sm text-muted-foreground'>
-                    No tasks yet. Review submitted sprints to accept tasks.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              groupsForAcceptedUi.map(({ sprint, tasks }) => (
-                <AcceptedSprintTasksCard
-                  key={sprint._id}
-                  sprint={sprint}
-                  tasks={tasks}
-                  officers={officers}
-                  sectionId={sectionId}
-                  selectedTaskKey={selectedTaskKey}
-                  onSelectTask={setSelectedTaskKey}
-                  onUpdateTask={handleUpdateTask}
-                  isSaving={isSavingTask}
-                  canAddExtraTask={initiatives.length > 0}
-                  onAddExtraTask={id => openExtraTaskDialog(id)}
-                />
-              ))
-            )}
-            {panelPortalNode &&
-              isLg &&
-              createPortal(detailPanel, panelPortalNode)}
+            {readySprintsContent}
           </TabsContent>
         </Tabs>
       )}
 
-      {!isLg && (isOfficerView || sprintTab === 'ready') ? (
+      {!isLg && (!showSprintSubTabs || sprintTab === 'ready') ? (
         <Sheet
           open={Boolean(selectedTaskKey)}
           onOpenChange={open => {
