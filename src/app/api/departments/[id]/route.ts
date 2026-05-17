@@ -111,7 +111,7 @@ export async function PATCH(
       }
     }
 
-    revalidateTag('departments', { expire: 0 })
+    // revalidateTag('departments', { expire: 0 })
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('Error updating department', error)

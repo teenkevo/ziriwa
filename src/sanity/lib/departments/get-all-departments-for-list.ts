@@ -39,7 +39,7 @@ export async function getAllDepartmentsForList(): Promise<DepartmentListRow[]> {
   try {
     const rows = (await sanityFetch({
       query,
-      tags: ['departments'],
+      revalidate: 0,
     })) as Omit<
       DepartmentListRow,
       | 'initiativeProgressPercent'
