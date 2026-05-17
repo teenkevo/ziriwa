@@ -37,16 +37,15 @@ export async function getAllDepartmentsForList(): Promise<DepartmentListRow[]> {
   `)
 
   try {
-    const rows =
-      (await sanityFetch({
-        query,
-        revalidate: 0,
-      })) as Omit<
-        DepartmentListRow,
-        | 'initiativeProgressPercent'
-        | 'initiativeProgressCompleted'
-        | 'initiativeProgressTotal'
-      >[]
+    const rows = (await sanityFetch({
+      query,
+      tags: ['departments'],
+    })) as Omit<
+      DepartmentListRow,
+      | 'initiativeProgressPercent'
+      | 'initiativeProgressCompleted'
+      | 'initiativeProgressTotal'
+    >[]
 
     const base = rows || []
     const fy = getCurrentFinancialYear()

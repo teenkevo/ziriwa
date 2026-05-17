@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { purgeDepartmentCascade } from '@/sanity/lib/cascade-delete'
 import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
+import { revalidateTag } from 'next/cache'
 
 function staffRef(id: string) {
   return { _type: 'reference' as const, _ref: id }
@@ -41,7 +42,10 @@ export async function PATCH(
     )
 
     if (!current) {
-      return NextResponse.json({ error: 'Department not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Department not found' },
+        { status: 404 },
+      )
     }
 
     const patch = writeClient.patch(id)
@@ -68,9 +72,7 @@ export async function PATCH(
 
     if (commissionerId !== undefined) {
       const newCommId =
-        commissionerId === null || commissionerId === ''
-          ? null
-          : commissionerId
+        commissionerId === null || commissionerId === '' ? null : commissionerId
 
       if (oldCommId && oldCommId !== newCommId) {
         await writeClient.patch(oldCommId).unset(['department']).commit()
@@ -109,6 +111,7 @@ export async function PATCH(
       }
     }
 
+    revalidateTag('departments', { expire: 0 })
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('Error updating department', error)
@@ -141,7 +144,10 @@ export async function DELETE(
     )
 
     if (!exists) {
-      return NextResponse.json({ error: 'Department not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Department not found' },
+        { status: 404 },
+      )
     }
 
     await purgeDepartmentCascade(writeClient, id)

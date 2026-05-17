@@ -23,7 +23,10 @@ export async function getAllDepartments(): Promise<Department[]> {
   `)
 
   try {
-    const departments = await sanityFetch({ query, revalidate: 0 }) as Department[]
+    const departments = (await sanityFetch({
+      query,
+      revalidate: 0,
+    })) as Department[]
     return departments || []
   } catch (error) {
     console.error('Error fetching departments', error)
