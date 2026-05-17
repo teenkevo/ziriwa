@@ -99,24 +99,7 @@ export function SectionReportingContent({
     <div className='space-y-4'>
       <Card>
         <CardHeader className='gap-2'>
-          <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
-            <div>
-              <CardTitle className='flex items-center gap-2'>
-                <FileBarChart className='h-5 w-5' />
-                Reporting
-              </CardTitle>
-              <p className='mt-2 text-sm text-muted-foreground'>
-                Generate a weekly PDF report from sprint tasks, measurable
-                activities, and submitted evidence.
-              </p>
-            </div>
-            {selectedSprint ? (
-              <WeeklyReportDownloadButton
-                sectionName={sectionName}
-                sprint={selectedSprint}
-              />
-            ) : null}
-          </div>
+          <CardTitle className='flex items-center gap-2'>Reporting</CardTitle>
         </CardHeader>
         <CardContent className='space-y-4'>
           {sortedSprints.length === 0 ? (
@@ -127,7 +110,9 @@ export function SectionReportingContent({
             <>
               <div className='grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end'>
                 <div className='space-y-2'>
-                  <label className='text-sm font-medium'>Sprint week</label>
+                  <label className='text-sm text-muted-foreground'>
+                    Choose week to generate report
+                  </label>
                   <Select
                     value={selectedSprintId}
                     onValueChange={setSelectedSprintId}
@@ -144,17 +129,15 @@ export function SectionReportingContent({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className='rounded-lg border p-3'>
-                  <p className='text-xs text-muted-foreground'>Report rows</p>
-                  <p className='text-lg font-semibold'>{reportableTaskCount}</p>
-                </div>
-                <div className='rounded-lg border p-3'>
-                  <p className='text-xs text-muted-foreground'>Evidence items</p>
-                  <p className='text-lg font-semibold'>{evidenceItemCount}</p>
-                </div>
+                {selectedSprint ? (
+                  <WeeklyReportDownloadButton
+                    sectionName={sectionName}
+                    sprint={selectedSprint}
+                  />
+                ) : null}
               </div>
 
-              {selectedSprint ? (
+              {/* {selectedSprint ? (
                 <div className='rounded-lg border bg-muted/20 p-4'>
                   <div className='flex flex-wrap items-center gap-3 text-sm'>
                     <span className='inline-flex items-center gap-2 font-medium'>
@@ -194,9 +177,10 @@ export function SectionReportingContent({
                 <div className='flex items-start gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground'>
                   <FileText className='mt-0.5 h-4 w-4 shrink-0' />
                   This sprint has no accepted, delivered, done, or submitted
-                  tasks yet. The PDF will still generate with an empty-state row.
+                  tasks yet. The PDF will still generate with an empty-state
+                  row.
                 </div>
-              ) : null}
+              ) : null} */}
             </>
           )}
         </CardContent>

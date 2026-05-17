@@ -29,6 +29,16 @@ type ReportRow = {
   evidenceItems: string
 }
 
+type ActivityReportGroup = {
+  measurableActivity: string
+  rows: ReportRow[]
+}
+
+type InitiativeReportGroup = {
+  initiative: string
+  activities: ActivityReportGroup[]
+}
+
 const styles = StyleSheet.create({
   page: {
     padding: 28,
@@ -84,13 +94,61 @@ const styles = StyleSheet.create({
     borderBottom: '1 solid #d1d5db',
     minHeight: 36,
   },
+  groupedRow: {
+    flexDirection: 'row',
+    borderBottom: '1 solid #d1d5db',
+    minHeight: 36,
+  },
+  groupedInitiativeCell: {
+    width: '23%',
+    padding: 6,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 0.8,
+  },
+  groupedActivityWrapper: {
+    width: '77%',
+  },
+  groupedActivityRow: {
+    flexDirection: 'row',
+    minHeight: 36,
+  },
+  groupedActivityRowDivider: {
+    borderTop: '1 solid #d1d5db',
+  },
+  groupedActivityCell: {
+    width: '28.571428%',
+    padding: 6,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 0.8,
+  },
+  groupedTaskWrapper: {
+    width: '71.428572%',
+  },
+  groupedTaskRow: {
+    flexDirection: 'row',
+    minHeight: 36,
+  },
+  groupedTaskRowDivider: {
+    borderTop: '1 solid #d1d5db',
+  },
+  groupedTaskCell: {
+    width: '54.545455%',
+    padding: 6,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 0.8,
+  },
+  groupedEvidenceCell: {
+    width: '45.454545%',
+    padding: 6,
+    lineHeight: 0.8,
+  },
   headerRow: {
     backgroundColor: '#f3f4f6',
   },
   cell: {
     padding: 6,
     borderRight: '1 solid #d1d5db',
-    lineHeight: 1.35,
+    lineHeight: 0.8,
   },
   lastCell: {
     borderRightWidth: 0,
@@ -183,8 +241,40 @@ function buildRows(sprint: WeeklySprint): ReportRow[] {
     }))
 }
 
+function buildGroups(rows: ReportRow[]): InitiativeReportGroup[] {
+  return rows.reduce<InitiativeReportGroup[]>((initiativeGroups, row) => {
+    let initiativeGroup = initiativeGroups.find(
+      group => group.initiative === row.initiative,
+    )
+
+    if (!initiativeGroup) {
+      initiativeGroup = {
+        initiative: row.initiative,
+        activities: [],
+      }
+      initiativeGroups.push(initiativeGroup)
+    }
+
+    let activityGroup = initiativeGroup.activities.find(
+      group => group.measurableActivity === row.measurableActivity,
+    )
+
+    if (!activityGroup) {
+      activityGroup = {
+        measurableActivity: row.measurableActivity,
+        rows: [],
+      }
+      initiativeGroup.activities.push(activityGroup)
+    }
+
+    activityGroup.rows.push(row)
+    return initiativeGroups
+  }, [])
+}
+
 function WeeklyReportPdf({ sectionName, sprint }: WeeklyReportPdfProps) {
   const rows = buildRows(sprint)
+  const groups = buildGroups(rows)
 
   return (
     <Document
@@ -251,22 +341,48 @@ function WeeklyReportPdf({ sectionName, sprint }: WeeklyReportPdfProps) {
               this sprint.
             </Text>
           ) : (
-            rows.map((row, index) => (
-              <View key={`${row.initiative}-${index}`} style={styles.row}>
-                <Text style={[styles.cell, styles.initiativeCell]}>
-                  {row.initiative}
+            groups.map(group => (
+              <View key={group.initiative} style={styles.groupedRow}>
+                <Text style={styles.groupedInitiativeCell}>
+                  {group.initiative}
                 </Text>
-                <Text style={[styles.cell, styles.activityCell]}>
-                  {row.measurableActivity}
-                </Text>
-                <Text style={[styles.cell, styles.taskCell]}>
-                  {row.tasksDone}
-                </Text>
-                <Text
-                  style={[styles.cell, styles.evidenceCell, styles.lastCell]}
-                >
-                  {row.evidenceItems}
-                </Text>
+
+                <View style={styles.groupedActivityWrapper}>
+                  {group.activities.map((activity, activityIndex) => (
+                    <View
+                      key={`${group.initiative}-${activity.measurableActivity}`}
+                      style={[
+                        styles.groupedActivityRow,
+                        activityIndex > 0
+                          ? styles.groupedActivityRowDivider
+                          : {},
+                      ]}
+                    >
+                      <Text style={styles.groupedActivityCell}>
+                        {activity.measurableActivity}
+                      </Text>
+
+                      <View style={styles.groupedTaskWrapper}>
+                        {activity.rows.map((row, taskIndex) => (
+                          <View
+                            key={`${row.tasksDone}-${taskIndex}`}
+                            style={[
+                              styles.groupedTaskRow,
+                              taskIndex > 0 ? styles.groupedTaskRowDivider : {},
+                            ]}
+                          >
+                            <Text style={styles.groupedTaskCell}>
+                              {row.tasksDone}
+                            </Text>
+                            <Text style={styles.groupedEvidenceCell}>
+                              {row.evidenceItems}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
               </View>
             ))
           )}
@@ -315,7 +431,7 @@ export function WeeklyReportDownloadButton({
           ) : (
             <FileText className='h-4 w-4 mr-2' />
           )}
-          {loading ? 'Preparing PDF…' : 'Generate PDF'}
+          {loading ? 'Preparing Report…' : 'Generate Weekly Report'}
         </Button>
       )}
     </PDFDownloadLink>
