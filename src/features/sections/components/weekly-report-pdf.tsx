@@ -16,6 +16,7 @@ import type {
   WeeklySprint,
   WorkSubmission,
 } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import Image from 'next/image'
 
 type WeeklyReportPdfProps = {
   sectionName: string
@@ -425,13 +426,23 @@ export function WeeklyReportDownloadButton({
       fileName={fileName}
     >
       {({ loading }) => (
-        <Button disabled={loading}>
+        <Button
+          variant='secondary'
+          disabled={loading}
+          className='border-primary'
+        >
           {loading ? (
             <Loader2 className='h-4 w-4 mr-2 animate-spin' />
           ) : (
-            <FileText className='h-4 w-4 mr-2' />
+            <Image
+              src={'/folder-icon2.png'}
+              alt='icon-pdf'
+              width={2}
+              height={2}
+              className='h-5 w-5 mr-1'
+            />
           )}
-          {loading ? 'Preparing Report…' : 'Generate Weekly Report'}
+          {loading ? 'Preparing Report…' : 'Generate Report'}
         </Button>
       )}
     </PDFDownloadLink>

@@ -109,7 +109,7 @@ const viewConfig: Record<
   },
   reporting: {
     title: 'Reporting',
-    description: 'Generate weekly sprint reports from section sprint data.',
+    description: 'Generate weekly reports from completed sprints.',
     icon: FileBarChart,
   },
 }
@@ -126,6 +126,9 @@ function sprintTabValue(view?: SprintView): SprintTabValue {
   if (view === 'draft') return 'drafts'
   return 'ready'
 }
+
+const managerSprintTabTriggerClassName =
+  'inline-flex items-center rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-muted-foreground shadow-none transition-colors -mb-px data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
 
 function isModifiedClick(event: React.MouseEvent<HTMLAnchorElement>) {
   return event.metaKey || event.altKey || event.ctrlKey || event.shiftKey
@@ -359,15 +362,22 @@ export function ManagerWorkspaceContent({
   return (
     <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
-        <div className='flex flex-col gap-2 border-b pb-5'>
+        <div className='flex flex-col gap-2'>
           <h1 className='text-2xl font-bold'>{title}</h1>
           <p className='max-w-3xl text-sm text-muted-foreground'>
             {view === 'sprints' ? config.description : config.description}
           </p>
           {view === 'sprints' ? (
             <Tabs value={activeSprintTab} className='mt-2'>
-              <TabsList aria-busy={pendingSprintTab ? true : undefined}>
-                <TabsTrigger value='ready' asChild>
+              <TabsList
+                aria-busy={pendingSprintTab ? true : undefined}
+                className='inline-flex h-auto w-auto flex-wrap items-stretch gap-1 rounded-none border-b border-border bg-transparent p-0'
+              >
+                <TabsTrigger
+                  value='ready'
+                  className={managerSprintTabTriggerClassName}
+                  asChild
+                >
                   <Link
                     href='/manager/sprints?tab=ready'
                     onClick={event => handleSprintTabClick('ready', event)}
@@ -378,7 +388,11 @@ export function ManagerWorkspaceContent({
                     ) : null}
                   </Link>
                 </TabsTrigger>
-                <TabsTrigger value='to-review' asChild>
+                <TabsTrigger
+                  value='to-review'
+                  className={managerSprintTabTriggerClassName}
+                  asChild
+                >
                   <Link
                     href='/manager/sprints?tab=to-review'
                     onClick={event => handleSprintTabClick('to-review', event)}
@@ -389,7 +403,11 @@ export function ManagerWorkspaceContent({
                     ) : null}
                   </Link>
                 </TabsTrigger>
-                <TabsTrigger value='drafts' asChild>
+                <TabsTrigger
+                  value='drafts'
+                  className={managerSprintTabTriggerClassName}
+                  asChild
+                >
                   <Link
                     href='/manager/sprints?tab=drafts'
                     onClick={event => handleSprintTabClick('drafts', event)}

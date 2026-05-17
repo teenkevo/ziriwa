@@ -97,47 +97,39 @@ export function SectionReportingContent({
 
   return (
     <div className='space-y-4'>
-      <Card>
-        <CardHeader className='gap-2'>
-          <CardTitle className='flex items-center gap-2'>Reporting</CardTitle>
-        </CardHeader>
-        <CardContent className='space-y-4'>
-          {sortedSprints.length === 0 ? (
-            <div className='rounded-lg border border-dashed p-6 text-sm text-muted-foreground'>
-              No weekly sprints are available for reporting yet.
+      {sortedSprints.length === 0 ? (
+        <div className='rounded-lg border border-dashed p-6 text-sm text-muted-foreground'>
+          No weekly sprints are available for reporting yet.
+        </div>
+      ) : (
+        <>
+          <div className='grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end'>
+            <div className='space-y-2'>
+              <Select
+                value={selectedSprintId}
+                onValueChange={setSelectedSprintId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder='Select a sprint week' />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedSprints.map(sprint => (
+                    <SelectItem key={sprint._id} value={sprint._id}>
+                      {sprint.weekLabel}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          ) : (
-            <>
-              <div className='grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end'>
-                <div className='space-y-2'>
-                  <label className='text-sm text-muted-foreground'>
-                    Choose week to generate report
-                  </label>
-                  <Select
-                    value={selectedSprintId}
-                    onValueChange={setSelectedSprintId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder='Select a sprint week' />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sortedSprints.map(sprint => (
-                        <SelectItem key={sprint._id} value={sprint._id}>
-                          {sprint.weekLabel}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {selectedSprint ? (
-                  <WeeklyReportDownloadButton
-                    sectionName={sectionName}
-                    sprint={selectedSprint}
-                  />
-                ) : null}
-              </div>
+            {selectedSprint ? (
+              <WeeklyReportDownloadButton
+                sectionName={sectionName}
+                sprint={selectedSprint}
+              />
+            ) : null}
+          </div>
 
-              {/* {selectedSprint ? (
+          {/* {selectedSprint ? (
                 <div className='rounded-lg border bg-muted/20 p-4'>
                   <div className='flex flex-wrap items-center gap-3 text-sm'>
                     <span className='inline-flex items-center gap-2 font-medium'>
@@ -181,10 +173,8 @@ export function SectionReportingContent({
                   row.
                 </div>
               ) : null} */}
-            </>
-          )}
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   )
 }
