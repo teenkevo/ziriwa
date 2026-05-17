@@ -47,6 +47,7 @@ import { StakeholderEngagementContent } from './stakeholder-engagement-content'
 import { WeeklySprintContent } from './weekly-sprint-content'
 import { SectionDashboardContent } from './section-dashboard-content'
 import { SectionStaffContent } from './section-staff-content'
+import { SectionReportingContent } from './section-reporting-content'
 import type { SectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
 import type { DueItem } from './components/due-today-this-week'
 import type { SectionStaff } from '@/sanity/lib/staff/get-staff-by-section'
@@ -88,6 +89,7 @@ const SECTION_TAB_VALUES = [
   'weekly-sprint',
   'stakeholder-engagements',
   'staff',
+  'reporting',
 ] as const
 
 type SectionTab = (typeof SECTION_TAB_VALUES)[number]
@@ -171,7 +173,7 @@ export function SectionPageContent({
       icon: Handshake,
     },
     { value: 'staff', label: 'Staff', icon: Users },
-    // { value: 'reports', label: 'Reports', icon: FileBarChart },
+    { value: 'reporting', label: 'Reporting', icon: FileBarChart },
   ] as const
 
   React.useEffect(() => {
@@ -509,18 +511,11 @@ export function SectionPageContent({
             />
           </TabsContent>
 
-          <TabsContent value='reports' className='space-y-4'>
-            <Card>
-              <CardContent className='pt-6'>
-                <div className='flex items-center gap-2 text-muted-foreground mb-4'>
-                  <FileBarChart className='h-5 w-5' />
-                  <span>Reports</span>
-                </div>
-                <p className='text-sm text-muted-foreground'>
-                  Reports will be displayed here.
-                </p>
-              </CardContent>
-            </Card>
+          <TabsContent value='reporting' className='space-y-4'>
+            <SectionReportingContent
+              sectionName={section.name}
+              sprints={sprints}
+            />
           </TabsContent>
         </Tabs>
       </div>
