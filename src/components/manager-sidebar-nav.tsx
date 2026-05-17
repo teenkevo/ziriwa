@@ -57,7 +57,9 @@ export function ManagerSidebarNav() {
                     tooltip={item.label}
                   >
                     <Link href={item.href}>
-                      <Icon />
+                      <Icon
+                        className={`${isActive(pathname, item.href) ? 'text-primary' : ''}`}
+                      />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -75,7 +77,9 @@ export function ManagerSidebarNav() {
                     tooltip={item.label}
                   >
                     <Link href={item.href}>
-                      <Icon />
+                      <Icon
+                        className={`${isActive(pathname, item.href) ? 'text-primary' : ''}`}
+                      />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
