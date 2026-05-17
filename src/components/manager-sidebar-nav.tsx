@@ -12,11 +12,6 @@ import {
 } from 'lucide-react'
 
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
@@ -24,27 +19,20 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
-import type { AppRole } from '@/lib/app-role'
-
-type ManagerSidebarNavProps = {
-  role: AppRole | null
-}
 
 function isActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`)
+  const hrefPath = href.split('?')[0] ?? href
+  return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`)
 }
 
-export function ManagerSidebarNav({ role }: ManagerSidebarNavProps) {
+export function ManagerSidebarNav() {
   const pathname = usePathname()
-  const reviewLabel = role === 'supervisor' ? 'In Review' : 'To Review'
 
   const mainItems = [
     { href: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/manager/contract', label: 'Contract', icon: FileText },
+    { href: '/manager/sprints?tab=ready', label: 'Sprints', icon: Zap },
   ]
 
   const bottomItems = [
@@ -52,8 +40,6 @@ export function ManagerSidebarNav({ role }: ManagerSidebarNavProps) {
     { href: '/manager/staff', label: 'Staff', icon: Users },
     { href: '/manager/reporting', label: 'Reporting', icon: FileBarChart },
   ]
-
-  const sprintsOpen = pathname.startsWith('/manager/sprints')
 
   return (
     <SidebarContent>
@@ -78,48 +64,6 @@ export function ManagerSidebarNav({ role }: ManagerSidebarNavProps) {
                 </SidebarMenuItem>
               )
             })}
-
-            <Collapsible defaultOpen={sprintsOpen} asChild>
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton
-                    isActive={sprintsOpen}
-                    tooltip='Sprints'
-                  >
-                    <Zap />
-                    <span>Sprints</span>
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={pathname === '/manager/sprints/ready'}
-                      >
-                        <Link href='/manager/sprints/ready'>Ready</Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={pathname === '/manager/sprints/to-review'}
-                      >
-                        <Link href='/manager/sprints/to-review'>{reviewLabel}</Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={pathname === '/manager/sprints/drafts'}
-                      >
-                        <Link href='/manager/sprints/drafts'>Drafts</Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
 
             {bottomItems.map(item => {
               const Icon = item.icon

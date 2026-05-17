@@ -7,7 +7,7 @@ export async function AppSidebarNavWrapper() {
   const role = await getAppRole()
 
   if (role === 'manager' || role === 'supervisor') {
-    return <ManagerSidebarNav role={role} />
+    return <ManagerSidebarNav />
   }
 
   const departmentsTree = await getDepartmentsWithDivisionsForSidebar()

@@ -12,10 +12,12 @@ import {
   Handshake,
   LayoutDashboard,
   FileBarChart,
+  Loader2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import { flattenInitiatives } from '@/sanity/lib/section-contracts/get-section-contract'
 import { SectionDashboardContent } from '@/features/sections/section-dashboard-content'
@@ -40,6 +42,7 @@ type ManagerWorkspaceView =
   | 'reporting'
 
 type SprintView = 'ready' | 'in-review' | 'draft'
+type SprintTabValue = 'ready' | 'to-review' | 'drafts'
 
 type ManagerWorkspaceContentProps = WorkspaceData & {
   view: ManagerWorkspaceView
@@ -119,6 +122,16 @@ function sprintViewTitle(view?: SprintView, reviewLabel = 'To Review') {
   return 'Sprints'
 }
 
+function sprintTabValue(view?: SprintView): SprintTabValue {
+  if (view === 'in-review') return 'to-review'
+  if (view === 'draft') return 'drafts'
+  return 'ready'
+}
+
+function isModifiedClick(event: React.MouseEvent<HTMLAnchorElement>) {
+  return event.metaKey || event.altKey || event.ctrlKey || event.shiftKey
+}
+
 export function ManagerWorkspaceContent({
   view,
   sprintView,
@@ -148,6 +161,25 @@ export function ManagerWorkspaceContent({
   const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
   const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
+  const activeSprintTab = sprintTabValue(sprintView)
+  const [pendingSprintTab, setPendingSprintTab] =
+    React.useState<SprintTabValue | null>(null)
+
+  React.useEffect(() => {
+    setPendingSprintTab(null)
+  }, [activeSprintTab])
+
+  const handleSprintTabClick = React.useCallback(
+    (
+      tab: SprintTabValue,
+      event: React.MouseEvent<HTMLAnchorElement>,
+    ) => {
+      if (event.defaultPrevented || isModifiedClick(event)) return
+      if (tab === activeSprintTab) return
+      setPendingSprintTab(tab)
+    },
+    [activeSprintTab],
+  )
 
   const breadcrumbs = React.useMemo(
     () => [
@@ -337,31 +369,43 @@ export function ManagerWorkspaceContent({
             {view === 'sprints' ? config.description : config.description}
           </p>
           {view === 'sprints' ? (
-            <div className='mt-2 flex flex-wrap gap-2'>
-              <Button
-                asChild
-                size='sm'
-                variant={sprintView === 'ready' ? 'default' : 'outline'}
-              >
-                <Link href='/manager/sprints/ready'>Ready</Link>
-              </Button>
-              <Button
-                asChild
-                size='sm'
-                variant={sprintView === 'in-review' ? 'default' : 'outline'}
-              >
-                <Link href='/manager/sprints/to-review'>
-                  {sprintReviewLabel}
-                </Link>
-              </Button>
-              <Button
-                asChild
-                size='sm'
-                variant={sprintView === 'draft' ? 'default' : 'outline'}
-              >
-                <Link href='/manager/sprints/drafts'>Drafts</Link>
-              </Button>
-            </div>
+            <Tabs value={activeSprintTab} className='mt-2'>
+              <TabsList aria-busy={pendingSprintTab ? true : undefined}>
+                <TabsTrigger value='ready' asChild>
+                  <Link
+                    href='/manager/sprints?tab=ready'
+                    onClick={event => handleSprintTabClick('ready', event)}
+                  >
+                    Ready
+                    {pendingSprintTab === 'ready' ? (
+                      <Loader2 className='ml-2 h-3.5 w-3.5 animate-spin' />
+                    ) : null}
+                  </Link>
+                </TabsTrigger>
+                <TabsTrigger value='to-review' asChild>
+                  <Link
+                    href='/manager/sprints?tab=to-review'
+                    onClick={event => handleSprintTabClick('to-review', event)}
+                  >
+                    {sprintReviewLabel}
+                    {pendingSprintTab === 'to-review' ? (
+                      <Loader2 className='ml-2 h-3.5 w-3.5 animate-spin' />
+                    ) : null}
+                  </Link>
+                </TabsTrigger>
+                <TabsTrigger value='drafts' asChild>
+                  <Link
+                    href='/manager/sprints?tab=drafts'
+                    onClick={event => handleSprintTabClick('drafts', event)}
+                  >
+                    Drafts
+                    {pendingSprintTab === 'drafts' ? (
+                      <Loader2 className='ml-2 h-3.5 w-3.5 animate-spin' />
+                    ) : null}
+                  </Link>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           ) : null}
         </div>
 
