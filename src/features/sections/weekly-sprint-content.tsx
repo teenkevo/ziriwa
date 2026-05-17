@@ -87,6 +87,8 @@ interface WeeklySprintContentProps {
   /** Sanity staff id for signed-in user in this section — filters accepted tasks for officers. */
   viewerStaffId?: string
   sectionAccess: SectionAccess
+  presentation?: 'tabs' | 'single-view'
+  singleView?: 'ready' | 'in-review' | 'draft'
 }
 
 type WeekOption = {
@@ -232,13 +234,16 @@ export function WeeklySprintContent({
   panelPortalNode,
   viewerStaffId,
   sectionAccess,
+  presentation = 'tabs',
+  singleView = 'ready',
 }: WeeklySprintContentProps) {
   const router = useRouter()
   const sprintUiMode = getSprintUiMode(sectionAccess)
   const isOfficerView = sprintUiMode === 'officer'
   const showSprintSubTabs =
-    sectionAccess.canViewSprintDraftTab ||
-    sectionAccess.canViewSprintInReviewTab
+    presentation === 'tabs' &&
+    (sectionAccess.canViewSprintDraftTab ||
+      sectionAccess.canViewSprintInReviewTab)
   const isLg = useIsLg()
 
   const [createOpen, setCreateOpen] = React.useState(false)
@@ -322,12 +327,23 @@ export function WeeklySprintContent({
   }, [fyWeeks, todayStart, existingSprintWeeks, currentWeekIdx])
 
   React.useEffect(() => {
+    if (presentation === 'single-view') {
+      setSprintTab(singleView)
+      return
+    }
     if (!showSprintSubTabs) {
       onSprintTabChange?.('ready')
     } else if (sprintUiMode === 'manager') {
       setSprintTab('in-review')
     }
-  }, [showSprintSubTabs, sprintUiMode, onSprintTabChange, setSprintTab])
+  }, [
+    presentation,
+    singleView,
+    showSprintSubTabs,
+    sprintUiMode,
+    onSprintTabChange,
+    setSprintTab,
+  ])
 
   const addTask = () => setDraftTasks(prev => [...prev, { ...emptyDraftTask }])
 
@@ -952,9 +968,82 @@ export function WeeklySprintContent({
     </div>
   )
 
+  const draftSprintsContent = (
+    <div className='space-y-4 mt-4'>
+      {draftSprints.length === 0 ? (
+        <Card>
+          <CardContent className='pt-6'>
+            <p className='text-sm text-muted-foreground'>
+              No draft sprints. Create a new sprint to get started.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        draftSprints.map(sprint => (
+          <SprintCard
+            key={sprint._id}
+            sprint={sprint}
+            onSubmit={() => handleSubmitSprint(sprint._id)}
+            isSubmitting={
+              isSubmitting === sprint._id ||
+              (isDeletingSprint && sprintToDelete?._id === sprint._id)
+            }
+            onEditDraft={() => openEditDraftSprint(sprint)}
+            onDeleteDraft={() => setSprintToDelete(sprint)}
+            canSubmitDraft={sectionAccess.canCreateSprints}
+            onReviewTask={(task, action) => openReview(sprint._id, task, action)}
+          />
+        ))
+      )}
+    </div>
+  )
+
+  const inReviewSprintsContent = (
+    <div className='space-y-4 mt-4'>
+      {submittedOrReviewedSprints.length === 0 ? (
+        <Card>
+          <CardContent className='pt-6'>
+            <p className='text-sm text-muted-foreground'>No sprints in review.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        submittedOrReviewedSprints.map(sprint => (
+          <SprintCard
+            key={sprint._id}
+            sprint={sprint}
+            onSubmit={() => handleSubmitSprint(sprint._id)}
+            isSubmitting={isSubmitting === sprint._id}
+            canManagerReviewPlan={sectionAccess.isSectionManager}
+            onReviewTask={(task, action) => openReview(sprint._id, task, action)}
+            onOpenRevise={task => openReviseDialog(sprint._id, task)}
+          />
+        ))
+      )}
+    </div>
+  )
+
+  const singleViewContent =
+    singleView === 'draft'
+      ? draftSprintsContent
+      : singleView === 'in-review'
+        ? inReviewSprintsContent
+        : readySprintsContent
+
   return (
     <div className='space-y-4'>
-      {!showSprintSubTabs ? (
+      {presentation === 'single-view' ? (
+        <>
+          {singleView === 'draft' && sectionAccess.canCreateSprints ? (
+            <div className='flex justify-end'>
+              <Button onClick={openNewSprintDialog} size='sm'>
+                <Plus className='h-4 w-4' />
+                New Sprint
+              </Button>
+            </div>
+          ) : null}
+          {singleViewContent}
+        </>
+      ) : !showSprintSubTabs ? (
         readySprintsContent
       ) : (
         <Tabs value={sprintTab} onValueChange={setSprintTab}>
@@ -1017,62 +1106,11 @@ export function WeeklySprintContent({
           </div>
 
           {sectionAccess.canViewSprintDraftTab ? (
-            <TabsContent value='draft' className='space-y-4 mt-4'>
-              {draftSprints.length === 0 ? (
-                <Card>
-                  <CardContent className='pt-6'>
-                    <p className='text-sm text-muted-foreground'>
-                      No draft sprints. Create a new sprint to get started.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                draftSprints.map(sprint => (
-                  <SprintCard
-                    key={sprint._id}
-                    sprint={sprint}
-                    onSubmit={() => handleSubmitSprint(sprint._id)}
-                    isSubmitting={
-                      isSubmitting === sprint._id ||
-                      (isDeletingSprint && sprintToDelete?._id === sprint._id)
-                    }
-                    onEditDraft={() => openEditDraftSprint(sprint)}
-                    onDeleteDraft={() => setSprintToDelete(sprint)}
-                    onReviewTask={(task, action) =>
-                      openReview(sprint._id, task, action)
-                    }
-                  />
-                ))
-              )}
-            </TabsContent>
+            <TabsContent value='draft'>{draftSprintsContent}</TabsContent>
           ) : null}
 
           {sectionAccess.canViewSprintInReviewTab ? (
-            <TabsContent value='in-review' className='space-y-4 mt-4'>
-              {submittedOrReviewedSprints.length === 0 ? (
-                <Card>
-                  <CardContent className='pt-6'>
-                    <p className='text-sm text-muted-foreground'>
-                      No sprints in review.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                submittedOrReviewedSprints.map(sprint => (
-                  <SprintCard
-                    key={sprint._id}
-                    sprint={sprint}
-                    onSubmit={() => handleSubmitSprint(sprint._id)}
-                    isSubmitting={isSubmitting === sprint._id}
-                    canManagerReviewPlan={sectionAccess.isSectionManager}
-                    onReviewTask={(task, action) =>
-                      openReview(sprint._id, task, action)
-                    }
-                    onOpenRevise={task => openReviseDialog(sprint._id, task)}
-                  />
-                ))
-              )}
-            </TabsContent>
+            <TabsContent value='in-review'>{inReviewSprintsContent}</TabsContent>
           ) : null}
 
           <TabsContent value='ready' className='mt-4 space-y-4'>
@@ -1081,7 +1119,7 @@ export function WeeklySprintContent({
         </Tabs>
       )}
 
-      {!isLg && (!showSprintSubTabs || sprintTab === 'ready') ? (
+      {!isLg && ((presentation === 'single-view' && singleView === 'ready') || (!showSprintSubTabs || sprintTab === 'ready')) ? (
         <Sheet
           open={Boolean(selectedTaskKey)}
           onOpenChange={open => {
@@ -1955,6 +1993,7 @@ function SprintCard({
   onDeleteDraft,
   isSubmitting,
   canManagerReviewPlan = false,
+  canSubmitDraft = true,
   onReviewTask,
   onOpenRevise,
 }: {
@@ -1964,6 +2003,7 @@ function SprintCard({
   onDeleteDraft?: () => void
   isSubmitting: boolean
   canManagerReviewPlan?: boolean
+  canSubmitDraft?: boolean
   onReviewTask: (task: SprintTask, action: string) => void
   /** Open dialog to edit this task and resubmit for manager review. */
   onOpenRevise?: (task: SprintTask) => void
@@ -2031,21 +2071,23 @@ function SprintCard({
                       Delete
                     </Button>
                   )}
-                  <Button
-                    size='sm'
-                    variant='outline'
-                    onClick={onSubmit}
-                    disabled={isSubmitting || tasks.length === 0}
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className='h-4 w-4 animate-spin' />
-                    ) : (
-                      <>
-                        <Send className='h-4 w-4' />
-                        Submit
-                      </>
-                    )}
-                  </Button>
+                  {canSubmitDraft && (
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      onClick={onSubmit}
+                      disabled={isSubmitting || tasks.length === 0}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className='h-4 w-4 animate-spin' />
+                      ) : (
+                        <>
+                          <Send className='h-4 w-4' />
+                          Submit
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </>
               )}
               <CollapsibleTrigger asChild>

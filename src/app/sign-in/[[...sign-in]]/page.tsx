@@ -7,7 +7,7 @@ export default function SignInPage() {
         routing='path'
         path='/sign-in'
         signUpUrl='/sign-in'
-        fallbackRedirectUrl='/departments'
+        fallbackRedirectUrl='/workspace'
       />
     </div>
   )

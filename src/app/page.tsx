@@ -30,7 +30,7 @@ const Navbar = () => {
         >
           <div className='flex flex-col sm:flex-row sm:items-center gap-4  lg:min-w-max mt-10 lg:mt-0'>
             <SignedOut>
-              <SignInButton mode='modal' fallbackRedirectUrl='/departments'>
+              <SignInButton mode='modal' fallbackRedirectUrl='/workspace'>
                 <Button
                   variant='outline'
                   className='flex items-center justify-center w-full sm:w-auto h-10 px-6 rounded-md shadow-md border border-gray-200 dark:border-gray-800'
@@ -41,10 +41,10 @@ const Navbar = () => {
             </SignedOut>
             <SignedIn>
               <Link
-                href='/departments'
+                href='/workspace'
                 className='flex items-center justify-center w-full sm:w-auto h-10 px-6 rounded-md shadow-md border border-gray-200 dark:border-gray-800'
               >
-                Departments
+                Workspace
               </Link>
             </SignedIn>
           </div>
@@ -91,7 +91,7 @@ function SignInCtaButton() {
 
   return (
     <SignedOut>
-      <SignInButton mode='modal' fallbackRedirectUrl='/departments'>
+      <SignInButton mode='modal' fallbackRedirectUrl='/workspace'>
         <Button
           className='group'
           onMouseEnter={() => setIsHovered(true)}

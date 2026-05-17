@@ -112,7 +112,7 @@ type Section = {
 
 type StaffOption = { _id: string; fullName?: string; staffId?: string }
 
-interface SectionPageContentProps {
+export interface SectionPageContentProps {
   section: Section
   sectionContract: SectionContract | null
   stakeholderEngagement: StakeholderEngagement | null
