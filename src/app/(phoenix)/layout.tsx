@@ -13,7 +13,6 @@ import { AppSidebarFooter } from '@/components/app-sidebar-footer'
 import { AppSidebarNavWrapper } from '@/components/app-sidebar-nav-wrapper'
 import { AppTopBarShell } from '@/components/app-top-bar-shell'
 import { AppBreadcrumbProvider } from '@/contexts/app-breadcrumb-context'
-import { RouteTransitionLoadingOverlay } from '@/components/route-transition-loading-overlay'
 
 export const metadata: Metadata = {
   title: 'Ziriwa by DIP',
@@ -38,7 +37,6 @@ export default async function Layout({ children }: LayoutProps) {
       </Sidebar>
       <SidebarInset>
         <AppBreadcrumbProvider>
-          <RouteTransitionLoadingOverlay />
           <AppTopBarShell />
           <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
             {children}
