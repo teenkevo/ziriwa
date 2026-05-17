@@ -1,10 +1,42 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
+import { parseAppRole } from '@/lib/app-role'
 import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
+import { client } from '@/sanity/lib/client'
 
 // Set to 'true' to require auth + staff email in Sanity. 'false' = open access (dev).
 const AUTH_GATED = process.env.AUTH_GATED === 'true'
+
+async function getStaffRoleByEmail(email: string) {
+  if (!email) return null
+
+  const staff = await client.fetch<{ role?: string } | null>(
+    /* groq */ `*[_type == "staff" && lower(email) == $email && status == "active"][0]{ role }`,
+    { email: email.toLowerCase() },
+  )
+
+  return parseAppRole(staff?.role)
+}
+
+async function getWorkspaceDestination(userId: string, requestUrl: string) {
+  const clerk = await clerkClient()
+  const user = await clerk.users.getUser(userId)
+  const roleFromMetadata = parseAppRole(
+    (user.publicMetadata as Record<string, unknown> | undefined)?.appRole,
+  )
+
+  const primaryEmail = user.emailAddresses?.find(
+    (email: any) => email.id === user.primaryEmailAddressId,
+  )?.emailAddress
+  const role = roleFromMetadata ?? (await getStaffRoleByEmail(primaryEmail ?? ''))
+
+  if (role === 'manager' || role === 'supervisor') {
+    return new URL('/manager/dashboard', requestUrl)
+  }
+
+  return new URL('/departments', requestUrl)
+}
 
 // Define public routes - homepage and Clerk auth routes
 const isPublicRoute = createRouteMatcher([
@@ -24,9 +56,16 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(new URL('/sign-in', request.url))
   }
 
-  // Redirect authenticated users away from homepage to departments
+  if (userId && pathname === '/workspace') {
+    return NextResponse.redirect(
+      await getWorkspaceDestination(userId, request.url),
+    )
+  }
+
+  // Redirect authenticated users through workspace so role-specific routing
+  // stays centralized.
   if (userId && pathname === '/') {
-    return NextResponse.redirect(new URL('/departments', request.url))
+    return NextResponse.redirect(new URL('/workspace', request.url))
   }
 
   // Skip auth gating when AUTH_GATED is not 'true'
