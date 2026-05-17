@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   cell: {
     padding: 6,
     borderRight: '1 solid #d1d5db',
-    lineHeight: 0.8,
+    lineHeight: 1.35,
   },
   lastCell: {
     borderRightWidth: 0,
