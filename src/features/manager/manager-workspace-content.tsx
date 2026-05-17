@@ -93,8 +93,7 @@ const viewConfig: Record<
   },
   sprints: {
     title: 'Sprints',
-    description:
-      'Track ready work, review submitted sprint plans, and manage drafts.',
+    description: 'Manage weekly sprints and tasks',
     icon: Zap,
   },
   stakeholders: {
@@ -116,8 +115,8 @@ const viewConfig: Record<
 }
 
 function sprintViewTitle(view?: SprintView, reviewLabel = 'To Review') {
-  if (view === 'ready') return 'Ready Sprints'
-  if (view === 'draft') return 'Draft Sprints'
+  if (view === 'ready') return 'Sprints'
+  if (view === 'draft') return 'Sprints'
   if (view === 'in-review') return reviewLabel
   return 'Sprints'
 }
@@ -170,10 +169,7 @@ export function ManagerWorkspaceContent({
   }, [activeSprintTab])
 
   const handleSprintTabClick = React.useCallback(
-    (
-      tab: SprintTabValue,
-      event: React.MouseEvent<HTMLAnchorElement>,
-    ) => {
+    (tab: SprintTabValue, event: React.MouseEvent<HTMLAnchorElement>) => {
       if (event.defaultPrevented || isModifiedClick(event)) return
       if (tab === activeSprintTab) return
       setPendingSprintTab(tab)
