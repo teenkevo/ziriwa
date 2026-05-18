@@ -10,7 +10,7 @@ export function SidebarBrand() {
   if (state === 'collapsed') {
     return (
       <Link
-        href='/departments'
+        href='/workspace'
         className='flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/40 text-xs font-bold text-primary'
         title='Ziriwa'
       >
@@ -19,5 +19,5 @@ export function SidebarBrand() {
     )
   }
 
-  return <Logo href='/departments' />
+  return <Logo href='/workspace' />
 }

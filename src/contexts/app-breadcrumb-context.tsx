@@ -7,9 +7,16 @@ export type AppBreadcrumbItem = {
   href?: string
 }
 
+export type AppHeaderIdentity = {
+  roleLabel: string
+  sectionLabel: string
+}
+
 type Ctx = {
   items: AppBreadcrumbItem[]
+  headerIdentity: AppHeaderIdentity | null
   setItems: (items: AppBreadcrumbItem[]) => void
+  setHeaderIdentity: (identity: AppHeaderIdentity | null) => void
 }
 
 const AppBreadcrumbContext = React.createContext<Ctx | null>(null)
@@ -20,12 +27,25 @@ export function AppBreadcrumbProvider({
   children: React.ReactNode
 }) {
   const [items, setItems] = React.useState<AppBreadcrumbItem[]>([])
+  const [headerIdentity, setHeaderIdentity] =
+    React.useState<AppHeaderIdentity | null>(null)
   const setItemsStable = React.useCallback((next: AppBreadcrumbItem[]) => {
     setItems(next)
   }, [])
+  const setHeaderIdentityStable = React.useCallback(
+    (next: AppHeaderIdentity | null) => {
+      setHeaderIdentity(next)
+    },
+    [],
+  )
   return (
     <AppBreadcrumbContext.Provider
-      value={{ items, setItems: setItemsStable }}
+      value={{
+        items,
+        headerIdentity,
+        setItems: setItemsStable,
+        setHeaderIdentity: setHeaderIdentityStable,
+      }}
     >
       {children}
     </AppBreadcrumbContext.Provider>
@@ -50,4 +70,16 @@ export function useRegisterPageBreadcrumbs(items: AppBreadcrumbItem[]) {
     setItems(JSON.parse(serialized) as AppBreadcrumbItem[])
     return () => setItems([])
   }, [serialized, setItems])
+}
+
+/** Registers the role/section label shown in the app header; clears on unmount. */
+export function useRegisterHeaderIdentity(identity: AppHeaderIdentity | null) {
+  const { setHeaderIdentity } = useAppBreadcrumb()
+  const serialized = JSON.stringify(identity)
+  React.useEffect(() => {
+    setHeaderIdentity(
+      JSON.parse(serialized) as AppHeaderIdentity | null,
+    )
+    return () => setHeaderIdentity(null)
+  }, [serialized, setHeaderIdentity])
 }

@@ -59,8 +59,12 @@ import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import type { StaffMember } from '@/sanity/lib/staff/get-managers'
 import type { InitiativeWithActivities } from './weekly-sprint-content'
-import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import {
+  useRegisterHeaderIdentity,
+  useRegisterPageBreadcrumbs,
+} from '@/contexts/app-breadcrumb-context'
 import type { SectionAccess } from '@/lib/section-access'
+import { APP_ROLE_LABELS } from '@/lib/authz/types'
 
 function flattenInitiativesWithActivities(
   contract: SectionContract | null,
@@ -233,6 +237,22 @@ export function SectionPageContent({
   }, [section])
 
   useRegisterPageBreadcrumbs(breadcrumbItems)
+
+  const headerRoleLabel = React.useMemo(() => {
+    if (sectionAccess.isSectionManager) return 'Manager'
+    if (sectionAccess.isSectionSupervisor) return 'Supervisor'
+    if (sectionAccess.isSectionOfficer) return 'Officer'
+    return role ? APP_ROLE_LABELS[role] : null
+  }, [role, sectionAccess])
+
+  useRegisterHeaderIdentity(
+    headerRoleLabel
+      ? {
+          roleLabel: headerRoleLabel,
+          sectionLabel: section.name,
+        }
+      : null,
+  )
 
   const divisionSlug = section.division?.slug?.current
 

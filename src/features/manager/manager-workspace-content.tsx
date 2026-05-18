@@ -18,7 +18,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import {
+  useRegisterHeaderIdentity,
+  useRegisterPageBreadcrumbs,
+} from '@/contexts/app-breadcrumb-context'
 import { flattenInitiatives } from '@/sanity/lib/section-contracts/get-section-contract'
 import { SectionDashboardContent } from '@/features/sections/section-dashboard-content'
 import { SectionStaffContent } from '@/features/sections/section-staff-content'
@@ -188,6 +191,13 @@ export function ManagerWorkspaceContent({
     [config.title],
   )
   useRegisterPageBreadcrumbs(breadcrumbs)
+  useRegisterHeaderIdentity({
+    roleLabel:
+      sectionAccess.isSectionSupervisor && !sectionAccess.isSectionManager
+        ? 'Supervisor'
+        : 'Manager',
+    sectionLabel: section.name,
+  })
 
   const currentFY = sectionContract?.financialYearLabel ?? 'current FY'
   const manager = section.manager

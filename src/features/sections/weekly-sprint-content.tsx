@@ -1149,8 +1149,8 @@ export function WeeklySprintContent({
           }
         }}
       >
-        <DialogContent className='w-full max-w-lg max-h-[85vh] overflow-y-auto'>
-          <DialogHeader>
+        <DialogContent className='flex max-h-[85dvh] w-full max-w-lg grid-rows-none flex-col overflow-hidden'>
+          <DialogHeader className='shrink-0'>
             <DialogTitle>
               {editingSprintId ? 'Edit draft sprint' : 'New Weekly Sprint'}
             </DialogTitle>
@@ -1165,8 +1165,9 @@ export function WeeklySprintContent({
               e.stopPropagation()
               handleSaveSprint(e)
             }}
+            className='flex min-h-0 flex-1 flex-col'
           >
-            <div className='space-y-4 py-2 pb-4'>
+            <div className='min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain py-2 pb-4 pr-1'>
               <div className='space-y-2'>
                 <Label required>Week</Label>
                 <Select
@@ -1344,7 +1345,7 @@ export function WeeklySprintContent({
                 </Button>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className='shrink-0 border-t pt-4'>
               <Button
                 type='button'
                 variant='outline'

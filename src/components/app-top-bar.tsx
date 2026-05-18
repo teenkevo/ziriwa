@@ -22,13 +22,24 @@ import { cn } from '@/lib/utils'
 import { useAppBreadcrumb } from '@/contexts/app-breadcrumb-context'
 
 export function AppTopBar() {
-  const { items } = useAppBreadcrumb()
+  const { items, headerIdentity } = useAppBreadcrumb()
+  const hasHeaderContent = Boolean(headerIdentity) || items.length > 0
 
   return (
     <header className='flex h-14 shrink-0 items-center gap-3 border-b px-4'>
       <SidebarTrigger className='-ml-1 shrink-0' />
       <div className='flex min-w-0 flex-1 items-center gap-2 sm:gap-3'>
-        {items.length > 0 && (
+        {headerIdentity ? (
+          <div className='hidden min-w-0 flex-1 items-center text-sm font-medium lg:flex'>
+            <span className='truncate text-primary'>
+              {headerIdentity.roleLabel}
+            </span>
+            <span className='mx-2 text-muted-foreground'>|</span>
+            <span className='truncate text-foreground'>
+              {headerIdentity.sectionLabel}
+            </span>
+          </div>
+        ) : items.length > 0 ? (
           <Breadcrumb className='hidden min-w-0 flex-1 text-muted-foreground lg:flex lg:items-center'>
             <BreadcrumbList className='flex-wrap'>
               {items.map((item, i) => (
@@ -51,16 +62,16 @@ export function AppTopBar() {
               ))}
             </BreadcrumbList>
           </Breadcrumb>
-        )}
+        ) : null}
         <SignedIn>
           <GlobalSearch
             className={cn(
               'min-w-0 w-full flex-1 sm:w-[min(22rem,40vw)] sm:flex-none sm:shrink-0',
-              items.length === 0 && 'sm:ml-auto',
+              !hasHeaderContent && 'sm:ml-auto',
             )}
           />
         </SignedIn>
-        {items.length === 0 && (
+        {!hasHeaderContent && (
           <SignedOut>
             <div className='min-w-0 flex-1' />
           </SignedOut>

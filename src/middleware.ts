@@ -19,6 +19,24 @@ async function getStaffRoleByEmail(email: string) {
   return parseAppRole(staff?.role)
 }
 
+async function getStaffSectionPathByEmail(email: string) {
+  if (!email) return null
+
+  const section = await client.fetch<{
+    _id: string
+    slug?: { current?: string }
+  } | null>(
+    /* groq */ `*[_type == "staff" && lower(email) == $email && status == "active" && defined(section._ref)][0].section->{
+      _id,
+      slug
+    }`,
+    { email: email.toLowerCase() },
+  )
+
+  const sectionKey = section?.slug?.current ?? section?._id
+  return sectionKey ? `/sections/${sectionKey}` : null
+}
+
 async function getWorkspaceDestination(userId: string, requestUrl: string) {
   const clerk = await clerkClient()
   const user = await clerk.users.getUser(userId)
@@ -33,6 +51,11 @@ async function getWorkspaceDestination(userId: string, requestUrl: string) {
 
   if (role === 'manager' || role === 'supervisor') {
     return new URL('/manager/dashboard', requestUrl)
+  }
+
+  if (role === 'officer') {
+    const sectionPath = await getStaffSectionPathByEmail(primaryEmail ?? '')
+    if (sectionPath) return new URL(sectionPath, requestUrl)
   }
 
   return new URL('/departments', requestUrl)
