@@ -1,9 +1,57 @@
-# Clerk Webhook Setup Instructions
+# Clerk setup (local, Vercel, webhooks)
 
 This application uses Clerk webhooks to validate that only users with emails in
 Sanity can sign up.
 
-## Setup Steps
+## Vercel production
+
+### 1. Use live Clerk keys
+
+In **Vercel → Project → Settings → Environment Variables**, set for the
+**Production** environment only:
+
+| Variable | Value |
+|----------|--------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `pk_live_…` from Clerk **Production** instance |
+| `CLERK_SECRET_KEY` | `sk_live_…` from the same instance |
+
+Use `pk_test_` / `sk_test_` only for **Preview** and local `.env.local`, not
+Production.
+
+`NEXT_PUBLIC_*` is inlined at **build** time. After adding or changing it,
+**redeploy** Production.
+
+Also set `AUTH_GATED`, Sanity vars, and `CLERK_WEBHOOK_SECRET` as needed for
+Production.
+
+### 2. Middleware matcher
+
+`src/middleware.ts` must include Clerk’s frontend API in the matcher:
+
+```ts
+'/__clerk/(.*)',
+```
+
+and treat `/__clerk` as a public route so `AUTH_GATED` does not block the
+session handshake. This is already configured in the repo.
+
+### 3. Custom domain (branded auth & Account Portal)
+
+1. **Vercel** → Project → **Domains** → add your production hostname (e.g.
+   `app.example.com`).
+2. **Clerk Dashboard** → **Configure** → **Domains** → add the same hostname
+   under your **Production** application.
+3. Optional: **Account Portal** and **Paths** in Clerk (sign-in URL `/sign-in`,
+   aligned with `ClerkProvider` in `src/app/layout.tsx`).
+4. Point `CLERK_WEBHOOK_SECRET` webhook URL to
+   `https://your-domain.com/api/webhooks/clerk`.
+
+Until a custom domain is added in both Vercel and Clerk, `*.vercel.app` must be
+listed in Clerk **Domains** for the instance whose keys you use.
+
+---
+
+## Webhook setup
 
 ### 1. Get Your Webhook Secret
 

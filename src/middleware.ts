@@ -76,11 +76,12 @@ async function getWorkspaceDestination(userId: string, requestUrl: string) {
   return new URL('/departments', requestUrl)
 }
 
-// Define public routes - homepage and Clerk auth routes
+// Define public routes - homepage, Clerk auth, and Clerk frontend API (handshake)
 const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/__clerk(.*)',
   '/api/webhooks/clerk(.*)',
   '/unauthorized',
   '/studio(.*)',
@@ -153,5 +154,7 @@ export const config = {
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     // Always run for API routes
     '/(api|trpc)(.*)',
+    // Clerk frontend API (session handshake); required for sign-in UI in production
+    '/__clerk/(.*)',
   ],
 }
