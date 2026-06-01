@@ -15,7 +15,7 @@ export async function getSupervisorsBySection(
     *[_type == "staff"
       && role == "supervisor"
       && section._ref == $sectionId
-      && status == "active"
+      && coalesce(status, "active") != "inactive"
     ] | order(coalesce(fullName, firstName + " " + lastName) asc) {
       _id,
       "fullName": coalesce(fullName, firstName + " " + lastName),
@@ -44,7 +44,7 @@ export async function getOfficersBySection(
     *[_type == "staff"
       && role == "officer"
       && section._ref == $sectionId
-      && status == "active"
+      && coalesce(status, "active") != "inactive"
     ] | order(coalesce(fullName, firstName + " " + lastName) asc) {
       _id,
       "fullName": coalesce(fullName, firstName + " " + lastName),

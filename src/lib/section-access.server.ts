@@ -60,11 +60,11 @@ export async function getSectionAccessForViewer(
         { sectionId },
       ),
       client.fetch<string[]>(
-        /* groq */ `*[_type == "staff" && role == "supervisor" && status == "active" && section._ref == $sectionId]._id`,
+        /* groq */ `*[_type == "staff" && role == "supervisor" && coalesce(status, "active") != "inactive" && section._ref == $sectionId]._id`,
         { sectionId },
       ),
       client.fetch<string[]>(
-        /* groq */ `*[_type == "staff" && role == "officer" && status == "active" && section._ref == $sectionId]._id`,
+        /* groq */ `*[_type == "staff" && role == "officer" && coalesce(status, "active") != "inactive" && section._ref == $sectionId]._id`,
         { sectionId },
       ),
     ])

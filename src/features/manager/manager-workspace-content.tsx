@@ -131,6 +131,7 @@ export function ManagerWorkspaceContent({
   officerContract = null,
   stakeholderEngagement,
   staffOptions,
+  supervisors,
   officers,
   dueToday,
   dueThisWeek,
@@ -154,7 +155,12 @@ export function ManagerWorkspaceContent({
   const usesOfficerContract =
     workspaceBasePath === '/officer' ||
     shouldUseOfficerContract(sectionAccess)
-  const usesSupervisorContract = shouldScopeSprintsToSupervisor(sectionAccess)
+  const usesSupervisorContract =
+    shouldScopeSprintsToSupervisor(sectionAccess) ||
+    Boolean(
+      sectionAccess.viewerStaffId &&
+        supervisors.some(s => s._id === sectionAccess.viewerStaffId),
+    )
   const usesLeadershipContract = usesSupervisorContract || usesOfficerContract
   const activeContract = usesOfficerContract
     ? officerContract
@@ -164,7 +170,8 @@ export function ManagerWorkspaceContent({
   const canManageActiveContract = usesOfficerContract
     ? sectionAccess.canManageOfficerContract || workspaceBasePath === '/officer'
     : usesSupervisorContract
-      ? sectionAccess.canManageSupervisorContract
+      ? sectionAccess.canManageSupervisorContract ||
+        sectionAccess.isSectionSupervisor
       : sectionAccess.canManageContract
   const leadershipContractsApi: Extract<
     ContractsApiResource,
@@ -350,7 +357,7 @@ export function ManagerWorkspaceContent({
                   Onboard your contract to add SSMARTA objectives, initiatives,
                   and measurable activities.
                 </p>
-                {sectionAccess.canManageSupervisorContract ? (
+                {canManageActiveContract ? (
                   <Button onClick={() => setOnboardOpen(true)}>
                     Onboard Contract
                   </Button>

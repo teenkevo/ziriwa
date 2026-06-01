@@ -231,7 +231,12 @@ export function SectionPageContent({
     () => scopeSprintsForViewer(sprints, sectionAccess),
     [sprints, sectionAccess],
   )
-  const usesSupervisorContract = shouldScopeSprintsToSupervisor(sectionAccess)
+  const usesSupervisorContract =
+    shouldScopeSprintsToSupervisor(sectionAccess) ||
+    Boolean(
+      sectionAccess.viewerStaffId &&
+        supervisors.some(s => s._id === sectionAccess.viewerStaffId),
+    )
   const usesOfficerContract =
     shouldUseOfficerContract(sectionAccess) ||
     Boolean(
@@ -250,7 +255,8 @@ export function SectionPageContent({
     ? sectionAccess.canManageOfficerContract ||
       sectionAccess.isSectionOfficer
     : usesSupervisorContract
-      ? sectionAccess.canManageSupervisorContract
+      ? sectionAccess.canManageSupervisorContract ||
+        sectionAccess.isSectionSupervisor
       : sectionAccess.canManageContract
   const leadershipContractsApi = usesOfficerContract
     ? 'officer-contracts'
@@ -574,7 +580,7 @@ export function SectionPageContent({
                       Onboard your contract to add SSMARTA objectives,
                       initiatives, and measurable activities.
                     </p>
-                    {sectionAccess.canManageSupervisorContract ? (
+                    {canManageActiveContract ? (
                       <Button onClick={() => setOnboardOpen(true)}>
                         Onboard Contract
                       </Button>

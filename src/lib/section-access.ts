@@ -57,7 +57,9 @@ function permanentFlags(input: SectionAccessInput) {
       viewerStaffId === input.sectionManagerId,
   )
   const isPermanentSupervisor = Boolean(
-    viewerStaffId && input.supervisorIds.includes(viewerStaffId),
+    viewerStaffId &&
+      (input.supervisorIds.includes(viewerStaffId) ||
+        (input.appRole === 'supervisor' && !isPermanentManager)),
   )
   const isPermanentOfficer = Boolean(
     viewerStaffId &&
