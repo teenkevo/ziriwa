@@ -12,7 +12,11 @@ const emptyCapabilities: Capabilities = {
 }
 
 /** Client-safe: derives capabilities from a known role (no server imports). */
-export function getCapabilitiesForRole(role: AppRole | null): Capabilities {
-  if (!role) return emptyCapabilities
-  return getRolePermissions(role) ?? emptyCapabilities
+export function getCapabilitiesForRole(
+  role: AppRole | null,
+  isSuperadmin = false,
+): Capabilities {
+  const effective = isSuperadmin ? 'commissioner_general' : role
+  if (!effective) return emptyCapabilities
+  return getRolePermissions(effective) ?? emptyCapabilities
 }

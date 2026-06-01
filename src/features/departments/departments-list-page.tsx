@@ -16,8 +16,7 @@ import {
 } from '@/features/departments/departments-table'
 import { CreateDepartmentDialog } from '@/features/dashboard/components/create-department-dialog'
 import { EditDepartmentDialog } from '@/features/dashboard/components/edit-department-dialog'
-import { hasRoleAtLeast } from '@/lib/app-role'
-import { useAppRole } from '@/hooks/use-app-role'
+import { useOrgStructureAccess } from '@/hooks/use-org-structure-access'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,8 +95,7 @@ export function DepartmentsListPage({
   const { mode: viewMode, setMode: setViewMode } = useViewMode(
     'departments-list-view',
   )
-  const { role, isLoaded } = useAppRole()
-  const canManageDepartments = isLoaded && hasRoleAtLeast(role, 'commissioner')
+  const { canManageDepartments } = useOrgStructureAccess()
 
   const [editingDepartment, setEditingDepartment] =
     React.useState<DepartmentRow | null>(null)

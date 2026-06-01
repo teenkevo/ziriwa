@@ -14,6 +14,8 @@ import { AppSidebarFooter } from '@/components/app-sidebar-footer'
 import { AppSidebarNavWrapper } from '@/components/app-sidebar-nav-wrapper'
 import { AppTopBarShell } from '@/components/app-top-bar-shell'
 import { AppBreadcrumbProvider } from '@/contexts/app-breadcrumb-context'
+import { ViewerProvider } from '@/contexts/viewer-context'
+import { isSuperadmin } from '@/lib/authz/guards.server'
 
 export const metadata: Metadata = {
   title: 'Ziriwa by DIP',
@@ -27,8 +29,10 @@ interface LayoutProps {
 export default async function Layout({ children }: LayoutProps) {
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false'
+  const superadmin = await isSuperadmin()
 
   return (
+    <ViewerProvider isSuperadmin={superadmin}>
     <SidebarProvider defaultOpen={defaultOpen}>
       <Sidebar collapsible='icon' variant='inset'>
         <SidebarChromeHeader />
@@ -47,5 +51,6 @@ export default async function Layout({ children }: LayoutProps) {
         </AppBreadcrumbProvider>
       </SidebarInset>
     </SidebarProvider>
+    </ViewerProvider>
   )
 }

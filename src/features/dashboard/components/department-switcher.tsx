@@ -28,8 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { hasRoleAtLeast } from '@/lib/app-role'
-import { useAppRole } from '@/hooks/use-app-role'
+import { useOrgStructureAccess } from '@/hooks/use-org-structure-access'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -81,8 +80,7 @@ export default function DepartmentSwitcher({
   const selectedDepartment =
     departments.find(d => d._id === selectedId) || departments[0]
 
-  const { role, isLoaded } = useAppRole()
-  const canCreateDepartment = isLoaded && hasRoleAtLeast(role, 'commissioner')
+  const { canManageDepartments: canCreateDepartment } = useOrgStructureAccess()
 
   const sidebar = useSidebarOptional()
   const inSidebar = sidebar != null

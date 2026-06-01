@@ -243,7 +243,6 @@ function buildColumns(
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-44'>
-              <DropdownMenuItem asChild>Actions</DropdownMenuItem>
               {canManage && (
                 <>
                   <DropdownMenuItem onClick={() => onEdit(div)}>

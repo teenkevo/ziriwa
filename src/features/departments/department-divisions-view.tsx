@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 import { Plus, Loader2, ChevronDown, Pencil, Trash2 } from 'lucide-react'
-import { hasRoleAtLeast } from '@/lib/app-role'
-import { useAppRole } from '@/hooks/use-app-role'
+import { useOrgStructureAccess } from '@/hooks/use-org-structure-access'
 import { useViewMode } from '@/hooks/use-view-mode'
 import { ViewModeToggle } from '@/components/view-mode-toggle'
 import {
@@ -124,10 +123,8 @@ export function DepartmentDivisionsView({
   const { mode: viewMode, setMode: setViewMode } = useViewMode(
     'dashboard-divisions-view',
   )
-  const { role, isLoaded } = useAppRole()
-
-  const canCreateDeptOrDivision =
-    isLoaded && hasRoleAtLeast(role, 'commissioner')
+  const { canManageDepartments: canCreateDeptOrDivision } =
+    useOrgStructureAccess()
   const canCreateDivision = canCreateDeptOrDivision
   const allowDepartmentActions = canCreateDeptOrDivision
   const departmentName = department?.name ?? 'the current department'

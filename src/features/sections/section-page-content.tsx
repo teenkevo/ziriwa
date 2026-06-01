@@ -37,8 +37,8 @@ import {
   LayoutDashboard,
   Users,
 } from 'lucide-react'
-import { canCreateSection } from '@/lib/app-role'
 import { useAppRole } from '@/hooks/use-app-role'
+import { useOrgStructureAccess } from '@/hooks/use-org-structure-access'
 import { EditSectionDialog } from '@/features/dashboard/components/edit-section-dialog'
 import { DueTodayThisWeek } from './components/due-today-this-week'
 import { ContractTree } from './components/contract-tree'
@@ -173,8 +173,9 @@ export function SectionPageContent({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { role, isLoaded } = useAppRole()
-  const allowSectionActions = isLoaded && canCreateSection(role)
+  const { role } = useAppRole()
+  const { canCreateSection: allowSectionActions, isSuperadmin } =
+    useOrgStructureAccess()
   const [showEditSection, setShowEditSection] = useState(false)
   const [showDeleteSection, setShowDeleteSection] = useState(false)
   const [deletingSection, setDeletingSection] = useState(false)
@@ -290,8 +291,9 @@ export function SectionPageContent({
     if (sectionAccess.isSectionManager) return 'Manager'
     if (sectionAccess.isSectionSupervisor) return 'Supervisor'
     if (sectionAccess.isSectionOfficer) return 'Officer'
+    if (isSuperadmin) return 'Administrator'
     return role ? APP_ROLE_LABELS[role] : null
-  }, [role, sectionAccess])
+  }, [role, sectionAccess, isSuperadmin])
 
   useRegisterHeaderIdentity(
     headerRoleLabel

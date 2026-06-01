@@ -27,7 +27,7 @@ export async function requireAuth(): Promise<{ userId: string }> {
 
 export async function requireAppRole(): Promise<AppRole> {
   await requireAuth()
-  const role = await getAppRole()
+  const role = await getEffectiveAppRole()
   if (!role) {
     throw new AuthzError(
       'No application role assigned. Set appRole in Clerk public metadata.',
@@ -37,12 +37,19 @@ export async function requireAppRole(): Promise<AppRole> {
   return role
 }
 
+/** Superadmins are treated as commissioner_general for RBAC checks. */
+export async function getEffectiveAppRole(): Promise<AppRole | null> {
+  if (await isSuperadmin()) return 'commissioner_general'
+  return getAppRole()
+}
+
 export async function requirePermission(
   resource: ResourceKey,
   action: CrudAction,
 ): Promise<AppRole> {
-  const role = await requireAppRole()
-  if (!hasPermission(role, resource, action)) {
+  await requireAuth()
+  const role = await getEffectiveAppRole()
+  if (!role || !hasPermission(role, resource, action)) {
     throw new AuthzError('Insufficient permissions', 403)
   }
   return role

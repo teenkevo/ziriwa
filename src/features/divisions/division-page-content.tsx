@@ -25,8 +25,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Plus, ChevronDown, Pencil, Trash2, Loader2 } from 'lucide-react'
-import { canCreateSection, hasRoleAtLeast } from '@/lib/app-role'
-import { useAppRole } from '@/hooks/use-app-role'
+import { useOrgStructureAccess } from '@/hooks/use-org-structure-access'
 import { useViewMode } from '@/hooks/use-view-mode'
 import { ViewModeToggle } from '@/components/view-mode-toggle'
 import { CreateSectionDialog } from '@/features/dashboard/components/create-section-dialog'
@@ -110,9 +109,8 @@ export function DivisionPageContent({
     'division-sections-view',
   )
 
-  const { role, isLoaded } = useAppRole()
-  const allowSectionActions = isLoaded && canCreateSection(role)
-  const allowDivisionActions = isLoaded && hasRoleAtLeast(role, 'commissioner')
+  const { canCreateSection: allowSectionActions, canManageDivisions: allowDivisionActions } =
+    useOrgStructureAccess()
 
   const divisionLabel = division.fullName || division.name
   const departmentLabel = division.department?.fullName || null

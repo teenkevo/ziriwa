@@ -2,6 +2,7 @@ export {
   assertAuth,
   assertPermission,
   AuthzError,
+  getEffectiveAppRole,
   isSuperadmin,
   isUserAdmin,
   requireAppRole,
