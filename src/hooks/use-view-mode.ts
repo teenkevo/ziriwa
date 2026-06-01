@@ -6,7 +6,7 @@ export type ViewMode = 'grid' | 'table'
 
 export function useViewMode(
   storageKey: string,
-  defaultMode: ViewMode = 'grid',
+  defaultMode: ViewMode = 'table',
 ) {
   const [mode, setModeState] = React.useState<ViewMode>(defaultMode)
 
