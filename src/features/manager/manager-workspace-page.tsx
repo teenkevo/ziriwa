@@ -41,6 +41,7 @@ export async function ManagerWorkspacePage({
   return (
     <WorkspaceDelegationShell
       {...data}
+      orgActingAsDelegatee={data.orgActingAsDelegatee ?? null}
       view={view}
       workspaceBasePath='/manager'
       sprintView={sprintView}

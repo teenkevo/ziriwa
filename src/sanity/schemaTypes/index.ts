@@ -18,6 +18,7 @@ import { sprintTask } from './sprint-task'
 import { workSubmission } from './work-submission'
 import { weeklySprint } from './weekly-sprint'
 import { sectionDelegation } from './section-delegation'
+import { orgRoleDelegation } from './org-role-delegation'
 import { staffTransferRequest } from './staff-transfer-request'
 import { appNotification } from './app-notification'
 import { auditLogEntry } from './audit-log-entry'
@@ -32,6 +33,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     staff,
     section,
     sectionDelegation,
+    orgRoleDelegation,
     staffTransferRequest,
     appNotification,
     sectionContract,

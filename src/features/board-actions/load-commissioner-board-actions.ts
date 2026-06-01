@@ -2,6 +2,11 @@ import 'server-only'
 
 import { currentUser } from '@clerk/nextjs/server'
 
+import type { WorkContextMode } from '@/lib/section-access'
+import {
+  resolveCommissionerWorkspace,
+  type CommissionerWorkspaceContext,
+} from '@/lib/commissioner-workspace.server'
 import { client } from '@/sanity/lib/client'
 
 export type CommissionerDivisionOption = {
@@ -21,6 +26,7 @@ export type CommissionerBoardActionRow = {
 }
 
 export type CommissionerBoardActionsData = {
+  commissionerWorkspace: CommissionerWorkspaceContext
   departmentName: string
   divisions: CommissionerDivisionOption[]
   actions: CommissionerBoardActionRow[]
@@ -37,36 +43,31 @@ async function getViewerEmail() {
     .toLowerCase()
 }
 
-export async function loadCommissionerBoardActionsData(): Promise<CommissionerBoardActionsData | null> {
-  const email = await getViewerEmail()
-  if (!email) return null
+export async function loadCommissionerBoardActionsData(options?: {
+  workContext?: WorkContextMode
+}): Promise<CommissionerBoardActionsData | null> {
+  const commissionerWorkspace = await resolveCommissionerWorkspace(
+    options?.workContext ?? 'own',
+  )
+  if (!commissionerWorkspace) return null
 
+  const departmentId = commissionerWorkspace.department._id
   const department = await client.fetch<{
     _id: string
     name: string
     divisions: CommissionerDivisionOption[]
   } | null>(
     /* groq */ `
-      coalesce(
-        *[_type == "department" && commissioner->status == "active" && lower(commissioner->email) == $email][0]{
+      *[_type == "department" && _id == $departmentId][0]{
+        _id,
+        "name": coalesce(fullName, acronym, name),
+        "divisions": *[_type == "division" && department._ref == ^._id] | order(coalesce(fullName, name) asc){
           _id,
-          "name": coalesce(fullName, acronym, name),
-          "divisions": *[_type == "division" && department._ref == ^._id] | order(coalesce(fullName, name) asc){
-            _id,
-            "name": coalesce(fullName, acronym, name)
-          }
-        },
-        *[_type == "staff" && lower(email) == $email && status == "active" && role == "commissioner"][0].department->{
-          _id,
-          "name": coalesce(fullName, acronym, name),
-          "divisions": *[_type == "division" && department._ref == ^._id] | order(coalesce(fullName, name) asc){
-            _id,
-            "name": coalesce(fullName, acronym, name)
-          }
+          "name": coalesce(fullName, acronym, name)
         }
-      )
+      }
     `,
-    { email },
+    { departmentId },
   )
 
   if (!department?._id) return null
@@ -88,6 +89,7 @@ export async function loadCommissionerBoardActionsData(): Promise<CommissionerBo
   )
 
   return {
+    commissionerWorkspace,
     departmentName: department.name,
     divisions: department.divisions ?? [],
     actions: actions ?? [],

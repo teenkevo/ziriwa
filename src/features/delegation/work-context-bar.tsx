@@ -7,15 +7,19 @@ import { CalendarClock, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import type { SectionDelegationRecord } from '@/lib/section-delegation.server'
+import type { DelegationBarRecord } from '@/features/delegation/delegation-bar-types'
 import type { WorkContextMode } from '@/lib/section-access'
 
 interface WorkContextBarProps {
   workContext: WorkContextMode
-  assignmentAsDelegatee: SectionDelegationRecord | null
-  assignmentAsAbsent: SectionDelegationRecord | null
+  assignmentAsDelegatee: DelegationBarRecord | null
+  assignmentAsAbsent: DelegationBarRecord | null
   onOpenDelegate: () => void
   canSelfServiceDelegate: boolean
+  cancelApiBase?: string
+  /** When set, shows a link to open the org-level acting workspace (e.g. manager → AC). */
+  crossWorkspaceActingHref?: string | null
+  crossWorkspaceActingLabel?: string | null
 }
 
 function buildHref(
@@ -36,6 +40,9 @@ export function WorkContextBar({
   assignmentAsAbsent,
   onOpenDelegate,
   canSelfServiceDelegate,
+  cancelApiBase = '/api/section-delegations',
+  crossWorkspaceActingHref,
+  crossWorkspaceActingLabel,
 }: WorkContextBarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -48,7 +55,7 @@ export function WorkContextBar({
   async function cancelDelegation(id: string) {
     setIsCancelling(true)
     try {
-      const res = await fetch(`/api/section-delegations/${id}`, {
+      const res = await fetch(`${cancelApiBase}/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'cancel' }),
@@ -69,7 +76,12 @@ export function WorkContextBar({
     }
   }
 
-  if (!showSwitcher && !assignmentAsAbsent && !canSelfServiceDelegate) {
+  if (
+    !showSwitcher &&
+    !assignmentAsAbsent &&
+    !canSelfServiceDelegate &&
+    !crossWorkspaceActingHref
+  ) {
     return null
   }
 
@@ -100,6 +112,14 @@ export function WorkContextBar({
                 </Link>
               </Button>
             </>
+          ) : null}
+
+          {crossWorkspaceActingHref && workContext === 'own' ? (
+            <Button variant='outline' size='sm' asChild>
+              <Link href={crossWorkspaceActingHref}>
+                {crossWorkspaceActingLabel ?? 'Open acting workspace'}
+              </Link>
+            </Button>
           ) : null}
 
           {assignmentAsAbsent ? (

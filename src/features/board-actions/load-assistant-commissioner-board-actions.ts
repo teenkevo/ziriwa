@@ -1,6 +1,10 @@
 import 'server-only'
 
-import { getAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
+import type { WorkContextMode } from '@/lib/section-access'
+import {
+  resolveAssistantCommissionerWorkspace,
+  type AssistantCommissionerWorkspaceContext,
+} from '@/lib/assistant-commissioner-workspace.server'
 import { client } from '@/sanity/lib/client'
 
 export type AssistantBoardActionRow = {
@@ -21,13 +25,20 @@ export type AssistantSectionOption = {
 }
 
 export type AssistantBoardActionsData = {
+  acWorkspace: AssistantCommissionerWorkspaceContext
   divisionName: string
   actions: AssistantBoardActionRow[]
   sectionOptions: AssistantSectionOption[]
 }
 
-export async function loadAssistantCommissionerBoardActionsData(): Promise<AssistantBoardActionsData | null> {
-  const division = await getAssistantCommissionerDivision()
+export async function loadAssistantCommissionerBoardActionsData(options?: {
+  workContext?: WorkContextMode
+}): Promise<AssistantBoardActionsData | null> {
+  const acWorkspace = await resolveAssistantCommissionerWorkspace(
+    options?.workContext ?? 'own',
+  )
+  if (!acWorkspace) return null
+  const division = acWorkspace.division
   if (!division?._id) return null
 
   const divisionName =
@@ -62,6 +73,7 @@ export async function loadAssistantCommissionerBoardActionsData(): Promise<Assis
   ])
 
   return {
+    acWorkspace,
     divisionName,
     actions: actions ?? [],
     sectionOptions: sections ?? [],

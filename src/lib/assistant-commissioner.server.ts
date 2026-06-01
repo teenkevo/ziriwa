@@ -1,7 +1,7 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
-
+import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
+import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { client } from '@/sanity/lib/client'
 
 export type AssistantCommissionerDivision = {
@@ -13,7 +13,7 @@ export type AssistantCommissionerDivision = {
 }
 
 export async function getAssistantCommissionerViewerEmail() {
-  const user = await currentUser()
+  const user = await import('@clerk/nextjs/server').then(m => m.currentUser())
   return (
     user?.primaryEmailAddress?.emailAddress ??
     user?.emailAddresses?.[0]?.emailAddress ??
@@ -56,7 +56,7 @@ export async function canManageAssistantCommissionerDivision(
   const email = await getAssistantCommissionerViewerEmail()
   if (!email) return false
 
-  return client.fetch<boolean>(
+  const permanent = await client.fetch<boolean>(
     /* groq */ `
       count(
         *[
@@ -72,4 +72,16 @@ export async function canManageAssistantCommissionerDivision(
     `,
     { divisionId, email },
   )
+
+  if (permanent) return true
+
+  const viewerStaffId = await getViewerStaffId()
+  if (!viewerStaffId) return false
+
+  const acting = await getActiveOrgDelegationAsDelegatee(viewerStaffId, {
+    actingRole: 'assistant_commissioner',
+    divisionId,
+  })
+
+  return Boolean(acting)
 }

@@ -92,3 +92,39 @@ export interface DelegationCandidate {
   fullName: string
   role: string
 }
+
+/** Organisation-scoped acting roles (phase 2). */
+export const ORG_ACTING_ROLES = [
+  'assistant_commissioner',
+  'commissioner',
+] as const
+
+export type OrgActingRole = (typeof ORG_ACTING_ROLES)[number]
+
+export function isOrgActingRole(value: unknown): value is OrgActingRole {
+  return (
+    typeof value === 'string' &&
+    ORG_ACTING_ROLES.includes(value as OrgActingRole)
+  )
+}
+
+export const ORG_DELEGATION_TARGETS: Record<OrgActingRole, readonly AppRole[]> =
+  {
+    assistant_commissioner: ['manager'],
+    commissioner: ['assistant_commissioner'],
+  }
+
+export function canStaffReceiveOrgDelegation(
+  toStaffRole: string | undefined,
+  actingRole: OrgActingRole,
+): boolean {
+  if (!toStaffRole) return false
+  return ORG_DELEGATION_TARGETS[actingRole].includes(toStaffRole as AppRole)
+}
+
+export function staffRoleMatchesOrgActingRole(
+  staffRole: string | undefined,
+  actingRole: OrgActingRole,
+): boolean {
+  return staffRole === actingRole
+}

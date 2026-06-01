@@ -39,6 +39,7 @@ export async function OfficerWorkspacePage({
   return (
     <WorkspaceDelegationShell
       {...data}
+      orgActingAsDelegatee={data.orgActingAsDelegatee ?? null}
       view={view}
       workspaceBasePath='/officer'
     />

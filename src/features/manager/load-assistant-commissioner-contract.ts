@@ -1,6 +1,8 @@
 import 'server-only'
 
-import { getAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
+import type { WorkContextMode } from '@/lib/section-access'
+import { resolveAssistantCommissionerWorkspace } from '@/lib/assistant-commissioner-workspace.server'
+import type { AssistantCommissionerWorkspaceContext } from '@/lib/assistant-commissioner-workspace.server'
 import {
   canManageDivisionContract,
   resolveAssistantCommissionerStaffRefForDivision,
@@ -10,6 +12,7 @@ import { getDivisionContractByDivision } from '@/sanity/lib/division-contracts/g
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
 
 export type AssistantCommissionerContractPageData = {
+  acWorkspace: AssistantCommissionerWorkspaceContext
   division: {
     _id: string
     name: string
@@ -22,8 +25,14 @@ export type AssistantCommissionerContractPageData = {
   canManageContract: boolean
 }
 
-export async function loadAssistantCommissionerContractPageData(): Promise<AssistantCommissionerContractPageData | null> {
-  const division = await getAssistantCommissionerDivision()
+export async function loadAssistantCommissionerContractPageData(options?: {
+  workContext?: WorkContextMode
+}): Promise<AssistantCommissionerContractPageData | null> {
+  const acWorkspace = await resolveAssistantCommissionerWorkspace(
+    options?.workContext ?? 'own',
+  )
+  if (!acWorkspace) return null
+  const division = acWorkspace.division
   if (!division?._id) return null
 
   const assistantCommissioner = await client.fetch<{
@@ -67,6 +76,7 @@ export async function loadAssistantCommissionerContractPageData(): Promise<Assis
     ])
 
   return {
+    acWorkspace,
     division: {
       _id: division._id,
       name: division.name,

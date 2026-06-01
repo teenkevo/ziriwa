@@ -5,9 +5,11 @@ import type {
   AtRiskPeriodDeliverable,
   LateEngagement,
 } from '@/lib/section-dashboard-metrics'
+import type { WorkContextMode } from '@/lib/section-access'
 import {
-  getAssistantCommissionerDivision,
-} from '@/lib/assistant-commissioner.server'
+  resolveAssistantCommissionerWorkspace,
+  type AssistantCommissionerWorkspaceContext,
+} from '@/lib/assistant-commissioner-workspace.server'
 import { client } from '@/sanity/lib/client'
 import { getDivisionContractByDivision } from '@/sanity/lib/division-contracts/get-division-contract-by-division'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
@@ -35,6 +37,7 @@ type AcSection = {
 }
 
 export type AssistantCommissionerDashboardData = {
+  acWorkspace: AssistantCommissionerWorkspaceContext
   division: {
     _id: string
     name: string
@@ -80,8 +83,15 @@ export type AssistantCommissionerDashboardData = {
   }
 }
 
-export async function loadAssistantCommissionerDashboardData(): Promise<AssistantCommissionerDashboardData | null> {
-  const division = await getAssistantCommissionerDivision()
+export async function loadAssistantCommissionerDashboardData(options?: {
+  workContext?: WorkContextMode
+}): Promise<AssistantCommissionerDashboardData | null> {
+  const acWorkspace = await resolveAssistantCommissionerWorkspace(
+    options?.workContext ?? 'own',
+  )
+  if (!acWorkspace) return null
+
+  const { division } = acWorkspace
   if (!division?._id) return null
 
   const sections = await client.fetch<AcSection[]>(
@@ -256,6 +266,7 @@ export async function loadAssistantCommissionerDashboardData(): Promise<Assistan
     .sort((a, b) => b.daysOverdue - a.daysOverdue)
 
   return {
+    acWorkspace,
     division,
     sections,
     contractOversight,

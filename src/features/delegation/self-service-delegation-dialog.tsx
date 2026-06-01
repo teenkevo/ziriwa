@@ -28,18 +28,20 @@ import type { DelegationCandidate } from '@/lib/role-delegation'
 interface SelfServiceDelegationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  sectionId: string
   actingRoleLabel: string
   candidates: DelegationCandidate[]
+  createPayload: Record<string, string>
+  apiPath?: string
   onSuccess: () => void
 }
 
 export function SelfServiceDelegationDialog({
   open,
   onOpenChange,
-  sectionId,
   actingRoleLabel,
   candidates,
+  createPayload,
+  apiPath = '/api/section-delegations',
   onSuccess,
 }: SelfServiceDelegationDialogProps) {
   const [toStaffId, setToStaffId] = React.useState('')
@@ -65,11 +67,11 @@ export function SelfServiceDelegationDialog({
     }
     setIsSaving(true)
     try {
-      const res = await fetch('/api/section-delegations', {
+      const res = await fetch(apiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sectionId,
+          ...createPayload,
           toStaffId,
           startDate,
           endDate,
@@ -97,9 +99,9 @@ export function SelfServiceDelegationDialog({
           <DialogHeader>
             <DialogTitle>Delegate while on leave</DialogTitle>
             <DialogDescription>
-              Choose a colleague to cover your {actingRoleLabel} duties for up
-              to {DELEGATION_MAX_DAYS} days. You keep your own role and can
-              continue your regular work.
+              Choose a colleague to cover your {actingRoleLabel} duties for up to{' '}
+              {DELEGATION_MAX_DAYS} days. You keep your own role and can continue
+              your regular work.
             </DialogDescription>
           </DialogHeader>
           <div className='space-y-4 py-4'>
@@ -119,7 +121,7 @@ export function SelfServiceDelegationDialog({
               </Select>
               {candidates.length === 0 ? (
                 <p className='text-xs text-muted-foreground'>
-                  No eligible colleagues in this section.
+                  No eligible colleagues available.
                 </p>
               ) : null}
             </div>

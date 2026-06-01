@@ -3,6 +3,11 @@ import 'server-only'
 import { currentUser } from '@clerk/nextjs/server'
 
 import { getCurrentFinancialYear } from '@/lib/financial-year'
+import type { WorkContextMode } from '@/lib/section-access'
+import {
+  resolveCommissionerWorkspace,
+  type CommissionerWorkspaceContext,
+} from '@/lib/commissioner-workspace.server'
 import { client } from '@/sanity/lib/client'
 import type { StakeholderEntry } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 
@@ -19,6 +24,7 @@ export type CommissionerStakeholderRow = StakeholderEntry & {
 }
 
 export type CommissionerStakeholderEngagementsData = {
+  commissionerWorkspace: CommissionerWorkspaceContext
   departmentName: string
   financialYearLabel: string
   rows: CommissionerStakeholderRow[]
@@ -46,29 +52,15 @@ type EngagementDoc = {
   stakeholders?: StakeholderEntry[]
 }
 
-export async function loadCommissionerStakeholderEngagementsData(): Promise<CommissionerStakeholderEngagementsData | null> {
-  const email = await getViewerEmail()
-  if (!email) return null
-
-  const department = await client.fetch<{
-    _id: string
-    name: string
-  } | null>(
-    /* groq */ `
-      coalesce(
-        *[_type == "department" && commissioner->status == "active" && lower(commissioner->email) == $email][0]{
-          _id,
-          "name": coalesce(fullName, acronym, name)
-        },
-        *[_type == "staff" && lower(email) == $email && status == "active" && role == "commissioner"][0].department->{
-          _id,
-          "name": coalesce(fullName, acronym, name)
-        }
-      )
-    `,
-    { email },
+export async function loadCommissionerStakeholderEngagementsData(options?: {
+  workContext?: WorkContextMode
+}): Promise<CommissionerStakeholderEngagementsData | null> {
+  const commissionerWorkspace = await resolveCommissionerWorkspace(
+    options?.workContext ?? 'own',
   )
+  if (!commissionerWorkspace) return null
 
+  const department = commissionerWorkspace.department
   if (!department?._id) return null
 
   const financialYearLabel = getCurrentFinancialYear().label
@@ -142,6 +134,7 @@ export async function loadCommissionerStakeholderEngagementsData(): Promise<Comm
   }
 
   return {
+    commissionerWorkspace,
     departmentName: department.name,
     financialYearLabel,
     rows,

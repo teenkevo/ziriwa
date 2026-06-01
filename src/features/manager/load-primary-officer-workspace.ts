@@ -2,6 +2,8 @@ import 'server-only'
 
 import { notFound } from 'next/navigation'
 import type { WorkContextMode } from '@/lib/section-access'
+import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
+import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import {
   getManagedSectionsForViewer,
   loadSectionWorkspaceData,
@@ -27,5 +29,10 @@ export async function loadPrimaryOfficerWorkspaceData(options?: {
     notFound()
   }
 
-  return data
+  const viewerStaffId = await getViewerStaffId()
+  const orgActingAsDelegatee = viewerStaffId
+    ? await getActiveOrgDelegationAsDelegatee(viewerStaffId)
+    : null
+
+  return { ...data, orgActingAsDelegatee }
 }

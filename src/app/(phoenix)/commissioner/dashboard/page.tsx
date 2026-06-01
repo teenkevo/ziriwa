@@ -1,9 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { OrgDelegationShell } from '@/features/delegation/org-delegation-shell'
+import { parseWorkContextParam } from '@/features/delegation/parse-work-context'
 import { CommissionerDashboardContent } from '@/features/manager/commissioner-dashboard-content'
+import {
+  assertCommissionerWorkContext,
+  ensureCommissionerPageAccess,
+} from '@/features/manager/commissioner-workspace-page'
 import { loadCommissionerDashboardData } from '@/features/manager/load-commissioner-dashboard'
 
-export default async function Page() {
-  const data = await loadCommissionerDashboardData()
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ workContext?: string | string[] }>
+}) {
+  await ensureCommissionerPageAccess()
+  const sp = await searchParams
+  const workContext = parseWorkContextParam(sp.workContext)
+  const data = await loadCommissionerDashboardData({ workContext })
 
   if (!data) {
     return (
@@ -30,5 +43,14 @@ export default async function Page() {
     )
   }
 
-  return <CommissionerDashboardContent data={data} />
+  assertCommissionerWorkContext(
+    workContext,
+    Boolean(data.commissionerWorkspace.delegation.assignmentAsDelegatee),
+  )
+
+  return (
+    <OrgDelegationShell workspace={data.commissionerWorkspace}>
+      <CommissionerDashboardContent data={data} />
+    </OrgDelegationShell>
+  )
 }

@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server'
 
 import { isSuperadmin } from '@/lib/authz/guards.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
+import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
+import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { client } from '@/sanity/lib/client'
 
 function getViewerEmail(user: Awaited<ReturnType<typeof currentUser>>) {
@@ -30,23 +32,29 @@ export async function getDepartmentIdFromContract(
 export async function resolveCommissionerStaffRefForDepartment(
   departmentId: string,
 ): Promise<string | null> {
-  const user = await currentUser()
-  const email = getViewerEmail(user)
-  if (!email) return null
+  const viewerStaffId = await getViewerStaffId()
+  if (!viewerStaffId) return null
+
+  const acting = await getActiveOrgDelegationAsDelegatee(viewerStaffId, {
+    actingRole: 'commissioner',
+    departmentId,
+  })
+  if (acting) return acting.fromStaffId
 
   return client.fetch<string | null>(
     /* groq */ `
-      *[
-        _type == "staff"
-        && lower(email) == $email
-        && coalesce(status, "active") != "inactive"
-        && (
-          (role == "commissioner" && department._ref == $departmentId)
-          || _id == *[_type == "department" && _id == $departmentId][0].commissioner._ref
-        )
-      ][0]._id
+      coalesce(
+        *[
+          _type == "staff"
+          && _id == $viewerStaffId
+          && coalesce(status, "active") != "inactive"
+          && role == "commissioner"
+          && department._ref == $departmentId
+        ][0]._id,
+        *[_type == "department" && _id == $departmentId][0].commissioner._ref
+      )
     `,
-    { email, departmentId },
+    { viewerStaffId, departmentId },
   )
 }
 
@@ -106,7 +114,18 @@ export async function canManageDepartmentContract(
   if (appRole === 'commissioner') {
     const resolved = await resolveCommissionerStaffRefForDepartment(departmentId)
     if (resolved) return true
+  }
 
+  const viewerStaffId = await getViewerStaffId()
+  if (viewerStaffId) {
+    const acting = await getActiveOrgDelegationAsDelegatee(viewerStaffId, {
+      actingRole: 'commissioner',
+      departmentId,
+    })
+    if (acting) return true
+  }
+
+  if (appRole === 'commissioner') {
     const deptCommissionerOk = await client.fetch<boolean>(
       /* groq */ `
         count(

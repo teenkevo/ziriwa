@@ -11,10 +11,10 @@ import {
   staffRoleMatchesActingRole,
 } from '@/lib/role-delegation'
 import {
-  findOverlappingDelegationAsAbsent,
-  findOverlappingDelegationAsDelegatee,
-  syncDelegationStatuses,
-} from '@/lib/section-delegation.server'
+  findOverlappingDelegationAsAbsentAnyScope,
+  findOverlappingDelegationAsDelegateeAnyScope,
+} from '@/lib/delegation-overlap.server'
+import { syncDelegationStatuses } from '@/lib/section-delegation.server'
 import { createNotification } from '@/lib/notifications/create-notification'
 import { audit } from '@/lib/audit-log/events'
 
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const overlapAbsent = await findOverlappingDelegationAsAbsent(
+    const overlapAbsent = await findOverlappingDelegationAsAbsentAnyScope(
       fromStaffId,
       startDate,
       endDate,
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const overlapDelegatee = await findOverlappingDelegationAsDelegatee(
+    const overlapDelegatee = await findOverlappingDelegationAsDelegateeAnyScope(
       toStaffId,
       startDate,
       endDate,

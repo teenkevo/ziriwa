@@ -1,7 +1,11 @@
 import 'server-only'
 
 import { getCurrentFinancialYear } from '@/lib/financial-year'
-import { getAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
+import type { WorkContextMode } from '@/lib/section-access'
+import {
+  resolveAssistantCommissionerWorkspace,
+  type AssistantCommissionerWorkspaceContext,
+} from '@/lib/assistant-commissioner-workspace.server'
 import { client } from '@/sanity/lib/client'
 import type { StakeholderEntry } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 
@@ -18,6 +22,7 @@ export type AssistantCommissionerStakeholderRow = StakeholderEntry & {
 }
 
 export type AssistantCommissionerStakeholderEngagementsData = {
+  acWorkspace: AssistantCommissionerWorkspaceContext
   divisionName: string
   financialYearLabel: string
   rows: AssistantCommissionerStakeholderRow[]
@@ -34,8 +39,14 @@ type EngagementDoc = {
   stakeholders?: StakeholderEntry[]
 }
 
-export async function loadAssistantCommissionerStakeholderEngagementsData(): Promise<AssistantCommissionerStakeholderEngagementsData | null> {
-  const division = await getAssistantCommissionerDivision()
+export async function loadAssistantCommissionerStakeholderEngagementsData(options?: {
+  workContext?: WorkContextMode
+}): Promise<AssistantCommissionerStakeholderEngagementsData | null> {
+  const acWorkspace = await resolveAssistantCommissionerWorkspace(
+    options?.workContext ?? 'own',
+  )
+  if (!acWorkspace) return null
+  const division = acWorkspace.division
   if (!division?._id) return null
 
   const divisionName =
@@ -107,6 +118,7 @@ export async function loadAssistantCommissionerStakeholderEngagementsData(): Pro
   }
 
   return {
+    acWorkspace,
     divisionName,
     financialYearLabel,
     rows,

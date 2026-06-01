@@ -7,6 +7,11 @@ import type {
   AtRiskPeriodDeliverable,
   LateEngagement,
 } from '@/lib/section-dashboard-metrics'
+import type { WorkContextMode } from '@/lib/section-access'
+import {
+  resolveCommissionerWorkspace,
+  type CommissionerWorkspaceContext,
+} from '@/lib/commissioner-workspace.server'
 import { client } from '@/sanity/lib/client'
 import { getDepartmentContractByDepartment } from '@/sanity/lib/department-contracts/get-department-contract-by-department'
 import { getSectionContractBySection } from '@/sanity/lib/section-contracts/get-section-contract-by-section'
@@ -30,6 +35,7 @@ type CommissionerSection = {
 }
 
 export type CommissionerDashboardData = {
+  commissionerWorkspace: CommissionerWorkspaceContext
   department: CommissionerDepartment
   sections: CommissionerSection[]
   myContract: {
@@ -104,8 +110,14 @@ async function getCommissionerDepartment(): Promise<CommissionerDepartment | nul
   )
 }
 
-export async function loadCommissionerDashboardData(): Promise<CommissionerDashboardData | null> {
-  const department = await getCommissionerDepartment()
+export async function loadCommissionerDashboardData(options?: {
+  workContext?: WorkContextMode
+}): Promise<CommissionerDashboardData | null> {
+  const commissionerWorkspace = await resolveCommissionerWorkspace(
+    options?.workContext ?? 'own',
+  )
+  if (!commissionerWorkspace) return null
+  const department = commissionerWorkspace.department
   if (!department?._id) return null
 
   const [sections, divisionCount] = await Promise.all([
@@ -227,6 +239,7 @@ export async function loadCommissionerDashboardData(): Promise<CommissionerDashb
     .sort((a, b) => b.daysOverdue - a.daysOverdue)
 
   return {
+    commissionerWorkspace,
     department,
     sections,
     myContract: {

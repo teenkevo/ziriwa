@@ -2,12 +2,16 @@ import 'server-only'
 
 import { currentUser } from '@clerk/nextjs/server'
 
+import type { WorkContextMode } from '@/lib/section-access'
+import { resolveCommissionerWorkspace } from '@/lib/commissioner-workspace.server'
+import type { CommissionerWorkspaceContext } from '@/lib/commissioner-workspace.server'
 import { canManageDepartmentContract, resolveCommissionerStaffRefForDepartment } from '@/lib/department-contract-access.server'
 import { client } from '@/sanity/lib/client'
 import { getDepartmentContractByDepartment } from '@/sanity/lib/department-contracts/get-department-contract-by-department'
 import type { DepartmentContract } from '@/sanity/lib/department-contracts/get-department-contract'
 
 export type CommissionerContractPageData = {
+  commissionerWorkspace: CommissionerWorkspaceContext
   department: {
     _id: string
     name: string
@@ -97,22 +101,47 @@ async function getCommissionerContext(email: string) {
   )
 }
 
-export async function loadCommissionerContractPageData(): Promise<CommissionerContractPageData | null> {
-  const email = await getViewerEmail()
-  const ctx = await getCommissionerContext(email)
-  if (!ctx?.department?._id) return null
+export async function loadCommissionerContractPageData(options?: {
+  workContext?: WorkContextMode
+}): Promise<CommissionerContractPageData | null> {
+  const commissionerWorkspace = await resolveCommissionerWorkspace(
+    options?.workContext ?? 'own',
+  )
+  if (!commissionerWorkspace) return null
+
+  const department = commissionerWorkspace.department
+  if (!department?._id) return null
+
+  const commissionerStaffId = await resolveCommissionerStaffRefForDepartment(
+    department._id,
+  )
+  const commissioner = commissionerStaffId
+    ? await client.fetch<{ _id: string; fullName: string } | null>(
+        /* groq */ `*[_type == "staff" && _id == $id][0]{
+          _id,
+          "fullName": coalesce(fullName, firstName + " " + lastName)
+        }`,
+        { id: commissionerStaffId },
+      )
+    : null
 
   const [departmentContract, canManageContract, commissionerStaffIdForOnboarding] =
     await Promise.all([
-      getDepartmentContractByDepartment(ctx.department._id),
-      canManageDepartmentContract(ctx.department._id),
-      resolveCommissionerStaffRefForDepartment(ctx.department._id),
+      getDepartmentContractByDepartment(department._id),
+      canManageDepartmentContract(department._id),
+      resolveCommissionerStaffRefForDepartment(department._id),
     ])
 
   return {
-    department: ctx.department,
+    commissionerWorkspace,
+    department: {
+      _id: department._id,
+      name: department.name,
+      fullName: department.fullName,
+      acronym: department.acronym,
+    },
     departmentContract,
-    commissioner: ctx.commissioner,
+    commissioner,
     commissionerStaffIdForOnboarding,
     canManageContract,
   }

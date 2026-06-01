@@ -5,6 +5,9 @@ import { NextResponse } from 'next/server'
 
 import { isSuperadmin } from '@/lib/authz/guards.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
+import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
+import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
+import { canManageAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
 import { client } from '@/sanity/lib/client'
 
 function getViewerEmail(user: Awaited<ReturnType<typeof currentUser>>) {
@@ -29,23 +32,29 @@ export async function getDivisionIdFromContract(
 export async function resolveAssistantCommissionerStaffRefForDivision(
   divisionId: string,
 ): Promise<string | null> {
-  const user = await currentUser()
-  const email = getViewerEmail(user)
-  if (!email) return null
+  const viewerStaffId = await getViewerStaffId()
+  if (!viewerStaffId) return null
+
+  const acting = await getActiveOrgDelegationAsDelegatee(viewerStaffId, {
+    actingRole: 'assistant_commissioner',
+    divisionId,
+  })
+  if (acting) return acting.fromStaffId
 
   return client.fetch<string | null>(
     /* groq */ `
-      *[
-        _type == "staff"
-        && lower(email) == $email
-        && coalesce(status, "active") != "inactive"
-        && (
-          (role == "assistant_commissioner" && division._ref == $divisionId)
-          || _id == *[_type == "division" && _id == $divisionId][0].assistantCommissioner._ref
-        )
-      ][0]._id
+      coalesce(
+        *[
+          _type == "staff"
+          && _id == $viewerStaffId
+          && coalesce(status, "active") != "inactive"
+          && role == "assistant_commissioner"
+          && division._ref == $divisionId
+        ][0]._id,
+        *[_type == "division" && _id == $divisionId][0].assistantCommissioner._ref
+      )
     `,
-    { email, divisionId },
+    { viewerStaffId, divisionId },
   )
 }
 
@@ -105,6 +114,17 @@ export async function canManageDivisionContract(
       await resolveAssistantCommissionerStaffRefForDivision(divisionId)
     if (resolved) return true
   }
+
+  const viewerStaffId = await getViewerStaffId()
+  if (viewerStaffId) {
+    const acting = await getActiveOrgDelegationAsDelegatee(viewerStaffId, {
+      actingRole: 'assistant_commissioner',
+      divisionId,
+    })
+    if (acting) return true
+  }
+
+  if (await canManageAssistantCommissionerDivision(divisionId)) return true
 
   return false
 }
