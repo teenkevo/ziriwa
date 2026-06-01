@@ -1,41 +1,53 @@
 import { type SchemaTypeDefinition } from 'sanity'
-import { detailedTask } from './detailed-task'
-import { measurableActivity } from './measurable-activity'
-import { contractInitiative } from './contract-initiative'
-import { ssmartaObjective } from './ssmarta-objective'
-import { department } from './department'
-import { division } from './division'
-import { section } from './section'
-import { sectionContract } from './section-contract'
-import { departmentContract } from './department-contract'
-import { divisionContract } from './division-contract'
-import { supervisorContract } from './supervisor-contract'
-import { officerContract } from './officer-contract'
-import { staff } from './staff'
-import { stakeholderEntry } from './stakeholder-entry'
-import { stakeholderEngagement } from './stakeholder-engagement'
-import { sprintTask } from './sprint-task'
-import { workSubmission } from './work-submission'
-import { weeklySprint } from './weekly-sprint'
-import { sectionDelegation } from './section-delegation'
-import { orgRoleDelegation } from './org-role-delegation'
-import { staffTransferRequest } from './staff-transfer-request'
-import { appNotification } from './app-notification'
-import { auditLogEntry } from './audit-log-entry'
-import { auditLogBatch } from './audit-log-batch'
-import { boardAction } from './board-action'
+
+import {
+  department,
+  division,
+  section,
+  staff,
+} from './org'
+import {
+  contractInitiative,
+  departmentContract,
+  detailedTask,
+  divisionContract,
+  measurableActivity,
+  officerContract,
+  sectionContract,
+  ssmartaObjective,
+  supervisorContract,
+} from './contracts'
+import {
+  orgRoleDelegation,
+  sectionDelegation,
+  staffTransferRequest,
+} from './delegation'
+import { sprintTask, weeklySprint, workSubmission } from './sprints'
+import { stakeholderEngagement, stakeholderEntry } from './stakeholders'
+import {
+  appNotification,
+  auditLogBatch,
+  auditLogEntry,
+  boardAction,
+} from './platform'
+
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
+    // Platform
     auditLogEntry,
     auditLogBatch,
+    appNotification,
+    boardAction,
+    // Org structure
     department,
     division,
     staff,
     section,
+    // Delegation & transfers
     sectionDelegation,
     orgRoleDelegation,
     staffTransferRequest,
-    appNotification,
+    // Performance contracts (documents + nested objects)
     sectionContract,
     departmentContract,
     divisionContract,
@@ -45,11 +57,12 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     measurableActivity,
     contractInitiative,
     ssmartaObjective,
+    // Stakeholders
     stakeholderEntry,
     stakeholderEngagement,
+    // Sprints & work
     sprintTask,
     workSubmission,
     weeklySprint,
-    boardAction,
   ],
 }
