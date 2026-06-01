@@ -6,6 +6,7 @@ import { getAppRole } from '@/lib/clerk-app-role.server'
 import { isSuperadmin } from '@/lib/authz/guards.server'
 import { currentUser } from '@clerk/nextjs/server'
 import { client } from '@/sanity/lib/client'
+import { getSprintNavCountsForViewer } from '@/lib/sprint-nav-counts.server'
 
 export async function AppSidebarNavWrapper() {
   const role = await getAppRole()
@@ -53,6 +54,7 @@ export async function AppSidebarNavWrapper() {
   }
 
   if (role === 'manager' || role === 'supervisor') {
+    const sprintNavCounts = await getSprintNavCountsForViewer()
     return (
       <AppSidebarNav
         departmentsTree={departmentsTree}
@@ -60,12 +62,20 @@ export async function AppSidebarNavWrapper() {
         managerSprintsReviewLabel={
           role === 'supervisor' ? 'In Review' : 'To Review'
         }
+        sprintNavCounts={sprintNavCounts}
       />
     )
   }
 
   if (role === 'officer') {
-    return <AppSidebarNav departmentsTree={departmentsTree} variant='officer' />
+    const sprintNavCounts = await getSprintNavCountsForViewer()
+    return (
+      <AppSidebarNav
+        departmentsTree={departmentsTree}
+        variant='officer'
+        sprintNavCounts={sprintNavCounts}
+      />
+    )
   }
 
   if (role === 'assistant_commissioner') {

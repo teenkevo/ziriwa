@@ -1,5 +1,11 @@
 import { defineField, defineType } from 'sanity'
 
+import {
+  isAllowedStaffEmail,
+  staffEmailFieldDescription,
+  staffEmailRequirementMessage,
+} from '@/lib/staff-email-policy'
+
 const ROLE_OPTIONS = [
   { title: 'Commissioner General', value: 'commissioner_general' },
   { title: 'Commissioner', value: 'commissioner' },
@@ -37,15 +43,14 @@ export const staff = defineType({
       name: 'email',
       title: 'Email',
       type: 'string',
-      description: 'Must end with @ura.go.ug',
+      description: staffEmailFieldDescription(),
       validation: Rule =>
         Rule.required()
           .email()
-          .custom(
-            email =>
-              !email ||
-              email.toLowerCase().endsWith('@ura.go.ug') ||
-              'Email must end with @ura.go.ug',
+          .custom(email =>
+            !email || isAllowedStaffEmail(email)
+              ? true
+              : staffEmailRequirementMessage(),
           ),
     }),
     defineField({

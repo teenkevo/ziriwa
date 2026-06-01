@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache'
 
 import { onboardStaffMember } from '@/lib/admin/onboard-staff-clerk'
 import { requireUserAdmin } from '@/lib/authz/guards.server'
-import { URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
+import {
+  isAllowedStaffEmail,
+  staffEmailRequirementMessage,
+} from '@/lib/staff-email-policy'
 
 function getString(formData: FormData, key: string): string {
   const v = formData.get(key)
@@ -16,8 +19,8 @@ export async function inviteMemberAction(formData: FormData) {
 
   const emailAddress = getString(formData, 'emailAddress').toLowerCase()
   if (!emailAddress) throw new Error('Email is required')
-  if (!emailAddress.endsWith(URA_EMAIL_SUFFIX)) {
-    throw new Error(`Email must end with ${URA_EMAIL_SUFFIX}`)
+  if (!isAllowedStaffEmail(emailAddress)) {
+    throw new Error(staffEmailRequirementMessage())
   }
 
   await onboardStaffMember({

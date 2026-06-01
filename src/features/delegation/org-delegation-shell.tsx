@@ -4,9 +4,10 @@ import * as React from 'react'
 import { Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { WorkContextNavigationProvider } from '@/contexts/work-context-navigation-context'
 import type { AssistantCommissionerWorkspaceContext } from '@/lib/assistant-commissioner-workspace.server'
 import type { CommissionerWorkspaceContext } from '@/lib/commissioner-workspace.server'
-import type { DelegationCandidate } from '@/lib/role-delegation'
+import { canCreateSelfServiceDelegation } from '@/lib/role-delegation'
 import { SelfServiceDelegationDialog } from '@/features/delegation/self-service-delegation-dialog'
 import { WorkContextBar } from '@/features/delegation/work-context-bar'
 
@@ -69,36 +70,45 @@ export function OrgDelegationShell({
     ? `Acting as commissioner for ${workspace.delegation.assignmentAsDelegatee.fromStaffName}`
     : null
 
+  const actingForName =
+    workspace.delegation.assignmentAsDelegatee?.fromStaffName ?? null
+
   return (
     <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-      <Suspense fallback={null}>
-        <WorkContextBar
-          workContext={workspace.workContext}
-          assignmentAsDelegatee={workspace.delegation.assignmentAsDelegatee}
-          assignmentAsAbsent={workspace.delegation.assignmentAsAbsent}
-          canSelfServiceDelegate={
-            workspace.canSelfServiceDelegate &&
-            workspace.workContext === 'own' &&
-            !workspace.delegation.assignmentAsAbsent
-          }
-          onOpenDelegate={() => setDelegateOpen(true)}
-          cancelApiBase='/api/org-role-delegations'
-          crossWorkspaceActingHref={crossWorkspaceActingHref}
-          crossWorkspaceActingLabel={crossWorkspaceActingLabel}
+      <WorkContextNavigationProvider
+        serverWorkContext={workspace.workContext}
+        actingForName={actingForName}
+      >
+        <Suspense fallback={null}>
+          <WorkContextBar
+            workContext={workspace.workContext}
+            assignmentAsDelegatee={workspace.delegation.assignmentAsDelegatee}
+            assignmentAsAbsent={workspace.delegation.assignmentAsAbsent}
+            canSelfServiceDelegate={canCreateSelfServiceDelegation({
+              roleAllowsDelegation: workspace.canSelfServiceDelegate,
+              workContext: workspace.workContext,
+              assignmentAsDelegatee: workspace.delegation.assignmentAsDelegatee,
+              assignmentAsAbsent: workspace.delegation.assignmentAsAbsent,
+            })}
+            onOpenDelegate={() => setDelegateOpen(true)}
+            cancelApiBase='/api/org-role-delegations'
+            crossWorkspaceActingHref={crossWorkspaceActingHref}
+            crossWorkspaceActingLabel={crossWorkspaceActingLabel}
+          />
+        </Suspense>
+
+        <SelfServiceDelegationDialog
+          open={delegateOpen}
+          onOpenChange={setDelegateOpen}
+          actingRoleLabel={actingRoleLabel(workspace)}
+          candidates={workspace.delegationCandidates}
+          createPayload={createPayload}
+          apiPath='/api/org-role-delegations'
+          onSuccess={refresh}
         />
-      </Suspense>
 
-      <SelfServiceDelegationDialog
-        open={delegateOpen}
-        onOpenChange={setDelegateOpen}
-        actingRoleLabel={actingRoleLabel(workspace)}
-        candidates={workspace.delegationCandidates}
-        createPayload={createPayload}
-        apiPath='/api/org-role-delegations'
-        onSuccess={refresh}
-      />
-
-      {children}
+        {children}
+      </WorkContextNavigationProvider>
     </div>
   )
 }

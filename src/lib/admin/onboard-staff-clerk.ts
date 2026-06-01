@@ -1,7 +1,10 @@
 import { clerkClient } from '@clerk/nextjs/server'
 
 import { isAppRole, parseAppRole, type AppRole } from '@/lib/app-role'
-import { URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
+import {
+  isAllowedStaffEmail,
+  staffEmailRequirementMessage,
+} from '@/lib/staff-email-policy'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 
@@ -92,8 +95,8 @@ export async function ensureStaffRecord(params: {
   appRole?: AppRole | null
 }): Promise<string> {
   const email = params.email.trim().toLowerCase()
-  if (!email.endsWith(URA_EMAIL_SUFFIX)) {
-    throw new Error(`Email must end with ${URA_EMAIL_SUFFIX}`)
+  if (!isAllowedStaffEmail(email)) {
+    throw new Error(staffEmailRequirementMessage())
   }
 
   const existing = await client.fetch<{ _id: string } | null>(

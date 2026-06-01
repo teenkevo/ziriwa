@@ -69,6 +69,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   compliance: 'Compliance',
   staff_development: 'Staff Development',
   stakeholder_engagement: 'Stakeholder Engagement',
+  emergency: 'Emergency',
 }
 
 const SUBMISSION_STATUS_BADGES: Record<

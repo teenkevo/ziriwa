@@ -3,17 +3,30 @@ import 'server-only'
 import {
   findOverlappingDelegationAsAbsent,
   findOverlappingDelegationAsDelegatee,
+  getActiveDelegationAsDelegatee,
   type SectionDelegationRecord,
 } from '@/lib/section-delegation.server'
 import {
   findOverlappingOrgDelegationAsAbsent,
   findOverlappingOrgDelegationAsDelegatee,
+  getActiveOrgDelegationAsDelegatee,
   type OrgDelegationRecord,
 } from '@/lib/org-role-delegation.server'
 
 export type AnyDelegationOverlap =
   | { kind: 'section'; record: SectionDelegationRecord }
   | { kind: 'org'; record: OrgDelegationRecord }
+
+/** True when the staff member is currently acting for someone else (any scope). */
+export async function hasActiveDelegationAsDelegateeAnyScope(
+  staffId: string,
+): Promise<boolean> {
+  const [section, org] = await Promise.all([
+    getActiveDelegationAsDelegatee(staffId),
+    getActiveOrgDelegationAsDelegatee(staffId),
+  ])
+  return Boolean(section || org)
+}
 
 export async function findOverlappingDelegationAsDelegateeAnyScope(
   toStaffId: string,

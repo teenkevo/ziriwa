@@ -11,7 +11,10 @@ import {
   getSectionAccessForViewer,
 } from '@/lib/section-access.server'
 import { writeClient } from '@/sanity/lib/write-client'
-import { URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
+import {
+  isAllowedStaffEmail,
+  staffEmailRequirementMessage,
+} from '@/lib/staff-email-policy'
 
 function ref(id: string) {
   return { _type: 'reference' as const, _ref: id }
@@ -48,9 +51,9 @@ export async function POST(
     }
 
     const emailLower = String(email).trim().toLowerCase()
-    if (!emailLower.endsWith(URA_EMAIL_SUFFIX)) {
+    if (!isAllowedStaffEmail(emailLower)) {
       return NextResponse.json(
-        { error: 'Email must end with @ura.go.ug' },
+        { error: staffEmailRequirementMessage() },
         { status: 400 },
       )
     }

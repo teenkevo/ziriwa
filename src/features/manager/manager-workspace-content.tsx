@@ -23,6 +23,10 @@ import { OnboardContractDialog } from '@/features/sections/components/onboard-co
 import { OnboardSupervisorContractDialog } from '@/features/sections/components/onboard-supervisor-contract-dialog'
 import { OnboardOfficerContractDialog } from '@/features/sections/components/onboard-officer-contract-dialog'
 import { DueTodayThisWeek } from '@/features/sections/components/due-today-this-week'
+import {
+  getSprintsPageTitle,
+  type SprintView,
+} from '@/lib/sprint-view-labels'
 import type { InitiativeWithActivities } from '@/features/sections/weekly-sprint-content'
 import type { SectionPageContentProps } from '@/features/sections/section-page-content'
 import {
@@ -49,8 +53,6 @@ type ManagerWorkspaceView =
   | 'stakeholders'
   | 'staff'
   | 'reporting'
-
-type SprintView = 'ready' | 'in-review' | 'draft'
 
 type ManagerWorkspaceContentProps = WorkspaceData & {
   view: ManagerWorkspaceView
@@ -187,12 +189,19 @@ export function ManagerWorkspaceContent({
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
   const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
 
+  const activeSprintView: SprintView = usesOfficerContract
+    ? 'ready'
+    : (sprintView ?? 'ready')
+
+  const pageTitle =
+    view === 'sprints' ? getSprintsPageTitle(activeSprintView) : config.title
+
   const breadcrumbs = React.useMemo(
     () => [
       { label: workspaceRoleLabel, href: paths.dashboard },
-      { label: config.title },
+      { label: pageTitle },
     ],
-    [config.title, workspaceRoleLabel, paths.dashboard],
+    [pageTitle, workspaceRoleLabel, paths.dashboard],
   )
   useRegisterPageBreadcrumbs(breadcrumbs)
 
@@ -204,8 +213,8 @@ export function ManagerWorkspaceContent({
   const actingAssignment = sectionAccess.delegation.assignmentAsDelegatee
   const title =
     sectionAccess.workContext === 'acting' && actingAssignment
-      ? `${config.title} (acting for ${actingAssignment.fromStaffName})`
-      : config.title
+      ? `${pageTitle} (acting for ${actingAssignment.fromStaffName})`
+      : pageTitle
 
   const content = (() => {
     if (view === 'dashboard') {
@@ -395,7 +404,7 @@ export function ManagerWorkspaceContent({
           viewerStaffId={viewerStaffId}
           sectionAccess={sectionAccess}
           presentation='single-view'
-          singleView={usesOfficerContract ? 'ready' : (sprintView ?? 'ready')}
+          singleView={activeSprintView}
         />
       )
     }
@@ -452,7 +461,7 @@ export function ManagerWorkspaceContent({
 
       {showRightRail ? (
         <div className='hidden h-full min-h-0 shrink-0 border-l bg-muted/20 lg:flex'>
-          {view === 'sprints' && (sprintView ?? 'ready') === 'ready' ? (
+          {view === 'sprints' && activeSprintView === 'ready' ? (
             <div
               ref={setPanelPortalNode}
               className='flex h-full min-h-0 w-full flex-col overflow-y-auto overscroll-contain lg:w-[24rem]'

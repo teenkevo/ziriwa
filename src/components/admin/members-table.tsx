@@ -18,6 +18,10 @@ import { APP_ROLE_VALUES } from '@/lib/app-role'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
 import { inviteMemberAction } from '@/lib/admin/invite-actions'
 import {
+  isUraEmailEnforced,
+  URA_EMAIL_SUFFIX,
+} from '@/lib/staff-email-policy'
+import {
   assignAppRoleAction,
   assignStaffDepartmentAction,
   revokeInvitationAction,
@@ -474,8 +478,10 @@ export function MembersTable({
               <DialogHeader>
                 <DialogTitle>Invite Staff</DialogTitle>
                 <DialogDescription>
-                  Creates a staff record and sends a Clerk invitation. Only
-                  @ura.go.ug addresses; self-service sign-up is disabled.
+                  Creates a staff record and sends a Clerk invitation.
+                  {isUraEmailEnforced()
+                    ? ` Only ${URA_EMAIL_SUFFIX} addresses; self-service sign-up is disabled.`
+                    : ' Any email is allowed while URA domain enforcement is off.'}
                 </DialogDescription>
               </DialogHeader>
               <form
@@ -506,7 +512,11 @@ export function MembersTable({
                     id='inviteEmail'
                     value={inviteEmail}
                     onChange={e => setInviteEmail(e.target.value)}
-                    placeholder='name@ura.go.ug'
+                    placeholder={
+                      isUraEmailEnforced()
+                        ? `name${URA_EMAIL_SUFFIX}`
+                        : 'name@example.com'
+                    }
                     type='email'
                     required
                   />

@@ -120,7 +120,10 @@ export async function resolveAssistantCommissionerWorkspace(
       }),
     ])
 
-  const canSelfServiceDelegate = isPermanentAssistantCommissioner
+  const canSelfServiceDelegate =
+    isPermanentAssistantCommissioner &&
+    !assignmentAsDelegatee &&
+    !assignmentAsAbsent
   const delegationCandidates = canSelfServiceDelegate
     ? await getOrgDelegationCandidatesForStaff(
         viewerStaffId,

@@ -1,4 +1,5 @@
 import type { AppRole } from '@/lib/app-role'
+import type { WorkContextMode } from '@/lib/section-access'
 
 /** Roles that can be covered via section-scoped leave delegation (phase 1). */
 export const SECTION_ACTING_ROLES = [
@@ -127,4 +128,22 @@ export function staffRoleMatchesOrgActingRole(
   actingRole: OrgActingRole,
 ): boolean {
   return staffRole === actingRole
+}
+
+/** Whether the viewer may open self-service leave delegation in the UI. */
+export function canCreateSelfServiceDelegation(input: {
+  roleAllowsDelegation: boolean
+  workContext: WorkContextMode
+  assignmentAsDelegatee: unknown | null
+  assignmentAsAbsent: unknown | null
+  /** Acting assignment in another scope (e.g. org while on a section workspace). */
+  hasOtherScopeActingAssignment?: boolean
+}): boolean {
+  return (
+    input.roleAllowsDelegation &&
+    input.workContext === 'own' &&
+    !input.assignmentAsDelegatee &&
+    !input.assignmentAsAbsent &&
+    !input.hasOtherScopeActingAssignment
+  )
 }

@@ -20,6 +20,8 @@ import {
   shouldScopeSprintsToSupervisor,
   shouldUseOfficerContract,
 } from '@/lib/sprint-workspace-scope'
+import { canCreateSelfServiceDelegation } from '@/lib/role-delegation'
+import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { getDelegationCandidatesForStaff } from '@/lib/section-delegation-candidates.server'
 import { getSectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
 import { getSupervisorContractForViewer } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract-for-viewer'
@@ -194,8 +196,20 @@ export async function loadSectionWorkspaceData(
 
   const sectionAccess = await getSectionAccessForViewer(section._id, workContext)
 
+  const orgActingAsDelegatee = sectionAccess.viewerStaffId
+    ? await getActiveOrgDelegationAsDelegatee(sectionAccess.viewerStaffId)
+    : null
+
+  const mayCreateDelegation = canCreateSelfServiceDelegation({
+    roleAllowsDelegation: sectionAccess.canSelfServiceDelegate,
+    workContext,
+    assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
+    assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
+    hasOtherScopeActingAssignment: Boolean(orgActingAsDelegatee),
+  })
+
   const delegationCandidates =
-    sectionAccess.viewerStaffId && sectionAccess.canSelfServiceDelegate
+    mayCreateDelegation && sectionAccess.viewerStaffId
       ? await getDelegationCandidatesForStaff(
           section._id,
           sectionAccess.viewerStaffId,

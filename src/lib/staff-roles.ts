@@ -9,4 +9,5 @@ export const STAFF_ROLE_OPTIONS = [
 
 export type StaffRoleValue = (typeof STAFF_ROLE_OPTIONS)[number]['value']
 
-export const URA_EMAIL_SUFFIX = '@ura.go.ug'
+/** @deprecated Import from `@/lib/staff-email-policy` */
+export { URA_EMAIL_SUFFIX } from '@/lib/staff-email-policy'

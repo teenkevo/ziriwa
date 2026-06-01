@@ -6,7 +6,11 @@ import {
 } from '@/lib/admin/onboard-staff-clerk'
 import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
 import { writeClient } from '@/sanity/lib/write-client'
-import { STAFF_ROLE_OPTIONS, URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
+import {
+  isAllowedStaffEmail,
+  staffEmailRequirementMessage,
+} from '@/lib/staff-email-policy'
+import { STAFF_ROLE_OPTIONS } from '@/lib/staff-roles'
 
 const VALID_ROLES = new Set(STAFF_ROLE_OPTIONS.map(r => r.value))
 
@@ -72,9 +76,9 @@ export async function POST(req: NextRequest) {
     }
 
     const emailLower = email.trim().toLowerCase()
-    if (!emailLower.endsWith(URA_EMAIL_SUFFIX)) {
+    if (!isAllowedStaffEmail(emailLower)) {
       return NextResponse.json(
-        { error: 'Email must end with @ura.go.ug' },
+        { error: staffEmailRequirementMessage() },
         { status: 400 },
       )
     }

@@ -1,13 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { CalendarClock, X } from 'lucide-react'
+import { CalendarClock, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import type { DelegationBarRecord } from '@/features/delegation/delegation-bar-types'
+import { useWorkContextNavigationOptional } from '@/contexts/work-context-navigation-context'
 import type { WorkContextMode } from '@/lib/section-access'
 
 interface WorkContextBarProps {
@@ -17,25 +17,12 @@ interface WorkContextBarProps {
   onOpenDelegate: () => void
   canSelfServiceDelegate: boolean
   cancelApiBase?: string
-  /** When set, shows a link to open the org-level acting workspace (e.g. manager → AC). */
   crossWorkspaceActingHref?: string | null
   crossWorkspaceActingLabel?: string | null
 }
 
-function buildHref(
-  pathname: string,
-  workContext: WorkContextMode,
-  current: URLSearchParams,
-) {
-  const params = new URLSearchParams(current.toString())
-  if (workContext === 'acting') params.set('workContext', 'acting')
-  else params.delete('workContext')
-  const qs = params.toString()
-  return qs ? `${pathname}?${qs}` : pathname
-}
-
 export function WorkContextBar({
-  workContext,
+  workContext: serverWorkContext,
   assignmentAsDelegatee,
   assignmentAsAbsent,
   onOpenDelegate,
@@ -47,10 +34,38 @@ export function WorkContextBar({
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const navigation = useWorkContextNavigationOptional()
   const [isCancelling, setIsCancelling] = React.useState(false)
+
+  const workContext = navigation?.displayContext ?? serverWorkContext
+  const isSwitching = navigation?.isSwitching ?? false
 
   const hasActing = Boolean(assignmentAsDelegatee)
   const showSwitcher = hasActing
+
+  function switchContext(mode: WorkContextMode) {
+    if (navigation) {
+      navigation.navigateToWorkContext(mode)
+      return
+    }
+    const params = new URLSearchParams(searchParams.toString())
+    if (mode === 'acting') params.set('workContext', 'acting')
+    else params.delete('workContext')
+    const qs = params.toString()
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
+
+  function openCrossWorkspace() {
+    if (!crossWorkspaceActingHref) return
+    if (navigation) {
+      navigation.navigateToHref(
+        crossWorkspaceActingHref,
+        crossWorkspaceActingLabel ?? 'Opening acting workspace…',
+      )
+      return
+    }
+    router.push(crossWorkspaceActingHref)
+  }
 
   async function cancelDelegation(id: string) {
     setIsCancelling(true)
@@ -86,39 +101,51 @@ export function WorkContextBar({
   }
 
   return (
-    <div className='border-b bg-muted/40 px-4 py-2 md:px-8'>
+    <div className='relative z-30 shrink-0 border-b bg-muted/40 px-4 py-2 md:px-8'>
       <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
         <div className='flex flex-wrap items-center gap-2 text-sm'>
           {showSwitcher ? (
             <>
               <span className='text-muted-foreground'>Work context:</span>
               <Button
+                type='button'
                 variant={workContext === 'own' ? 'secondary' : 'ghost'}
                 size='sm'
-                asChild
+                disabled={isSwitching}
+                aria-pressed={workContext === 'own'}
+                onClick={() => switchContext('own')}
               >
-                <Link href={buildHref(pathname, 'own', searchParams)}>
-                  My work
-                </Link>
+                My work
               </Button>
               <Button
+                type='button'
                 variant={workContext === 'acting' ? 'secondary' : 'ghost'}
                 size='sm'
-                asChild
+                disabled={isSwitching}
+                aria-pressed={workContext === 'acting'}
+                onClick={() => switchContext('acting')}
               >
-                <Link href={buildHref(pathname, 'acting', searchParams)}>
-                  Acting for {assignmentAsDelegatee?.fromStaffName} (
-                  {assignmentAsDelegatee?.actingRole})
-                </Link>
+                Acting for {assignmentAsDelegatee?.fromStaffName} (
+                {assignmentAsDelegatee?.actingRole})
               </Button>
+              {isSwitching ? (
+                <span className='inline-flex items-center gap-1.5 text-xs text-muted-foreground'>
+                  <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                  Switching…
+                </span>
+              ) : null}
             </>
           ) : null}
 
           {crossWorkspaceActingHref && workContext === 'own' ? (
-            <Button variant='outline' size='sm' asChild>
-              <Link href={crossWorkspaceActingHref}>
-                {crossWorkspaceActingLabel ?? 'Open acting workspace'}
-              </Link>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={isSwitching}
+              onClick={openCrossWorkspace}
+            >
+              {crossWorkspaceActingLabel ?? 'Open acting workspace'}
             </Button>
           ) : null}
 
@@ -131,7 +158,7 @@ export function WorkContextBar({
                 variant='ghost'
                 size='sm'
                 className='h-7 px-2'
-                disabled={isCancelling}
+                disabled={isCancelling || isSwitching}
                 onClick={() => cancelDelegation(assignmentAsAbsent._id)}
               >
                 <X className='h-3.5 w-3.5' />
@@ -142,7 +169,12 @@ export function WorkContextBar({
         </div>
 
         {canSelfServiceDelegate && !assignmentAsAbsent ? (
-          <Button variant='outline' size='sm' onClick={onOpenDelegate}>
+          <Button
+            variant='outline'
+            size='sm'
+            disabled={isSwitching}
+            onClick={onOpenDelegate}
+          >
             Delegate while on leave
           </Button>
         ) : null}

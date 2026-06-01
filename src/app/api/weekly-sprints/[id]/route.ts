@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import {
+  buildSprintTaskWriteFields,
+  isEmergencySprintCategory,
   sprintTaskHasRequiredLinks,
   validateSprintTaskPayload,
 } from '@/lib/sprint-task-validation'
@@ -60,7 +62,7 @@ export async function PATCH(
         return NextResponse.json(
           {
             error:
-              'Every task must have an activity category, related initiative, and related measurable activity before submitting',
+              'Every task must have an activity category. Non-emergency tasks must also be linked to a contract initiative and measurable activity before submitting',
           },
           { status: 400 },
         )
@@ -130,19 +132,14 @@ export async function PATCH(
           _key?: string
           description: string
           activityCategory: string
-          initiativeKey: string
+          initiativeKey?: string
           initiativeTitle?: string
-          activityKey: string
+          activityKey?: string
           activityTitle?: string
         }) => ({
           _type: 'sprintTask',
           _key: nextKey(t._key),
-          description: t.description.trim(),
-          activityCategory: t.activityCategory,
-          initiativeKey: t.initiativeKey,
-          ...(t.initiativeTitle && { initiativeTitle: t.initiativeTitle }),
-          activityKey: t.activityKey,
-          ...(t.activityTitle && { activityTitle: t.activityTitle }),
+          ...buildSprintTaskWriteFields(t),
           status: 'pending',
         }),
       )
@@ -763,17 +760,29 @@ export async function PATCH(
       const patch = writeClient.patch(id).set({
         [`${patchPath}.description`]: String(description).trim(),
         [`${patchPath}.activityCategory`]: activityCategory,
-        [`${patchPath}.initiativeKey`]: initiativeKey,
-        ...(initiativeTitle && {
-          [`${patchPath}.initiativeTitle`]: String(initiativeTitle).trim(),
-        }),
-        [`${patchPath}.activityKey`]: activityKey,
-        ...(activityTitle && {
-          [`${patchPath}.activityTitle`]: String(activityTitle).trim(),
-        }),
         [`${patchPath}.status`]: 'pending',
         [`${patchPath}.revisionReason`]: '',
       })
+
+      if (isEmergencySprintCategory(activityCategory)) {
+        patch.unset([
+          `${patchPath}.initiativeKey`,
+          `${patchPath}.initiativeTitle`,
+          `${patchPath}.activityKey`,
+          `${patchPath}.activityTitle`,
+        ])
+      } else {
+        patch.set({
+          [`${patchPath}.initiativeKey`]: initiativeKey,
+          ...(initiativeTitle && {
+            [`${patchPath}.initiativeTitle`]: String(initiativeTitle).trim(),
+          }),
+          [`${patchPath}.activityKey`]: activityKey,
+          ...(activityTitle && {
+            [`${patchPath}.activityTitle`]: String(activityTitle).trim(),
+          }),
+        })
+      }
 
       if (doc.status === 'reviewed') {
         patch.set({ status: 'submitted' })
@@ -864,14 +873,14 @@ export async function PATCH(
       const newTask: Record<string, unknown> = {
         _type: 'sprintTask',
         _key: crypto.randomUUID(),
-        description: String(description).trim(),
-        activityCategory,
-        initiativeKey,
-        ...(initiativeTitle && {
-          initiativeTitle: String(initiativeTitle).trim(),
+        ...buildSprintTaskWriteFields({
+          description: String(description),
+          activityCategory,
+          initiativeKey,
+          initiativeTitle,
+          activityKey,
+          activityTitle,
         }),
-        activityKey,
-        ...(activityTitle && { activityTitle: String(activityTitle).trim() }),
         status: 'accepted',
         reviewedAt: new Date().toISOString(),
         taskStatus: 'to_do',

@@ -32,6 +32,7 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuAction,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -39,6 +40,7 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
+import type { SprintNavCounts } from '@/lib/sprint-nav-counts'
 import type {
   SidebarDepartmentWithDivisions,
   SidebarDivision,
@@ -57,12 +59,22 @@ function resolveManagerSprintTab(
   return 'ready'
 }
 
+function SprintSidebarCountBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  return (
+    <SidebarMenuBadge>
+      {count > 99 ? '99+' : count}
+    </SidebarMenuBadge>
+  )
+}
+
 export function AppSidebarNav({
   departmentsTree,
   variant = 'default',
   commissionerDivisions = [],
   assistantCommissionerSections = [],
   managerSprintsReviewLabel = 'To Review',
+  sprintNavCounts,
 }: {
   departmentsTree: SidebarDepartmentWithDivisions[]
   variant?:
@@ -74,6 +86,7 @@ export function AppSidebarNav({
   commissionerDivisions?: SidebarDivision[]
   assistantCommissionerSections?: SidebarSection[]
   managerSprintsReviewLabel?: string
+  sprintNavCounts?: SprintNavCounts
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -168,6 +181,11 @@ export function AppSidebarNav({
     : null
   const isManagerSprintsRoute =
     pathname === '/manager/sprints' || pathname.startsWith('/manager/sprints/')
+  const sprintCounts = sprintNavCounts ?? {
+    ready: 0,
+    inReview: 0,
+    drafts: 0,
+  }
 
   if (isOfficerSidebar) {
     return (
@@ -230,6 +248,7 @@ export function AppSidebarNav({
                     <span>Sprints</span>
                   </Link>
                 </SidebarMenuButton>
+                <SprintSidebarCountBadge count={sprintCounts.ready} />
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -348,6 +367,7 @@ export function AppSidebarNav({
                     <span>Ready</span>
                   </Link>
                 </SidebarMenuButton>
+                <SprintSidebarCountBadge count={sprintCounts.ready} />
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -361,6 +381,7 @@ export function AppSidebarNav({
                     <span>{managerSprintsReviewLabel}</span>
                   </Link>
                 </SidebarMenuButton>
+                <SprintSidebarCountBadge count={sprintCounts.inReview} />
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -374,6 +395,7 @@ export function AppSidebarNav({
                     <span>Drafts</span>
                   </Link>
                 </SidebarMenuButton>
+                <SprintSidebarCountBadge count={sprintCounts.drafts} />
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>

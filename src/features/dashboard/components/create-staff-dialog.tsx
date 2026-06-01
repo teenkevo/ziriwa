@@ -33,7 +33,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { toast } from 'sonner'
-import { STAFF_ROLE_OPTIONS, URA_EMAIL_SUFFIX } from '@/lib/staff-roles'
+import {
+  isUraEmailEnforced,
+  staffEmailRequirementMessage,
+  URA_EMAIL_SUFFIX,
+} from '@/lib/staff-email-policy'
+import { STAFF_ROLE_OPTIONS } from '@/lib/staff-roles'
 
 export type StaffMember = {
   _id: string
@@ -42,18 +47,21 @@ export type StaffMember = {
   idNumber?: string
 }
 
+const emailSchema = z
+  .string()
+  .min(1, 'Email is required')
+  .email('Invalid email')
+
 const staffSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   idNumber: z.string().min(1, 'ID number is required'),
-  email: z
-    .string()
-    .min(1, 'Email is required')
-    .email('Invalid email')
-    .refine(
-      val => val.toLowerCase().endsWith(URA_EMAIL_SUFFIX),
-      `Email must end with ${URA_EMAIL_SUFFIX}`,
-    ),
+  email: isUraEmailEnforced()
+    ? emailSchema.refine(
+        val => val.toLowerCase().endsWith(URA_EMAIL_SUFFIX),
+        staffEmailRequirementMessage(),
+      )
+    : emailSchema,
   role: z.string().min(1, 'Staff level is required'),
   phone: z
     .string()
@@ -224,7 +232,11 @@ export function CreateStaffDialog({
                     <Input
                       {...field}
                       type='email'
-                      placeholder={`e.g. name${URA_EMAIL_SUFFIX}`}
+                      placeholder={
+                        isUraEmailEnforced()
+                          ? `e.g. name${URA_EMAIL_SUFFIX}`
+                          : 'e.g. name@example.com'
+                      }
                       disabled={isCreating}
                     />
                   </FormControl>

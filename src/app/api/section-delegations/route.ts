@@ -13,6 +13,7 @@ import {
 import {
   findOverlappingDelegationAsAbsentAnyScope,
   findOverlappingDelegationAsDelegateeAnyScope,
+  hasActiveDelegationAsDelegateeAnyScope,
 } from '@/lib/delegation-overlap.server'
 import { syncDelegationStatuses } from '@/lib/section-delegation.server'
 import { createNotification } from '@/lib/notifications/create-notification'
@@ -54,6 +55,16 @@ export async function POST(req: NextRequest) {
     }
 
     const fromStaffId = viewerStaffId
+
+    if (await hasActiveDelegationAsDelegateeAnyScope(fromStaffId)) {
+      return NextResponse.json(
+        {
+          error:
+            'You cannot delegate while you are acting for someone else',
+        },
+        { status: 403 },
+      )
+    }
 
     if (fromStaffId === toStaffId) {
       return NextResponse.json(

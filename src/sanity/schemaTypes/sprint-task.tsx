@@ -16,8 +16,8 @@ export const sprintTask = defineType({
       name: 'initiativeKey',
       title: 'Initiative Key',
       type: 'string',
-      description: 'The _key of the linked initiative within the section contract',
-      validation: Rule => Rule.required(),
+      description:
+        'The _key of the linked initiative within the section contract (not used for emergency tasks)',
     }),
     defineField({
       name: 'initiativeTitle',
@@ -29,8 +29,8 @@ export const sprintTask = defineType({
       name: 'activityKey',
       title: 'Activity Key',
       type: 'string',
-      description: 'The _key of the linked measurable activity within the initiative',
-      validation: Rule => Rule.required(),
+      description:
+        'The _key of the linked measurable activity within the initiative (not used for emergency tasks)',
     }),
     defineField({
       name: 'activityTitle',
@@ -48,6 +48,7 @@ export const sprintTask = defineType({
           { title: 'Compliance', value: 'compliance' },
           { title: 'Staff Development', value: 'staff_development' },
           { title: 'Stakeholder Engagement', value: 'stakeholder_engagement' },
+          { title: 'Emergency', value: 'emergency' },
         ],
       },
       validation: Rule => Rule.required(),

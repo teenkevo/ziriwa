@@ -46,6 +46,7 @@ const CATEGORY_COLORS: Record<string, { label: string; color: string }> = {
     label: 'Stakeholder engagement',
     color: 'hsl(38 92% 50%)',
   },
+  emergency: { label: 'Emergency', color: 'hsl(0 84% 60%)' },
   uncategorized: { label: 'Uncategorized', color: 'hsl(215 16% 65%)' },
 }
 

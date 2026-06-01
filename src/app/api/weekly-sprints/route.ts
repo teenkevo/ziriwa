@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
-import { validateSprintTaskPayload } from '@/lib/sprint-task-validation'
+import {
+  buildSprintTaskWriteFields,
+  validateSprintTaskPayload,
+} from '@/lib/sprint-task-validation'
 import { assertAuth } from '@/lib/authz/guards.server'
 import { audit } from '@/lib/audit-log/events'
 import {
@@ -65,19 +68,14 @@ export async function POST(req: NextRequest) {
         (t: {
           description: string
           activityCategory: string
-          initiativeKey: string
+          initiativeKey?: string
           initiativeTitle?: string
-          activityKey: string
+          activityKey?: string
           activityTitle?: string
         }) => ({
           _type: 'sprintTask',
           _key: crypto.randomUUID(),
-          description: t.description.trim(),
-          activityCategory: t.activityCategory,
-          initiativeKey: t.initiativeKey,
-          ...(t.initiativeTitle && { initiativeTitle: t.initiativeTitle }),
-          activityKey: t.activityKey,
-          ...(t.activityTitle && { activityTitle: t.activityTitle }),
+          ...buildSprintTaskWriteFields(t),
           status: 'pending',
         }),
       ),

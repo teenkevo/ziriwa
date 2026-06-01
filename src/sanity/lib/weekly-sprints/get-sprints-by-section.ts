@@ -38,7 +38,12 @@ export type SprintTask = {
   initiativeTitle?: string
   activityKey?: string
   activityTitle?: string
-  activityCategory?: 'normal_flow' | 'compliance' | 'staff_development' | 'stakeholder_engagement'
+  activityCategory?:
+    | 'normal_flow'
+    | 'compliance'
+    | 'staff_development'
+    | 'stakeholder_engagement'
+    | 'emergency'
   status: 'pending' | 'accepted' | 'rejected' | 'revisions_requested'
   revisionReason?: string
   reviewedAt?: string

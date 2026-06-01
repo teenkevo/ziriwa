@@ -13,12 +13,20 @@ import {
   ChevronDown,
   Trash2,
   Pencil,
+  MoreVertical,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +77,14 @@ import {
 } from '@/lib/section-access'
 import { useIsLg } from '@/hooks/use-is-lg'
 import { getEffectiveTaskStatus } from '@/lib/sprint-week'
+import {
+  buildSprintTaskWriteFields,
+  isEmergencySprintCategory,
+  isSprintDraftTaskComplete,
+  SPRINT_ACTIVITY_CATEGORY_OPTIONS,
+  sprintDraftNeedsContractInitiatives,
+  sprintTaskRequiresContractLinks,
+} from '@/lib/sprint-task-validation'
 
 export type InitiativeWithActivities = {
   key: string
@@ -177,14 +193,6 @@ const STATUS_CONFIG: Record<
   revisions_requested: { label: 'Revisions Requested', variant: 'outline' },
 }
 
-// TODO: Allow adding other activity cateogories
-const ACTIVITY_CATEGORIES = [
-  { label: 'Normal Flow', value: 'normal_flow' },
-  { label: 'Compliance', value: 'compliance' },
-  { label: 'Staff Development', value: 'staff_development' },
-  { label: 'Stakeholder Engagement', value: 'stakeholder_engagement' },
-]
-
 /** Ready / In Review / Drafts — active tab uses primary bottom border */
 const weeklySprintSubTabTriggerClassName =
   'inline-flex items-center rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-muted-foreground shadow-none transition-colors -mb-px data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
@@ -215,12 +223,93 @@ const emptyDraftTask: DraftTask = {
   activityKey: '',
 }
 
-function isDraftTaskComplete(t: DraftTask): boolean {
+function SprintTaskContractLinkFields({
+  task,
+  initiatives,
+  disabled = false,
+  onFieldChange,
+}: {
+  task: Pick<DraftTask, 'activityCategory' | 'initiativeKey' | 'activityKey'>
+  initiatives: InitiativeWithActivities[]
+  disabled?: boolean
+  onFieldChange: (field: 'initiativeKey' | 'activityKey', value: string) => void
+}) {
+  if (!task.activityCategory) {
+    return null
+  }
+
+  if (isEmergencySprintCategory(task.activityCategory)) {
+    return (
+      <p className='rounded-md border border-dashed p-2 text-xs text-muted-foreground'>
+        Emergency tasks are not linked to the section contract.
+      </p>
+    )
+  }
+
+  if (initiatives.length === 0) {
+    return (
+      <p className='rounded-md border border-dashed p-2 text-xs text-muted-foreground'>
+        Add initiatives and measurable activities to the section contract before
+        you can link sprint tasks.
+      </p>
+    )
+  }
+
+  const selectedInit = initiatives.find(i => i.key === task.initiativeKey)
+
   return (
-    Boolean(t.description.trim()) &&
-    Boolean(t.activityCategory) &&
-    Boolean(t.initiativeKey) &&
-    Boolean(t.activityKey)
+    <div className='grid gap-2'>
+      <div className='w-[100%] space-y-1 overflow-hidden p-1'>
+        <Label className='text-xs' required>
+          Related initiative
+        </Label>
+        <Select
+          value={task.initiativeKey || undefined}
+          onValueChange={v => onFieldChange('initiativeKey', v)}
+          disabled={disabled}
+        >
+          <SelectTrigger className='w-[100%] overflow-hidden text-xs'>
+            <SelectValue placeholder='Select related initiative' />
+          </SelectTrigger>
+          <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
+            {initiatives.map(ini => (
+              <SelectItem
+                key={ini.key}
+                value={ini.key}
+                className='truncate text-xs'
+              >
+                {ini.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className='w-[100%] space-y-1 overflow-hidden p-1'>
+        <Label className='text-xs' required>
+          Related measurable activity
+        </Label>
+        <Select
+          value={task.activityKey || undefined}
+          onValueChange={v => onFieldChange('activityKey', v)}
+          disabled={disabled || !task.initiativeKey}
+        >
+          <SelectTrigger className='w-[100%] overflow-hidden text-xs'>
+            <SelectValue placeholder='Select related measurable activity' />
+          </SelectTrigger>
+          <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
+            {(selectedInit?.activities ?? []).map(act => (
+              <SelectItem
+                key={act.key}
+                value={act.key}
+                className='whitespace-normal break-words text-xs'
+              >
+                {act.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
   )
 }
 
@@ -264,9 +353,8 @@ export function WeeklySprintContent({
   const [revisionReason, setRevisionReason] = React.useState('')
   const [isReviewing, setIsReviewing] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState<string | null>(null)
-  const [sprintToDelete, setSprintToDelete] = React.useState<WeeklySprint | null>(
-    null,
-  )
+  const [sprintToDelete, setSprintToDelete] =
+    React.useState<WeeklySprint | null>(null)
   const [isDeletingSprint, setIsDeletingSprint] = React.useState(false)
   const [reviseOpen, setReviseOpen] = React.useState(false)
   const [reviseSprintId, setReviseSprintId] = React.useState('')
@@ -361,6 +449,14 @@ export function WeeklySprintContent({
         if (field === 'initiativeKey') {
           return { ...t, initiativeKey: value, activityKey: '' }
         }
+        if (field === 'activityCategory' && isEmergencySprintCategory(value)) {
+          return {
+            ...t,
+            activityCategory: value,
+            initiativeKey: '',
+            activityKey: '',
+          }
+        }
         return { ...t, [field]: value }
       }),
     )
@@ -385,7 +481,7 @@ export function WeeklySprintContent({
 
   const handleSaveSprint = async (e: React.FormEvent) => {
     e.preventDefault()
-    const validTasks = draftTasks.filter(isDraftTaskComplete)
+    const validTasks = draftTasks.filter(isSprintDraftTaskComplete)
     const week = fyWeeks[Number(selectedWeekIdx)]
     if (validTasks.length === 0 || !week) return
     if (endOfDayLocal(parseYMDLocal(week.end)) < todayStart) {
@@ -411,12 +507,14 @@ export function WeeklySprintContent({
         const act = init?.activities.find(a => a.key === t.activityKey)
         return {
           ...(t._key && { _key: t._key }),
-          description: t.description.trim(),
-          activityCategory: t.activityCategory,
-          initiativeKey: t.initiativeKey,
-          initiativeTitle: init?.title,
-          activityKey: t.activityKey,
-          activityTitle: act?.title,
+          ...buildSprintTaskWriteFields({
+            description: t.description,
+            activityCategory: t.activityCategory,
+            initiativeKey: t.initiativeKey,
+            activityKey: t.activityKey,
+            initiativeTitle: init?.title,
+            activityTitle: act?.title,
+          }),
         }
       })
 
@@ -480,13 +578,23 @@ export function WeeklySprintContent({
       if (field === 'initiativeKey') {
         return { ...prev, initiativeKey: value, activityKey: '' }
       }
+      if (field === 'activityCategory' && isEmergencySprintCategory(value)) {
+        return {
+          ...prev,
+          activityCategory: value,
+          initiativeKey: '',
+          activityKey: '',
+        }
+      }
       return { ...prev, [field]: value }
     })
   }
 
   const handleSaveRevise = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!reviseTaskDraft?._key || !isDraftTaskComplete(reviseTaskDraft)) return
+    if (!reviseTaskDraft?._key || !isSprintDraftTaskComplete(reviseTaskDraft)) {
+      return
+    }
 
     const init = initiatives.find(i => i.key === reviseTaskDraft.initiativeKey)
     const act = init?.activities.find(
@@ -501,12 +609,14 @@ export function WeeklySprintContent({
         body: JSON.stringify({
           action: 'revise-task',
           taskKey: reviseTaskDraft._key,
-          description: reviseTaskDraft.description.trim(),
-          activityCategory: reviseTaskDraft.activityCategory,
-          initiativeKey: reviseTaskDraft.initiativeKey,
-          initiativeTitle: init?.title,
-          activityKey: reviseTaskDraft.activityKey,
-          activityTitle: act?.title,
+          ...buildSprintTaskWriteFields({
+            description: reviseTaskDraft.description,
+            activityCategory: reviseTaskDraft.activityCategory,
+            initiativeKey: reviseTaskDraft.initiativeKey,
+            activityKey: reviseTaskDraft.activityKey,
+            initiativeTitle: init?.title,
+            activityTitle: act?.title,
+          }),
         }),
       })
       if (!res.ok) {
@@ -851,13 +961,23 @@ export function WeeklySprintContent({
       if (field === 'initiativeKey') {
         return { ...prev, initiativeKey: value, activityKey: '' }
       }
+      if (field === 'activityCategory' && isEmergencySprintCategory(value)) {
+        return {
+          ...prev,
+          activityCategory: value,
+          initiativeKey: '',
+          activityKey: '',
+        }
+      }
       return { ...prev, [field]: value }
     })
   }
 
   const handleCreateExtraTask = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isDraftTaskComplete(extraTaskDraft) || !extraTaskSprintId) return
+    if (!isSprintDraftTaskComplete(extraTaskDraft) || !extraTaskSprintId) {
+      return
+    }
 
     const init = initiatives.find(i => i.key === extraTaskDraft.initiativeKey)
     const act = init?.activities.find(a => a.key === extraTaskDraft.activityKey)
@@ -869,12 +989,14 @@ export function WeeklySprintContent({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'add-extra-task',
-          description: extraTaskDraft.description.trim(),
-          activityCategory: extraTaskDraft.activityCategory,
-          initiativeKey: extraTaskDraft.initiativeKey,
-          initiativeTitle: init?.title,
-          activityKey: extraTaskDraft.activityKey,
-          activityTitle: act?.title,
+          ...buildSprintTaskWriteFields({
+            description: extraTaskDraft.description,
+            activityCategory: extraTaskDraft.activityCategory,
+            initiativeKey: extraTaskDraft.initiativeKey,
+            activityKey: extraTaskDraft.activityKey,
+            initiativeTitle: init?.title,
+            activityTitle: act?.title,
+          }),
         }),
       })
       if (!res.ok) {
@@ -897,7 +1019,9 @@ export function WeeklySprintContent({
     }
   }
 
-  const validDraftTasks = draftTasks.filter(isDraftTaskComplete)
+  const validDraftTasks = draftTasks.filter(isSprintDraftTaskComplete)
+  const createSprintNeedsContractInitiatives =
+    sprintDraftNeedsContractInitiatives(validDraftTasks)
 
   const draftSprints = sprints.filter(s => s.status === 'draft')
   /** Submitted (awaiting / in review) and reviewed (all tasks decided) — both stay visible here. */
@@ -994,7 +1118,9 @@ export function WeeklySprintContent({
             onEditDraft={() => openEditDraftSprint(sprint)}
             onDeleteDraft={() => setSprintToDelete(sprint)}
             canSubmitDraft={sectionAccess.canCreateSprints}
-            onReviewTask={(task, action) => openReview(sprint._id, task, action)}
+            onReviewTask={(task, action) =>
+              openReview(sprint._id, task, action)
+            }
           />
         ))
       )}
@@ -1006,7 +1132,9 @@ export function WeeklySprintContent({
       {submittedOrReviewedSprints.length === 0 ? (
         <Card>
           <CardContent className='pt-6'>
-            <p className='text-sm text-muted-foreground'>No sprints in review.</p>
+            <p className='text-sm text-muted-foreground'>
+              No sprints in review.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -1017,7 +1145,9 @@ export function WeeklySprintContent({
             onSubmit={() => handleSubmitSprint(sprint._id)}
             isSubmitting={isSubmitting === sprint._id}
             canManagerReviewPlan={sectionAccess.isSectionManager}
-            onReviewTask={(task, action) => openReview(sprint._id, task, action)}
+            onReviewTask={(task, action) =>
+              openReview(sprint._id, task, action)
+            }
             onOpenRevise={task => openReviseDialog(sprint._id, task)}
           />
         ))
@@ -1113,7 +1243,9 @@ export function WeeklySprintContent({
           ) : null}
 
           {sectionAccess.canViewSprintInReviewTab ? (
-            <TabsContent value='in-review'>{inReviewSprintsContent}</TabsContent>
+            <TabsContent value='in-review'>
+              {inReviewSprintsContent}
+            </TabsContent>
           ) : null}
 
           <TabsContent value='ready' className='mt-4 space-y-4'>
@@ -1122,7 +1254,10 @@ export function WeeklySprintContent({
         </Tabs>
       )}
 
-      {!isLg && ((presentation === 'single-view' && singleView === 'ready') || (!showSprintSubTabs || sprintTab === 'ready')) ? (
+      {!isLg &&
+      ((presentation === 'single-view' && singleView === 'ready') ||
+        !showSprintSubTabs ||
+        sprintTab === 'ready') ? (
         <Sheet
           open={Boolean(selectedTaskKey)}
           onOpenChange={open => {
@@ -1154,7 +1289,7 @@ export function WeeklySprintContent({
       >
         <DialogContent
           disableClose={isSavingSprint}
-          className='flex max-h-[85dvh] w-full max-w-lg grid-rows-none flex-col overflow-hidden'
+          className='flex w-full max-w-lg max-h-[85dvh] flex-col overflow-hidden sm:max-h-[85dvh] sm:overflow-hidden'
         >
           <DialogHeader className='shrink-0'>
             <DialogTitle>
@@ -1171,7 +1306,7 @@ export function WeeklySprintContent({
               e.stopPropagation()
               handleSaveSprint(e)
             }}
-            className='flex min-h-0 flex-1 flex-col'
+            className='flex min-h-0 flex-1 flex-col overflow-hidden'
           >
             <div className='min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain py-2 pb-4 pr-1'>
               <div className='space-y-2'>
@@ -1208,9 +1343,6 @@ export function WeeklySprintContent({
               <div className='space-y-3'>
                 <Label required>Tasks</Label>
                 {draftTasks.map((task, i) => {
-                  const selectedInit = initiatives.find(
-                    ini => ini.key === task.initiativeKey,
-                  )
                   return (
                     <div
                       key={task._key ?? `new-${i}`}
@@ -1261,7 +1393,7 @@ export function WeeklySprintContent({
                             <SelectValue placeholder='Select activity category' />
                           </SelectTrigger>
                           <SelectContent>
-                            {ACTIVITY_CATEGORIES.map(c => (
+                            {SPRINT_ACTIVITY_CATEGORY_OPTIONS.map(c => (
                               <SelectItem
                                 key={c.value}
                                 value={c.value}
@@ -1273,69 +1405,14 @@ export function WeeklySprintContent({
                           </SelectContent>
                         </Select>
                       </div>
-                      {initiatives.length > 0 ? (
-                        <div className='grid gap-2'>
-                          <div className='w-[100%] overflow-hidden space-y-1 p-1'>
-                            <Label className='text-xs' required>
-                              Related initiative
-                            </Label>
-                            <Select
-                              value={task.initiativeKey || undefined}
-                              onValueChange={v =>
-                                updateTaskField(i, 'initiativeKey', v)
-                              }
-                              disabled={isSavingSprint}
-                            >
-                              <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
-                                <SelectValue placeholder='Select related initiative' />
-                              </SelectTrigger>
-                              <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
-                                {initiatives.map(ini => (
-                                  <SelectItem
-                                    key={ini.key}
-                                    value={ini.key}
-                                    className='text-xs truncate'
-                                  >
-                                    {ini.title}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className='w-[100%] overflow-hidden space-y-1 p-1'>
-                            <Label className='text-xs' required>
-                              Related measurable activity
-                            </Label>
-                            <Select
-                              value={task.activityKey || undefined}
-                              onValueChange={v =>
-                                updateTaskField(i, 'activityKey', v)
-                              }
-                              disabled={isSavingSprint || !task.initiativeKey}
-                            >
-                              <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
-                                <SelectValue placeholder='Select related measurable activity' />
-                              </SelectTrigger>
-                              <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
-                                {(selectedInit?.activities ?? []).map(act => (
-                                  <SelectItem
-                                    key={act.key}
-                                    value={act.key}
-                                    className='text-xs whitespace-normal break-words'
-                                  >
-                                    {act.title}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className='text-xs text-muted-foreground rounded-md border border-dashed p-2'>
-                          Add initiatives and measurable activities to the
-                          section contract before you can link sprint tasks.
-                        </p>
-                      )}
+                      <SprintTaskContractLinkFields
+                        task={task}
+                        initiatives={initiatives}
+                        disabled={isSavingSprint}
+                        onFieldChange={(field, value) =>
+                          updateTaskField(i, field, value)
+                        }
+                      />
                     </div>
                   )
                 })}
@@ -1351,7 +1428,7 @@ export function WeeklySprintContent({
                 </Button>
               </div>
             </div>
-            <DialogFooter className='shrink-0 border-t pt-4'>
+            <DialogFooter className='mt-0 shrink-0 border-t bg-background pt-4'>
               <Button
                 type='button'
                 variant='outline'
@@ -1365,7 +1442,8 @@ export function WeeklySprintContent({
                 disabled={
                   isSavingSprint ||
                   validDraftTasks.length === 0 ||
-                  initiatives.length === 0
+                  (createSprintNeedsContractInitiatives &&
+                    initiatives.length === 0)
                 }
               >
                 {isSavingSprint ? (
@@ -1450,7 +1528,7 @@ export function WeeklySprintContent({
                     <SelectValue placeholder='Select activity category' />
                   </SelectTrigger>
                   <SelectContent>
-                    {ACTIVITY_CATEGORIES.map(c => (
+                    {SPRINT_ACTIVITY_CATEGORY_OPTIONS.map(c => (
                       <SelectItem
                         key={c.value}
                         value={c.value}
@@ -1462,71 +1540,14 @@ export function WeeklySprintContent({
                   </SelectContent>
                 </Select>
               </div>
-              {initiatives.length > 0 ? (
-                <div className='grid gap-2'>
-                  <div className='w-[100%] overflow-hidden space-y-1 p-1'>
-                    <Label className='text-xs' required>
-                      Related initiative
-                    </Label>
-                    <Select
-                      value={extraTaskDraft.initiativeKey || undefined}
-                      onValueChange={v => setExtraTaskField('initiativeKey', v)}
-                      disabled={isSavingExtraTask}
-                    >
-                      <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
-                        <SelectValue placeholder='Select related initiative' />
-                      </SelectTrigger>
-                      <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
-                        {initiatives.map(ini => (
-                          <SelectItem
-                            key={ini.key}
-                            value={ini.key}
-                            className='text-xs truncate'
-                          >
-                            {ini.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className='w-[100%] overflow-hidden space-y-1 p-1'>
-                    <Label className='text-xs' required>
-                      Related measurable activity
-                    </Label>
-                    <Select
-                      value={extraTaskDraft.activityKey || undefined}
-                      onValueChange={v => setExtraTaskField('activityKey', v)}
-                      disabled={
-                        isSavingExtraTask || !extraTaskDraft.initiativeKey
-                      }
-                    >
-                      <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
-                        <SelectValue placeholder='Select related measurable activity' />
-                      </SelectTrigger>
-                      <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
-                        {(
-                          initiatives.find(
-                            i => i.key === extraTaskDraft.initiativeKey,
-                          )?.activities ?? []
-                        ).map(act => (
-                          <SelectItem
-                            key={act.key}
-                            value={act.key}
-                            className='text-xs whitespace-normal break-words'
-                          >
-                            {act.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ) : (
-                <p className='text-xs text-muted-foreground rounded-md border border-dashed p-2'>
-                  Add initiatives to the section contract before linking this
-                  task.
-                </p>
-              )}
+              <SprintTaskContractLinkFields
+                task={extraTaskDraft}
+                initiatives={initiatives}
+                disabled={isSavingExtraTask}
+                onFieldChange={(field, value) =>
+                  setExtraTaskField(field, value)
+                }
+              />
             </div>
             <DialogFooter>
               <Button
@@ -1541,9 +1562,12 @@ export function WeeklySprintContent({
                 type='submit'
                 disabled={
                   isSavingExtraTask ||
-                  !isDraftTaskComplete(extraTaskDraft) ||
+                  !isSprintDraftTaskComplete(extraTaskDraft) ||
                   !extraTaskSprintId ||
-                  initiatives.length === 0
+                  (sprintTaskRequiresContractLinks(
+                    extraTaskDraft.activityCategory,
+                  ) &&
+                    initiatives.length === 0)
                 }
               >
                 {isSavingExtraTask ? (
@@ -1679,7 +1703,7 @@ export function WeeklySprintContent({
                       <SelectValue placeholder='Select activity category' />
                     </SelectTrigger>
                     <SelectContent>
-                      {ACTIVITY_CATEGORIES.map(c => (
+                      {SPRINT_ACTIVITY_CATEGORY_OPTIONS.map(c => (
                         <SelectItem
                           key={c.value}
                           value={c.value}
@@ -1691,71 +1715,12 @@ export function WeeklySprintContent({
                     </SelectContent>
                   </Select>
                 </div>
-                {initiatives.length > 0 ? (
-                  <div className='grid gap-2'>
-                    <div className='w-[100%] overflow-hidden space-y-1 p-1'>
-                      <Label className='text-xs' required>
-                        Related initiative
-                      </Label>
-                      <Select
-                        value={reviseTaskDraft.initiativeKey || undefined}
-                        onValueChange={v => setReviseField('initiativeKey', v)}
-                        disabled={isSavingRevise}
-                      >
-                        <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
-                          <SelectValue placeholder='Select related initiative' />
-                        </SelectTrigger>
-                        <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
-                          {initiatives.map(ini => (
-                            <SelectItem
-                              key={ini.key}
-                              value={ini.key}
-                              className='text-xs truncate'
-                            >
-                              {ini.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className='w-[100%] overflow-hidden space-y-1 p-1'>
-                      <Label className='text-xs' required>
-                        Related measurable activity
-                      </Label>
-                      <Select
-                        value={reviseTaskDraft.activityKey || undefined}
-                        onValueChange={v => setReviseField('activityKey', v)}
-                        disabled={
-                          isSavingRevise || !reviseTaskDraft.initiativeKey
-                        }
-                      >
-                        <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
-                          <SelectValue placeholder='Select related measurable activity' />
-                        </SelectTrigger>
-                        <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
-                          {(
-                            initiatives.find(
-                              i => i.key === reviseTaskDraft.initiativeKey,
-                            )?.activities ?? []
-                          ).map(act => (
-                            <SelectItem
-                              key={act.key}
-                              value={act.key}
-                              className='text-xs whitespace-normal break-words'
-                            >
-                              {act.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ) : (
-                  <p className='text-xs text-muted-foreground rounded-md border border-dashed p-2'>
-                    Add initiatives to the section contract before linking this
-                    task.
-                  </p>
-                )}
+                <SprintTaskContractLinkFields
+                  task={reviseTaskDraft}
+                  initiatives={initiatives}
+                  disabled={isSavingRevise}
+                  onFieldChange={(field, value) => setReviseField(field, value)}
+                />
               </div>
               <DialogFooter>
                 <Button
@@ -1771,8 +1736,11 @@ export function WeeklySprintContent({
                   disabled={
                     isSavingRevise ||
                     !reviseTaskDraft ||
-                    !isDraftTaskComplete(reviseTaskDraft) ||
-                    initiatives.length === 0
+                    !isSprintDraftTaskComplete(reviseTaskDraft) ||
+                    (sprintTaskRequiresContractLinks(
+                      reviseTaskDraft.activityCategory,
+                    ) &&
+                      initiatives.length === 0)
                   }
                 >
                   {isSavingRevise ? (
@@ -1792,7 +1760,9 @@ export function WeeklySprintContent({
 
       <AlertDialog
         open={sprintToDelete !== null}
-        onOpenChange={open => !open && !isDeletingSprint && setSprintToDelete(null)}
+        onOpenChange={open =>
+          !open && !isDeletingSprint && setSprintToDelete(null)
+        }
       >
         <AlertDialogContent disableClose={isDeletingSprint}>
           <AlertDialogHeader>
@@ -2062,50 +2032,61 @@ function SprintCard({
               <Badge variant={sprintStatusBadge.variant}>
                 {sprintStatusBadge.label}
               </Badge>
-              {sprint.status === 'draft' && (
-                <>
-                  {onEditDraft && (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={onEditDraft}
-                      disabled={isSubmitting}
-                    >
-                      <Pencil className='h-4 w-4' />
-                      Edit
-                    </Button>
-                  )}
-                  {onDeleteDraft && (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      className='text-destructive hover:text-destructive'
-                      onClick={onDeleteDraft}
-                      disabled={isSubmitting}
-                    >
-                      <Trash2 className='h-4 w-4' />
-                      Delete
-                    </Button>
-                  )}
-                  {canSubmitDraft && (
-                    <Button
-                      size='sm'
-                      variant='outline'
-                      onClick={onSubmit}
-                      disabled={isSubmitting || tasks.length === 0}
-                    >
-                      {isSubmitting ? (
-                        <Loader2 className='h-4 w-4 animate-spin' />
-                      ) : (
+              {sprint.status === 'draft' &&
+                (onEditDraft || onDeleteDraft || canSubmitDraft) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='h-8 w-8'
+                        disabled={isSubmitting}
+                      >
+                        <MoreVertical className='h-4 w-4' />
+                        <span className='sr-only'>Sprint actions</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align='end'>
+                      {onEditDraft ? (
+                        <DropdownMenuItem
+                          onClick={onEditDraft}
+                          disabled={isSubmitting}
+                        >
+                          <Pencil className='mr-2 h-4 w-4' />
+                          Edit
+                        </DropdownMenuItem>
+                      ) : null}
+                      {canSubmitDraft ? (
+                        <DropdownMenuItem
+                          onClick={onSubmit}
+                          disabled={isSubmitting || tasks.length === 0}
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                          ) : (
+                            <Send className='mr-2 h-4 w-4' />
+                          )}
+                          Submit to manager
+                        </DropdownMenuItem>
+                      ) : null}
+                      {onDeleteDraft ? (
                         <>
-                          <Send className='h-4 w-4' />
-                          Submit
+                          {(onEditDraft || canSubmitDraft) && (
+                            <DropdownMenuSeparator />
+                          )}
+                          <DropdownMenuItem
+                            className='text-destructive focus:text-destructive'
+                            onClick={onDeleteDraft}
+                            disabled={isSubmitting}
+                          >
+                            <Trash2 className='mr-2 h-4 w-4' />
+                            Delete
+                          </DropdownMenuItem>
                         </>
-                      )}
-                    </Button>
-                  )}
-                </>
-              )}
+                      ) : null}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               <CollapsibleTrigger asChild>
                 <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
                   <ChevronDown
