@@ -31,6 +31,10 @@ import {
 } from '@/lib/contract-code-validation'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  contractsApiBase,
+  type ContractsApiResource,
+} from '@/lib/contracts-api'
 
 interface EditInitiativeDialogProps {
   open: boolean
@@ -42,18 +46,24 @@ interface EditInitiativeDialogProps {
   objectiveCode: string
   initialCode: string
   initialTitle: string
+  contractsApi?: ContractsApiResource
 }
 
 function EditInitiativeFormInner({
   onOpenChange,
+  onSubmittingChange,
   sectionContractId,
+  contractsApi = 'section-contracts',
   objectiveIndex,
   initiativeIndex,
   objectiveCode,
   initialCode,
   initialTitle,
-}: Omit<EditInitiativeDialogProps, 'open'>) {
+}: Omit<EditInitiativeDialogProps, 'open'> & {
+  onSubmittingChange: (isSubmitting: boolean) => void
+}) {
   const router = useRouter()
+  const apiBase = contractsApiBase(contractsApi)
 
   const initiativeSchema = React.useMemo(
     () => buildInitiativeFormSchema(objectiveCode),
@@ -73,9 +83,13 @@ function EditInitiativeFormInner({
   const isSaving = form.formState.isSubmitting
   const oc = objectiveCode.trim() || '—'
 
+  React.useEffect(() => {
+    onSubmittingChange(isSaving)
+  }, [isSaving, onSubmittingChange])
+
   const onSubmit = async (values: InitiativeFormValues) => {
     try {
-      const res = await fetch(`/api/section-contracts/${sectionContractId}`, {
+      const res = await fetch(`${apiBase}/${sectionContractId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -197,10 +211,13 @@ export function EditInitiativeDialog({
   objectiveCode,
   initialCode,
   initialTitle,
+  contractsApi,
 }: EditInitiativeDialogProps) {
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isSubmitting}>
         <DialogHeader>
           <DialogTitle>Edit Initiative</DialogTitle>
           <DialogDescription>Update the initiative code or text.</DialogDescription>
@@ -209,7 +226,9 @@ export function EditInitiativeDialog({
           <EditInitiativeFormInner
             key={`${sectionContractId}-${objectiveIndex}-${initiativeIndex}-${objectiveCode}`}
             onOpenChange={onOpenChange}
+            onSubmittingChange={setIsSubmitting}
             sectionContractId={sectionContractId}
+            contractsApi={contractsApi}
             objectiveIndex={objectiveIndex}
             initiativeIndex={initiativeIndex}
             objectiveCode={objectiveCode}

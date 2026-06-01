@@ -55,13 +55,40 @@ export function AssistantCommissionerSwitcher({
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
+  const [createdAssistantCommissioners, setCreatedAssistantCommissioners] =
+    React.useState<StaffPickerMember[]>([])
 
-  const selected = assistantCommissioners.find(a => a._id === value)
+  const assistantCommissionerOptions = React.useMemo(() => {
+    const assistantCommissionerIds = new Set(
+      assistantCommissioners.map(
+        assistantCommissioner => assistantCommissioner._id,
+      ),
+    )
+    return [
+      ...assistantCommissioners,
+      ...createdAssistantCommissioners.filter(
+        assistantCommissioner =>
+          !assistantCommissionerIds.has(assistantCommissioner._id),
+      ),
+    ]
+  }, [assistantCommissioners, createdAssistantCommissioners])
+
+  const selected = assistantCommissionerOptions.find(a => a._id === value)
   const displayLabel = selected
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
   const handleCreateSuccess = (newStaff: StaffMember) => {
+    setCreatedAssistantCommissioners(current => {
+      if (
+        current.some(
+          assistantCommissioner => assistantCommissioner._id === newStaff._id,
+        )
+      ) {
+        return current
+      }
+      return [...current, newStaff]
+    })
     onChange(newStaff._id)
     setShowCreateDialog(false)
     setOpen(false)
@@ -92,7 +119,7 @@ export function AssistantCommissionerSwitcher({
               <CommandEmpty>No assistant commissioner found.</CommandEmpty>
               <CommandGroup heading='Assistant Commissioners'>
                 <StaffPickerCommandItems
-                  members={assistantCommissioners}
+                  members={assistantCommissionerOptions}
                   value={value}
                   roleLabel='Assistant Commissioner'
                   currentEntityId={currentDivisionId}

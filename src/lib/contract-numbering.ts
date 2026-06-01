@@ -19,6 +19,14 @@ export function measurableActivityNumber(
   return `${initiativeNumber}-${cat}-${activityOrder}`
 }
 
+/** Department commissioner measurable activity (e.g. 1.1.1-MA-1) */
+export function departmentMeasurableActivityNumber(
+  initiativeNumber: string,
+  activityOrder: number,
+): string {
+  return `${initiativeNumber}-MA-${activityOrder}`
+}
+
 /** Measurable activity sub-number: CC = a,b,c; KPI = E1,E2 */
 export function measurableSubNumber(
   activityType: 'kpi' | 'cross-cutting',

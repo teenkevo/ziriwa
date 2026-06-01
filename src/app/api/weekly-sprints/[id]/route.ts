@@ -310,10 +310,9 @@ export async function PATCH(
       const assigneeRef = (task.assignee as { _ref?: string } | undefined)?._ref
 
       if (updates.taskStatus !== undefined) {
-        const isAssigneeUpdate = canSubmitDetailedTaskWork(access, assigneeRef)
-        if (!access.canSuperviseDetailedTasks && !isAssigneeUpdate) {
+        if (!access.canSuperviseDetailedTasks) {
           return sectionAccessDenied(
-            'Only the assigned officer can update task status on their sprint task',
+            'Only supervisors can update sprint task status',
           )
         }
       }

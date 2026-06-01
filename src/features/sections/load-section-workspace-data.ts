@@ -4,6 +4,7 @@ import { currentUser } from '@clerk/nextjs/server'
 import { client } from '@/sanity/lib/client'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionContractBySection } from '@/sanity/lib/section-contracts/get-section-contract-by-section'
+import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { getStakeholderEngagementBySection } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement-by-section'
 import {
   getSupervisorsBySection,
@@ -12,8 +13,19 @@ import {
 import { getManagersForPicker } from '@/sanity/lib/staff/get-staff-for-picker'
 import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import type { WorkContextMode } from '@/lib/section-access'
 import { getSectionAccessForViewer } from '@/lib/section-access.server'
+import {
+  shouldScopeSprintsToOfficer,
+  shouldScopeSprintsToSupervisor,
+  shouldUseOfficerContract,
+} from '@/lib/sprint-workspace-scope'
+import { getDelegationCandidatesForStaff } from '@/lib/section-delegation-candidates.server'
 import { getSectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
+import { getSupervisorContractForViewer } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract-for-viewer'
+import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
+import { getOfficerContractForViewer } from '@/sanity/lib/officer-contracts/get-officer-contract-for-viewer'
+import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 
 export type WorkspaceSection = {
   _id: string
@@ -50,6 +62,8 @@ export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
     /* groq */ `
       *[_type == "section" && (
         lower(manager->email) == $email ||
+        lower(division->assistantCommissioner->email) == $email ||
+        division._ref in *[_type == "staff" && lower(email) == $email && status == "active" && role == "assistant_commissioner" && defined(division._ref)].division._ref ||
         _id in *[_type == "staff" && lower(email) == $email && defined(section._ref)].section._ref
       )] | order(name asc) {
         _id,
@@ -63,7 +77,19 @@ export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
   )
 }
 
-export async function loadSectionWorkspaceData(sectionIdOrSlug: string) {
+export type LoadSectionWorkspaceOptions = {
+  workContext?: WorkContextMode
+}
+
+function parseWorkContext(value: string | undefined): WorkContextMode {
+  return value === 'acting' ? 'acting' : 'own'
+}
+
+export async function loadSectionWorkspaceData(
+  sectionIdOrSlug: string,
+  options?: LoadSectionWorkspaceOptions,
+) {
+  const workContext = parseWorkContext(options?.workContext)
   const sectionBySlug = await getSectionBySlug(sectionIdOrSlug)
   const section =
     sectionBySlug ??
@@ -166,24 +192,97 @@ export async function loadSectionWorkspaceData(sectionIdOrSlug: string) {
     return { _id: s._id, fullName: s.fullName, staffId }
   })
 
-  const sectionAccess = await getSectionAccessForViewer(section._id)
+  const sectionAccess = await getSectionAccessForViewer(section._id, workContext)
+
+  const delegationCandidates =
+    sectionAccess.viewerStaffId && sectionAccess.canSelfServiceDelegate
+      ? await getDelegationCandidatesForStaff(
+          section._id,
+          sectionAccess.viewerStaffId,
+        )
+      : []
+
+  const usesSupervisorContract = shouldScopeSprintsToSupervisor(sectionAccess)
+  const usesOfficerContract = shouldUseOfficerContract(sectionAccess)
+  const supervisorStaffId =
+    sectionAccess.supervisorContextStaffId ?? sectionAccess.viewerStaffId
+  const officerStaffId =
+    sectionAccess.officerContextStaffId ?? sectionAccess.viewerStaffId
+
+  let supervisorContract: SupervisorContract | null = null
+  let officerContract: OfficerContract | null = null
+  if (usesSupervisorContract && supervisorStaffId) {
+    supervisorContract = await getSupervisorContractForViewer(
+      section._id,
+      supervisorStaffId,
+    )
+  }
+  if (usesOfficerContract && officerStaffId) {
+    officerContract = await getOfficerContractForViewer(
+      section._id,
+      officerStaffId,
+    )
+  }
+
+  const usesPersonalContract = usesSupervisorContract || usesOfficerContract
+  const contractForDue = (usesOfficerContract
+    ? officerContract
+    : usesSupervisorContract
+      ? supervisorContract
+      : sectionContract) as SectionContract | null
+
+  const dueTodaySupervisor = contractForDue
+    ? getDueItemsFromContract(contractForDue, d => d === today)
+    : []
+  const dueThisWeekSupervisor = contractForDue
+    ? getDueItemsFromContract(
+        contractForDue,
+        d => d >= weekStart && d <= weekEnd && d !== today,
+      )
+    : []
+  const dueThisMonthSupervisor = contractForDue
+    ? getDueItemsFromContract(
+        contractForDue,
+        d =>
+          d >= monthStart &&
+          d <= monthEnd &&
+          d !== today &&
+          !(d >= weekStart && d <= weekEnd),
+      )
+    : []
+  const dueThisQuarterSupervisor = contractForDue
+    ? getDueItemsFromContract(
+        contractForDue,
+        d =>
+          d >= quarterStart &&
+          d <= quarterEnd &&
+          d !== today &&
+          !(d >= monthStart && d <= monthEnd),
+      )
+    : []
 
   return {
     section,
     sectionContract,
+    supervisorContract,
+    officerContract,
     stakeholderEngagement,
     staffOptions,
     supervisors,
     officers,
-    dueToday,
-    dueThisWeek,
-    dueThisMonth,
-    dueThisQuarter,
+    dueToday: usesPersonalContract ? dueTodaySupervisor : dueToday,
+    dueThisWeek: usesPersonalContract ? dueThisWeekSupervisor : dueThisWeek,
+    dueThisMonth: usesPersonalContract ? dueThisMonthSupervisor : dueThisMonth,
+    dueThisQuarter: usesPersonalContract
+      ? dueThisQuarterSupervisor
+      : dueThisQuarter,
     today,
     sprints,
     viewerStaffId: sectionAccess.viewerStaffId ?? undefined,
     sectionAccess,
     staffRoster,
     managers,
+    workContext,
+    delegationCandidates,
   }
 }

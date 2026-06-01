@@ -110,7 +110,7 @@ export type DetailedTask = {
 
 export type MeasurableActivity = {
   _key: string
-  activityType: 'kpi' | 'cross-cutting'
+  activityType: 'kpi' | 'cross-cutting' | 'measurable'
   title: string
   aim?: string
   order?: number

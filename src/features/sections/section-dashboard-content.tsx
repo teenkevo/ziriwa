@@ -1,29 +1,38 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { CalendarDays, FileText, User2 } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { FileText } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 
-import { computeSectionDashboardMetrics } from '@/lib/section-dashboard-metrics'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import {
+  buildSectionContractOversightSummary,
+  buildSectionMonthlyOversightSummary,
+  buildSectionWeeklyOversightSummary,
+  buildSectionWeeklyReportPayload,
+  buildStakeholderOversightSummary,
+} from '@/lib/section-oversight'
+import {
+  MonthlyOversightCard,
+  SplitMetricCard,
+} from '@/features/manager/monthly-oversight-card'
 
-import { KpiTiles } from './components/dashboard/kpi-tiles'
 import { OverduePanel } from './components/dashboard/overdue-panel'
 import { ContractSummary } from './components/dashboard/contract-summary'
 import { SprintSummary } from './components/dashboard/sprint-summary'
 import { StakeholderSummary } from './components/dashboard/stakeholder-summary'
 import type { DueItem } from './components/due-today-this-week'
 import { Calendar, CalendarClock } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
+import { computeSectionDashboardMetrics } from '@/lib/section-dashboard-metrics'
+import type { SectionAccess } from '@/lib/section-access'
+import { scopeSprintsForViewer } from '@/lib/sprint-workspace-scope'
+import {
+  getWorkspacePaths,
+  type WorkspaceBasePath,
+} from '@/lib/workspace-paths'
 
 interface SectionDashboardContentProps {
   sectionName: string
@@ -35,27 +44,15 @@ interface SectionDashboardContentProps {
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
   sprints: WeeklySprint[]
+  /** When set, sprint metrics and weekly report use only this viewer's sprints. */
+  sectionAccess?: SectionAccess
   engagement: StakeholderEngagement | null
   dueToday: DueItem[]
   dueThisWeek: DueItem[]
   dueThisMonth: DueItem[]
   dueThisQuarter: DueItem[]
   today: string
-}
-
-function statusBadgeVariant(
-  status?: string,
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status) {
-    case 'active':
-      return 'default'
-    case 'completed':
-      return 'secondary'
-    case 'draft':
-      return 'outline'
-    default:
-      return 'outline'
-  }
+  workspaceBasePath?: WorkspaceBasePath
 }
 
 export function SectionDashboardContent({
@@ -63,6 +60,7 @@ export function SectionDashboardContent({
   sectionSlug,
   contract,
   sprints,
+  sectionAccess,
   engagement,
   dueToday,
   dueThisWeek,
@@ -70,34 +68,175 @@ export function SectionDashboardContent({
   dueThisQuarter,
   today,
   onNavigateToTab,
+  workspaceBasePath = '/manager',
 }: SectionDashboardContentProps) {
+  const paths = React.useMemo(
+    () => getWorkspacePaths(workspaceBasePath),
+    [workspaceBasePath],
+  )
+  const isOfficerWorkspace = workspaceBasePath === '/officer'
+  const officerStaffId =
+    isOfficerWorkspace && sectionAccess?.viewerStaffId
+      ? sectionAccess.viewerStaffId
+      : undefined
+
+  const oversightSprints = React.useMemo(
+    () => (sectionAccess ? scopeSprintsForViewer(sprints, sectionAccess) : sprints),
+    [sprints, sectionAccess],
+  )
+  const oversightSprintSource = officerStaffId ? sprints : oversightSprints
+
   const metrics = React.useMemo(
     () =>
       computeSectionDashboardMetrics({
         contract,
-        sprints,
+        sprints: oversightSprints,
         engagement,
         today,
       }),
-    [contract, sprints, engagement, today],
+    [contract, oversightSprints, engagement, today],
   )
 
-  if (!contract) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className='flex items-center gap-2 text-base'>
-            <FileText className='h-4 w-4' />
-            No contract yet
-          </CardTitle>
-          <CardDescription>
-            Onboard a performance contract from the Contract tab to start seeing
-            dashboard metrics for {sectionName}.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    )
-  }
+  const contractOversight = React.useMemo(
+    () => buildSectionContractOversightSummary(contract, today),
+    [contract, today],
+  )
+
+  const weeklyOversight = React.useMemo(
+    () =>
+      buildSectionWeeklyOversightSummary({
+        contract,
+        sprints: oversightSprintSource,
+        engagement,
+        today,
+        officerStaffId,
+      }),
+    [contract, oversightSprintSource, engagement, today, officerStaffId],
+  )
+
+  const monthlyOversight = React.useMemo(
+    () =>
+      buildSectionMonthlyOversightSummary({
+        contract,
+        sprints: oversightSprintSource,
+        engagement,
+        today,
+        officerStaffId,
+      }),
+    [contract, oversightSprintSource, engagement, today, officerStaffId],
+  )
+
+  const stakeholderOversight = React.useMemo(
+    () =>
+      buildStakeholderOversightSummary(
+        engagement,
+        contract?.financialYearLabel,
+      ),
+    [engagement, contract?.financialYearLabel],
+  )
+
+  const weeklyReport = React.useMemo(
+    () =>
+      buildSectionWeeklyReportPayload({
+        sectionName,
+        sprints: oversightSprints,
+        today,
+        weekLabel: weeklyOversight.periodLabel,
+      }),
+    [sectionName, oversightSprints, today, weeklyOversight.periodLabel],
+  )
+
+  const contractHref = onNavigateToTab ? undefined : paths.contract
+  const sprintsHref = onNavigateToTab ? undefined : paths.sprintsReady
+  const stakeholdersHref = onNavigateToTab ? undefined : paths.stakeholders
+  const onContractClick = onNavigateToTab
+    ? () => onNavigateToTab('contract')
+    : undefined
+  const onSprintsClick = onNavigateToTab
+    ? () => onNavigateToTab('weekly-sprint')
+    : undefined
+  const onStakeholdersClick = onNavigateToTab
+    ? () => onNavigateToTab('stakeholder-engagements')
+    : undefined
+
+  const contractCard = (
+    <SplitMetricCard
+      href={contractHref}
+      onCardClick={onContractClick}
+      title='Contract'
+      data={{
+        periodLabel: contractOversight.periodLabel,
+        total: contractOversight.total,
+        subtitle: contractOversight.subtitle,
+      }}
+      columns={[
+        {
+          label: 'Activities At Risk',
+          value: contractOversight.breakdown.atRisk,
+        },
+        {
+          label: 'Activities On Track',
+          value: contractOversight.breakdown.onTrack,
+        },
+      ]}
+    />
+  )
+
+  const weeklyCard = (
+    <MonthlyOversightCard
+      href={sprintsHref}
+      onCardClick={onSprintsClick}
+      data={weeklyOversight}
+      breakdown={weeklyOversight.breakdown}
+      title='Activities This week'
+      weeklyReport={weeklyReport}
+      breakdownLinks={{
+        sprints: sprintsHref,
+        engagements: stakeholdersHref,
+      }}
+    />
+  )
+
+  const monthlyCard = (
+    <MonthlyOversightCard
+      data={monthlyOversight}
+      breakdown={monthlyOversight.breakdown}
+      href={stakeholdersHref}
+      onCardClick={onStakeholdersClick}
+      title='Activities This month'
+      breakdownLinks={{
+        sprints: sprintsHref,
+        engagements: stakeholdersHref,
+      }}
+    />
+  )
+
+  const stakeholdersCard = (
+    <SplitMetricCard
+      href={stakeholdersHref}
+      onCardClick={onStakeholdersClick}
+      title='Stakeholders'
+      data={{
+        periodLabel: stakeholderOversight.periodLabel,
+        total: stakeholderOversight.total,
+        subtitle: stakeholderOversight.subtitle,
+      }}
+      columns={[
+        {
+          label: 'Total',
+          value: stakeholderOversight.breakdown.total,
+        },
+        {
+          label: 'Reported',
+          value: stakeholderOversight.breakdown.reported,
+        },
+        {
+          label: 'Pending',
+          value: stakeholderOversight.breakdown.pending,
+        },
+      ]}
+    />
+  )
 
   return (
     <div className='space-y-4'>
@@ -108,7 +247,12 @@ export function SectionDashboardContent({
         </div>
       </div>
 
-      <KpiTiles metrics={metrics} />
+      <div className='grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+        {contractCard}
+        {weeklyCard}
+        {monthlyCard}
+        {!isOfficerWorkspace ? stakeholdersCard : null}
+      </div>
 
       <OverduePanel
         overdueActivities={metrics.overdueActivities}
@@ -126,7 +270,9 @@ export function SectionDashboardContent({
         <div className='xl:col-span-2'>
           <SprintSummary metrics={metrics} />
         </div>
-        <StakeholderSummary metrics={metrics} />
+        {!isOfficerWorkspace ? (
+          <StakeholderSummary metrics={metrics} />
+        ) : null}
       </div>
 
       <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4'>
@@ -179,18 +325,9 @@ function DueCard({
         <CardTitle className='flex items-center gap-2 text-sm font-medium'>
           <Icon className='h-4 w-4 text-muted-foreground' />
           {title}
-          <Badge
-            variant={
-              items.length === 0
-                ? 'outline'
-                : highlight
-                  ? 'default'
-                  : 'secondary'
-            }
-            className='ml-auto tabular-nums'
-          >
+          <span className='ml-auto tabular-nums text-sm text-muted-foreground'>
             {items.length}
-          </Badge>
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -201,9 +338,9 @@ function DueCard({
             {items.slice(0, 4).map(item => (
               <li
                 key={item._key}
-                className={`text-sm border-l-2 pl-2 ${highlight ? 'border-primary' : 'border-muted-foreground/30'}`}
+                className={`border-l-2 pl-2 text-sm ${highlight ? 'border-primary' : 'border-muted-foreground/30'}`}
               >
-                <div className='font-medium truncate'>{item.title}</div>
+                <div className='truncate font-medium'>{item.title}</div>
                 <div className='text-xs text-muted-foreground'>
                   {(() => {
                     if (!item.targetDate) return ''

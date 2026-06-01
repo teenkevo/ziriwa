@@ -21,47 +21,83 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAppBreadcrumb } from '@/contexts/app-breadcrumb-context'
 
-export function AppTopBar() {
+type RoleNavbarIdentity = {
+  roleLabel: string
+  contextLabel?: string
+  separator: '|' | '-'
+}
+
+export function AppTopBar({
+  roleIdentity,
+}: {
+  roleIdentity?: RoleNavbarIdentity | null
+}) {
   const { items, headerIdentity } = useAppBreadcrumb()
-  const hasHeaderContent = Boolean(headerIdentity) || items.length > 0
+  const visibleIdentity = headerIdentity
+    ? {
+        roleLabel: headerIdentity.roleLabel,
+        contextLabel: headerIdentity.sectionLabel,
+        separator: headerIdentity.separator ?? ('|' as const),
+      }
+    : roleIdentity
+  // Led department / division / section is already in the header; skip page trail.
+  const showBreadcrumbs =
+    items.length > 0 && !visibleIdentity?.contextLabel
+  const hasHeaderContent = Boolean(visibleIdentity) || showBreadcrumbs
 
   return (
     <header className='flex h-14 shrink-0 items-center gap-3 border-b px-4'>
       <SidebarTrigger className='-ml-1 shrink-0' />
       <div className='flex min-w-0 flex-1 items-center gap-2 sm:gap-3'>
-        {headerIdentity ? (
-          <div className='hidden min-w-0 flex-1 items-center text-sm font-medium lg:flex'>
-            <span className='truncate text-primary'>
-              {headerIdentity.roleLabel}
-            </span>
-            <span className='mx-2 text-muted-foreground'>|</span>
-            <span className='truncate text-foreground'>
-              {headerIdentity.sectionLabel}
-            </span>
+        {visibleIdentity || showBreadcrumbs ? (
+          <div className='hidden min-w-0 flex-1 items-center gap-2 text-sm lg:flex'>
+            {visibleIdentity ? (
+              <>
+                <span className='shrink-0 font-medium text-primary'>
+                  {visibleIdentity.roleLabel}
+                </span>
+                {visibleIdentity.contextLabel ? (
+                  <>
+                    <span className='text-muted-foreground'>
+                      {visibleIdentity.separator}
+                    </span>
+                    <span className='shrink-0 font-medium text-foreground'>
+                      {visibleIdentity.contextLabel}
+                    </span>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+            {showBreadcrumbs ? (
+              <>
+                {visibleIdentity && !visibleIdentity.contextLabel ? (
+                  <span className='text-muted-foreground'>/</span>
+                ) : null}
+                <Breadcrumb className='min-w-0 text-muted-foreground'>
+                  <BreadcrumbList className='flex-wrap'>
+                    {items.map((item, i) => (
+                      <React.Fragment key={`${item.label}-${i}`}>
+                        {i > 0 && <BreadcrumbSeparator />}
+                        <BreadcrumbItem className='min-w-0'>
+                          {item.href ? (
+                            <BreadcrumbLink asChild>
+                              <Link href={item.href} title={item.label}>
+                                {item.label}
+                              </Link>
+                            </BreadcrumbLink>
+                          ) : (
+                            <BreadcrumbPage title={item.label}>
+                              {item.label}
+                            </BreadcrumbPage>
+                          )}
+                        </BreadcrumbItem>
+                      </React.Fragment>
+                    ))}
+                  </BreadcrumbList>
+                </Breadcrumb>
+              </>
+            ) : null}
           </div>
-        ) : items.length > 0 ? (
-          <Breadcrumb className='hidden min-w-0 flex-1 text-muted-foreground lg:flex lg:items-center'>
-            <BreadcrumbList className='flex-wrap'>
-              {items.map((item, i) => (
-                <React.Fragment key={`${item.label}-${i}`}>
-                  {i > 0 && <BreadcrumbSeparator />}
-                  <BreadcrumbItem className='min-w-0'>
-                    {item.href ? (
-                      <BreadcrumbLink asChild>
-                        <Link href={item.href} title={item.label}>
-                          {item.label}
-                        </Link>
-                      </BreadcrumbLink>
-                    ) : (
-                      <BreadcrumbPage title={item.label}>
-                        {item.label}
-                      </BreadcrumbPage>
-                    )}
-                  </BreadcrumbItem>
-                </React.Fragment>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
         ) : null}
         <SignedIn>
           <GlobalSearch

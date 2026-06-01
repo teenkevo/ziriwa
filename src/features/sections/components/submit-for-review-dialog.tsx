@@ -29,8 +29,10 @@ export function SubmitForReviewDialog({
   isSubmitting = false,
 }: SubmitForReviewDialogProps) {
   const [isLoading, setIsLoading] = React.useState(false)
+  const isBusy = isSubmitting || isLoading
+
   const handleConfirm = async () => {
-    if (isLoading) return
+    if (isBusy) return
     setIsLoading(true)
     try {
       await onConfirm()
@@ -49,15 +51,11 @@ export function SubmitForReviewDialog({
     <Dialog
       open={open}
       onOpenChange={newOpen => {
-        if (isLoading && !newOpen) return
+        if (isBusy && !newOpen) return
         onOpenChange(newOpen)
       }}
     >
-      <DialogContent
-        className='max-w-md'
-        onInteractOutside={e => isLoading && e.preventDefault()}
-        onEscapeKeyDown={e => isLoading && e.preventDefault()}
-      >
+      <DialogContent disableClose={isBusy} className='max-w-md'>
         <DialogHeader>
           <DialogTitle>Send for supervisor review?</DialogTitle>
           <DialogDescription>
@@ -69,12 +67,12 @@ export function SubmitForReviewDialog({
           <Button
             variant='outline'
             onClick={handleDecline}
-            disabled={isSubmitting || isLoading}
+            disabled={isBusy}
           >
             Not yet ready
           </Button>
-          <Button onClick={handleConfirm} disabled={isSubmitting || isLoading}>
-            {(isSubmitting || isLoading) ? (
+          <Button onClick={handleConfirm} disabled={isBusy}>
+            {isBusy ? (
               <>
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />
                 Sending...

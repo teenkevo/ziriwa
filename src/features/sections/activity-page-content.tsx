@@ -29,7 +29,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { measurableActivityNumber } from '@/lib/contract-numbering'
+import {
+  departmentMeasurableActivityNumber,
+  measurableActivityNumber,
+} from '@/lib/contract-numbering'
 import {
   getExpectedPeriodsForTask,
   getPeriodInfo,
@@ -245,19 +248,27 @@ export function ActivityPageContent({
   const sectionSlug = section.slug?.current ?? ''
   const sectionHref = `/sections/${sectionSlug}`
 
-  const activityCode = measurableActivityNumber(
+  const initiativeCode =
     sectionContract.objectives?.[objectiveIndex]?.initiatives?.[initiativeIndex]
       ?.code ??
-      `${sectionContract.objectives?.[objectiveIndex]?.code ?? String(objectiveIndex + 1)}.${initiativeIndex + 1}`,
-    activity.activityType,
+    `${sectionContract.objectives?.[objectiveIndex]?.code ?? String(objectiveIndex + 1)}.${initiativeIndex + 1}`
+  const activityOrder =
     (
       sectionContract.objectives?.[objectiveIndex]?.initiatives?.[
         initiativeIndex
       ]?.measurableActivities ?? []
     )
       .slice(0, activityIndex)
-      .filter(a => a.activityType === activity.activityType).length + 1,
-  )
+      .filter(a => a.activityType === activity.activityType).length + 1
+  const activityCode =
+    activity.activityType === 'kpi' ||
+    activity.activityType === 'cross-cutting'
+      ? measurableActivityNumber(
+          initiativeCode,
+          activity.activityType,
+          activityOrder,
+        )
+      : departmentMeasurableActivityNumber(initiativeCode, activityOrder)
 
   const isKPI = activity.activityType === 'kpi'
   const { canManageContract, canSuperviseDetailedTasks } = sectionAccess

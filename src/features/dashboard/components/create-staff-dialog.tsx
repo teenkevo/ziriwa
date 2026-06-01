@@ -161,7 +161,7 @@ export function CreateStaffDialog({
   }
 
   return (
-    <DialogContent>
+    <DialogContent disableClose={isCreating}>
       <DialogHeader>
         <DialogTitle>Create Staff</DialogTitle>
       </DialogHeader>

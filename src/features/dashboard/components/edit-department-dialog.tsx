@@ -90,7 +90,7 @@ export function EditDepartmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isSaving}>
         <DialogHeader>
           <DialogTitle>Edit department</DialogTitle>
           <DialogDescription>

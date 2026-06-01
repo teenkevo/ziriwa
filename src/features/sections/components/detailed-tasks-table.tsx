@@ -619,7 +619,7 @@ export function DetailedTasksTable({
         open={deleteTaskKey !== null}
         onOpenChange={open => !open && setDeleteTaskKey(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent disableClose={isSaving}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
             <AlertDialogDescription>

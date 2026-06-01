@@ -271,7 +271,13 @@ export function SprintTaskDetailsPanel({
           onValueChange={v =>
             onUpdate(task.sprintId, task._key, { taskStatus: v })
           }
-          disabled={isSaving || !task.assignee || isDone || preSprintLocked}
+          disabled={
+            isSaving ||
+            !task.assignee ||
+            isDone ||
+            preSprintLocked ||
+            !canSuperviseDetailedTasks
+          }
         >
           <SelectTrigger className='mt-1'>
             <SelectValue />

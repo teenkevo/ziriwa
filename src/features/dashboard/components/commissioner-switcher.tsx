@@ -54,13 +54,34 @@ export function CommissionerSwitcher({
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
+  const [createdCommissioners, setCreatedCommissioners] = React.useState<
+    StaffPickerMember[]
+  >([])
 
-  const selected = commissioners.find(a => a._id === value)
+  const commissionerOptions = React.useMemo(() => {
+    const commissionerIds = new Set(
+      commissioners.map(commissioner => commissioner._id),
+    )
+    return [
+      ...commissioners,
+      ...createdCommissioners.filter(
+        commissioner => !commissionerIds.has(commissioner._id),
+      ),
+    ]
+  }, [commissioners, createdCommissioners])
+
+  const selected = commissionerOptions.find(a => a._id === value)
   const displayLabel = selected
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
   const handleCreateSuccess = (newStaff: StaffMember) => {
+    setCreatedCommissioners(current => {
+      if (current.some(commissioner => commissioner._id === newStaff._id)) {
+        return current
+      }
+      return [...current, newStaff]
+    })
     onChange(newStaff._id)
     setShowCreateDialog(false)
     setOpen(false)
@@ -91,7 +112,7 @@ export function CommissionerSwitcher({
               <CommandEmpty>No commissioner found.</CommandEmpty>
               <CommandGroup heading='Commissioners'>
                 <StaffPickerCommandItems
-                  members={commissioners}
+                  members={commissionerOptions}
                   value={value}
                   roleLabel='Commissioner'
                   currentEntityId={currentDepartmentId}

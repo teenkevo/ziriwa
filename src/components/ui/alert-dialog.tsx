@@ -27,14 +27,26 @@ const AlertDialogOverlay = React.forwardRef<
 ))
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 
+interface AlertDialogContentProps
+  extends React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> {
+  disableClose?: boolean
+}
+
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+  AlertDialogContentProps
+>(({ className, disableClose = false, onEscapeKeyDown, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
       ref={ref}
+      onEscapeKeyDown={event => {
+        if (disableClose) {
+          event.preventDefault()
+          return
+        }
+        onEscapeKeyDown?.(event)
+      }}
       className={cn(
         // Mobile: bottom-sheet (drawer) that slides up.
         // Desktop (sm+): centered alert dialog.

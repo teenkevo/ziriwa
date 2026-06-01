@@ -148,7 +148,7 @@ export async function PATCH(
     const staffRef = doc.staff as { _ref?: string } | undefined
     const staffName = staffRef?._ref
       ? await client.fetch<string | null>(
-          `*[_id == $id][0].coalesce(fullName, firstName + " " + lastName)`,
+          `coalesce(*[_id == $id][0].fullName, *[_id == $id][0].firstName + " " + *[_id == $id][0].lastName)`,
           { id: staffRef._ref },
         )
       : null

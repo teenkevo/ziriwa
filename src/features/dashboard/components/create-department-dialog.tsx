@@ -80,7 +80,7 @@ export function CreateDepartmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isCreating}>
         <DialogHeader>
           <DialogTitle>Create Department</DialogTitle>
           <DialogDescription>Add a new department</DialogDescription>

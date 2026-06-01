@@ -97,7 +97,7 @@ export function EditDivisionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isSaving}>
         <DialogHeader>
           <DialogTitle>Edit division</DialogTitle>
           <DialogDescription>

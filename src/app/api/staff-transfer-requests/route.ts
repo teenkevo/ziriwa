@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
     }
 
     const staffName = await writeClient.fetch<string | null>(
-      `*[_id == $staffId][0].coalesce(fullName, firstName + " " + lastName)`,
+      `coalesce(*[_id == $staffId][0].fullName, *[_id == $staffId][0].firstName + " " + *[_id == $staffId][0].lastName)`,
       { staffId },
     )
     audit.staffTransferRequest.created(

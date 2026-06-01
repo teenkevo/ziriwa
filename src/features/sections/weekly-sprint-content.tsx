@@ -959,7 +959,10 @@ export function WeeklySprintContent({
             onSelectTask={setSelectedTaskKey}
             onUpdateTask={handleUpdateTask}
             isSaving={isSavingTask}
-            canAddExtraTask={initiatives.length > 0}
+            canAddExtraTask={
+              sectionAccess.canSuperviseDetailedTasks && initiatives.length > 0
+            }
+            canSuperviseDetailedTasks={sectionAccess.canSuperviseDetailedTasks}
             onAddExtraTask={id => openExtraTaskDialog(id)}
           />
         ))
@@ -1149,7 +1152,10 @@ export function WeeklySprintContent({
           }
         }}
       >
-        <DialogContent className='flex max-h-[85dvh] w-full max-w-lg grid-rows-none flex-col overflow-hidden'>
+        <DialogContent
+          disableClose={isSavingSprint}
+          className='flex max-h-[85dvh] w-full max-w-lg grid-rows-none flex-col overflow-hidden'
+        >
           <DialogHeader className='shrink-0'>
             <DialogTitle>
               {editingSprintId ? 'Edit draft sprint' : 'New Weekly Sprint'}
@@ -1388,7 +1394,10 @@ export function WeeklySprintContent({
           }
         }}
       >
-        <DialogContent className='w-full max-w-lg max-h-[85vh] overflow-y-auto'>
+        <DialogContent
+          disableClose={isSavingExtraTask}
+          className='w-full max-w-lg max-h-[85vh] overflow-y-auto'
+        >
           <DialogHeader>
             <DialogTitle>Add extra task</DialogTitle>
             <DialogDescription>
@@ -1553,7 +1562,7 @@ export function WeeklySprintContent({
 
       {/* Review Task Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent>
+        <DialogContent disableClose={isReviewing}>
           <DialogHeader>
             <DialogTitle>
               {reviewAction === 'accepted' && 'Accept Task'}
@@ -1627,7 +1636,10 @@ export function WeeklySprintContent({
           }
         }}
       >
-        <DialogContent className='w-full max-w-lg max-h-[85vh] overflow-y-auto'>
+        <DialogContent
+          disableClose={isSavingRevise}
+          className='w-full max-w-lg max-h-[85vh] overflow-y-auto'
+        >
           <DialogHeader>
             <DialogTitle>Revise task</DialogTitle>
             <DialogDescription>
@@ -1782,7 +1794,7 @@ export function WeeklySprintContent({
         open={sprintToDelete !== null}
         onOpenChange={open => !open && !isDeletingSprint && setSprintToDelete(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent disableClose={isDeletingSprint}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete draft sprint?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1829,6 +1841,7 @@ function AcceptedSprintTasksCard({
   onUpdateTask,
   isSaving,
   canAddExtraTask,
+  canSuperviseDetailedTasks,
   onAddExtraTask,
 }: {
   sprint: WeeklySprint
@@ -1844,6 +1857,7 @@ function AcceptedSprintTasksCard({
   ) => void
   isSaving: boolean
   canAddExtraTask: boolean
+  canSuperviseDetailedTasks: boolean
   onAddExtraTask: (sprintId: string) => void
 }) {
   const weekStartDate = parseYMDLocal(sprint.weekStart)
@@ -1922,7 +1936,7 @@ function AcceptedSprintTasksCard({
               </p>
 
               <div className='flex flex-wrap items-center gap-2'>
-                {isCurrentWeek && (
+                {isCurrentWeek && canSuperviseDetailedTasks && (
                   <Button
                     type='button'
                     variant='outline'
@@ -1960,6 +1974,7 @@ function AcceptedSprintTasksCard({
               onSelectTask={onSelectTask}
               onUpdateTask={onUpdateTask}
               isSaving={isSaving}
+              canSuperviseDetailedTasks={canSuperviseDetailedTasks}
             />
           </CardContent>
         </CollapsibleContent>

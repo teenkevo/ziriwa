@@ -10,6 +10,7 @@ export type AppBreadcrumbItem = {
 export type AppHeaderIdentity = {
   roleLabel: string
   sectionLabel: string
+  separator?: '|' | '-'
 }
 
 type Ctx = {

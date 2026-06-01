@@ -91,7 +91,7 @@ export function CreateSectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isCreating}>
         <DialogHeader>
           <DialogTitle>Add Section</DialogTitle>
           <DialogDescription>

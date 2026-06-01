@@ -226,7 +226,7 @@ export default function DivisionSwitcher({
       </Popover>
       {canCreateDivision && (
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent>
+      <DialogContent disableClose={isCreating}>
         <DialogHeader>
           <DialogTitle>Create Division</DialogTitle>
           <DialogDescription>

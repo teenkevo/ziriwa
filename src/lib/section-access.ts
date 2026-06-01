@@ -1,84 +1,224 @@
 import type { AppRole } from '@/lib/app-role'
+import type { SectionActingRole } from '@/lib/role-delegation'
+import type { SectionDelegationRecord } from '@/lib/section-delegation.server'
+
+export type WorkContextMode = 'own' | 'acting'
+
+export interface SectionDelegationState {
+  /** Viewer is covering someone else's duties (at most one). */
+  assignmentAsDelegatee: SectionDelegationRecord | null
+  /** Someone is covering the viewer's duties while away. */
+  assignmentAsAbsent: SectionDelegationRecord | null
+}
 
 export interface SectionAccessInput {
   viewerStaffId: string | null
   sectionManagerId: string | null
   supervisorIds: string[]
-  /** Staff acting as manager via active delegation. */
-  actingManagerStaffIds?: string[]
-  /** Staff acting as supervisor via active delegation. */
-  actingSupervisorStaffIds?: string[]
+  officerIds: string[]
   appRole: AppRole | null
   isGlobalAdmin?: boolean
+  delegation?: SectionDelegationState
 }
 
 /** Section-scoped capabilities for contract, detailed tasks, and sprints. */
 export interface SectionAccess {
   viewerStaffId: string | null
+  workContext: WorkContextMode
+  delegation: SectionDelegationState
+  isPermanentManager: boolean
+  isPermanentSupervisor: boolean
+  isPermanentOfficer: boolean
   isSectionManager: boolean
   isSectionSupervisor: boolean
   isSectionOfficer: boolean
-  /** SSMARTA objectives, initiatives, measurable activities (structure). */
+  /** When acting as officer, the absent officer's staff id for contract/sprint scope. */
+  officerContextStaffId: string | null
+  /** When acting as supervisor, the absent supervisor's staff id for contract scope. */
+  supervisorContextStaffId: string | null
   canManageContract: boolean
-  /** Detailed tasks: priority, assignee, approve/reject inputs & deliverables. */
+  canOnboardContract: boolean
+  canManageSupervisorContract: boolean
+  canManageOfficerContract: boolean
   canSuperviseDetailedTasks: boolean
   canCreateSprints: boolean
   canViewSprintDraftTab: boolean
   canViewSprintInReviewTab: boolean
   canManageSectionStaff: boolean
-  /** Bootstrap / superadmin email or CG — full section capabilities. */
+  canSelfServiceDelegate: boolean
   isGlobalAdmin: boolean
 }
 
-export function buildSectionAccess(input: SectionAccessInput): SectionAccess {
+function permanentFlags(input: SectionAccessInput) {
+  const viewerStaffId = input.viewerStaffId
+  const isPermanentManager = Boolean(
+    viewerStaffId &&
+      input.sectionManagerId &&
+      viewerStaffId === input.sectionManagerId,
+  )
+  const isPermanentSupervisor = Boolean(
+    viewerStaffId && input.supervisorIds.includes(viewerStaffId),
+  )
+  const isPermanentOfficer = Boolean(
+    viewerStaffId &&
+      !isPermanentManager &&
+      !isPermanentSupervisor &&
+      (input.officerIds.includes(viewerStaffId) || input.appRole === 'officer'),
+  )
+  return { isPermanentManager, isPermanentSupervisor, isPermanentOfficer }
+}
+
+function capabilitiesFromRoles(flags: {
+  isSectionManager: boolean
+  isSectionSupervisor: boolean
+  isSectionOfficer: boolean
+  officerContextStaffId: string | null
+  supervisorContextStaffId: string | null
+  isGlobalAdmin: boolean
+  canManageSectionStaff: boolean
+  canSelfServiceDelegate: boolean
+}): Pick<
+  SectionAccess,
+  | 'canManageContract'
+  | 'canOnboardContract'
+  | 'canManageSupervisorContract'
+  | 'canManageOfficerContract'
+  | 'canSuperviseDetailedTasks'
+  | 'canCreateSprints'
+  | 'canViewSprintDraftTab'
+  | 'canViewSprintInReviewTab'
+  | 'canManageSectionStaff'
+> {
+  const {
+    isSectionManager,
+    isSectionSupervisor,
+    isSectionOfficer,
+    isGlobalAdmin,
+    canManageSectionStaff,
+  } = flags
+
+  return {
+    canManageContract: isSectionManager,
+    canOnboardContract: isSectionManager,
+    canManageSupervisorContract:
+      isSectionSupervisor && !isSectionManager,
+    canManageOfficerContract: isSectionOfficer,
+    canSuperviseDetailedTasks: isSectionSupervisor,
+    canCreateSprints: isSectionSupervisor,
+    canViewSprintDraftTab: isSectionSupervisor,
+    canViewSprintInReviewTab: isSectionManager || isSectionSupervisor,
+    canManageSectionStaff: isGlobalAdmin || canManageSectionStaff,
+  }
+}
+
+export function buildSectionAccessForWorkContext(
+  input: SectionAccessInput,
+  workContext: WorkContextMode,
+): SectionAccess {
+  const delegation = input.delegation ?? {
+    assignmentAsDelegatee: null,
+    assignmentAsAbsent: null,
+  }
+
   if (input.isGlobalAdmin) {
     return {
       viewerStaffId: input.viewerStaffId,
+      workContext,
+      delegation,
+      isPermanentManager: true,
+      isPermanentSupervisor: true,
+      isPermanentOfficer: false,
       isSectionManager: true,
       isSectionSupervisor: true,
       isSectionOfficer: false,
+      officerContextStaffId: null,
+      supervisorContextStaffId: null,
       canManageContract: true,
+      canOnboardContract: true,
+      canManageSupervisorContract: true,
+      canManageOfficerContract: true,
       canSuperviseDetailedTasks: true,
       canCreateSprints: true,
       canViewSprintDraftTab: true,
       canViewSprintInReviewTab: true,
       canManageSectionStaff: true,
+      canSelfServiceDelegate: false,
       isGlobalAdmin: true,
     }
   }
 
-  const actingManagers = input.actingManagerStaffIds ?? []
-  const actingSupervisors = input.actingSupervisorStaffIds ?? []
-  const isSectionManager = Boolean(
-    input.viewerStaffId &&
-      input.sectionManagerId &&
-      (input.viewerStaffId === input.sectionManagerId ||
-        actingManagers.includes(input.viewerStaffId)),
-  )
-  const isSectionSupervisor = Boolean(
-    input.viewerStaffId &&
-      (input.supervisorIds.includes(input.viewerStaffId) ||
-        actingSupervisors.includes(input.viewerStaffId)),
-  )
-  const isSectionOfficer =
-    input.appRole === 'officer' &&
-    Boolean(input.viewerStaffId) &&
-    !isSectionManager &&
-    !isSectionSupervisor
+  const permanent = permanentFlags(input)
+  const assignment = delegation.assignmentAsDelegatee
 
-  return {
-    viewerStaffId: input.viewerStaffId,
+  if (workContext === 'acting' && assignment) {
+    const actingRole = assignment.actingRole as SectionActingRole
+    const isSectionManager = actingRole === 'manager'
+    const isSectionSupervisor = actingRole === 'supervisor'
+    const isSectionOfficer = actingRole === 'officer'
+    const officerContextStaffId = isSectionOfficer
+      ? assignment.fromStaffId
+      : null
+    const supervisorContextStaffId = isSectionSupervisor
+      ? assignment.fromStaffId
+      : null
+
+    const roleFlags = {
+      isSectionManager,
+      isSectionSupervisor,
+      isSectionOfficer,
+      officerContextStaffId,
+      supervisorContextStaffId,
+      isGlobalAdmin: false,
+      canManageSectionStaff: false,
+      canSelfServiceDelegate: false,
+    }
+
+    return {
+      viewerStaffId: input.viewerStaffId,
+      workContext,
+      delegation,
+      ...permanent,
+      ...roleFlags,
+      ...capabilitiesFromRoles(roleFlags),
+      canSelfServiceDelegate: false,
+      isGlobalAdmin: false,
+    }
+  }
+
+  const isSectionManager = permanent.isPermanentManager
+  const isSectionSupervisor = permanent.isPermanentSupervisor
+  const isSectionOfficer = permanent.isPermanentOfficer
+  const canSelfServiceDelegate =
+    permanent.isPermanentManager ||
+    permanent.isPermanentSupervisor ||
+    permanent.isPermanentOfficer
+
+  const roleFlags = {
     isSectionManager,
     isSectionSupervisor,
     isSectionOfficer,
-    canManageContract: isSectionManager,
-    canSuperviseDetailedTasks: isSectionSupervisor,
-    canCreateSprints: isSectionSupervisor,
-    canViewSprintDraftTab: isSectionSupervisor,
-    canViewSprintInReviewTab: isSectionManager || isSectionSupervisor,
+    officerContextStaffId: isSectionOfficer ? input.viewerStaffId : null,
+    supervisorContextStaffId: isSectionSupervisor ? input.viewerStaffId : null,
+    isGlobalAdmin: false,
     canManageSectionStaff: isSectionManager,
+    canSelfServiceDelegate,
+  }
+
+  return {
+    viewerStaffId: input.viewerStaffId,
+    workContext: 'own',
+    delegation,
+    ...permanent,
+    ...roleFlags,
+    ...capabilitiesFromRoles(roleFlags),
+    canSelfServiceDelegate,
     isGlobalAdmin: false,
   }
+}
+
+/** @deprecated Use buildSectionAccessForWorkContext — defaults to own work. */
+export function buildSectionAccess(input: SectionAccessInput): SectionAccess {
+  return buildSectionAccessForWorkContext(input, 'own')
 }
 
 export function canSubmitDetailedTaskWork(
@@ -86,10 +226,12 @@ export function canSubmitDetailedTaskWork(
   taskAssigneeId: string | null | undefined,
 ): boolean {
   if (!access.viewerStaffId || !taskAssigneeId) return false
-  return access.viewerStaffId === taskAssigneeId
+  const allowedIds = new Set(
+    [access.viewerStaffId, access.officerContextStaffId].filter(Boolean),
+  )
+  return allowedIds.has(taskAssigneeId)
 }
 
-/** Weekly sprint tab layout for the current viewer in this section. */
 export type SprintUiMode = 'officer' | 'manager' | 'supervisor' | 'other'
 
 export function getSprintUiMode(access: SectionAccess): SprintUiMode {

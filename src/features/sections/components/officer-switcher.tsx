@@ -51,13 +51,28 @@ export function OfficerSwitcher({
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
+  const [createdOfficers, setCreatedOfficers] = React.useState<Officer[]>([])
 
-  const selected = officers.find(o => o._id === value)
+  const officerOptions = React.useMemo(() => {
+    const officerIds = new Set(officers.map(officer => officer._id))
+    return [
+      ...officers,
+      ...createdOfficers.filter(officer => !officerIds.has(officer._id)),
+    ]
+  }, [createdOfficers, officers])
+
+  const selected = officerOptions.find(o => o._id === value)
   const displayLabel = selected
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
   const handleCreateSuccess = (newStaff: { _id: string; fullName: string }) => {
+    setCreatedOfficers(current => {
+      if (current.some(officer => officer._id === newStaff._id)) {
+        return current
+      }
+      return [...current, newStaff]
+    })
     onChange(newStaff._id)
     setShowCreateDialog(false)
     setOpen(false)
@@ -124,7 +139,7 @@ export function OfficerSwitcher({
                   />
                   None
                 </CommandItem>
-                {officers.map(o => (
+                {officerOptions.map(o => (
                   <CommandItem
                     key={o._id}
                     onSelect={() => {

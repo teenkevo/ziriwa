@@ -32,6 +32,10 @@ import {
 } from '@/lib/contract-code-validation'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  contractsApiBase,
+  type ContractsApiResource,
+} from '@/lib/contracts-api'
 
 interface AddInitiativeDialogProps {
   open: boolean
@@ -41,18 +45,24 @@ interface AddInitiativeDialogProps {
   /** Objective code prefix; initiatives must be {objectiveCode}.{n} (e.g. 4.1 → 4.1.1). */
   objectiveCode: string
   nextOrder: number
+  contractsApi?: ContractsApiResource
   onSuccess?: () => void
 }
 
 function AddInitiativeFormInner({
   onOpenChange,
+  onSubmittingChange,
   sectionContractId,
   objectiveIndex,
   objectiveCode,
   nextOrder,
+  contractsApi = 'section-contracts',
   onSuccess,
-}: Omit<AddInitiativeDialogProps, 'open'>) {
+}: Omit<AddInitiativeDialogProps, 'open'> & {
+  onSubmittingChange: (isSubmitting: boolean) => void
+}) {
   const router = useRouter()
+  const apiBase = contractsApiBase(contractsApi)
   const [isCheckingCode, setIsCheckingCode] = React.useState(false)
   const checkAbortRef = React.useRef<AbortController | null>(null)
 
@@ -84,7 +94,7 @@ function AddInitiativeFormInner({
       form.clearErrors('code')
       try {
         const res = await fetch(
-          `/api/section-contracts/${sectionContractId}/codes`,
+          `${apiBase}/${sectionContractId}/codes`,
           { signal },
         )
         if (!res.ok) return
@@ -108,9 +118,13 @@ function AddInitiativeFormInner({
 
   const isCreating = form.formState.isSubmitting
 
+  React.useEffect(() => {
+    onSubmittingChange(isCreating)
+  }, [isCreating, onSubmittingChange])
+
   const onSubmit = async (values: InitiativeFormValues) => {
     try {
-      const res = await fetch(`/api/section-contracts/${sectionContractId}`, {
+      const res = await fetch(`${apiBase}/${sectionContractId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -241,11 +255,14 @@ export function AddInitiativeDialog({
   objectiveIndex,
   objectiveCode,
   nextOrder,
+  contractsApi,
   onSuccess,
 }: AddInitiativeDialogProps) {
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isSubmitting}>
         <DialogHeader>
           <DialogTitle>Add Initiative</DialogTitle>
           <DialogDescription>
@@ -257,10 +274,12 @@ export function AddInitiativeDialog({
           <AddInitiativeFormInner
             key={`${sectionContractId}-${objectiveIndex}-${objectiveCode}`}
             onOpenChange={onOpenChange}
+            onSubmittingChange={setIsSubmitting}
             sectionContractId={sectionContractId}
             objectiveIndex={objectiveIndex}
             objectiveCode={objectiveCode}
             nextOrder={nextOrder}
+            contractsApi={contractsApi}
             onSuccess={onSuccess}
           />
         ) : null}

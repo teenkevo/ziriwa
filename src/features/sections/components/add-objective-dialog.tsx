@@ -28,6 +28,10 @@ import {
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  contractsApiBase,
+  type ContractsApiResource,
+} from '@/lib/contracts-api'
 
 const OBJECTIVE_CODE_REGEX = /^\d+\.\d+$/
 
@@ -45,6 +49,7 @@ interface AddObjectiveDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   sectionContractId: string
+  contractsApi?: ContractsApiResource
   onSuccess?: () => void
 }
 
@@ -52,8 +57,10 @@ export function AddObjectiveDialog({
   open,
   onOpenChange,
   sectionContractId,
+  contractsApi = 'section-contracts',
   onSuccess,
 }: AddObjectiveDialogProps) {
+  const apiBase = contractsApiBase(contractsApi)
   const router = useRouter()
   const [isCheckingCode, setIsCheckingCode] = React.useState(false)
   const checkAbortRef = React.useRef<AbortController | null>(null)
@@ -88,7 +95,7 @@ export function AddObjectiveDialog({
       form.clearErrors('code')
       try {
         const res = await fetch(
-          `/api/section-contracts/${sectionContractId}/codes`,
+          `${apiBase}/${sectionContractId}/codes`,
           { signal },
         )
         if (!res.ok) return
@@ -107,13 +114,13 @@ export function AddObjectiveDialog({
       }
     }, 400)
     return () => clearTimeout(t)
-  }, [codeValue, sectionContractId, form])
+  }, [codeValue, sectionContractId, apiBase, form])
 
   const isCreating = form.formState.isSubmitting
 
   const onSubmit = async (values: ObjectiveFormValues) => {
     try {
-      const res = await fetch(`/api/section-contracts/${sectionContractId}`, {
+      const res = await fetch(`${apiBase}/${sectionContractId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -137,7 +144,7 @@ export function AddObjectiveDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isCreating}>
         <DialogHeader>
           <DialogTitle>Add SSMARTA Objective</DialogTitle>
           <DialogDescription>

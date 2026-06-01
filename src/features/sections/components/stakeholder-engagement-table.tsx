@@ -215,7 +215,7 @@ export function StakeholderEngagementTable({
       </div>
 
       <AlertDialog open={deleteIndex !== null} onOpenChange={() => setDeleteIndex(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent disableClose={isDeleting}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete stakeholder?</AlertDialogTitle>
             <AlertDialogDescription>

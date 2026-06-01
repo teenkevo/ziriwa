@@ -90,7 +90,7 @@ interface TaskDetailsPanelProps {
   task: TaskRow | null
   officers: Officer[]
   sectionId: string
-  activityType?: 'kpi' | 'cross-cutting'
+  activityType?: 'kpi' | 'cross-cutting' | 'measurable'
   onUpdate: (updates: Partial<TaskRow>) => void
   onAddInputs: (file: File) => Promise<void>
   onApproveInputs: (reason?: string) => void
@@ -213,7 +213,7 @@ export function TaskDetailsPanel({
   const taskConfigLocked = task ? hasOfficerContent(task) : false
   const assigneeLocked = taskConfigLocked || !canSuperviseDetailedTasks
   const priorityLocked = !canSuperviseDetailedTasks
-  const managerPlanningLocked = taskConfigLocked || !canManageContract
+  const planningLocked = taskConfigLocked || !canSuperviseDetailedTasks
   const expectedDeliverableSet = !!task?.expectedDeliverable?.trim()
   const inputsApproved = task
     ? ['in_progress', 'delivered', 'in_review', 'done'].includes(
@@ -474,12 +474,12 @@ export function TaskDetailsPanel({
             <p
               className={cn(
                 'text-sm rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]',
-                isDone
+                isDone || !canSuperviseDetailedTasks
                   ? 'text-muted-foreground cursor-not-allowed'
                   : 'cursor-pointer hover:bg-muted/50',
               )}
               onClick={() => {
-                if (isDone) return
+                if (isDone || !canSuperviseDetailedTasks) return
                 setTaskEditValue(task.task)
                 setIsEditingTask(true)
               }}
@@ -493,7 +493,9 @@ export function TaskDetailsPanel({
           <Select
             value={task.status}
             onValueChange={v => onUpdate({ status: v })}
-            disabled={isSaving || isDone || !task.assignee}
+            disabled={
+              isSaving || isDone || !task.assignee || !canSuperviseDetailedTasks
+            }
           >
             <SelectTrigger className='mt-1'>
               <SelectValue />
@@ -594,7 +596,7 @@ export function TaskDetailsPanel({
                 </div>
                 <Switch
                   checked={taskFreq !== 'n/a'}
-                  disabled={isSaving || managerPlanningLocked}
+                  disabled={isSaving || planningLocked}
                   onCheckedChange={checked => {
                     onUpdate({
                       reportingFrequency: checked ? 'monthly' : 'n/a',
@@ -618,7 +620,7 @@ export function TaskDetailsPanel({
                             | 'quarterly',
                         })
                       }
-                      disabled={isSaving || managerPlanningLocked}
+                      disabled={isSaving || planningLocked}
                     >
                       <SelectTrigger className='mt-1 h-9'>
                         <SelectValue />
@@ -642,7 +644,7 @@ export function TaskDetailsPanel({
                         <PopoverTrigger asChild>
                           <Button
                             variant='outline'
-                            disabled={isSaving || managerPlanningLocked}
+                            disabled={isSaving || planningLocked}
                             className={cn(
                               'h-9 justify-between text-left font-normal min-w-[180px]',
                               !task.reportingPeriodStart &&
@@ -744,11 +746,11 @@ export function TaskDetailsPanel({
                       <p
                         className={cn(
                           'text-sm rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]',
-                          !managerPlanningLocked &&
+                          !planningLocked &&
                             'cursor-pointer hover:bg-muted/50',
                         )}
                         onClick={() => {
-                          if (managerPlanningLocked) return
+                          if (planningLocked) return
                           setDeliverableEditValue(
                             task.expectedDeliverable ?? '',
                           )
@@ -756,7 +758,7 @@ export function TaskDetailsPanel({
                         }}
                       >
                         {task.expectedDeliverable ||
-                          (canManageContract
+                          (canSuperviseDetailedTasks
                             ? 'Click to add expected deliverable...'
                             : '—')}
                       </p>
@@ -778,7 +780,7 @@ export function TaskDetailsPanel({
                         <PopoverTrigger asChild>
                           <Button
                             variant='outline'
-                            disabled={isSaving || managerPlanningLocked}
+                            disabled={isSaving || planningLocked}
                             className={cn(
                               'h-9 justify-between text-left font-normal min-w-[180px]',
                               !task.targetDate && 'text-muted-foreground',
@@ -790,7 +792,7 @@ export function TaskDetailsPanel({
                                 format(parseDateAsLocal(task.targetDate), 'PPP')
                               ) : (
                                 <span>
-                                  {canManageContract
+                                  {canSuperviseDetailedTasks
                                     ? 'Select due date'
                                     : 'No due date'}
                                 </span>
@@ -871,11 +873,11 @@ export function TaskDetailsPanel({
                       <p
                         className={cn(
                           'text-sm rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]',
-                          !managerPlanningLocked &&
+                          !planningLocked &&
                             'cursor-pointer hover:bg-muted/50',
                         )}
                         onClick={() => {
-                          if (managerPlanningLocked) return
+                          if (planningLocked) return
                           setDeliverableEditValue(
                             task.expectedDeliverable ?? '',
                           )
@@ -883,7 +885,7 @@ export function TaskDetailsPanel({
                         }}
                       >
                         {task.expectedDeliverable ||
-                          (canManageContract
+                          (canSuperviseDetailedTasks
                             ? 'Click to add expected deliverable...'
                             : '—')}
                       </p>
@@ -1115,7 +1117,7 @@ export function TaskDetailsPanel({
                 }
                 return (
                   <>
-                    {needsOfficerResubmit && (
+                    {needsOfficerResubmit && canSubmitTaskWork && (
                       <Dialog
                         open={resubmitDialogOpen}
                         onOpenChange={open => {
@@ -1407,7 +1409,8 @@ export function TaskDetailsPanel({
                                       {entry.message}
                                     </p>
                                   )}
-                                  {isPendingRejection(origIdx) && (
+                                  {isPendingRejection(origIdx) &&
+                                    canSubmitTaskWork && (
                                     <Button
                                       type='button'
                                       variant='outline'
@@ -1422,7 +1425,7 @@ export function TaskDetailsPanel({
                                         Resubmit inputs
                                       </span>
                                     </Button>
-                                  )}
+                                    )}
                                   {task.status === 'inputs_submitted' &&
                                     canSuperviseDetailedTasks &&
                                     !needsOfficerResubmit &&
@@ -1705,24 +1708,28 @@ export function TaskDetailsPanel({
                         deliverableReviewThread: [],
                       }
                     }
-                    onAddDeliverable={(tag: 'support' | 'main') => {
-                      pendingPeriodKeyRef.current = selectedPeriodKey
-                      pendingTagRef.current = tag
-                      fileInputRef.current?.click()
-                    }}
+                    onAddDeliverable={
+                      canSubmitTaskWork
+                        ? (tag: 'support' | 'main') => {
+                            pendingPeriodKeyRef.current = selectedPeriodKey
+                            pendingTagRef.current = tag
+                            fileInputRef.current?.click()
+                          }
+                        : undefined
+                    }
                     onRemoveDeliverable={
-                      onRemovePeriodDeliverable
+                      canSubmitTaskWork && onRemovePeriodDeliverable
                         ? (key: string) =>
                             onRemovePeriodDeliverable(selectedPeriodKey, key)
                         : undefined
                     }
                     onSubmitForReview={
-                      onSubmitPeriodForReview
+                      canSubmitTaskWork && onSubmitPeriodForReview
                         ? () => onSubmitPeriodForReview(selectedPeriodKey)
                         : undefined
                     }
                     onApproveDeliverable={
-                      onApprovePeriodDeliverable
+                      canSuperviseDetailedTasks && onApprovePeriodDeliverable
                         ? (reason?: string) =>
                             onApprovePeriodDeliverable(
                               selectedPeriodKey,
@@ -1731,13 +1738,13 @@ export function TaskDetailsPanel({
                         : undefined
                     }
                     onRejectDeliverable={
-                      onRejectPeriodDeliverable
+                      canSuperviseDetailedTasks && onRejectPeriodDeliverable
                         ? (msg: string) =>
                             onRejectPeriodDeliverable(selectedPeriodKey, msg)
                         : undefined
                     }
                     onRespondToDeliverableRejection={
-                      onRespondToPeriodDeliverableRejection
+                      canSubmitTaskWork && onRespondToPeriodDeliverableRejection
                         ? (msg: string, file?: File) =>
                             onRespondToPeriodDeliverableRejection(
                               selectedPeriodKey,
@@ -1827,7 +1834,9 @@ export function TaskDetailsPanel({
                               onClick={() =>
                                 item._key && onRemoveDeliverable(item._key)
                               }
-                              disabled={isSaving || item.locked}
+                              disabled={
+                                isSaving || item.locked || !canSubmitTaskWork
+                              }
                               aria-label='Remove'
                             >
                               <Trash2 className='h-4 w-4' />
@@ -1845,7 +1854,10 @@ export function TaskDetailsPanel({
                       fileInputRef.current?.click()
                     }}
                     disabled={
-                      isSaving || uploadingTag !== null || deliverablesLocked
+                      isSaving ||
+                      uploadingTag !== null ||
+                      deliverablesLocked ||
+                      !canSubmitTaskWork
                     }
                   >
                     {uploadingTag === 'support' ? (
@@ -1859,6 +1871,7 @@ export function TaskDetailsPanel({
                 <TabsContent value='main' className='space-y-2 mt-2'>
                   {task.status === 'delivered' &&
                     onSubmitForReview &&
+                    canSubmitTaskWork &&
                     (task.deliverable ?? []).some(
                       e => (e.tag ?? 'support') === 'main' && !e.locked,
                     ) && (
@@ -2006,6 +2019,7 @@ export function TaskDetailsPanel({
                                         subsequentEntries.length > 0 &&
                                         i === 0 &&
                                         entry.action === 'respond' &&
+                                        canSuperviseDetailedTasks &&
                                         onApproveDeliverable &&
                                         onRejectDeliverable && (
                                           <div className='flex flex-wrap gap-2 pt-1'>
@@ -2283,6 +2297,7 @@ export function TaskDetailsPanel({
                                 )}
                                 {!needsOfficerResubmit &&
                                   subsequentEntries.length === 0 &&
+                                  canSuperviseDetailedTasks &&
                                   onApproveDeliverable &&
                                   onRejectDeliverable && (
                                     <div className='flex flex-wrap gap-2'>
@@ -2588,7 +2603,7 @@ export function TaskDetailsPanel({
                           }
                           return (
                             <>
-                              {needsOfficerResubmit && (
+                              {needsOfficerResubmit && canSubmitTaskWork && (
                                 <Dialog
                                   open={deliverableResubmitDialogOpen}
                                   onOpenChange={open => {
@@ -2777,7 +2792,8 @@ export function TaskDetailsPanel({
                                     <Download className='h-4 w-4' />
                                   </a>
                                 </Button>
-                                {!mainDeliverable?.locked &&
+                                {canSubmitTaskWork &&
+                                  !mainDeliverable?.locked &&
                                   mainDeliverable?._key && (
                                     <Button
                                       type='button'
@@ -2789,7 +2805,7 @@ export function TaskDetailsPanel({
                                           mainDeliverable._key!,
                                         )
                                       }
-                                      disabled={isSaving}
+                                      disabled={isSaving || !canSubmitTaskWork}
                                       aria-label='Remove'
                                     >
                                       <Trash2 className='h-4 w-4' />
@@ -2811,6 +2827,7 @@ export function TaskDetailsPanel({
                             disabled={
                               isSaving ||
                               deliverablesLocked ||
+                              !canSubmitTaskWork ||
                               uploadingTag !== null ||
                               (task.deliverable ?? []).some(
                                 e => (e.tag ?? 'support') === 'main',

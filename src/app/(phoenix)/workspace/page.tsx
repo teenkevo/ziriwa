@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { currentUser } from '@clerk/nextjs/server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
+import { isSuperadmin } from '@/lib/authz/guards.server'
 import { client } from '@/sanity/lib/client'
 
 async function getViewerEmail() {
@@ -34,15 +35,26 @@ async function getPrimarySectionHrefForViewer() {
 }
 
 export default async function WorkspacePage() {
+  if (await isSuperadmin()) {
+    redirect('/departments')
+  }
+
   const role = await getAppRole()
+
+  if (role === 'assistant_commissioner') {
+    redirect('/assistant-commissioner/dashboard')
+  }
+
+  if (role === 'commissioner') {
+    redirect('/commissioner/dashboard')
+  }
 
   if (role === 'manager' || role === 'supervisor') {
     redirect('/manager/dashboard')
   }
 
   if (role === 'officer') {
-    const sectionHref = await getPrimarySectionHrefForViewer()
-    if (sectionHref) redirect(sectionHref)
+    redirect('/officer/dashboard')
   }
 
   redirect('/departments')

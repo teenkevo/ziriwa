@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
 import { parseAppRole } from '@/lib/app-role'
+import { getSuperadminEmailWhitelist } from '@/lib/authz/env'
 import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
 import { client } from '@/sanity/lib/client'
 
@@ -47,15 +48,29 @@ async function getWorkspaceDestination(userId: string, requestUrl: string) {
   const primaryEmail = user.emailAddresses?.find(
     (email: any) => email.id === user.primaryEmailAddressId,
   )?.emailAddress
+  const normalizedEmail = primaryEmail?.toLowerCase() ?? ''
+  const isFallbackExplorer = getSuperadminEmailWhitelist().includes(
+    normalizedEmail,
+  )
+  if (isFallbackExplorer) {
+    return new URL('/departments', requestUrl)
+  }
   const role = roleFromMetadata ?? (await getStaffRoleByEmail(primaryEmail ?? ''))
+
+  if (role === 'assistant_commissioner') {
+    return new URL('/assistant-commissioner/dashboard', requestUrl)
+  }
+
+  if (role === 'commissioner') {
+    return new URL('/commissioner/dashboard', requestUrl)
+  }
 
   if (role === 'manager' || role === 'supervisor') {
     return new URL('/manager/dashboard', requestUrl)
   }
 
   if (role === 'officer') {
-    const sectionPath = await getStaffSectionPathByEmail(primaryEmail ?? '')
-    if (sectionPath) return new URL(sectionPath, requestUrl)
+    return new URL('/officer/dashboard', requestUrl)
   }
 
   return new URL('/departments', requestUrl)

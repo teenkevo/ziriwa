@@ -35,8 +35,9 @@ export const sectionDelegation = defineType({
       type: 'string',
       options: {
         list: [
-          { title: 'Manager', value: 'manager' },
+          { title: 'Officer', value: 'officer' },
           { title: 'Supervisor', value: 'supervisor' },
+          { title: 'Manager', value: 'manager' },
         ],
       },
       validation: Rule => Rule.required(),

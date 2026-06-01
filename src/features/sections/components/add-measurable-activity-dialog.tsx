@@ -96,7 +96,7 @@ export function AddMeasurableActivityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isCreating}>
         <DialogHeader>
           <DialogTitle>
             Add {isKPI ? 'KPI' : 'Cross-cutting'} Measurable Activity

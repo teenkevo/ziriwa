@@ -5,13 +5,22 @@ import { NextResponse } from 'next/server'
 
 import { parseAppRole } from '@/lib/app-role'
 import { isSuperadmin } from '@/lib/authz/guards.server'
-import { buildSectionAccess, type SectionAccess } from '@/lib/section-access'
+import {
+  buildSectionAccessForWorkContext,
+  type SectionAccess,
+  type WorkContextMode,
+} from '@/lib/section-access'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
-import { syncDelegationStatuses } from '@/lib/section-delegation.server'
+import {
+  getActiveDelegationAsDelegatee,
+  getOutgoingActiveDelegation,
+  syncDelegationStatuses,
+} from '@/lib/section-delegation.server'
 import { client } from '@/sanity/lib/client'
 
 export async function getSectionAccessForViewer(
   sectionId: string,
+  workContext: WorkContextMode = 'own',
 ): Promise<SectionAccess> {
   const user = await currentUser()
   const emailRaw =
@@ -26,19 +35,22 @@ export async function getSectionAccessForViewer(
 
   if (globalAdmin) {
     const viewerStaffId = await getViewerStaffIdForSection(sectionId)
-    return buildSectionAccess({
-      viewerStaffId,
-      sectionManagerId: null,
-      supervisorIds: [],
-      appRole,
-      isGlobalAdmin: true,
-    })
+    return buildSectionAccessForWorkContext(
+      {
+        viewerStaffId,
+        sectionManagerId: null,
+        supervisorIds: [],
+        officerIds: [],
+        appRole,
+        isGlobalAdmin: true,
+      },
+      workContext,
+    )
   }
 
   await syncDelegationStatuses(sectionId)
-  const date = new Date().toISOString().slice(0, 10)
 
-  const [viewerStaffId, sectionMeta, supervisorIds, delegationActors] =
+  const [viewerStaffId, sectionMeta, supervisorIds, officerIds] =
     await Promise.all([
       getViewerStaffIdForSection(sectionId),
       client.fetch<{ managerId: string | null } | null>(
@@ -51,35 +63,33 @@ export async function getSectionAccessForViewer(
         /* groq */ `*[_type == "staff" && role == "supervisor" && status == "active" && section._ref == $sectionId]._id`,
         { sectionId },
       ),
-      client.fetch<{ actingRole: string; toStaffId: string }[]>(
-        /* groq */ `*[_type == "sectionDelegation"
-        && section._ref == $sectionId
-        && status in ["scheduled", "active"]
-        && startDate <= $date
-        && endDate >= $date
-      ]{
-        actingRole,
-        "toStaffId": toStaff._ref
-      }`,
-        { sectionId, date },
+      client.fetch<string[]>(
+        /* groq */ `*[_type == "staff" && role == "officer" && status == "active" && section._ref == $sectionId]._id`,
+        { sectionId },
       ),
     ])
 
-  const actingManagerStaffIds = delegationActors
-    .filter(d => d.actingRole === 'manager')
-    .map(d => d.toStaffId)
-  const actingSupervisorStaffIds = delegationActors
-    .filter(d => d.actingRole === 'supervisor')
-    .map(d => d.toStaffId)
+  const [assignmentAsDelegatee, assignmentAsAbsent] = viewerStaffId
+    ? await Promise.all([
+        getActiveDelegationAsDelegatee(viewerStaffId, sectionId),
+        getOutgoingActiveDelegation(viewerStaffId, sectionId),
+      ])
+    : [null, null]
 
-  return buildSectionAccess({
-    viewerStaffId,
-    sectionManagerId: sectionMeta?.managerId ?? null,
-    supervisorIds: supervisorIds ?? [],
-    actingManagerStaffIds,
-    actingSupervisorStaffIds,
-    appRole,
-  })
+  return buildSectionAccessForWorkContext(
+    {
+      viewerStaffId,
+      sectionManagerId: sectionMeta?.managerId ?? null,
+      supervisorIds: supervisorIds ?? [],
+      officerIds: officerIds ?? [],
+      appRole,
+      delegation: {
+        assignmentAsDelegatee,
+        assignmentAsAbsent,
+      },
+    },
+    workContext,
+  )
 }
 
 export function assertSectionStaffManageAllowed(
@@ -140,6 +150,18 @@ export function assertContractOpAllowed(
   return null
 }
 
+export function assertContractOnboardAllowed(
+  access: SectionAccess,
+): NextResponse | null {
+  if (access.isGlobalAdmin) return null
+  if (!access.canOnboardContract) {
+    return sectionAccessDenied(
+      'Only the section manager can onboard the section contract',
+    )
+  }
+  return null
+}
+
 export function assertSprintCreateAllowed(
   access: SectionAccess,
 ): NextResponse | null {
@@ -162,7 +184,6 @@ export function assertSprintReviewAllowed(
   return null
 }
 
-/** Manager approves/rejects sprint plan tasks (not officer work submissions). */
 export function assertSprintManagerPlanReviewAllowed(
   access: SectionAccess,
 ): NextResponse | null {

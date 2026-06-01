@@ -83,6 +83,7 @@ interface SprintTasksTableProps {
     updates: Record<string, unknown>,
   ) => void
   isSaving: boolean
+  canSuperviseDetailedTasks?: boolean
 }
 
 export function SprintTasksTable({
@@ -93,6 +94,7 @@ export function SprintTasksTable({
   onSelectTask,
   onUpdateTask,
   isSaving,
+  canSuperviseDetailedTasks = false,
 }: SprintTasksTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -139,7 +141,7 @@ export function SprintTasksTable({
                   priority: v,
                 })
               }
-              disabled={isSaving || isDone}
+              disabled={isSaving || isDone || !canSuperviseDetailedTasks}
             >
               <SelectTrigger
                 className='h-9 w-[120px]'
@@ -176,7 +178,7 @@ export function SprintTasksTable({
                     assignee: id,
                   })
                 }
-                disabled={isSaving || locked}
+                disabled={isSaving || locked || !canSuperviseDetailedTasks}
                 placeholder='Select officer'
                 sectionId={sectionId}
               />
@@ -225,7 +227,14 @@ export function SprintTasksTable({
           ),
       },
     ],
-    [officers, sectionId, onUpdateTask, isSaving, hasSubmissions],
+    [
+      officers,
+      sectionId,
+      onUpdateTask,
+      isSaving,
+      hasSubmissions,
+      canSuperviseDetailedTasks,
+    ],
   )
 
   const table = useReactTable({

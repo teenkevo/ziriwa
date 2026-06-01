@@ -28,6 +28,10 @@ import {
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  contractsApiBase,
+  type ContractsApiResource,
+} from '@/lib/contracts-api'
 
 const OBJECTIVE_CODE_REGEX = /^\d+\.\d+$/
 
@@ -45,6 +49,7 @@ export function EditObjectiveDialog({
   open,
   onOpenChange,
   sectionContractId,
+  contractsApi,
   objectiveIndex,
   initialCode,
   initialTitle,
@@ -52,11 +57,13 @@ export function EditObjectiveDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   sectionContractId: string
+  contractsApi?: ContractsApiResource
   objectiveIndex: number
   initialCode: string
   initialTitle: string
 }) {
   const router = useRouter()
+  const apiBase = contractsApiBase(contractsApi ?? 'section-contracts')
 
   const form = useForm<ObjectiveFormValues>({
     resolver: zodResolver(objectiveSchema),
@@ -73,7 +80,7 @@ export function EditObjectiveDialog({
 
   const onSubmit = async (values: ObjectiveFormValues) => {
     try {
-      const res = await fetch(`/api/section-contracts/${sectionContractId}`, {
+      const res = await fetch(`${apiBase}/${sectionContractId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -99,7 +106,7 @@ export function EditObjectiveDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isSaving}>
         <DialogHeader>
           <DialogTitle>Edit SSMARTA Objective</DialogTitle>
           <DialogDescription>

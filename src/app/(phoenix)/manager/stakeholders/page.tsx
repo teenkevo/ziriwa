@@ -1,10 +1,11 @@
-import { ManagerWorkspaceContent } from '@/features/manager/manager-workspace-content'
-import { ManagerEmptyState } from '@/features/manager/manager-empty-state'
-import { loadPrimaryManagerWorkspaceData } from '@/features/manager/load-primary-manager-workspace'
+import { ManagerWorkspacePage } from '@/features/manager/manager-workspace-page'
 
-export default async function Page() {
-  const data = await loadPrimaryManagerWorkspaceData()
-  if (!data) return <ManagerEmptyState />
-
-  return <ManagerWorkspaceContent {...data} view='stakeholders' />
+export default function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ workContext?: string | string[] }>
+}) {
+  return (
+    <ManagerWorkspacePage view='stakeholders' searchParams={searchParams} />
+  )
 }

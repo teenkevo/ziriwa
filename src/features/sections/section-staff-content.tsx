@@ -18,7 +18,6 @@ import {
   SectionStaffTable,
   type SectionStaffTableRow,
 } from '@/features/sections/components/section-staff-table'
-import { DelegateStaffDialog } from '@/features/sections/components/delegate-staff-dialog'
 import { EditSectionStaffDialog } from '@/features/sections/components/edit-section-staff-dialog'
 import { TransferStaffDialog } from '@/features/sections/components/transfer-staff-dialog'
 import { DelegationAuditTable } from '@/features/sections/components/delegation-audit-table'
@@ -80,8 +79,6 @@ export function SectionStaffContent({
   const [editStaff, setEditStaff] = React.useState<SectionStaffTableRow | null>(
     null,
   )
-  const [delegateStaff, setDelegateStaff] =
-    React.useState<SectionStaffTableRow | null>(null)
   const [transferStaff, setTransferStaff] =
     React.useState<SectionStaffTableRow | null>(null)
 
@@ -90,10 +87,6 @@ export function SectionStaffContent({
   }, [roster])
 
   const refresh = () => router.refresh()
-
-  const supervisorsOfficers = rows.filter(
-    r => r.role === 'supervisor' || r.role === 'officer',
-  )
 
   return (
     <div className='space-y-6'>
@@ -132,7 +125,6 @@ export function SectionStaffContent({
             rows={rows}
             canManage={canManage}
             onEdit={setEditStaff}
-            onDelegate={setDelegateStaff}
             onTransfer={setTransferStaff}
             onRefresh={refresh}
           />
@@ -168,15 +160,6 @@ export function SectionStaffContent({
         open={editStaff !== null}
         onOpenChange={o => !o && setEditStaff(null)}
         staff={editStaff}
-        onSuccess={refresh}
-      />
-
-      <DelegateStaffDialog
-        open={delegateStaff !== null}
-        onOpenChange={o => !o && setDelegateStaff(null)}
-        sectionId={sectionId}
-        absentStaff={delegateStaff}
-        candidates={supervisorsOfficers}
         onSuccess={refresh}
       />
 

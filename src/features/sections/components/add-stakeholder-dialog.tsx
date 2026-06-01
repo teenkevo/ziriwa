@@ -287,7 +287,10 @@ export function AddStakeholderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-xl max-h-[95vh] flex flex-col overflow-hidden'>
+      <DialogContent
+        disableClose={isSubmitting}
+        className='max-w-xl max-h-[95vh] flex flex-col overflow-hidden'
+      >
         <DialogHeader className='shrink-0'>
           <DialogTitle>
             {isEditing ? 'Edit Stakeholder' : 'Add Stakeholder'}

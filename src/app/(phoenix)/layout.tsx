@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { Metadata } from 'next'
+import { Suspense } from 'react'
 import { cookies } from 'next/headers'
 import {
   SidebarProvider,
@@ -31,7 +32,9 @@ export default async function Layout({ children }: LayoutProps) {
     <SidebarProvider defaultOpen={defaultOpen}>
       <Sidebar collapsible='icon' variant='inset'>
         <SidebarChromeHeader />
-        <AppSidebarNavWrapper />
+        <Suspense fallback={null}>
+          <AppSidebarNavWrapper />
+        </Suspense>
         <AppSidebarFooter />
         <SidebarRail />
       </Sidebar>

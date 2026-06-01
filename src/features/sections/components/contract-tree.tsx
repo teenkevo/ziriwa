@@ -23,7 +23,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { TreeView, TreeDataItem } from '@/components/tree-view'
-import { measurableActivityNumber } from '@/lib/contract-numbering'
+import {
+  departmentMeasurableActivityNumber,
+  measurableActivityNumber,
+} from '@/lib/contract-numbering'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { TreeRenderItemParams } from '@/components/tree-view'
 import { AddObjectiveDialog } from '@/features/sections/components/add-objective-dialog'
@@ -104,11 +107,10 @@ function sectionContractToTreeData(
           .slice(0, actIdx)
           .filter(a => a.activityType === act.activityType).length
         const actOrder = sameTypeBefore + 1
-        const actNum = measurableActivityNumber(
-          initNum,
-          act.activityType,
-          actOrder,
-        )
+        const actNum =
+          act.activityType === 'kpi' || act.activityType === 'cross-cutting'
+            ? measurableActivityNumber(initNum, act.activityType, actOrder)
+            : departmentMeasurableActivityNumber(initNum, actOrder)
         nodeMeta.set(act._key, {
           code: actNum,
           aim: act.aim,
@@ -569,7 +571,7 @@ export function ContractTree({
         open={deleteObjectiveIndex !== null}
         onOpenChange={open => !open && setDeleteObjectiveIndex(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent disableClose={deleting}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete objective?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -597,7 +599,7 @@ export function ContractTree({
         open={deleteInitiative !== null}
         onOpenChange={open => !open && setDeleteInitiative(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent disableClose={deleting}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete initiative?</AlertDialogTitle>
             <AlertDialogDescription>

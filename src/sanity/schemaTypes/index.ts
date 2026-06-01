@@ -7,6 +7,10 @@ import { department } from './department'
 import { division } from './division'
 import { section } from './section'
 import { sectionContract } from './section-contract'
+import { departmentContract } from './department-contract'
+import { divisionContract } from './division-contract'
+import { supervisorContract } from './supervisor-contract'
+import { officerContract } from './officer-contract'
 import { staff } from './staff'
 import { stakeholderEntry } from './stakeholder-entry'
 import { stakeholderEngagement } from './stakeholder-engagement'
@@ -18,6 +22,7 @@ import { staffTransferRequest } from './staff-transfer-request'
 import { appNotification } from './app-notification'
 import { auditLogEntry } from './audit-log-entry'
 import { auditLogBatch } from './audit-log-batch'
+import { boardAction } from './board-action'
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
     auditLogEntry,
@@ -30,6 +35,10 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     staffTransferRequest,
     appNotification,
     sectionContract,
+    departmentContract,
+    divisionContract,
+    supervisorContract,
+    officerContract,
     detailedTask,
     measurableActivity,
     contractInitiative,
@@ -39,5 +48,6 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     sprintTask,
     workSubmission,
     weeklySprint,
+    boardAction,
   ],
 }

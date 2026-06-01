@@ -166,6 +166,7 @@ export function DepartmentsListPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clear: true }),
       })
+      setBulkDeleteIds(null)
       router.refresh()
     } catch (err) {
       console.error(err)
@@ -314,7 +315,7 @@ export function DepartmentsListPage({
           open={!!deletingDepartment}
           onOpenChange={open => !open && setDeletingDepartment(null)}
         >
-          <AlertDialogContent>
+          <AlertDialogContent disableClose={deletingLoading}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete department?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -356,7 +357,7 @@ export function DepartmentsListPage({
           open={bulkDeleteIds !== null}
           onOpenChange={open => !open && setBulkDeleteIds(null)}
         >
-          <AlertDialogContent>
+          <AlertDialogContent disableClose={bulkDeleting}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete selected departments?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -376,7 +377,6 @@ export function DepartmentsListPage({
                   e.preventDefault()
                   const ids = bulkDeleteIds
                   if (!ids?.length) return
-                  setBulkDeleteIds(null)
                   void handleBulkDeleteDepartments(ids)
                 }}
                 disabled={bulkDeleting}

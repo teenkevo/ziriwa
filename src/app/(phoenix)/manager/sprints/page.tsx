@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation'
+
+import { ManagerWorkspacePage } from '@/features/manager/manager-workspace-page'
 import { getAppRole } from '@/lib/clerk-app-role.server'
-import { ManagerWorkspaceContent } from '@/features/manager/manager-workspace-content'
-import { ManagerEmptyState } from '@/features/manager/manager-empty-state'
-import { loadPrimaryManagerWorkspaceData } from '@/features/manager/load-primary-manager-workspace'
 
 type SprintsPageProps = {
-  searchParams?: Promise<{
+  searchParams: Promise<{
     tab?: string | string[]
+    workContext?: string | string[]
   }>
 }
 
@@ -28,22 +28,18 @@ export default async function ManagerSprintsPage({
   searchParams,
 }: SprintsPageProps) {
   const params = await searchParams
-  const tab = parseSprintTab(params?.tab)
+  const tab = parseSprintTab(params.tab)
 
   if (!tab) {
     redirect('/manager/sprints?tab=ready')
   }
 
-  const [data, role] = await Promise.all([
-    loadPrimaryManagerWorkspaceData(),
-    getAppRole(),
-  ])
-  if (!data) return <ManagerEmptyState />
+  const role = await getAppRole()
 
   return (
-    <ManagerWorkspaceContent
-      {...data}
+    <ManagerWorkspacePage
       view='sprints'
+      searchParams={searchParams}
       sprintView={TAB_TO_VIEW[tab]}
       sprintReviewLabel={role === 'supervisor' ? 'In Review' : 'To Review'}
     />

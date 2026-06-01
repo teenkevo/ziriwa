@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
 import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
+import {
+  assertContractOnboardAllowed,
+  getSectionAccessForViewer,
+} from '@/lib/section-access.server'
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,13 +25,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const access = await getSectionAccessForViewer(sectionId)
+    const denied = assertContractOnboardAllowed(access)
+    if (denied) return denied
+
     const currentFY = getCurrentFinancialYear()
 
     // One contract per section per FY
     const existing = await getSectionContract(sectionId, currentFY.label)
     if (existing) {
       return NextResponse.json(
-        { error: 'A contract already exists for this section and financial year' },
+        {
+          error:
+            'A contract already exists for this section and financial year',
+        },
         { status: 409 },
       )
     }

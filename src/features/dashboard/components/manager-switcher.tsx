@@ -53,13 +53,30 @@ export function ManagerSwitcher({
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
+  const [createdManagers, setCreatedManagers] = React.useState<
+    StaffPickerMember[]
+  >([])
 
-  const selected = managers.find(m => m._id === value)
+  const managerOptions = React.useMemo(() => {
+    const managerIds = new Set(managers.map(manager => manager._id))
+    return [
+      ...managers,
+      ...createdManagers.filter(manager => !managerIds.has(manager._id)),
+    ]
+  }, [createdManagers, managers])
+
+  const selected = managerOptions.find(m => m._id === value)
   const displayLabel = selected
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
   const handleCreateSuccess = (newStaff: StaffMember) => {
+    setCreatedManagers(current => {
+      if (current.some(manager => manager._id === newStaff._id)) {
+        return current
+      }
+      return [...current, newStaff]
+    })
     onChange(newStaff._id)
     setShowCreateDialog(false)
     setOpen(false)
@@ -90,7 +107,7 @@ export function ManagerSwitcher({
               <CommandEmpty>No manager found.</CommandEmpty>
               <CommandGroup heading='Managers'>
                 <StaffPickerCommandItems
-                  members={managers}
+                  members={managerOptions}
                   value={value}
                   roleLabel='Manager'
                   currentEntityId={currentSectionId}

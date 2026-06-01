@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  pdf,
 } from '@react-pdf/renderer'
 import { FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -273,17 +274,23 @@ function buildGroups(rows: ReportRow[]): InitiativeReportGroup[] {
   }, [])
 }
 
-function WeeklyReportPdf({ sectionName, sprint }: WeeklyReportPdfProps) {
+export type DivisionWeeklyReportSection = {
+  sectionName: string
+  sprint: WeeklySprint
+}
+
+export type DivisionWeeklyReportPdfProps = {
+  divisionName: string
+  weekLabel: string
+  sections: DivisionWeeklyReportSection[]
+}
+
+export function WeeklyReportPage({ sectionName, sprint }: WeeklyReportPdfProps) {
   const rows = buildRows(sprint)
   const groups = buildGroups(rows)
 
   return (
-    <Document
-      title={`${sectionName} ${sprint.weekLabel} Weekly Report`}
-      author='Ziriwa'
-      subject='Weekly sprint report'
-    >
-      <Page size='A4' orientation='landscape' style={styles.page}>
+    <Page size='A4' orientation='landscape' style={styles.page}>
         <Text style={styles.eyebrow}>Weekly sprint report</Text>
         <Text style={styles.title}>{sectionName}</Text>
         <Text style={styles.subtitle}>{sprint.weekLabel}</Text>
@@ -398,6 +405,66 @@ function WeeklyReportPdf({ sectionName, sprint }: WeeklyReportPdfProps) {
           />
         </View>
       </Page>
+  )
+}
+
+function WeeklyReportPdf({ sectionName, sprint }: WeeklyReportPdfProps) {
+  return (
+    <Document
+      title={`${sectionName} ${sprint.weekLabel} Weekly Report`}
+      author='Ziriwa'
+      subject='Weekly sprint report'
+    >
+      <WeeklyReportPage sectionName={sectionName} sprint={sprint} />
+    </Document>
+  )
+}
+
+function DivisionWeeklyReportEmptyPage({
+  divisionName,
+  weekLabel,
+}: {
+  divisionName: string
+  weekLabel: string
+}) {
+  return (
+    <Page size='A4' orientation='landscape' style={styles.page}>
+      <Text style={styles.eyebrow}>Weekly sprint report</Text>
+      <Text style={styles.title}>{divisionName}</Text>
+      <Text style={styles.subtitle}>{weekLabel}</Text>
+      <Text style={styles.empty}>
+        No current-week sprints were found for this division. This report was
+        generated with no section data.
+      </Text>
+    </Page>
+  )
+}
+
+export function DivisionWeeklyReportPdf({
+  divisionName,
+  weekLabel,
+  sections,
+}: DivisionWeeklyReportPdfProps) {
+  return (
+    <Document
+      title={`${divisionName} ${weekLabel} Weekly Report`}
+      author='Ziriwa'
+      subject='Division weekly sprint report'
+    >
+      {sections.length === 0 ? (
+        <DivisionWeeklyReportEmptyPage
+          divisionName={divisionName}
+          weekLabel={weekLabel}
+        />
+      ) : (
+        sections.map(({ sectionName, sprint }) => (
+          <WeeklyReportPage
+            key={sprint._id}
+            sectionName={sectionName}
+            sprint={sprint}
+          />
+        ))
+      )}
     </Document>
   )
 }
@@ -432,14 +499,14 @@ export function WeeklyReportDownloadButton({
           className='border-primary'
         >
           {loading ? (
-            <Loader2 className='h-4 w-4 mr-2 animate-spin' />
+            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
           ) : (
             <Image
-              src={'/folder-icon2.png'}
+              src='/folder-icon2.png'
               alt='icon-pdf'
               width={2}
               height={2}
-              className='h-5 w-5 mr-1'
+              className='mr-1 h-5 w-5'
             />
           )}
           {loading ? 'Preparing Report…' : 'Generate Report'}
@@ -447,4 +514,17 @@ export function WeeklyReportDownloadButton({
       )}
     </PDFDownloadLink>
   )
+}
+
+export async function generateDivisionWeeklyReportBlob(
+  props: DivisionWeeklyReportPdfProps,
+) {
+  return pdf(<DivisionWeeklyReportPdf {...props} />).toBlob()
+}
+
+export function divisionWeeklyReportFileName(
+  divisionName: string,
+  weekLabel: string,
+) {
+  return `${slugify(divisionName)}-${slugify(weekLabel)}-division-weekly-report.pdf`
 }

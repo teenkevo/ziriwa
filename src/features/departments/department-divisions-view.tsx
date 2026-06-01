@@ -353,7 +353,7 @@ export function DepartmentDivisionsView({
           open={showDeleteDepartment}
           onOpenChange={setShowDeleteDepartment}
         >
-          <AlertDialogContent>
+          <AlertDialogContent disableClose={deletingDepartment}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete department?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -419,7 +419,7 @@ export function DepartmentDivisionsView({
           open={bulkDeleteIds !== null}
           onOpenChange={open => !open && setBulkDeleteIds(null)}
         >
-          <AlertDialogContent>
+          <AlertDialogContent disableClose={bulkDeleting}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete selected divisions?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -460,7 +460,7 @@ export function DepartmentDivisionsView({
           open={!!deletingDivision}
           onOpenChange={open => !open && setDeletingDivision(null)}
         >
-          <AlertDialogContent>
+          <AlertDialogContent disableClose={deletingDivisionLoading}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete division?</AlertDialogTitle>
               <AlertDialogDescription>

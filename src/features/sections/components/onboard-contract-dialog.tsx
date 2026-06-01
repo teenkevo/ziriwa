@@ -64,7 +64,7 @@ export function OnboardContractDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isCreating}>
         <DialogHeader>
           <DialogTitle>Onboard Contract</DialogTitle>
           <DialogDescription>

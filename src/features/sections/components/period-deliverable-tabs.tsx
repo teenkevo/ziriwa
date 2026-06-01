@@ -42,7 +42,7 @@ import type {
 interface PeriodDeliverableTabsProps {
   periodKey: string
   pd: PeriodDeliverable
-  onAddDeliverable: (tag: 'support' | 'main') => void
+  onAddDeliverable?: (tag: 'support' | 'main') => void
   onRemoveDeliverable?: (key: string) => void
   onSubmitForReview?: () => void
   onApproveDeliverable?: (reason?: string) => void
@@ -220,8 +220,13 @@ export function PeriodDeliverableTabs({
           type='button'
           variant='outline'
           size='sm'
-          onClick={() => onAddDeliverable('support')}
-          disabled={isSaving || uploadingTag !== null || deliverablesLocked}
+          onClick={() => onAddDeliverable?.('support')}
+          disabled={
+            isSaving ||
+            uploadingTag !== null ||
+            deliverablesLocked ||
+            !onAddDeliverable
+          }
         >
           {uploadingTag === 'support' ? (
             <Loader2 className='h-4 w-4 animate-spin' />
@@ -1298,10 +1303,11 @@ export function PeriodDeliverableTabs({
                 type='button'
                 variant='outline'
                 size='sm'
-                onClick={() => onAddDeliverable('main')}
+                onClick={() => onAddDeliverable?.('main')}
                 disabled={
                   isSaving ||
                   deliverablesLocked ||
+                  !onAddDeliverable ||
                   uploadingTag !== null ||
                   deliverable.some(
                     (e: PeriodDeliverableItem) =>

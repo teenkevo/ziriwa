@@ -18,7 +18,7 @@ type TaskSnapshot = {
   deliverableReviewThread?: unknown
 }
 
-const MANAGER_ONLY_FIELDS = [
+const PLANNING_FIELDS = [
   'targetDate',
   'reportingFrequency',
   'reportingPeriodStart',
@@ -38,6 +38,13 @@ const ASSIGNEE_CONTENT_FIELDS = [
   'deliverable',
   'periodDeliverables',
 ] as const satisfies readonly (keyof TaskSnapshot)[]
+
+const ASSIGNEE_STATUS_VALUES = [
+  'inputs_submitted',
+  'in_progress',
+  'delivered',
+  'in_review',
+] as const
 
 function taskKey(task: TaskSnapshot, index: number): string {
   return task._key ?? `idx-${index}`
@@ -69,7 +76,9 @@ function isAssigneeContentOnlyChange(
 
   if (assigneeId !== viewerStaffId) return false
 
-  if (fieldsChanged(before, after, [...SUPERVISOR_FIELDS, ...MANAGER_ONLY_FIELDS])) {
+  if (
+    fieldsChanged(before, after, ['priority', 'assignee', ...PLANNING_FIELDS])
+  ) {
     return false
   }
 
@@ -77,7 +86,24 @@ function isAssigneeContentOnlyChange(
     return false
   }
 
-  return fieldsChanged(before, after, ASSIGNEE_CONTENT_FIELDS)
+  const contentChanged = fieldsChanged(before, after, ASSIGNEE_CONTENT_FIELDS)
+  const reviewThreadChanged = fieldsChanged(before, after, [
+    'inputsReviewThread',
+    'deliverableReviewThread',
+  ])
+  const statusChanged = stableJson(before.status) !== stableJson(after.status)
+
+  if (statusChanged) {
+    if (
+      !ASSIGNEE_STATUS_VALUES.includes(
+        after.status as (typeof ASSIGNEE_STATUS_VALUES)[number],
+      )
+    )
+      return false
+    if (!contentChanged && !reviewThreadChanged) return false
+  }
+
+  return contentChanged || reviewThreadChanged
 }
 
 function assertTaskPairAllowed(
@@ -86,10 +112,10 @@ function assertTaskPairAllowed(
   after: TaskSnapshot,
 ): string | null {
   if (
-    fieldsChanged(before, after, MANAGER_ONLY_FIELDS) &&
-    !access.canManageContract
+    fieldsChanged(before, after, PLANNING_FIELDS) &&
+    !access.canSuperviseDetailedTasks
   ) {
-    return 'Only the section manager can set reporting cycle, due date, and expected deliverables'
+    return 'Only supervisors can set reporting cycle, due date, and expected deliverables'
   }
 
   if (fieldsChanged(before, after, SUPERVISOR_FIELDS)) {
@@ -123,7 +149,7 @@ function assertTaskPairAllowed(
 }
 
 /**
- * Supervisors may edit task planning and reviews; managers set reporting/due-date fields;
+ * Supervisors may edit task planning and reviews;
  * assignees may only submit inputs/deliverables on their tasks.
  */
 export function assertActivityTasksUpdateAllowed(

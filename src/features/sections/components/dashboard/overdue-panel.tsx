@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns'
 import {
   AlertTriangle,
   CalendarX,
+  CheckCircle2,
   ClipboardList,
   RefreshCcw,
   ListChecks,
@@ -14,13 +15,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -233,6 +228,7 @@ function buildAttentionRows(
       statusPill: 'Awaiting review',
       statusVariant: 'secondary',
       context: item.assigneeName ?? undefined,
+      showAvatar: false,
     })
   }
 
@@ -247,6 +243,7 @@ function buildAttentionRows(
       statusPill: 'Needs revision',
       statusVariant: 'secondary',
       context: item.assigneeName ?? undefined,
+      showAvatar: false,
     })
   }
 
@@ -385,6 +382,38 @@ function StakeholderLateTable({
           +{overflow} more in this category
         </p>
       ) : null}
+    </div>
+  )
+}
+
+function AllClearState({ compact = false }: { compact?: boolean }) {
+  return (
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 text-center',
+        compact ? 'px-4 py-8' : 'px-6 py-12',
+      )}
+    >
+      <CheckCircle2
+        className={cn(
+          'text-emerald-600 dark:text-emerald-500',
+          compact ? 'h-8 w-8' : 'h-10 w-10',
+        )}
+        aria-hidden
+      />
+      <p
+        className={cn(
+          'mt-3 font-medium text-foreground',
+          compact ? 'text-sm' : 'text-base',
+        )}
+      >
+        All good
+      </p>
+      <p className='mt-1 max-w-sm text-xs text-muted-foreground'>
+        {compact
+          ? 'Nothing needs attention in this category.'
+          : 'Nothing is overdue or blocked right now.'}
+      </p>
     </div>
   )
 }
@@ -606,94 +635,87 @@ export function OverduePanel({
         </div>
       </CardHeader>
       <CardContent>
-        {totalAtRisk === 0 ? (
-          <p className='text-sm text-muted-foreground'>
-            Nothing is overdue or blocked right now.
-          </p>
-        ) : (
-          <div className='flex flex-col gap-6 lg:flex-row lg:gap-0'>
-            <nav
-              aria-label='At-risk categories'
-              className='flex shrink-0 flex-col gap-0.5 border-b border-border pb-4 lg:w-96 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5'
-            >
-              {CATEGORIES.map(cat => {
-                const n = counts[cat.countKey]
-                const selected = selectedCategoryId === cat.id
-                const Icon = cat.icon
-                return (
-                  <button
-                    key={cat.id}
-                    type='button'
-                    onClick={() => setSelectedCategoryId(cat.id)}
+        <div className='flex flex-col gap-6 lg:flex-row lg:gap-0'>
+          <nav
+            aria-label='At-risk categories'
+            className='flex shrink-0 flex-col gap-0.5 border-b border-border pb-4 lg:w-96 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5'
+          >
+            {CATEGORIES.map(cat => {
+              const n = counts[cat.countKey]
+              const selected = selectedCategoryId === cat.id
+              const Icon = cat.icon
+              return (
+                <button
+                  key={cat.id}
+                  type='button'
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-left text-sm transition-colors',
+                    selected
+                      ? 'bg-muted font-medium text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                  )}
+                >
+                  <Icon
+                    className={cn('h-4 w-4 shrink-0', 'text-muted-foreground')}
+                  />
+                  <span className='min-w-0 flex-1 text-sm leading-snug'>
+                    {cat.label}
+                  </span>
+                  <Badge
+                    variant='outline'
                     className={cn(
-                      'flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-left text-sm transition-colors',
-                      selected
-                        ? 'bg-muted font-medium text-foreground'
-                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                      'shrink-0 tabular-nums',
+                      n > 0 && 'border-destructive',
                     )}
                   >
-                    <Icon
-                      className={cn(
-                        'h-4 w-4 shrink-0',
-                        'text-muted-foreground',
-                      )}
-                    />
-                    <span className='min-w-0 text-sm flex-1 leading-snug'>
-                      {cat.label}
-                    </span>
-                    <Badge
-                      variant='outline'
-                      className={`tabular-nums shrink-0 ${n > 0 ? 'border-destructive' : ''}`}
-                    >
-                      {n}
-                    </Badge>
-                  </button>
-                )
-              })}
-            </nav>
+                    {n}
+                  </Badge>
+                </button>
+              )
+            })}
+          </nav>
 
-            <div className='min-w-0 flex-1 space-y-3 lg:pl-6'>
-              <div>
-                <h3 className='text-base font-semibold tracking-tight'>
-                  Top priority
-                </h3>
-                <p className='mt-0.5 text-xs text-muted-foreground'>
-                  {selectedCount > 0
+          <div className='min-w-0 flex-1 space-y-3 lg:pl-6'>
+            <div>
+              <h3 className='text-base font-semibold tracking-tight'>
+                {totalAtRisk === 0 ? 'Status' : 'Top priority'}
+              </h3>
+              <p className='mt-0.5 text-xs text-muted-foreground'>
+                {totalAtRisk === 0
+                  ? 'All categories are clear'
+                  : selectedCount > 0
                     ? `${selectedLabel} — ${selectedCount} ${selectedCount === 1 ? 'item' : 'items'}`
-                    : `${selectedLabel}`}
-                </p>
-              </div>
-
-              {selectedCount === 0 ? (
-                <div className='text-xs text-muted-foreground'>
-                  All good here!
-                </div>
-              ) : isEngagements ? (
-                <StakeholderLateTable
-                  items={visibleEngagements}
-                  overflow={engagementOverflow}
-                  onNavigateToTab={onNavigateToTab}
-                />
-              ) : (
-                <ul className='space-y-3'>
-                  {visibleCards.map(row => (
-                    <li key={row.key}>
-                      <PriorityCard
-                        row={row}
-                        onNavigateToTab={onNavigateToTab}
-                      />
-                    </li>
-                  ))}
-                  {overflow > 0 ? (
-                    <li className='text-xs text-muted-foreground'>
-                      +{overflow} more in this category
-                    </li>
-                  ) : null}
-                </ul>
-              )}
+                    : selectedLabel}
+              </p>
             </div>
+
+            {totalAtRisk === 0 ? (
+              <AllClearState />
+            ) : selectedCount === 0 ? (
+              <AllClearState compact />
+            ) : isEngagements ? (
+              <StakeholderLateTable
+                items={visibleEngagements}
+                overflow={engagementOverflow}
+                onNavigateToTab={onNavigateToTab}
+              />
+            ) : (
+              <ul className='space-y-3'>
+                {visibleCards.map(row => (
+                  <li key={row.key}>
+                    <PriorityCard row={row} onNavigateToTab={onNavigateToTab} />
+                  </li>
+                ))}
+                {overflow > 0 ? (
+                  <li className='text-xs text-muted-foreground'>
+                    +{overflow} more in this category
+                  </li>
+                ) : null}
+              </ul>
+            )}
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   )

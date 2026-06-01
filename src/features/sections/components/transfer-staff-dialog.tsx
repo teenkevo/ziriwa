@@ -79,7 +79,7 @@ export function TransferStaffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-md'>
+      <DialogContent disableClose={isSaving} className='max-w-md'>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Request section transfer</DialogTitle>

@@ -22,25 +22,26 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import type { SectionStaffTableRow } from '@/features/sections/components/section-staff-table'
+import { DELEGATION_MAX_DAYS } from '@/lib/role-delegation'
+import type { DelegationCandidate } from '@/lib/role-delegation'
 
-interface DelegateStaffDialogProps {
+interface SelfServiceDelegationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   sectionId: string
-  absentStaff: SectionStaffTableRow | null
-  candidates: SectionStaffTableRow[]
+  actingRoleLabel: string
+  candidates: DelegationCandidate[]
   onSuccess: () => void
 }
 
-export function DelegateStaffDialog({
+export function SelfServiceDelegationDialog({
   open,
   onOpenChange,
   sectionId,
-  absentStaff,
+  actingRoleLabel,
   candidates,
   onSuccess,
-}: DelegateStaffDialogProps) {
+}: SelfServiceDelegationDialogProps) {
   const [toStaffId, setToStaffId] = React.useState('')
   const [startDate, setStartDate] = React.useState('')
   const [endDate, setEndDate] = React.useState('')
@@ -56,23 +57,9 @@ export function DelegateStaffDialog({
     }
   }, [open])
 
-  const actingRole =
-    absentStaff?.role === 'manager'
-      ? 'manager'
-      : absentStaff?.role === 'supervisor'
-        ? 'supervisor'
-        : null
-
-  const eligible = candidates.filter(
-    c =>
-      c._id !== absentStaff?._id &&
-      c.status === 'active' &&
-      (c.role === 'supervisor' || c.role === 'officer'),
-  )
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!absentStaff || !actingRole || !toStaffId || !startDate || !endDate) {
+    if (!toStaffId || !startDate || !endDate) {
       toast.error('Complete all required fields')
       return
     }
@@ -83,9 +70,7 @@ export function DelegateStaffDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sectionId,
-          fromStaffId: absentStaff._id,
           toStaffId,
-          actingRole,
           startDate,
           endDate,
           note,
@@ -95,7 +80,7 @@ export function DelegateStaffDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to create delegation')
       }
-      toast.success('Delegation recorded')
+      toast.success('Leave delegation saved')
       onOpenChange(false)
       onSuccess()
     } catch (err) {
@@ -107,31 +92,36 @@ export function DelegateStaffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-md'>
+      <DialogContent disableClose={isSaving} className='max-w-md'>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Delegate duties</DialogTitle>
+            <DialogTitle>Delegate while on leave</DialogTitle>
             <DialogDescription>
-              {absentStaff
-                ? `Cover ${absentStaff.fullName}'s ${actingRole} role while they are away. The acting person keeps their current role (dual role).`
-                : 'Select staff to delegate.'}
+              Choose a colleague to cover your {actingRoleLabel} duties for up
+              to {DELEGATION_MAX_DAYS} days. You keep your own role and can
+              continue your regular work.
             </DialogDescription>
           </DialogHeader>
           <div className='space-y-4 py-4'>
             <div className='space-y-2'>
-              <Label>Acting staff</Label>
+              <Label>Acting colleague</Label>
               <Select value={toStaffId} onValueChange={setToStaffId}>
                 <SelectTrigger>
                   <SelectValue placeholder='Select staff member' />
                 </SelectTrigger>
                 <SelectContent>
-                  {eligible.map(c => (
+                  {candidates.map(c => (
                     <SelectItem key={c._id} value={c._id}>
                       {c.fullName} ({c.role})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {candidates.length === 0 ? (
+                <p className='text-xs text-muted-foreground'>
+                  No eligible colleagues in this section.
+                </p>
+              ) : null}
             </div>
             <div className='grid grid-cols-2 gap-3'>
               <div className='space-y-2'>
@@ -174,7 +164,10 @@ export function DelegateStaffDialog({
             >
               Cancel
             </Button>
-            <Button type='submit' disabled={isSaving || !actingRole}>
+            <Button
+              type='submit'
+              disabled={isSaving || !toStaffId || candidates.length === 0}
+            >
               {isSaving ? (
                 <Loader2 className='h-4 w-4 animate-spin' />
               ) : (

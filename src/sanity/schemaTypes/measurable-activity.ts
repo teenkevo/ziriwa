@@ -19,6 +19,7 @@ export const measurableActivity = defineType({
         list: [
           { title: 'KPI', value: 'kpi' },
           { title: 'Cross-cutting', value: 'cross-cutting' },
+          { title: 'Measurable', value: 'measurable' },
         ],
         layout: 'dropdown',
       },
@@ -35,7 +36,10 @@ export const measurableActivity = defineType({
       title: 'AIM',
       type: 'text',
       description: 'AIM text for KPI activities',
-      hidden: ({ parent }) => (parent as { activityType?: string })?.activityType !== 'kpi',
+      hidden: ({ parent }) => {
+        const t = (parent as { activityType?: string })?.activityType
+        return t !== 'kpi'
+      },
     }),
     defineField({
       name: 'order',
@@ -83,7 +87,10 @@ export const measurableActivity = defineType({
       type: 'array',
       of: [{ type: 'file' }, { type: 'image' }],
       description: 'Uploads for KPI activities',
-      hidden: ({ parent }) => (parent as { activityType?: string })?.activityType !== 'kpi',
+      hidden: ({ parent }) => {
+        const t = (parent as { activityType?: string })?.activityType
+        return t !== 'kpi'
+      },
     }),
     defineField({
       name: 'tasks',

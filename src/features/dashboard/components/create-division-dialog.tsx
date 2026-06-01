@@ -86,7 +86,7 @@ export function CreateDivisionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent disableClose={isCreating}>
         <DialogHeader>
           <DialogTitle>Add Division</DialogTitle>
           <DialogDescription>

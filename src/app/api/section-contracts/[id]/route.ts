@@ -44,7 +44,7 @@ export async function PATCH(
     if (contractOpDenied) return contractOpDenied
 
     const contractLabel = await client.fetch<string | null>(
-      `*[_type == "sectionContract" && _id == $id][0].coalesce(financialYearLabel, "Section contract")`,
+      `coalesce(*[_type == "sectionContract" && _id == $id][0].financialYearLabel, "Section contract")`,
       { id },
     )
 

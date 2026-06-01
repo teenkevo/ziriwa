@@ -64,6 +64,17 @@ import {
   useRegisterPageBreadcrumbs,
 } from '@/contexts/app-breadcrumb-context'
 import type { SectionAccess } from '@/lib/section-access'
+import {
+  scopeSprintsForViewer,
+  shouldScopeSprintsToOfficer,
+  shouldScopeSprintsToSupervisor,
+  shouldUseOfficerContract,
+} from '@/lib/sprint-workspace-scope'
+import { DepartmentContractTree } from './components/department-contract-tree'
+import { OnboardSupervisorContractDialog } from './components/onboard-supervisor-contract-dialog'
+import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
+import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
+import { OnboardOfficerContractDialog } from './components/onboard-officer-contract-dialog'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
 
 function flattenInitiativesWithActivities(
@@ -119,6 +130,8 @@ type StaffOption = { _id: string; fullName?: string; staffId?: string }
 export interface SectionPageContentProps {
   section: Section
   sectionContract: SectionContract | null
+  supervisorContract?: SupervisorContract | null
+  officerContract?: OfficerContract | null
   stakeholderEngagement: StakeholderEngagement | null
   staffOptions: StaffOption[]
   supervisors: SectionStaff[]
@@ -140,6 +153,8 @@ export interface SectionPageContentProps {
 export function SectionPageContent({
   section,
   sectionContract,
+  supervisorContract = null,
+  officerContract = null,
   stakeholderEngagement,
   staffOptions,
   supervisors,
@@ -209,12 +224,45 @@ export function SectionPageContent({
     setPanelPortalNode(node)
   }, [])
   const [onboardOpen, setOnboardOpen] = useState(false)
-  const currentFY = sectionContract?.financialYearLabel ?? 'current FY'
   const manager = section.manager
   const hasManager = !!manager?._id
+  const scopedSprints = React.useMemo(
+    () => scopeSprintsForViewer(sprints, sectionAccess),
+    [sprints, sectionAccess],
+  )
+  const usesSupervisorContract = shouldScopeSprintsToSupervisor(sectionAccess)
+  const usesOfficerContract =
+    shouldUseOfficerContract(sectionAccess) ||
+    Boolean(
+      sectionAccess.viewerStaffId &&
+        officers.some(o => o._id === sectionAccess.viewerStaffId),
+    )
+  const usesLeadershipContract = usesSupervisorContract || usesOfficerContract
+  const activeContract = usesOfficerContract
+    ? officerContract
+    : usesSupervisorContract
+      ? supervisorContract
+      : sectionContract
+  const currentFY =
+    activeContract?.financialYearLabel ?? sectionContract?.financialYearLabel ?? 'current FY'
+  const canManageActiveContract = usesOfficerContract
+    ? sectionAccess.canManageOfficerContract ||
+      sectionAccess.isSectionOfficer
+    : usesSupervisorContract
+      ? sectionAccess.canManageSupervisorContract
+      : sectionAccess.canManageContract
+  const leadershipContractsApi = usesOfficerContract
+    ? 'officer-contracts'
+    : 'supervisor-contracts'
+  const viewerSupervisor = supervisors.find(s => s._id === viewerStaffId)
+  const viewerOfficer = officers.find(s => s._id === viewerStaffId)
+  const personalContractDisplayName = usesOfficerContract
+    ? (viewerOfficer?.fullName ?? 'Officer')
+    : (viewerSupervisor?.fullName ?? 'Supervisor')
   const showSprintSubTabs =
-    sectionAccess.canViewSprintDraftTab ||
-    sectionAccess.canViewSprintInReviewTab
+    !sectionAccess.isSectionOfficer &&
+    (sectionAccess.canViewSprintDraftTab ||
+      sectionAccess.canViewSprintInReviewTab)
   const [expandAllSignal, setExpandAllSignal] = useState(0)
   const [collapseAllSignal, setCollapseAllSignal] = useState(0)
   /** Tracks bulk expand/collapse toggle label (tree may diverge if nodes toggled manually). */
@@ -250,6 +298,7 @@ export function SectionPageContent({
       ? {
           roleLabel: headerRoleLabel,
           sectionLabel: section.name,
+          separator: sectionAccess.isSectionOfficer ? '-' : '|',
         }
       : null,
   )
@@ -331,7 +380,7 @@ export function SectionPageContent({
               open={showDeleteSection}
               onOpenChange={setShowDeleteSection}
             >
-              <AlertDialogContent>
+              <AlertDialogContent disableClose={deletingSection}>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete section?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -388,8 +437,12 @@ export function SectionPageContent({
             <SectionDashboardContent
               sectionName={section.name}
               sectionSlug={section.slug?.current}
-              contract={sectionContract}
+              contract={activeContract as SectionContract | null}
               sprints={sprints}
+              sectionAccess={sectionAccess}
+              workspaceBasePath={
+                sectionAccess.isSectionOfficer ? '/officer' : '/manager'
+              }
               engagement={stakeholderEngagement}
               dueToday={dueToday}
               dueThisWeek={dueThisWeek}
@@ -402,7 +455,7 @@ export function SectionPageContent({
           <TabsContent value='contract' className='space-y-4'>
             <Card>
               <CardContent className='pt-6'>
-                {sectionContract ? (
+                {activeContract ? (
                   <div className='space-y-4'>
                     <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
                       <div className='text-sm flex items-center gap-2 min-w-0'>
@@ -410,7 +463,7 @@ export function SectionPageContent({
                         <span className='truncate'>{currentFY}</span>
                       </div>
                       <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
-                        {sectionAccess.canManageContract ? (
+                        {canManageActiveContract ? (
                           <Button
                             type='button'
                             size='sm'
@@ -436,28 +489,94 @@ export function SectionPageContent({
                           }}
                         >
                           {treeBulkExpanded ? (
-                            <>
-                              <ChevronsUp className='h-4 w-4' />
-                            </>
+                            <ChevronsUp className='h-4 w-4' />
                           ) : (
-                            <>
-                              <ChevronsDown className='h-4 w-4' />
-                            </>
+                            <ChevronsDown className='h-4 w-4' />
                           )}
                         </Button>
                       </div>
                     </div>
-                    <ContractTree
-                      sectionContract={sectionContract}
-                      sectionSlug={section.slug?.current ?? ''}
-                      canManageContract={sectionAccess.canManageContract}
-                      expandAllSignal={expandAllSignal}
-                      collapseAllSignal={collapseAllSignal}
-                      addObjectiveSignal={addObjectiveSignal}
-                      onAddObjectiveRequestConsumed={() =>
-                        setAddObjectiveSignal(0)
-                      }
+                    {usesLeadershipContract ? (
+                      <DepartmentContractTree
+                        departmentContract={
+                          activeContract as SupervisorContract | OfficerContract
+                        }
+                        contractsApi={
+                          leadershipContractsApi as
+                            | 'supervisor-contracts'
+                            | 'officer-contracts'
+                        }
+                        canManageContract={canManageActiveContract}
+                        expandAllSignal={expandAllSignal}
+                        collapseAllSignal={collapseAllSignal}
+                        addObjectiveSignal={addObjectiveSignal}
+                        onAddObjectiveRequestConsumed={() =>
+                          setAddObjectiveSignal(0)
+                        }
+                      />
+                    ) : (
+                      <ContractTree
+                        sectionContract={sectionContract!}
+                        sectionSlug={section.slug?.current ?? ''}
+                        canManageContract={canManageActiveContract}
+                        expandAllSignal={expandAllSignal}
+                        collapseAllSignal={collapseAllSignal}
+                        addObjectiveSignal={addObjectiveSignal}
+                        onAddObjectiveRequestConsumed={() =>
+                          setAddObjectiveSignal(0)
+                        }
+                      />
+                    )}
+                  </div>
+                ) : usesOfficerContract ? (
+                  <div className='space-y-4'>
+                    <OnboardOfficerContractDialog
+                      open={onboardOpen}
+                      onOpenChange={setOnboardOpen}
+                      sectionId={section._id}
+                      officerId={sectionAccess.viewerStaffId ?? undefined}
+                      sectionName={section.name}
+                      officerName={personalContractDisplayName}
+                      onSuccess={() => setOnboardOpen(false)}
                     />
+                    <div className='flex items-center gap-2 text-muted-foreground'>
+                      <FileText className='h-5 w-5' />
+                      <span>No officer contract for {currentFY}</span>
+                    </div>
+                    <p className='text-sm'>
+                      Onboard your contract to add SSMARTA objectives,
+                      initiatives, and measurable activities.
+                    </p>
+                    {sectionAccess.canManageOfficerContract ? (
+                      <Button onClick={() => setOnboardOpen(true)}>
+                        Onboard Contract
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : usesSupervisorContract ? (
+                  <div className='space-y-4'>
+                    <OnboardSupervisorContractDialog
+                      open={onboardOpen}
+                      onOpenChange={setOnboardOpen}
+                      sectionId={section._id}
+                      supervisorId={sectionAccess.viewerStaffId ?? undefined}
+                      sectionName={section.name}
+                      supervisorName={personalContractDisplayName}
+                      onSuccess={() => setOnboardOpen(false)}
+                    />
+                    <div className='flex items-center gap-2 text-muted-foreground'>
+                      <FileText className='h-5 w-5' />
+                      <span>No supervisor contract for {currentFY}</span>
+                    </div>
+                    <p className='text-sm'>
+                      Onboard your contract to add SSMARTA objectives,
+                      initiatives, and measurable activities.
+                    </p>
+                    {sectionAccess.canManageSupervisorContract ? (
+                      <Button onClick={() => setOnboardOpen(true)}>
+                        Onboard Contract
+                      </Button>
+                    ) : null}
                   </div>
                 ) : (
                   <div className='space-y-4'>
@@ -478,11 +597,11 @@ export function SectionPageContent({
                       Onboard a contract to add SSMARTA objectives, initiatives,
                       and KPIs.
                     </p>
-                    {hasManager && sectionAccess.canManageContract ? (
+                    {sectionAccess.canOnboardContract && hasManager ? (
                       <Button onClick={() => setOnboardOpen(true)}>
                         Onboard Contract
                       </Button>
-                    ) : hasManager ? null : (
+                    ) : sectionAccess.canOnboardContract ? null : (
                       <p className='text-sm text-muted-foreground'>
                         Assign a manager to this section before onboarding a
                         contract.
@@ -511,7 +630,9 @@ export function SectionPageContent({
                   sectionName={section.name}
                   engagement={stakeholderEngagement}
                   staffOptions={staffOptions}
-                  initiatives={flattenInitiatives(sectionContract)}
+                  initiatives={flattenInitiatives(
+                    activeContract as SectionContract | null,
+                  )}
                 />
               </CardContent>
             </Card>
@@ -521,8 +642,10 @@ export function SectionPageContent({
             <WeeklySprintContent
               sectionId={section._id}
               sectionName={section.name}
-              sprints={sprints}
-              initiatives={flattenInitiativesWithActivities(sectionContract)}
+              sprints={scopedSprints}
+              initiatives={flattenInitiativesWithActivities(
+                activeContract as SectionContract | null,
+              )}
               officers={officers}
               onSprintTabChange={setSprintSubTab}
               panelPortalNode={panelPortalNode}
@@ -534,7 +657,7 @@ export function SectionPageContent({
           <TabsContent value='reporting' className='space-y-4'>
             <SectionReportingContent
               sectionName={section.name}
-              sprints={sprints}
+              sprints={scopedSprints}
             />
           </TabsContent>
         </Tabs>

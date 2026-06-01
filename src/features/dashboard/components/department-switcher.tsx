@@ -243,7 +243,7 @@ export default function DepartmentSwitcher({
       </Popover>
       {canCreateDepartment && (
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent>
+          <DialogContent disableClose={isCreating}>
             <DialogHeader>
               <DialogTitle>Create Department</DialogTitle>
               <DialogDescription>

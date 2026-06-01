@@ -1,27 +1,16 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import {
   ChevronsDown,
   ChevronsUp,
   FileText,
   Plus,
-  Users,
-  Zap,
-  Handshake,
-  LayoutDashboard,
-  FileBarChart,
-  Loader2,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  useRegisterHeaderIdentity,
-  useRegisterPageBreadcrumbs,
-} from '@/contexts/app-breadcrumb-context'
+import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import { flattenInitiatives } from '@/sanity/lib/section-contracts/get-section-contract'
 import { SectionDashboardContent } from '@/features/sections/section-dashboard-content'
 import { SectionStaffContent } from '@/features/sections/section-staff-content'
@@ -29,10 +18,27 @@ import { StakeholderEngagementContent } from '@/features/sections/stakeholder-en
 import { SectionReportingContent } from '@/features/sections/section-reporting-content'
 import { WeeklySprintContent } from '@/features/sections/weekly-sprint-content'
 import { ContractTree } from '@/features/sections/components/contract-tree'
+import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
 import { OnboardContractDialog } from '@/features/sections/components/onboard-contract-dialog'
+import { OnboardSupervisorContractDialog } from '@/features/sections/components/onboard-supervisor-contract-dialog'
+import { OnboardOfficerContractDialog } from '@/features/sections/components/onboard-officer-contract-dialog'
 import { DueTodayThisWeek } from '@/features/sections/components/due-today-this-week'
 import type { InitiativeWithActivities } from '@/features/sections/weekly-sprint-content'
 import type { SectionPageContentProps } from '@/features/sections/section-page-content'
+import {
+  scopeSprintsForViewer,
+  shouldScopeSprintsToOfficer,
+  shouldScopeSprintsToSupervisor,
+  shouldUseOfficerContract,
+} from '@/lib/sprint-workspace-scope'
+import {
+  getWorkspacePaths,
+  type WorkspaceBasePath,
+} from '@/lib/workspace-paths'
+import type { ContractsApiResource } from '@/lib/contracts-api'
+import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
+import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
+import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 
 type WorkspaceData = SectionPageContentProps
 
@@ -45,16 +51,21 @@ type ManagerWorkspaceView =
   | 'reporting'
 
 type SprintView = 'ready' | 'in-review' | 'draft'
-type SprintTabValue = 'ready' | 'to-review' | 'drafts'
 
 type ManagerWorkspaceContentProps = WorkspaceData & {
   view: ManagerWorkspaceView
   sprintView?: SprintView
   sprintReviewLabel?: string
+  workspaceBasePath?: WorkspaceBasePath
 }
 
 function flattenInitiativesWithActivities(
-  contract: WorkspaceData['sectionContract'],
+  contract:
+    | SectionContract
+    | SupervisorContract
+    | OfficerContract
+    | null
+    | undefined,
 ): InitiativeWithActivities[] {
   if (!contract?.objectives) return []
   const out: InitiativeWithActivities[] = []
@@ -76,73 +87,46 @@ function flattenInitiativesWithActivities(
 
 const viewConfig: Record<
   ManagerWorkspaceView,
-  {
-    title: string
-    description: string
-    icon: React.ComponentType<{ className?: string }>
-  }
+  { title: string; description: string }
 > = {
   dashboard: {
     title: 'Dashboard',
     description:
       'Section performance, sprint progress, contract status, and pending work.',
-    icon: LayoutDashboard,
   },
   contract: {
     title: 'Contract',
     description:
       'Manage SSMARTA objectives, initiatives, measurable activities, and deliverables.',
-    icon: FileText,
   },
   sprints: {
     title: 'Sprints',
-    description: 'Manage weekly sprints and tasks',
-    icon: Zap,
+    description: 'Manage weekly sprints and tasks for your section.',
   },
   stakeholders: {
     title: 'Stakeholders',
     description:
       'Maintain stakeholder engagement plans and reports for your section.',
-    icon: Handshake,
   },
   staff: {
     title: 'Staff',
     description: 'Manage section staff, delegations, and transfers.',
-    icon: Users,
   },
   reporting: {
     title: 'Reporting',
     description: 'Generate weekly reports from completed sprints.',
-    icon: FileBarChart,
   },
-}
-
-function sprintViewTitle(view?: SprintView, reviewLabel = 'To Review') {
-  if (view === 'ready') return 'Sprints'
-  if (view === 'draft') return 'Sprints'
-  if (view === 'in-review') return reviewLabel
-  return 'Sprints'
-}
-
-function sprintTabValue(view?: SprintView): SprintTabValue {
-  if (view === 'in-review') return 'to-review'
-  if (view === 'draft') return 'drafts'
-  return 'ready'
-}
-
-const managerSprintTabTriggerClassName =
-  'inline-flex items-center rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-muted-foreground shadow-none transition-colors -mb-px data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
-
-function isModifiedClick(event: React.MouseEvent<HTMLAnchorElement>) {
-  return event.metaKey || event.altKey || event.ctrlKey || event.shiftKey
 }
 
 export function ManagerWorkspaceContent({
   view,
   sprintView,
   sprintReviewLabel = 'To Review',
+  workspaceBasePath = '/manager',
   section,
   sectionContract,
+  supervisorContract = null,
+  officerContract = null,
   stakeholderEngagement,
   staffOptions,
   officers,
@@ -157,8 +141,44 @@ export function ManagerWorkspaceContent({
   staffRoster,
 }: ManagerWorkspaceContentProps) {
   const safeSprints = sprints ?? []
+  const scopedSprints = React.useMemo(
+    () => scopeSprintsForViewer(safeSprints, sectionAccess),
+    [safeSprints, sectionAccess],
+  )
+  const paths = React.useMemo(
+    () => getWorkspacePaths(workspaceBasePath),
+    [workspaceBasePath],
+  )
+  const usesOfficerContract =
+    workspaceBasePath === '/officer' ||
+    shouldUseOfficerContract(sectionAccess)
+  const usesSupervisorContract = shouldScopeSprintsToSupervisor(sectionAccess)
+  const usesLeadershipContract = usesSupervisorContract || usesOfficerContract
+  const activeContract = usesOfficerContract
+    ? officerContract
+    : usesSupervisorContract
+      ? supervisorContract
+      : sectionContract
+  const canManageActiveContract = usesOfficerContract
+    ? sectionAccess.canManageOfficerContract || workspaceBasePath === '/officer'
+    : usesSupervisorContract
+      ? sectionAccess.canManageSupervisorContract
+      : sectionAccess.canManageContract
+  const leadershipContractsApi: Extract<
+    ContractsApiResource,
+    'supervisor-contracts' | 'officer-contracts'
+  > = usesOfficerContract ? 'officer-contracts' : 'supervisor-contracts'
+  const workspaceRoleLabel = sectionAccess.isSectionManager
+    ? 'Manager'
+    : sectionAccess.isSectionSupervisor
+      ? 'Supervisor'
+      : sectionAccess.isSectionOfficer
+        ? 'Officer'
+        : 'Manager'
+  const personalContractDisplayName = usesOfficerContract
+    ? (officerContract?.officer?.fullName ?? 'Officer')
+    : (supervisorContract?.supervisor?.fullName ?? 'Supervisor')
   const config = viewConfig[view]
-  const Icon = config.icon
   const [panelPortalNode, setPanelPortalNode] =
     React.useState<HTMLDivElement | null>(null)
   const [onboardOpen, setOnboardOpen] = React.useState(false)
@@ -166,46 +186,25 @@ export function ManagerWorkspaceContent({
   const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
   const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
-  const activeSprintTab = sprintTabValue(sprintView)
-  const [pendingSprintTab, setPendingSprintTab] =
-    React.useState<SprintTabValue | null>(null)
-
-  React.useEffect(() => {
-    setPendingSprintTab(null)
-  }, [activeSprintTab])
-
-  const handleSprintTabClick = React.useCallback(
-    (tab: SprintTabValue, event: React.MouseEvent<HTMLAnchorElement>) => {
-      if (event.defaultPrevented || isModifiedClick(event)) return
-      if (tab === activeSprintTab) return
-      setPendingSprintTab(tab)
-    },
-    [activeSprintTab],
-  )
 
   const breadcrumbs = React.useMemo(
     () => [
-      { label: 'Manager', href: '/manager/dashboard' },
+      { label: workspaceRoleLabel, href: paths.dashboard },
       { label: config.title },
     ],
-    [config.title],
+    [config.title, workspaceRoleLabel, paths.dashboard],
   )
   useRegisterPageBreadcrumbs(breadcrumbs)
-  useRegisterHeaderIdentity({
-    roleLabel:
-      sectionAccess.isSectionSupervisor && !sectionAccess.isSectionManager
-        ? 'Supervisor'
-        : 'Manager',
-    sectionLabel: section.name,
-  })
 
-  const currentFY = sectionContract?.financialYearLabel ?? 'current FY'
+  const currentFY =
+    activeContract?.financialYearLabel ?? sectionContract?.financialYearLabel ?? 'current FY'
   const manager = section.manager
   const hasManager = !!manager?._id
   const showRightRail = view === 'contract' || view === 'sprints'
+  const actingAssignment = sectionAccess.delegation.assignmentAsDelegatee
   const title =
-    view === 'sprints'
-      ? sprintViewTitle(sprintView, sprintReviewLabel)
+    sectionAccess.workContext === 'acting' && actingAssignment
+      ? `${config.title} (acting for ${actingAssignment.fromStaffName})`
       : config.title
 
   const content = (() => {
@@ -214,8 +213,10 @@ export function ManagerWorkspaceContent({
         <SectionDashboardContent
           sectionName={section.name}
           sectionSlug={section.slug?.current}
-          contract={sectionContract}
+          contract={activeContract as SectionContract | null}
           sprints={safeSprints}
+          sectionAccess={sectionAccess}
+          workspaceBasePath={workspaceBasePath}
           engagement={stakeholderEngagement}
           dueToday={dueToday}
           dueThisWeek={dueThisWeek}
@@ -230,7 +231,7 @@ export function ManagerWorkspaceContent({
       return (
         <Card>
           <CardContent className='pt-6'>
-            {sectionContract ? (
+            {activeContract ? (
               <div className='space-y-4'>
                 <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
                   <div className='text-sm flex items-center gap-2 min-w-0'>
@@ -238,7 +239,7 @@ export function ManagerWorkspaceContent({
                     <span className='truncate'>{currentFY}</span>
                   </div>
                   <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
-                    {sectionAccess.canManageContract ? (
+                    {canManageActiveContract ? (
                       <Button
                         type='button'
                         size='sm'
@@ -271,15 +272,80 @@ export function ManagerWorkspaceContent({
                     </Button>
                   </div>
                 </div>
-                <ContractTree
-                  sectionContract={sectionContract}
-                  sectionSlug={section.slug?.current ?? ''}
-                  canManageContract={sectionAccess.canManageContract}
-                  expandAllSignal={expandAllSignal}
-                  collapseAllSignal={collapseAllSignal}
-                  addObjectiveSignal={addObjectiveSignal}
-                  onAddObjectiveRequestConsumed={() => setAddObjectiveSignal(0)}
+                {usesLeadershipContract ? (
+                  <DepartmentContractTree
+                    departmentContract={
+                      activeContract as SupervisorContract | OfficerContract
+                    }
+                    contractsApi={leadershipContractsApi}
+                    canManageContract={canManageActiveContract}
+                    expandAllSignal={expandAllSignal}
+                    collapseAllSignal={collapseAllSignal}
+                    addObjectiveSignal={addObjectiveSignal}
+                    onAddObjectiveRequestConsumed={() => setAddObjectiveSignal(0)}
+                  />
+                ) : (
+                  <ContractTree
+                    sectionContract={sectionContract!}
+                    sectionSlug={section.slug?.current ?? ''}
+                    canManageContract={canManageActiveContract}
+                    expandAllSignal={expandAllSignal}
+                    collapseAllSignal={collapseAllSignal}
+                    addObjectiveSignal={addObjectiveSignal}
+                    onAddObjectiveRequestConsumed={() => setAddObjectiveSignal(0)}
+                  />
+                )}
+              </div>
+            ) : usesOfficerContract ? (
+              <div className='space-y-4'>
+                <OnboardOfficerContractDialog
+                  open={onboardOpen}
+                  onOpenChange={setOnboardOpen}
+                  sectionId={section._id}
+                  officerId={sectionAccess.viewerStaffId ?? undefined}
+                  sectionName={section.name}
+                  officerName={personalContractDisplayName}
+                  onSuccess={() => setOnboardOpen(false)}
                 />
+                <div className='flex items-center gap-2 text-muted-foreground'>
+                  <FileText className='h-5 w-5' />
+                  <span>No officer contract for {currentFY}</span>
+                </div>
+                <p className='text-sm'>
+                  Onboard your contract to add SSMARTA objectives, initiatives,
+                  and measurable activities.
+                </p>
+                {(sectionAccess.canManageOfficerContract ||
+                  workspaceBasePath === '/officer') ? (
+                  <Button onClick={() => setOnboardOpen(true)}>
+                    Onboard Contract
+                  </Button>
+                ) : null}
+              </div>
+            ) : usesSupervisorContract ? (
+              <div className='space-y-4'>
+                <OnboardSupervisorContractDialog
+                  open={onboardOpen}
+                  onOpenChange={setOnboardOpen}
+                  sectionId={section._id}
+                  supervisorId={sectionAccess.viewerStaffId ?? undefined}
+                  sectionName={section.name}
+                  supervisorName={personalContractDisplayName}
+                  onSuccess={() => setOnboardOpen(false)}
+                />
+                <div className='flex items-center gap-2 text-muted-foreground'>
+                  <FileText className='h-5 w-5' />
+                  <span>No supervisor contract for {currentFY}</span>
+                </div>
+                <p className='text-sm'>
+                  Onboard your contract to add SSMARTA objectives, initiatives,
+                  and measurable activities.
+                </p>
+                {sectionAccess.canManageSupervisorContract ? (
+                  <Button onClick={() => setOnboardOpen(true)}>
+                    Onboard Contract
+                  </Button>
+                ) : null}
               </div>
             ) : (
               <div className='space-y-4'>
@@ -300,11 +366,11 @@ export function ManagerWorkspaceContent({
                   Onboard a contract to add SSMARTA objectives, initiatives, and
                   KPIs.
                 </p>
-                {hasManager && sectionAccess.canManageContract ? (
+                {sectionAccess.canOnboardContract && hasManager ? (
                   <Button onClick={() => setOnboardOpen(true)}>
                     Onboard Contract
                   </Button>
-                ) : hasManager ? null : (
+                ) : sectionAccess.canOnboardContract ? null : (
                   <p className='text-sm text-muted-foreground'>
                     Assign a manager to this section before onboarding a
                     contract.
@@ -322,14 +388,14 @@ export function ManagerWorkspaceContent({
         <WeeklySprintContent
           sectionId={section._id}
           sectionName={section.name}
-          sprints={safeSprints}
-          initiatives={flattenInitiativesWithActivities(sectionContract)}
+          sprints={scopedSprints}
+          initiatives={flattenInitiativesWithActivities(activeContract)}
           officers={officers}
           panelPortalNode={panelPortalNode}
           viewerStaffId={viewerStaffId}
           sectionAccess={sectionAccess}
           presentation='single-view'
-          singleView={sprintView ?? 'ready'}
+          singleView={usesOfficerContract ? 'ready' : (sprintView ?? 'ready')}
         />
       )
     }
@@ -343,7 +409,9 @@ export function ManagerWorkspaceContent({
               sectionName={section.name}
               engagement={stakeholderEngagement}
               staffOptions={staffOptions}
-              initiatives={flattenInitiatives(sectionContract)}
+              initiatives={flattenInitiatives(
+                activeContract as SectionContract | null,
+              )}
             />
           </CardContent>
         </Card>
@@ -364,7 +432,7 @@ export function ManagerWorkspaceContent({
     return (
       <SectionReportingContent
         sectionName={section.name}
-        sprints={safeSprints}
+        sprints={scopedSprints}
       />
     )
   })()
@@ -375,62 +443,8 @@ export function ManagerWorkspaceContent({
         <div className='flex flex-col gap-2'>
           <h1 className='text-2xl font-bold'>{title}</h1>
           <p className='max-w-3xl text-sm text-muted-foreground'>
-            {view === 'sprints' ? config.description : config.description}
+            {config.description}
           </p>
-          {view === 'sprints' ? (
-            <Tabs value={activeSprintTab} className='mt-2'>
-              <TabsList
-                aria-busy={pendingSprintTab ? true : undefined}
-                className='inline-flex h-auto w-auto flex-wrap items-stretch gap-1 rounded-none border-b border-border bg-transparent p-0'
-              >
-                <TabsTrigger
-                  value='ready'
-                  className={managerSprintTabTriggerClassName}
-                  asChild
-                >
-                  <Link
-                    href='/manager/sprints?tab=ready'
-                    onClick={event => handleSprintTabClick('ready', event)}
-                  >
-                    Ready
-                    {pendingSprintTab === 'ready' ? (
-                      <Loader2 className='ml-2 h-3.5 w-3.5 animate-spin' />
-                    ) : null}
-                  </Link>
-                </TabsTrigger>
-                <TabsTrigger
-                  value='to-review'
-                  className={managerSprintTabTriggerClassName}
-                  asChild
-                >
-                  <Link
-                    href='/manager/sprints?tab=to-review'
-                    onClick={event => handleSprintTabClick('to-review', event)}
-                  >
-                    {sprintReviewLabel}
-                    {pendingSprintTab === 'to-review' ? (
-                      <Loader2 className='ml-2 h-3.5 w-3.5 animate-spin' />
-                    ) : null}
-                  </Link>
-                </TabsTrigger>
-                <TabsTrigger
-                  value='drafts'
-                  className={managerSprintTabTriggerClassName}
-                  asChild
-                >
-                  <Link
-                    href='/manager/sprints?tab=drafts'
-                    onClick={event => handleSprintTabClick('drafts', event)}
-                  >
-                    Drafts
-                    {pendingSprintTab === 'drafts' ? (
-                      <Loader2 className='ml-2 h-3.5 w-3.5 animate-spin' />
-                    ) : null}
-                  </Link>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          ) : null}
         </div>
 
         {content}

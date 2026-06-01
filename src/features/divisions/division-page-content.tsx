@@ -355,7 +355,7 @@ export function DivisionPageContent({
           open={showDeleteDivision}
           onOpenChange={setShowDeleteDivision}
         >
-          <AlertDialogContent>
+          <AlertDialogContent disableClose={deletingDivision}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete division?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -394,7 +394,7 @@ export function DivisionPageContent({
           open={bulkDeleteSectionIds !== null}
           onOpenChange={open => !open && setBulkDeleteSectionIds(null)}
         >
-          <AlertDialogContent>
+          <AlertDialogContent disableClose={bulkDeletingSections}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete selected sections?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -435,7 +435,7 @@ export function DivisionPageContent({
           open={!!deletingSection}
           onOpenChange={open => !open && setDeletingSection(null)}
         >
-          <AlertDialogContent>
+          <AlertDialogContent disableClose={deletingSectionLoading}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete section?</AlertDialogTitle>
               <AlertDialogDescription>

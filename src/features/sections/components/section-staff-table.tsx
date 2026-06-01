@@ -47,7 +47,6 @@ interface SectionStaffTableProps {
   rows: SectionStaffTableRow[]
   canManage: boolean
   onEdit: (row: SectionStaffTableRow) => void
-  onDelegate: (row: SectionStaffTableRow) => void
   onTransfer: (row: SectionStaffTableRow) => void
   onRefresh: () => void
 }
@@ -56,7 +55,6 @@ export function SectionStaffTable({
   rows,
   canManage,
   onEdit,
-  onDelegate,
   onTransfer,
   onRefresh,
 }: SectionStaffTableProps) {
@@ -183,12 +181,6 @@ export function SectionStaffTable({
                   <Pencil className='mr-2 h-4 w-4' />
                   Edit
                 </DropdownMenuItem>
-                {(r.role === 'supervisor' || r.role === 'manager') && (
-                  <DropdownMenuItem onClick={() => onDelegate(r)}>
-                    <UserCog className='mr-2 h-4 w-4' />
-                    Delegate
-                  </DropdownMenuItem>
-                )}
                 <DropdownMenuItem onClick={() => onTransfer(r)}>
                   <UserCog className='mr-2 h-4 w-4' />
                   Request transfer
@@ -208,7 +200,7 @@ export function SectionStaffTable({
         },
       },
     ],
-    [canManage, disablingId, onDelegate, onEdit, onTransfer],
+    [canManage, disablingId, onEdit, onTransfer],
   )
 
   const table = useReactTable({

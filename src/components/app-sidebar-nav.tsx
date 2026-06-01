@@ -2,8 +2,23 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Building, Building2, ChevronRight, Landmark } from 'lucide-react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import {
+  BarChart3,
+  Building,
+  Building2,
+  ChevronRight,
+  ClipboardList,
+  FileBarChart,
+  FilePen,
+  FileText,
+  Handshake,
+  Landmark,
+  LayoutDashboard,
+  ShieldCheck,
+  Users,
+  Zap,
+} from 'lucide-react'
 
 import {
   Collapsible,
@@ -24,14 +39,44 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
-import type { SidebarDepartmentWithDivisions } from '@/sanity/lib/departments/get-departments-with-divisions-for-sidebar'
+import type {
+  SidebarDepartmentWithDivisions,
+  SidebarDivision,
+} from '@/sanity/lib/departments/get-departments-with-divisions-for-sidebar'
+
+export type SidebarSection = {
+  _id: string
+  name: string
+  slug?: { current?: string }
+}
+
+function resolveManagerSprintTab(
+  tab: string | null,
+): 'ready' | 'to-review' | 'drafts' {
+  if (tab === 'to-review' || tab === 'drafts') return tab
+  return 'ready'
+}
 
 export function AppSidebarNav({
   departmentsTree,
+  variant = 'default',
+  commissionerDivisions = [],
+  assistantCommissionerSections = [],
+  managerSprintsReviewLabel = 'To Review',
 }: {
   departmentsTree: SidebarDepartmentWithDivisions[]
+  variant?:
+    | 'default'
+    | 'commissioner'
+    | 'assistant-commissioner'
+    | 'manager'
+    | 'officer'
+  commissionerDivisions?: SidebarDivision[]
+  assistantCommissionerSections?: SidebarSection[]
+  managerSprintsReviewLabel?: string
 }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [sectionDivisionId, setSectionDivisionId] = React.useState<
     string | null
   >(null)
@@ -114,6 +159,452 @@ export function AppSidebarNav({
 
   const departmentsNavActive =
     pathname === '/departments' || pathname.startsWith('/departments/')
+  const isCommissionerSidebar = variant === 'commissioner'
+  const isAssistantCommissionerSidebar = variant === 'assistant-commissioner'
+  const isManagerSidebar = variant === 'manager'
+  const isOfficerSidebar = variant === 'officer'
+  const managerSprintTab = isManagerSidebar
+    ? resolveManagerSprintTab(searchParams.get('tab'))
+    : null
+  const isManagerSprintsRoute =
+    pathname === '/manager/sprints' || pathname.startsWith('/manager/sprints/')
+
+  if (isOfficerSidebar) {
+    return (
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/officer/dashboard' ||
+                    pathname.startsWith('/officer/dashboard/')
+                  }
+                >
+                  <Link href='/officer/dashboard'>
+                    <LayoutDashboard />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/officer/contract' ||
+                    pathname.startsWith('/officer/contract/')
+                  }
+                >
+                  <Link href='/officer/contract'>
+                    <FileText />
+                    <span>Contract</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/officer/stakeholders' ||
+                    pathname.startsWith('/officer/stakeholders/')
+                  }
+                >
+                  <Link href='/officer/stakeholders'>
+                    <Handshake />
+                    <span>Stakeholders</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/officer/sprints' ||
+                    pathname.startsWith('/officer/sprints/')
+                  }
+                >
+                  <Link href='/officer/sprints'>
+                    <Zap />
+                    <span>Sprints</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/officer/reporting' ||
+                    pathname.startsWith('/officer/reporting/')
+                  }
+                >
+                  <Link href='/officer/reporting'>
+                    <FileBarChart />
+                    <span>Reporting</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    )
+  }
+
+  if (isManagerSidebar) {
+    return (
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/manager/dashboard' ||
+                    pathname.startsWith('/manager/dashboard/')
+                  }
+                >
+                  <Link href='/manager/dashboard'>
+                    <LayoutDashboard />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/manager/contract' ||
+                    pathname.startsWith('/manager/contract/')
+                  }
+                >
+                  <Link href='/manager/contract'>
+                    <FileText />
+                    <span>Contract</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/manager/stakeholders' ||
+                    pathname.startsWith('/manager/stakeholders/')
+                  }
+                >
+                  <Link href='/manager/stakeholders'>
+                    <Handshake />
+                    <span>Stakeholders</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/manager/staff' ||
+                    pathname.startsWith('/manager/staff/')
+                  }
+                >
+                  <Link href='/manager/staff'>
+                    <Users />
+                    <span>Staff</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/manager/reporting' ||
+                    pathname.startsWith('/manager/reporting/')
+                  }
+                >
+                  <Link href='/manager/reporting'>
+                    <FileBarChart />
+                    <span>Reporting</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Sprints</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    isManagerSprintsRoute && managerSprintTab === 'ready'
+                  }
+                >
+                  <Link href='/manager/sprints?tab=ready'>
+                    <Zap />
+                    <span>Ready</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    isManagerSprintsRoute && managerSprintTab === 'to-review'
+                  }
+                >
+                  <Link href='/manager/sprints?tab=to-review'>
+                    <ShieldCheck />
+                    <span>{managerSprintsReviewLabel}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    isManagerSprintsRoute && managerSprintTab === 'drafts'
+                  }
+                >
+                  <Link href='/manager/sprints?tab=drafts'>
+                    <FilePen />
+                    <span>Drafts</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    )
+  }
+
+  if (isAssistantCommissionerSidebar) {
+    return (
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/assistant-commissioner/dashboard' ||
+                    pathname.startsWith('/assistant-commissioner/dashboard/')
+                  }
+                >
+                  <Link href='/assistant-commissioner/dashboard'>
+                    <LayoutDashboard />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/assistant-commissioner/board-actions' ||
+                    pathname.startsWith(
+                      '/assistant-commissioner/board-actions/',
+                    )
+                  }
+                >
+                  <Link href='/assistant-commissioner/board-actions'>
+                    <ClipboardList />
+                    <span>Board Actions</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname ===
+                      '/assistant-commissioner/stakeholder-engagements' ||
+                    pathname.startsWith(
+                      '/assistant-commissioner/stakeholder-engagements/',
+                    )
+                  }
+                >
+                  <Link href='/assistant-commissioner/stakeholder-engagements'>
+                    <Handshake />
+                    <span>Stakeholder engagements</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Sections</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {assistantCommissionerSections.length === 0 ? (
+                <SidebarMenuItem>
+                  <span className='block px-2 py-1.5 text-xs text-muted-foreground'>
+                    No sections
+                  </span>
+                </SidebarMenuItem>
+              ) : (
+                assistantCommissionerSections.map(section => {
+                  const href = `/sections/${section.slug?.current ?? section._id}`
+                  const active =
+                    pathname === href || pathname.startsWith(`${href}/`)
+                  return (
+                    <SidebarMenuItem key={section._id}>
+                      <SidebarMenuButton asChild isActive={active}>
+                        <Link href={href}>
+                          <Building2 />
+                          <span className='truncate'>{section.name}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Reports</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/assistant-commissioner/reports' ||
+                    pathname.startsWith('/assistant-commissioner/reports/')
+                  }
+                >
+                  <Link href='/assistant-commissioner/reports'>
+                    <BarChart3 />
+                    <span>Reports</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    )
+  }
+
+  if (isCommissionerSidebar) {
+    return (
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/commissioner/dashboard' ||
+                    pathname.startsWith('/commissioner/dashboard/')
+                  }
+                >
+                  <Link href='/commissioner/dashboard'>
+                    <LayoutDashboard />
+                    <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/commissioner/board-actions' ||
+                    pathname.startsWith('/commissioner/board-actions/')
+                  }
+                >
+                  <Link href='/commissioner/board-actions'>
+                    <ClipboardList />
+                    <span>Board Actions</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/commissioner/stakeholder-engagements' ||
+                    pathname.startsWith(
+                      '/commissioner/stakeholder-engagements/',
+                    )
+                  }
+                >
+                  <Link href='/commissioner/stakeholder-engagements'>
+                    <Handshake />
+                    <span>Stakeholder engagements</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Divisions</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {commissionerDivisions.length === 0 ? (
+                <SidebarMenuItem>
+                  <span className='block px-2 py-1.5 text-xs text-muted-foreground'>
+                    No divisions
+                  </span>
+                </SidebarMenuItem>
+              ) : (
+                commissionerDivisions.map(div => {
+                  const href = `/divisions/${div.slug?.current ?? div._id}`
+                  const label = div.fullName || div.name
+                  const active =
+                    pathname === href || pathname.startsWith(`${href}/`)
+                  return (
+                    <SidebarMenuItem key={div._id}>
+                      <SidebarMenuButton asChild isActive={active}>
+                        <Link href={href}>
+                          <Building2 />
+                          <span className='truncate'>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Reports</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/commissioner/reports' ||
+                    pathname.startsWith('/commissioner/reports/')
+                  }
+                >
+                  <Link href='/commissioner/reports'>
+                    <BarChart3 />
+                    <span>Reports</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    )
+  }
 
   return (
     <SidebarContent>

@@ -58,7 +58,7 @@ export type AtRiskActivity = {
   /** Initiative code (e.g. contract numbering) for display before title. */
   initiativeCode?: string
   activityTitle?: string
-  activityType?: 'kpi' | 'cross-cutting'
+  activityType?: 'kpi' | 'cross-cutting' | 'measurable'
   contractId: string
   objectiveIndex: number
   initiativeIndex: number
