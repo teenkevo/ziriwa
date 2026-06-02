@@ -21,9 +21,7 @@ interface ContractExportDownloadButtonProps {
   responsibilityCenter: string
 }
 
-type ContractExportRow = {
-  objective: string
-  initiative: string
+type ContractExportActivityRow = {
   activityType?: 'kpi' | 'cross-cutting' | 'measurable'
   measurableActivity: string
   expectedCompletionDate: string
@@ -31,11 +29,54 @@ type ContractExportRow = {
   aim: string
   detailedTasks: string[]
   responsibilityCenter: string
-  firstInObjective: boolean
-  firstInInitiative: boolean
+}
+
+type ContractExportInitiativeGroup = {
+  initiative: string
+  activities: ContractExportActivityRow[]
+}
+
+type ContractExportObjectiveGroup = {
+  objective: string
+  initiatives: ContractExportInitiativeGroup[]
 }
 
 type DetailedTaskLike = { task?: string } | string
+
+/** Column weights shared by header and body so borders align top-to-bottom. */
+const TABLE_LAYOUT = {
+  objective: 17,
+  initiative: 15,
+  activityArea: 68,
+} as const
+
+const ACTIVITY_COLUMN_FLEX = {
+  measurable: 23,
+  expectedDate: 12,
+  target: 8,
+  evidence: 15,
+  responsibility: 12,
+} as const
+
+const RIGHT_SECTION_WIDTH =
+  TABLE_LAYOUT.initiative + TABLE_LAYOUT.activityArea
+
+function toPercent(value: number, total: number) {
+  return `${(value / total) * 100}%`
+}
+
+const COLUMN_WIDTHS = {
+  objective: toPercent(TABLE_LAYOUT.objective, 100),
+  rightSection: toPercent(RIGHT_SECTION_WIDTH, 100),
+  initiativeInRightSection: toPercent(
+    TABLE_LAYOUT.initiative,
+    RIGHT_SECTION_WIDTH,
+  ),
+  activityInRightSection: toPercent(
+    TABLE_LAYOUT.activityArea,
+    RIGHT_SECTION_WIDTH,
+  ),
+} as const
 
 const styles = StyleSheet.create({
   page: {
@@ -65,23 +106,90 @@ const styles = StyleSheet.create({
     border: '1 solid #d1d5db',
     borderBottomWidth: 0,
   },
-  row: {
-    fontSize: 9,
+  objectiveGroupRow: {
     flexDirection: 'row',
     borderBottom: '1 solid #d1d5db',
     minHeight: 14,
+  },
+  mergedObjectiveCell: {
+    width: COLUMN_WIDTHS.objective,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 1.8,
+    fontSize: 9,
+  },
+  objectiveBody: {
+    width: COLUMN_WIDTHS.rightSection,
+    flexDirection: 'column',
+  },
+  initiativeGroupRow: {
+    flexDirection: 'row',
+    minHeight: 14,
+  },
+  initiativeGroupDivider: {
+    borderTop: '1 solid #d1d5db',
+  },
+  mergedInitiativeCell: {
+    width: COLUMN_WIDTHS.initiativeInRightSection,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 1.8,
+    fontSize: 9,
+  },
+  activityColumn: {
+    width: COLUMN_WIDTHS.activityInRightSection,
+    flexDirection: 'column',
+  },
+  activityDataRow: {
+    flexDirection: 'row',
+    minHeight: 14,
+    width: '100%',
+  },
+  activityDataRowDivider: {
+    borderTop: '1 solid #d1d5db',
+  },
+  activityMeasurableCell: {
+    flex: ACTIVITY_COLUMN_FLEX.measurable,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 1,
+  },
+  activityExpectedDateCell: {
+    flex: ACTIVITY_COLUMN_FLEX.expectedDate,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 1,
+  },
+  activityTargetCell: {
+    flex: ACTIVITY_COLUMN_FLEX.target,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 1,
+  },
+  activityEvidenceCell: {
+    flex: ACTIVITY_COLUMN_FLEX.evidence,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRight: '1 solid #d1d5db',
+    lineHeight: 1,
+  },
+  activityResponsibilityCell: {
+    flex: ACTIVITY_COLUMN_FLEX.responsibility,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    lineHeight: 1,
+    fontSize: 9,
   },
   objectiveBandRow: {
     backgroundColor: '#f9fafb',
   },
   headerRow: {
     backgroundColor: '#f3f4f6',
-  },
-  cell: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    borderRight: '1 solid #d1d5db',
-    lineHeight: 1,
   },
   mutedCellText: {
     color: '#6b7280',
@@ -125,26 +233,10 @@ const styles = StyleSheet.create({
   lastCell: {
     borderRightWidth: 0,
   },
-  objectiveCell: {
-    width: '17%',
-  },
-  initiativeCell: {
-    width: '15%',
-  },
-  measurableActivityCell: {
-    width: '23%',
-  },
-  expectedDateCell: {
-    width: '12%',
-  },
-  targetCell: {
-    width: '8%',
-  },
-  evidenceCell: {
-    width: '15%',
-  },
-  responsibilityCell: {
-    width: '12%',
+  headerActivityRow: {
+    flexDirection: 'row',
+    minHeight: 14,
+    width: '100%',
   },
   empty: {
     padding: 12,
@@ -169,44 +261,67 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, '')
 }
 
-function buildRows(
+function buildObjectiveGroups(
   objectives: SsmartaObjective[] | undefined,
   responsibilityCenter: string,
-): ContractExportRow[] {
-  const rows: ContractExportRow[] = []
+): ContractExportObjectiveGroup[] {
+  const groups: ContractExportObjectiveGroup[] = []
+
   for (const objective of objectives ?? []) {
     const objectiveLabel =
       `${objective.code ? `${objective.code} ` : ''}${objective.title}`.trim()
-    let hasObjectiveRow = false
+    const initiativeGroups: ContractExportInitiativeGroup[] = []
+
     for (const initiative of objective.initiatives ?? []) {
       const initiativeLabel =
         `${initiative.code ? `${initiative.code} ` : ''}${initiative.title}`.trim()
-      let hasInitiativeRow = false
+      const activities: ContractExportActivityRow[] = []
+
       for (const activity of initiative.measurableActivities ?? []) {
-        const detailedTasks = normalizeDetailedTasks(
-          activity.tasks as DetailedTaskLike[] | undefined,
-        )
-        rows.push({
-          objective: objectiveLabel || '—',
-          initiative: initiativeLabel || '—',
+        activities.push({
           activityType: activity.activityType,
           measurableActivity: activity.title || '—',
           // Kept intentionally empty for now as requested.
           expectedCompletionDate: '',
           target: '',
           aim: activity.aim || '',
-          detailedTasks,
+          detailedTasks: normalizeDetailedTasks(
+            activity.tasks as DetailedTaskLike[] | undefined,
+          ),
           responsibilityCenter,
-          firstInObjective: !hasObjectiveRow,
-          firstInInitiative: !hasInitiativeRow,
         })
-        hasObjectiveRow = true
-        hasInitiativeRow = true
       }
+
+      if (activities.length === 0) continue
+
+      initiativeGroups.push({
+        initiative: initiativeLabel || '—',
+        activities,
+      })
     }
+
+    if (initiativeGroups.length === 0) continue
+
+    groups.push({
+      objective: objectiveLabel || '—',
+      initiatives: initiativeGroups,
+    })
   }
 
-  return rows
+  return groups
+}
+
+function countActivityRows(groups: ContractExportObjectiveGroup[]): number {
+  return groups.reduce(
+    (total, group) =>
+      total +
+      group.initiatives.reduce(
+        (initiativeTotal, initiative) =>
+          initiativeTotal + initiative.activities.length,
+        0,
+      ),
+    0,
+  )
 }
 
 function formatDetailedTaskMarker(index: number): string {
@@ -227,7 +342,7 @@ function normalizeDetailedTasks(
     .filter(Boolean)
 }
 
-function renderMeasurableActivityCell(row: ContractExportRow) {
+function renderMeasurableActivityCell(row: ContractExportActivityRow) {
   if (row.activityType !== 'kpi') {
     return (
       <Text style={styles.plainActivityText}>
@@ -265,13 +380,48 @@ function renderMeasurableActivityCell(row: ContractExportRow) {
   )
 }
 
+function renderActivityDataRow(
+  activity: ContractExportActivityRow,
+  activityIndex: number,
+  rowKey: string,
+) {
+  return (
+    <View
+      key={rowKey}
+      style={[
+        styles.activityDataRow,
+        activityIndex > 0 ? styles.activityDataRowDivider : {},
+      ]}
+    >
+      <View style={styles.activityMeasurableCell}>
+        {renderMeasurableActivityCell(activity)}
+      </View>
+      <View style={styles.activityExpectedDateCell}>
+        <Text>{activity.expectedCompletionDate}</Text>
+      </View>
+      <View style={styles.activityTargetCell}>
+        <Text style={styles.mutedCellText}>{activity.target}</Text>
+      </View>
+      <View style={styles.activityEvidenceCell}>
+        <Text>{''}</Text>
+      </View>
+      <View style={styles.activityResponsibilityCell}>
+        <Text style={styles.primaryCellText}>
+          {activity.responsibilityCenter}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
 function ContractExportPdf({
   sectionName,
   financialYearLabel,
   objectives,
   responsibilityCenter,
 }: ContractExportDownloadButtonProps) {
-  const rows = buildRows(objectives, responsibilityCenter)
+  const objectiveGroups = buildObjectiveGroups(objectives, responsibilityCenter)
+  const activityRowCount = countActivityRows(objectiveGroups)
 
   return (
     <Document
@@ -287,90 +437,96 @@ function ContractExportPdf({
         </Text>
 
         <View style={styles.table}>
-          <View style={[styles.row, styles.headerRow]} fixed>
-            <Text
-              style={[styles.cell, styles.headerCell, styles.objectiveCell]}
-            >
+          <View style={[styles.objectiveGroupRow, styles.headerRow]} fixed>
+            <Text style={[styles.mergedObjectiveCell, styles.headerCell]}>
               SSMARTA objective
             </Text>
-            <Text
-              style={[styles.cell, styles.headerCell, styles.initiativeCell]}
-            >
-              Initiative
-            </Text>
-            <Text
-              style={[
-                styles.cell,
-                styles.headerCell,
-                styles.measurableActivityCell,
-              ]}
-            >
-              Measurable activities
-            </Text>
-            <Text
-              style={[styles.cell, styles.headerCell, styles.expectedDateCell]}
-            >
-              Completion Date
-            </Text>
-            <Text style={[styles.cell, styles.headerCell, styles.targetCell]}>
-              Target
-            </Text>
-            <Text style={[styles.cell, styles.headerCell, styles.evidenceCell]}>
-              Output
-            </Text>
-            <Text
-              style={[
-                styles.cell,
-                styles.headerCell,
-                styles.responsibilityCell,
-                styles.lastCell,
-              ]}
-            >
-              Responsibility
-            </Text>
+
+            <View style={styles.objectiveBody}>
+              <View style={styles.initiativeGroupRow}>
+                <Text
+                  style={[styles.mergedInitiativeCell, styles.headerCell]}
+                >
+                  Initiative
+                </Text>
+
+                <View style={styles.activityColumn}>
+                  <View style={styles.headerActivityRow}>
+                    <View style={styles.activityMeasurableCell}>
+                      <Text style={styles.headerCell}>
+                        Measurable activities
+                      </Text>
+                    </View>
+                    <View style={styles.activityExpectedDateCell}>
+                      <Text style={styles.headerCell}>Completion Date</Text>
+                    </View>
+                    <View style={styles.activityTargetCell}>
+                      <Text style={styles.headerCell}>Target</Text>
+                    </View>
+                    <View style={styles.activityEvidenceCell}>
+                      <Text style={styles.headerCell}>Output</Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.activityResponsibilityCell,
+                        styles.lastCell,
+                      ]}
+                    >
+                      <Text style={styles.headerCell}>Responsibility</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
 
-          {rows.length === 0 ? (
+          {activityRowCount === 0 ? (
             <Text style={styles.empty}>
               No measurable activities found on this contract.
             </Text>
           ) : (
-            rows.map((row, index) => (
+            objectiveGroups.map((objectiveGroup, objectiveIndex) => (
               <View
-                key={`${row.initiative}-${row.measurableActivity}-${index}`}
+                key={`${objectiveGroup.objective}-${objectiveIndex}`}
                 style={[
-                  styles.row,
-                  row.firstInObjective ? styles.objectiveBandRow : {},
+                  styles.objectiveGroupRow,
+                  objectiveIndex % 2 === 0 ? styles.objectiveBandRow : {},
                 ]}
               >
-                <Text style={[styles.cell, styles.objectiveCell]}>
-                  {row.firstInObjective ? row.objective : ''}
-                </Text>
-                <Text style={[styles.cell, styles.initiativeCell]}>
-                  {row.firstInInitiative ? row.initiative : ''}
-                </Text>
-                <View style={[styles.cell, styles.measurableActivityCell]}>
-                  {renderMeasurableActivityCell(row)}
+                <View style={styles.mergedObjectiveCell}>
+                  <Text>{objectiveGroup.objective}</Text>
                 </View>
-                <Text style={[styles.cell, styles.expectedDateCell]}>
-                  {row.expectedCompletionDate}
-                </Text>
-                <Text
-                  style={[styles.cell, styles.targetCell, styles.mutedCellText]}
-                >
-                  {row.target}
-                </Text>
-                <Text style={[styles.cell, styles.evidenceCell]}>{''}</Text>
-                <Text
-                  style={[
-                    styles.cell,
-                    styles.responsibilityCell,
-                    styles.primaryCellText,
-                    styles.lastCell,
-                  ]}
-                >
-                  {row.responsibilityCenter}
-                </Text>
+
+                <View style={styles.objectiveBody}>
+                  {objectiveGroup.initiatives.map(
+                    (initiativeGroup, initiativeIndex) => (
+                      <View
+                        key={`${objectiveGroup.objective}-${initiativeGroup.initiative}-${initiativeIndex}`}
+                        style={[
+                          styles.initiativeGroupRow,
+                          initiativeIndex > 0
+                            ? styles.initiativeGroupDivider
+                            : {},
+                        ]}
+                      >
+                        <View style={styles.mergedInitiativeCell}>
+                          <Text>{initiativeGroup.initiative}</Text>
+                        </View>
+
+                        <View style={styles.activityColumn}>
+                          {initiativeGroup.activities.map(
+                            (activity, activityIndex) =>
+                              renderActivityDataRow(
+                                activity,
+                                activityIndex,
+                                `${initiativeGroup.initiative}-${activity.measurableActivity}-${activityIndex}`,
+                              ),
+                          )}
+                        </View>
+                      </View>
+                    ),
+                  )}
+                </View>
               </View>
             ))
           )}
