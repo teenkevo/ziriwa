@@ -142,9 +142,9 @@ export async function POST(
       skipped,
     })
   } catch (error) {
-    console.error('Error cascading from manager contract', error)
+    console.error('Error cascading from manager&apos;s contract', error)
     return NextResponse.json(
-      { error: 'Failed to cascade from manager contract' },
+      { error: 'Failed to cascade from manager&apos;s contract' },
       { status: 500 },
     )
   }

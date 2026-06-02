@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -14,7 +15,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { CascadeImportSelection } from '@/lib/contract-cascade/types'
-import { SupervisorCascadeImportSelector } from '@/features/sections/components/supervisor-cascade-import-selector'
+import {
+  invalidateSupervisorCascadeOptionsCache,
+  SupervisorCascadeImportSelector,
+} from '@/features/sections/components/supervisor-cascade-import-selector'
 
 interface SupervisorCascadeImportDialogProps {
   open: boolean
@@ -71,12 +75,23 @@ export function SupervisorCascadeImportDialog({
       if (!res.ok) {
         throw new Error(data.error || 'Failed to import')
       }
+      invalidateSupervisorCascadeOptionsCache({
+        sectionId,
+        supervisorContractId,
+        supervisorId,
+      })
+      const importedCount = Array.isArray(data.importedActivityKeys)
+        ? data.importedActivityKeys.length
+        : importableCount
+      toast.success(
+        `Cascaded ${importedCount} KPI${importedCount === 1 ? '' : 's'} from manager&apos;s contract`,
+      )
       onOpenChange(false)
       router.refresh()
       onSuccess?.()
     } catch (err) {
       console.error(err)
-      alert(err instanceof Error ? err.message : 'Failed to import')
+      toast.error(err instanceof Error ? err.message : 'Failed to import')
     } finally {
       setIsSubmitting(false)
     }
@@ -89,7 +104,9 @@ export function SupervisorCascadeImportDialog({
         className='max-w-lg sm:max-w-xl'
       >
         <DialogHeader>
-          <DialogTitle>Cascade activities from manager contract</DialogTitle>
+          <DialogTitle>
+            Cascade activities from manager&apos;s contract
+          </DialogTitle>
           <DialogDescription>
             Select activities from the Manager&apos;s Contract to cascade to
             your own contract.

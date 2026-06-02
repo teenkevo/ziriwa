@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -15,7 +16,10 @@ import {
 } from '@/components/ui/dialog'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
 import type { CascadeImportSelection } from '@/lib/contract-cascade/types'
-import { SupervisorCascadeImportSelector } from '@/features/sections/components/supervisor-cascade-import-selector'
+import {
+  invalidateSupervisorCascadeOptionsCache,
+  SupervisorCascadeImportSelector,
+} from '@/features/sections/components/supervisor-cascade-import-selector'
 
 interface OnboardSupervisorContractDialogProps {
   open: boolean
@@ -107,8 +111,11 @@ export function OnboardSupervisorContractDialog({
     )
     const data = await res.json()
     if (!res.ok) {
-      throw new Error(data.error || 'Failed to cascade from manager contract')
+      throw new Error(
+        data.error || 'Failed to cascade from manager&apos;s contract',
+      )
     }
+    return data as { importedActivityKeys?: string[] }
   }
 
   const handleDetailsSubmit = async (e: React.FormEvent) => {
@@ -137,12 +144,23 @@ export function OnboardSupervisorContractDialog({
     setIsSubmitting(true)
     try {
       if (importableCount > 0) {
-        await runCascadeImport(createdContractId)
+        const data = await runCascadeImport(createdContractId)
+        invalidateSupervisorCascadeOptionsCache({
+          sectionId,
+          supervisorContractId: createdContractId,
+          supervisorId,
+        })
+        const importedCount = Array.isArray(data.importedActivityKeys)
+          ? data.importedActivityKeys.length
+          : importableCount
+        toast.success(
+          `Cascaded ${importedCount} KPI${importedCount === 1 ? '' : 's'} from manager&apos;s contract`,
+        )
       }
       finish()
     } catch (err) {
       console.error(err)
-      alert(
+      toast.error(
         err instanceof Error ? err.message : 'Failed to cascade from manager',
       )
     } finally {
@@ -213,7 +231,7 @@ export function OnboardSupervisorContractDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Cascade from manager contract</DialogTitle>
+              <DialogTitle>Cascade from manager&apos;s contract</DialogTitle>
               <DialogDescription>
                 Choose which manager KPIs to cascade. You can skip and add your
                 own items later.

@@ -25,6 +25,32 @@ interface SupervisorCascadeImportSelectorProps {
   }) => void
 }
 
+const CASCADE_OPTIONS_STALE_MS = 30_000
+const cascadeOptionsCache = new Map<
+  string,
+  { data: ManagerCascadeOptionsResponse; cachedAt: number }
+>()
+
+function buildCacheKey(params: {
+  sectionId: string
+  supervisorContractId?: string
+  supervisorId?: string
+}) {
+  return [
+    params.sectionId,
+    params.supervisorContractId ?? '',
+    params.supervisorId ?? '',
+  ].join('::')
+}
+
+export function invalidateSupervisorCascadeOptionsCache(params: {
+  sectionId: string
+  supervisorContractId?: string
+  supervisorId?: string
+}) {
+  cascadeOptionsCache.delete(buildCacheKey(params))
+}
+
 function buildSelections(
   options: ManagerCascadeOptionsResponse,
   selectedActivityKeys: Set<string>,
@@ -65,6 +91,23 @@ export function SupervisorCascadeImportSelector({
 
   React.useEffect(() => {
     let cancelled = false
+    const cacheKey = buildCacheKey({
+      sectionId,
+      supervisorContractId,
+      supervisorId,
+    })
+    const cached = cascadeOptionsCache.get(cacheKey)
+    const hasFreshCache =
+      cached && Date.now() - cached.cachedAt < CASCADE_OPTIONS_STALE_MS
+    if (hasFreshCache) {
+      setOptions(cached.data)
+      setIsLoading(false)
+      setLoadError(null)
+      return () => {
+        cancelled = true
+      }
+    }
+
     const params = new URLSearchParams()
     if (supervisorContractId) {
       params.set('supervisorContractId', supervisorContractId)
@@ -85,7 +128,13 @@ export function SupervisorCascadeImportSelector({
         return data as ManagerCascadeOptionsResponse
       })
       .then(data => {
-        if (!cancelled) setOptions(data)
+        if (!cancelled) {
+          cascadeOptionsCache.set(cacheKey, {
+            data,
+            cachedAt: Date.now(),
+          })
+          setOptions(data)
+        }
       })
       .catch(err => {
         if (!cancelled) {
