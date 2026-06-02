@@ -7,6 +7,7 @@ import {
   staff,
 } from './org'
 import {
+  cascadeSource,
   contractInitiative,
   departmentContract,
   detailedTask,
@@ -53,6 +54,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     divisionContract,
     supervisorContract,
     officerContract,
+    cascadeSource,
     detailedTask,
     measurableActivity,
     contractInitiative,

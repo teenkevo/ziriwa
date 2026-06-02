@@ -1,3 +1,4 @@
+export { cascadeSource } from './cascade-source'
 export { ssmartaObjective } from './ssmarta-objective'
 export { contractInitiative } from './contract-initiative'
 export { measurableActivity } from './measurable-activity'

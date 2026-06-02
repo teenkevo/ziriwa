@@ -99,6 +99,23 @@ export const measurableActivity = defineType({
       of: [{ type: 'detailedTask' }],
       description: 'Tasks for KPIs and CRC activities',
     }),
+    defineField({
+      name: 'cascadeKind',
+      title: 'Cascade kind',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Owned', value: 'owned' },
+          { title: 'Cascaded from manager', value: 'cascaded' },
+        ],
+      },
+      initialValue: 'owned',
+    }),
+    defineField({
+      name: 'cascadeSource',
+      title: 'Cascade source',
+      type: 'cascadeSource',
+    }),
   ],
   preview: {
     select: { title: 'title', activityType: 'activityType' },
