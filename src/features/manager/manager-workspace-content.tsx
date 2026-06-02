@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import dynamic from 'next/dynamic'
 import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,24 @@ import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-s
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 
 type WorkspaceData = SectionPageContentProps
+
+type ContractExportDownloadButtonProps = {
+  sectionName: string
+  financialYearLabel?: string
+  objectives?: SectionContract['objectives']
+  responsibilityCenter: string
+}
+
+const ContractExportDownloadButton = dynamic<ContractExportDownloadButtonProps>(
+  () =>
+    import('@/features/sections/components/contract-export-pdf').then(
+      mod => mod.ContractExportDownloadButton,
+    ),
+  {
+    ssr: false,
+    loading: () => null,
+  },
+)
 
 type ManagerWorkspaceView =
   | 'dashboard'
@@ -179,6 +198,11 @@ export function ManagerWorkspaceContent({
   const personalContractDisplayName = usesOfficerContract
     ? (officerContract?.officer?.fullName ?? 'Officer')
     : (supervisorContract?.supervisor?.fullName ?? 'Supervisor')
+  const contractResponsibilityCenter = usesOfficerContract
+    ? 'Officer'
+    : usesSupervisorContract
+      ? 'Supervisor'
+      : 'Manager'
   const config = viewConfig[view]
   const [panelPortalNode, setPanelPortalNode] =
     React.useState<HTMLDivElement | null>(null)
@@ -280,6 +304,14 @@ export function ManagerWorkspaceContent({
                       >
                         Cascade from manager
                       </Button>
+                    ) : null}
+                    {activeContract ? (
+                      <ContractExportDownloadButton
+                        sectionName={section.name}
+                        financialYearLabel={currentFY}
+                        objectives={activeContract.objectives}
+                        responsibilityCenter={contractResponsibilityCenter}
+                      />
                     ) : null}
                     <Button
                       type='button'

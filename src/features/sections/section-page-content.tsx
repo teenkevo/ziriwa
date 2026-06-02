@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useCallback, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
@@ -127,6 +128,24 @@ type Section = {
 }
 
 type StaffOption = { _id: string; fullName?: string; staffId?: string }
+
+type ContractExportDownloadButtonProps = {
+  sectionName: string
+  financialYearLabel?: string
+  objectives?: SectionContract['objectives']
+  responsibilityCenter: string
+}
+
+const ContractExportDownloadButton = dynamic<ContractExportDownloadButtonProps>(
+  () =>
+    import('./components/contract-export-pdf').then(
+      mod => mod.ContractExportDownloadButton,
+    ),
+  {
+    ssr: false,
+    loading: () => null,
+  },
+)
 
 export interface SectionPageContentProps {
   section: Section
@@ -271,6 +290,11 @@ export function SectionPageContent({
   const personalContractDisplayName = usesOfficerContract
     ? (viewerOfficer?.fullName ?? 'Officer')
     : (viewerSupervisor?.fullName ?? 'Supervisor')
+  const contractResponsibilityCenter = usesOfficerContract
+    ? 'Officer'
+    : usesSupervisorContract
+      ? 'Supervisor'
+      : 'Manager'
   const showSprintSubTabs =
     !sectionAccess.isSectionOfficer &&
     (sectionAccess.canViewSprintDraftTab ||
@@ -507,6 +531,14 @@ export function SectionPageContent({
                           >
                             Cascade from manager
                           </Button>
+                        ) : null}
+                        {activeContract ? (
+                          <ContractExportDownloadButton
+                            sectionName={section.name}
+                            financialYearLabel={currentFY}
+                            objectives={activeContract.objectives}
+                            responsibilityCenter={contractResponsibilityCenter}
+                          />
                         ) : null}
                         <Button
                           type='button'
