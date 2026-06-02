@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import dynamic from 'next/dynamic'
 import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -37,26 +36,7 @@ import type { ContractsApiResource } from '@/lib/contracts-api'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
-
-type WorkspaceData = SectionPageContentProps
-
-type ContractExportDownloadButtonProps = {
-  sectionName: string
-  financialYearLabel?: string
-  objectives?: SectionContract['objectives']
-  responsibilityCenter: string
-}
-
-const ContractExportDownloadButton = dynamic<ContractExportDownloadButtonProps>(
-  () =>
-    import('@/features/sections/components/contract-export-pdf').then(
-      mod => mod.ContractExportDownloadButton,
-    ),
-  {
-    ssr: false,
-    loading: () => null,
-  },
-)
+import { ContractExportDownloadButton } from '@/features/sections/components/contract-export-download-button'
 
 type ManagerWorkspaceView =
   | 'dashboard'
@@ -65,6 +45,8 @@ type ManagerWorkspaceView =
   | 'stakeholders'
   | 'staff'
   | 'reporting'
+
+type WorkspaceData = SectionPageContentProps
 
 type ManagerWorkspaceContentProps = WorkspaceData & {
   view: ManagerWorkspaceView

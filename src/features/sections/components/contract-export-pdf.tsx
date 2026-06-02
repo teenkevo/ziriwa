@@ -4,22 +4,14 @@ import * as React from 'react'
 import {
   Document,
   Page,
-  PDFDownloadLink,
   StyleSheet,
   Text,
   View,
+  pdf,
 } from '@react-pdf/renderer'
-import { FileDown, Loader2 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
-
-interface ContractExportDownloadButtonProps {
-  sectionName: string
-  financialYearLabel?: string
-  objectives?: SsmartaObjective[]
-  responsibilityCenter: string
-}
+import type { ContractExportDownloadButtonProps } from './contract-export-download-button'
 
 type ContractExportActivityRow = {
   activityType?: 'kpi' | 'cross-cutting' | 'measurable'
@@ -58,8 +50,7 @@ const ACTIVITY_COLUMN_FLEX = {
   responsibility: 12,
 } as const
 
-const RIGHT_SECTION_WIDTH =
-  TABLE_LAYOUT.initiative + TABLE_LAYOUT.activityArea
+const RIGHT_SECTION_WIDTH = TABLE_LAYOUT.initiative + TABLE_LAYOUT.activityArea
 
 function toPercent(value: number, total: number) {
   return `${(value / total) * 100}%`
@@ -80,7 +71,10 @@ const COLUMN_WIDTHS = {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 20,
+    paddingTop: 20,
+    paddingRight: 20,
+    paddingBottom: 40,
+    paddingLeft: 20,
     fontSize: 7,
     fontFamily: 'Helvetica',
     color: '#111827',
@@ -185,9 +179,6 @@ const styles = StyleSheet.create({
     lineHeight: 1,
     fontSize: 9,
   },
-  objectiveBandRow: {
-    backgroundColor: '#f9fafb',
-  },
   headerRow: {
     backgroundColor: '#f3f4f6',
   },
@@ -253,13 +244,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
   },
 })
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-}
 
 function buildObjectiveGroups(
   objectives: SsmartaObjective[] | undefined,
@@ -444,9 +428,7 @@ function ContractExportPdf({
 
             <View style={styles.objectiveBody}>
               <View style={styles.initiativeGroupRow}>
-                <Text
-                  style={[styles.mergedInitiativeCell, styles.headerCell]}
-                >
+                <Text style={[styles.mergedInitiativeCell, styles.headerCell]}>
                   Initiative
                 </Text>
 
@@ -488,10 +470,7 @@ function ContractExportPdf({
             objectiveGroups.map((objectiveGroup, objectiveIndex) => (
               <View
                 key={`${objectiveGroup.objective}-${objectiveIndex}`}
-                style={[
-                  styles.objectiveGroupRow,
-                  objectiveIndex % 2 === 0 ? styles.objectiveBandRow : {},
-                ]}
+                style={styles.objectiveGroupRow}
               >
                 <View style={styles.mergedObjectiveCell}>
                   <Text>{objectiveGroup.objective}</Text>
@@ -533,7 +512,7 @@ function ContractExportPdf({
         </View>
 
         <View style={styles.footer} fixed>
-          <Text>Generated from contract data</Text>
+          <Text>Auto-generated from contract data</Text>
           <Text
             render={({ pageNumber, totalPages }) =>
               `Page ${pageNumber} of ${totalPages}`
@@ -545,26 +524,8 @@ function ContractExportPdf({
   )
 }
 
-export function ContractExportDownloadButton(
+export async function generateContractExportPdfBlob(
   props: ContractExportDownloadButtonProps,
 ) {
-  const fileName = `${slugify(props.sectionName)}-${slugify(props.financialYearLabel ?? 'contract')}-contract-export.pdf`
-
-  return (
-    <PDFDownloadLink
-      document={<ContractExportPdf {...props} />}
-      fileName={fileName}
-    >
-      {({ loading }) => (
-        <Button variant='outline' size='sm' disabled={loading}>
-          {loading ? (
-            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-          ) : (
-            <FileDown className='mr-2 h-4 w-4' />
-          )}
-          {loading ? 'Preparing Export…' : 'Export Contract'}
-        </Button>
-      )}
-    </PDFDownloadLink>
-  )
+  return pdf(<ContractExportPdf {...props} />).toBlob()
 }

@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { useCallback, useState } from 'react'
-import dynamic from 'next/dynamic'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
@@ -77,6 +76,7 @@ import { SupervisorCascadeImportDialog } from './components/supervisor-cascade-i
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 import { OnboardOfficerContractDialog } from './components/onboard-officer-contract-dialog'
+import { ContractExportDownloadButton } from './components/contract-export-download-button'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
 
 function flattenInitiativesWithActivities(
@@ -128,24 +128,6 @@ type Section = {
 }
 
 type StaffOption = { _id: string; fullName?: string; staffId?: string }
-
-type ContractExportDownloadButtonProps = {
-  sectionName: string
-  financialYearLabel?: string
-  objectives?: SectionContract['objectives']
-  responsibilityCenter: string
-}
-
-const ContractExportDownloadButton = dynamic<ContractExportDownloadButtonProps>(
-  () =>
-    import('./components/contract-export-pdf').then(
-      mod => mod.ContractExportDownloadButton,
-    ),
-  {
-    ssr: false,
-    loading: () => null,
-  },
-)
 
 export interface SectionPageContentProps {
   section: Section
