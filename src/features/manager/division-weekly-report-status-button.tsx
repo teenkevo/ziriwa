@@ -1,11 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
+import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import type { DivisionWeeklyReportSection } from '@/features/sections/components/weekly-report-pdf'
 
 export type DivisionWeeklyReportPayload = {
@@ -24,10 +23,8 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 export function DivisionWeeklyReportStatusButton({
-  ready,
   weeklyReport,
 }: {
-  ready: boolean
   weeklyReport: DivisionWeeklyReportPayload
 }) {
   const [isGenerating, setIsGenerating] = React.useState(false)
@@ -70,22 +67,20 @@ export function DivisionWeeklyReportStatusButton({
       variant='outline'
       size='sm'
       disabled={isGenerating}
-      className={cn(
-        'h-6 w-full px-2 text-[10px] font-medium',
-        ready ? 'border-primary' : 'border-red-500',
-      )}
+      className='h-6 w-full px-2 text-[10px] font-medium border-primary'
       onClick={handleClick}
       onPointerDown={event => event.stopPropagation()}
     >
       {isGenerating ? (
         <>
-          <Loader2 className='mr-1 h-3 w-3 animate-spin' />
+          <Loader2 className='h-3 w-3 shrink-0 animate-spin' />
           Preparing…
         </>
-      ) : ready ? (
-        'Report ready'
       ) : (
-        'Report Not ready'
+        <>
+          <Download className='h-3 w-3 shrink-0' aria-hidden />
+          Report
+        </>
       )}
     </Button>
   )

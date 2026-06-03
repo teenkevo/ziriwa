@@ -37,7 +37,7 @@ const TASK_STATUS_COLORS: Record<string, { label: string; color: string }> = {
 
 const CATEGORY_COLORS: Record<string, { label: string; color: string }> = {
   normal_flow: { label: 'Normal flow', color: 'hsl(217 91% 60%)' },
-  compliance: { label: 'Compliance', color: 'hsl(0 72% 51%)' },
+  compliance: { label: 'Compliance', color: 'hsl(330 65% 48%)' },
   staff_development: {
     label: 'Staff development',
     color: 'hsl(262 73% 64%)',
@@ -46,7 +46,7 @@ const CATEGORY_COLORS: Record<string, { label: string; color: string }> = {
     label: 'Stakeholder engagement',
     color: 'hsl(38 92% 50%)',
   },
-  emergency: { label: 'Emergency', color: 'hsl(0 84% 60%)' },
+  emergency: { label: 'Emergency', color: 'hsl(24 95% 53%)' },
   uncategorized: { label: 'Uncategorized', color: 'hsl(215 16% 65%)' },
 }
 
@@ -77,40 +77,46 @@ export function SprintSummary({ metrics }: SprintSummaryProps) {
     [metrics.weeklyTrend],
   )
 
-  const taskStatusSlices: DonutSlice[] = React.useMemo(
+  const taskStatusLegendSlices: DonutSlice[] = React.useMemo(
     () =>
       (
-        Object.entries(metrics.taskStatusBreakdown) as [
-          keyof typeof metrics.taskStatusBreakdown,
-          number,
+        Object.entries(TASK_STATUS_COLORS) as [
+          keyof typeof TASK_STATUS_COLORS,
+          (typeof TASK_STATUS_COLORS)[keyof typeof TASK_STATUS_COLORS],
         ][]
-      )
-        .filter(([, v]) => v > 0)
-        .map(([k, v]) => ({
-          key: k,
-          label: TASK_STATUS_COLORS[k]?.label ?? k,
-          value: v,
-          color: TASK_STATUS_COLORS[k]?.color ?? 'hsl(220 14% 75%)',
-        })),
+      ).map(([k, meta]) => ({
+        key: k,
+        label: meta.label,
+        value: metrics.taskStatusBreakdown[k] ?? 0,
+        color: meta.color,
+      })),
     [metrics.taskStatusBreakdown],
   )
 
-  const categorySlices: DonutSlice[] = React.useMemo(
+  const taskStatusSlices: DonutSlice[] = React.useMemo(
+    () => taskStatusLegendSlices.filter(s => s.value > 0),
+    [taskStatusLegendSlices],
+  )
+
+  const categoryLegendSlices: DonutSlice[] = React.useMemo(
     () =>
       (
-        Object.entries(metrics.activityCategoryBreakdown) as [
-          keyof typeof metrics.activityCategoryBreakdown,
-          number,
+        Object.entries(CATEGORY_COLORS) as [
+          keyof typeof CATEGORY_COLORS,
+          (typeof CATEGORY_COLORS)[keyof typeof CATEGORY_COLORS],
         ][]
-      )
-        .filter(([, v]) => v > 0)
-        .map(([k, v]) => ({
-          key: k,
-          label: CATEGORY_COLORS[k]?.label ?? k,
-          value: v,
-          color: CATEGORY_COLORS[k]?.color ?? 'hsl(220 14% 75%)',
-        })),
+      ).map(([k, meta]) => ({
+        key: k,
+        label: meta.label,
+        value: metrics.activityCategoryBreakdown[k] ?? 0,
+        color: meta.color,
+      })),
     [metrics.activityCategoryBreakdown],
+  )
+
+  const categorySlices: DonutSlice[] = React.useMemo(
+    () => categoryLegendSlices.filter(s => s.value > 0),
+    [categoryLegendSlices],
   )
 
   const totalTaskStatus = React.useMemo(
@@ -186,6 +192,7 @@ export function SprintSummary({ metrics }: SprintSummaryProps) {
             <div className='text-sm font-medium'>Task status</div>
             <StatusDonut
               slices={taskStatusSlices}
+              legendSlices={taskStatusLegendSlices}
               totalLabel='tasks'
               totalValue={totalTaskStatus}
             />
@@ -194,6 +201,7 @@ export function SprintSummary({ metrics }: SprintSummaryProps) {
             <div className='text-sm font-medium'>Activity category</div>
             <StatusDonut
               slices={categorySlices}
+              legendSlices={categoryLegendSlices}
               totalLabel='tasks'
               totalValue={totalCategory}
             />
