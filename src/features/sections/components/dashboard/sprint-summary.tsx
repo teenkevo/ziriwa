@@ -1,14 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  LabelList,
-} from 'recharts'
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, LabelList } from 'recharts'
 
 import {
   Card,
@@ -87,7 +80,10 @@ export function SprintSummary({ metrics }: SprintSummaryProps) {
       ).map(([k, meta]) => ({
         key: k,
         label: meta.label,
-        value: metrics.taskStatusBreakdown[k] ?? 0,
+        value:
+          metrics.taskStatusBreakdown[
+            k as keyof typeof metrics.taskStatusBreakdown
+          ] ?? 0,
         color: meta.color,
       })),
     [metrics.taskStatusBreakdown],
@@ -108,7 +104,10 @@ export function SprintSummary({ metrics }: SprintSummaryProps) {
       ).map(([k, meta]) => ({
         key: k,
         label: meta.label,
-        value: metrics.activityCategoryBreakdown[k] ?? 0,
+        value:
+          metrics.activityCategoryBreakdown[
+            k as keyof typeof metrics.activityCategoryBreakdown
+          ] ?? 0,
         color: meta.color,
       })),
     [metrics.activityCategoryBreakdown],
@@ -120,8 +119,7 @@ export function SprintSummary({ metrics }: SprintSummaryProps) {
   )
 
   const totalTaskStatus = React.useMemo(
-    () =>
-      Object.values(metrics.taskStatusBreakdown).reduce((a, b) => a + b, 0),
+    () => Object.values(metrics.taskStatusBreakdown).reduce((a, b) => a + b, 0),
     [metrics.taskStatusBreakdown],
   )
 
