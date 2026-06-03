@@ -16,8 +16,11 @@ export async function ensureAssistantCommissionerPageAccess() {
 
   const canAccess = await canAccessAssistantCommissionerWorkspace()
   if (!canAccess) {
-    if (role === 'manager' || role === 'supervisor') {
+    if (role === 'manager') {
       redirect('/manager/dashboard')
+    }
+    if (role === 'supervisor') {
+      redirect('/supervisor/dashboard')
     }
     redirect('/workspace')
   }

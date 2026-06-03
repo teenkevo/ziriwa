@@ -53,15 +53,25 @@ export async function AppSidebarNavWrapper() {
     )
   }
 
-  if (role === 'manager' || role === 'supervisor') {
+  if (role === 'manager') {
     const sprintNavCounts = await getSprintNavCountsForViewer()
     return (
       <AppSidebarNav
         departmentsTree={departmentsTree}
         variant='manager'
-        managerSprintsReviewLabel={
-          role === 'supervisor' ? 'In Review' : 'To Review'
-        }
+        managerSprintsReviewLabel='To Review'
+        sprintNavCounts={sprintNavCounts}
+      />
+    )
+  }
+
+  if (role === 'supervisor') {
+    const sprintNavCounts = await getSprintNavCountsForViewer()
+    return (
+      <AppSidebarNav
+        departmentsTree={departmentsTree}
+        variant='supervisor'
+        managerSprintsReviewLabel='In Review'
         sprintNavCounts={sprintNavCounts}
       />
     )

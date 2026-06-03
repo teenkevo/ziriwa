@@ -78,6 +78,7 @@ import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer
 import { OnboardOfficerContractDialog } from './components/onboard-officer-contract-dialog'
 import { ContractExportDownloadButton } from './components/contract-export-download-button'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
+import { getWorkspaceBasePathForAccess } from '@/lib/workspace-paths'
 
 function flattenInitiativesWithActivities(
   contract: SectionContract | null,
@@ -459,9 +460,7 @@ export function SectionPageContent({
               contract={activeContract as SectionContract | null}
               sprints={sprints}
               sectionAccess={sectionAccess}
-              workspaceBasePath={
-                sectionAccess.isSectionOfficer ? '/officer' : '/manager'
-              }
+              workspaceBasePath={getWorkspaceBasePathForAccess(sectionAccess)}
               engagement={stakeholderEngagement}
               dueToday={dueToday}
               dueThisWeek={dueThisWeek}

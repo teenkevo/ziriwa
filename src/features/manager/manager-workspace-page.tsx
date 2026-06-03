@@ -29,6 +29,9 @@ export async function ManagerWorkspacePage({
   sprintReviewLabel?: string
 }) {
   const role = await getAppRole()
+  if (role === 'supervisor') {
+    redirect('/supervisor/dashboard')
+  }
   if (role === 'officer') {
     redirect('/officer/dashboard')
   }

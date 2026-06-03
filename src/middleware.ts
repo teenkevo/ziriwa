@@ -65,8 +65,12 @@ async function getWorkspaceDestination(userId: string, requestUrl: string) {
     return new URL('/commissioner/dashboard', requestUrl)
   }
 
-  if (role === 'manager' || role === 'supervisor') {
+  if (role === 'manager') {
     return new URL('/manager/dashboard', requestUrl)
+  }
+
+  if (role === 'supervisor') {
+    return new URL('/supervisor/dashboard', requestUrl)
   }
 
   if (role === 'officer') {

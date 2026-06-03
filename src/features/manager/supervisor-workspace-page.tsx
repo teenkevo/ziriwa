@@ -1,42 +1,42 @@
 import { redirect } from 'next/navigation'
 
 import { ManagerEmptyState } from '@/features/manager/manager-empty-state'
-import { loadPrimaryOfficerWorkspaceData } from '@/features/manager/load-primary-officer-workspace'
+import { loadPrimaryManagerWorkspaceData } from '@/features/manager/load-primary-manager-workspace'
 import { parseWorkContextParam } from '@/features/delegation/parse-work-context'
 import { WorkspaceDelegationShell } from '@/features/delegation/workspace-delegation-shell'
 import { getAppRole } from '@/lib/clerk-app-role.server'
 
-type OfficerWorkspaceView =
+type SupervisorWorkspaceView =
   | 'dashboard'
   | 'contract'
   | 'sprints'
   | 'stakeholders'
+  | 'staff'
   | 'reporting'
 
-export async function OfficerWorkspacePage({
+export async function SupervisorWorkspacePage({
   view,
   searchParams,
+  sprintView,
 }: {
-  view: OfficerWorkspaceView
-  searchParams: Promise<{ workContext?: string | string[] }>
+  view: SupervisorWorkspaceView
+  searchParams: Promise<{
+    workContext?: string | string[]
+    tab?: string | string[]
+  }>
+  sprintView?: 'ready' | 'in-review' | 'draft'
 }) {
   const role = await getAppRole()
-  if (role === 'assistant_commissioner') {
-    redirect('/assistant-commissioner/dashboard')
-  }
-  if (role === 'commissioner') {
-    redirect('/commissioner/dashboard')
-  }
   if (role === 'manager') {
     redirect('/manager/dashboard')
   }
-  if (role === 'supervisor') {
-    redirect('/supervisor/dashboard')
+  if (role === 'officer') {
+    redirect('/officer/dashboard')
   }
 
   const sp = await searchParams
   const workContext = parseWorkContextParam(sp.workContext)
-  const data = await loadPrimaryOfficerWorkspaceData({ workContext })
+  const data = await loadPrimaryManagerWorkspaceData({ workContext })
   if (!data) return <ManagerEmptyState />
 
   return (
@@ -44,7 +44,9 @@ export async function OfficerWorkspacePage({
       {...data}
       orgActingAsDelegatee={data.orgActingAsDelegatee ?? null}
       view={view}
-      workspaceBasePath='/officer'
+      workspaceBasePath='/supervisor'
+      sprintView={sprintView}
+      sprintReviewLabel='In Review'
     />
   )
 }

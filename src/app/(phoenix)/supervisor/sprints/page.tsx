@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 
-import { ManagerWorkspacePage } from '@/features/manager/manager-workspace-page'
+import { SupervisorWorkspacePage } from '@/features/manager/supervisor-workspace-page'
 
 type SprintsPageProps = {
   searchParams: Promise<{
@@ -23,22 +23,21 @@ function parseSprintTab(value: string | string[] | undefined): SprintTab | null 
   return null
 }
 
-export default async function ManagerSprintsPage({
+export default async function SupervisorSprintsPage({
   searchParams,
 }: SprintsPageProps) {
   const params = await searchParams
   const tab = parseSprintTab(params.tab)
 
   if (!tab) {
-    redirect('/manager/sprints?tab=ready')
+    redirect('/supervisor/sprints?tab=ready')
   }
 
   return (
-    <ManagerWorkspacePage
+    <SupervisorWorkspacePage
       view='sprints'
       searchParams={searchParams}
       sprintView={TAB_TO_VIEW[tab]}
-      sprintReviewLabel='To Review'
     />
   )
 }
