@@ -27,8 +27,11 @@ export async function OfficerWorkspacePage({
   if (role === 'commissioner') {
     redirect('/commissioner/dashboard')
   }
-  if (role === 'manager' || role === 'supervisor') {
+  if (role === 'manager') {
     redirect('/manager/dashboard')
+  }
+  if (role === 'supervisor') {
+    redirect('/supervisor/dashboard')
   }
 
   const sp = await searchParams

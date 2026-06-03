@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type {
@@ -24,36 +23,13 @@ export type SplitMetricCardData = {
   periodLabel: string
   total: number
   subtitle: string
-  reportReady?: boolean
-}
-
-const REPORT_STATUS_SLOT_WIDTH = '5.75rem'
-
-function ReportReadyButton({ ready }: { ready: boolean }) {
-  return (
-    <Button
-      type='button'
-      variant='outline'
-      size='sm'
-      className={cn(
-        'h-6 w-full px-2 text-[10px] font-medium',
-        ready ? 'border-primary' : 'border-red-500',
-      )}
-      onClick={event => event.stopPropagation()}
-      onPointerDown={event => event.stopPropagation()}
-    >
-      {ready ? 'Report ready' : 'Report Not ready'}
-    </Button>
-  )
 }
 
 function SubtitleRow({
   subtitle,
-  reportReady,
   weeklyReport,
 }: {
   subtitle: string
-  reportReady?: boolean
   weeklyReport?: DivisionWeeklyReportPayload
 }) {
   return (
@@ -61,19 +37,11 @@ function SubtitleRow({
       <p className='min-w-0 flex-1 text-xs leading-snug text-muted-foreground'>
         {subtitle}
       </p>
-      <div
-        className='flex h-6 shrink-0 items-center justify-end'
-        // style={{ width: REPORT_STATUS_SLOT_WIDTH }}
-      >
-        {typeof reportReady === 'boolean' && weeklyReport ? (
-          <DivisionWeeklyReportStatusButton
-            ready={reportReady}
-            weeklyReport={weeklyReport}
-          />
-        ) : typeof reportReady === 'boolean' ? (
-          <ReportReadyButton ready={reportReady} />
-        ) : null}
-      </div>
+      {weeklyReport ? (
+        <div className='flex h-6 shrink-0 items-center justify-end'>
+          <DivisionWeeklyReportStatusButton weeklyReport={weeklyReport} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -130,11 +98,7 @@ export function SplitMetricCard({
 
   const body = (
     <div className='px-4 pb-4 pt-4'>
-      <SubtitleRow
-        subtitle={data.subtitle}
-        reportReady={data.reportReady}
-        weeklyReport={weeklyReport}
-      />
+      <SubtitleRow subtitle={data.subtitle} weeklyReport={weeklyReport} />
     </div>
   )
 
@@ -208,10 +172,7 @@ export function MonthlyOversightCard({
   breakdownLinks,
   weeklyReport,
 }: {
-  data: Pick<
-    MonthlyOversightSummary,
-    'periodLabel' | 'total' | 'subtitle' | 'reportReady'
-  >
+  data: Pick<MonthlyOversightSummary, 'periodLabel' | 'total' | 'subtitle'>
   href?: string
   onCardClick?: () => void
   title?: string
@@ -229,7 +190,6 @@ export function MonthlyOversightCard({
         periodLabel: data.periodLabel,
         total: data.total,
         subtitle: data.subtitle,
-        reportReady: data.reportReady,
       }}
       href={href}
       onCardClick={onCardClick}

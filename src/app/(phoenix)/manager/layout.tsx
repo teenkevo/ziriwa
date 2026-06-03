@@ -8,6 +8,9 @@ export default async function ManagerLayout({
   children: React.ReactNode
 }) {
   const role = await getAppRole()
+  if (role === 'supervisor') {
+    redirect('/supervisor/dashboard')
+  }
   if (role === 'officer') {
     redirect('/officer/dashboard')
   }

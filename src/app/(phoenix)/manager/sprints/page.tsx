@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 
 import { ManagerWorkspacePage } from '@/features/manager/manager-workspace-page'
-import { getAppRole } from '@/lib/clerk-app-role.server'
 
 type SprintsPageProps = {
   searchParams: Promise<{
@@ -34,14 +33,12 @@ export default async function ManagerSprintsPage({
     redirect('/manager/sprints?tab=ready')
   }
 
-  const role = await getAppRole()
-
   return (
     <ManagerWorkspacePage
       view='sprints'
       searchParams={searchParams}
       sprintView={TAB_TO_VIEW[tab]}
-      sprintReviewLabel={role === 'supervisor' ? 'In Review' : 'To Review'}
+      sprintReviewLabel='To Review'
     />
   )
 }

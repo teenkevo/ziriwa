@@ -364,6 +364,23 @@ export const detailedTask = defineType({
       ],
     }),
     defineField({
+      name: 'cascadeKind',
+      title: 'Cascade kind',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Owned', value: 'owned' },
+          { title: 'Cascaded from manager', value: 'cascaded' },
+        ],
+      },
+      initialValue: 'owned',
+    }),
+    defineField({
+      name: 'cascadeSource',
+      title: 'Cascade source',
+      type: 'cascadeSource',
+    }),
+    defineField({
       name: 'deliverableReviewThread',
       title: 'Deliverable Review Thread',
       type: 'array',

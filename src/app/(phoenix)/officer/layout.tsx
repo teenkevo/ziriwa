@@ -8,8 +8,11 @@ export default async function OfficerLayout({
   children: React.ReactNode
 }) {
   const role = await getAppRole()
-  if (role === 'manager' || role === 'supervisor') {
+  if (role === 'manager') {
     redirect('/manager/dashboard')
+  }
+  if (role === 'supervisor') {
+    redirect('/supervisor/dashboard')
   }
   if (role === 'assistant_commissioner') {
     redirect('/assistant-commissioner/dashboard')

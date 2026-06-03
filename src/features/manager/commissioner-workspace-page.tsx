@@ -15,8 +15,11 @@ export async function ensureCommissionerPageAccess() {
     if (role === 'assistant_commissioner') {
       redirect('/assistant-commissioner/dashboard')
     }
-    if (role === 'manager' || role === 'supervisor') {
+    if (role === 'manager') {
       redirect('/manager/dashboard')
+    }
+    if (role === 'supervisor') {
+      redirect('/supervisor/dashboard')
     }
     redirect('/workspace')
   }

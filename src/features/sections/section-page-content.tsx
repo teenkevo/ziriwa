@@ -72,10 +72,13 @@ import {
 } from '@/lib/sprint-workspace-scope'
 import { DepartmentContractTree } from './components/department-contract-tree'
 import { OnboardSupervisorContractDialog } from './components/onboard-supervisor-contract-dialog'
+import { SupervisorCascadeImportDialog } from './components/supervisor-cascade-import-dialog'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 import { OnboardOfficerContractDialog } from './components/onboard-officer-contract-dialog'
+import { ContractExportDownloadButton } from './components/contract-export-download-button'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
+import { getWorkspaceBasePathForAccess } from '@/lib/workspace-paths'
 
 function flattenInitiativesWithActivities(
   contract: SectionContract | null,
@@ -211,7 +214,9 @@ export function SectionPageContent({
         params.set('tab', tab)
       }
       const query = params.toString()
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      })
     },
     [pathname, router, searchParams],
   )
@@ -225,6 +230,7 @@ export function SectionPageContent({
     setPanelPortalNode(node)
   }, [])
   const [onboardOpen, setOnboardOpen] = useState(false)
+  const [cascadeImportOpen, setCascadeImportOpen] = useState(false)
   const manager = section.manager
   const hasManager = !!manager?._id
   const scopedSprints = React.useMemo(
@@ -250,10 +256,11 @@ export function SectionPageContent({
       ? supervisorContract
       : sectionContract
   const currentFY =
-    activeContract?.financialYearLabel ?? sectionContract?.financialYearLabel ?? 'current FY'
+    activeContract?.financialYearLabel ??
+    sectionContract?.financialYearLabel ??
+    'current FY'
   const canManageActiveContract = usesOfficerContract
-    ? sectionAccess.canManageOfficerContract ||
-      sectionAccess.isSectionOfficer
+    ? sectionAccess.canManageOfficerContract || sectionAccess.isSectionOfficer
     : usesSupervisorContract
       ? sectionAccess.canManageSupervisorContract ||
         sectionAccess.isSectionSupervisor
@@ -266,6 +273,11 @@ export function SectionPageContent({
   const personalContractDisplayName = usesOfficerContract
     ? (viewerOfficer?.fullName ?? 'Officer')
     : (viewerSupervisor?.fullName ?? 'Supervisor')
+  const contractResponsibilityCenter = usesOfficerContract
+    ? 'Officer'
+    : usesSupervisorContract
+      ? 'Supervisor'
+      : 'Manager'
   const showSprintSubTabs =
     !sectionAccess.isSectionOfficer &&
     (sectionAccess.canViewSprintDraftTab ||
@@ -448,9 +460,7 @@ export function SectionPageContent({
               contract={activeContract as SectionContract | null}
               sprints={sprints}
               sectionAccess={sectionAccess}
-              workspaceBasePath={
-                sectionAccess.isSectionOfficer ? '/officer' : '/manager'
-              }
+              workspaceBasePath={getWorkspaceBasePathForAccess(sectionAccess)}
               engagement={stakeholderEngagement}
               dueToday={dueToday}
               dueThisWeek={dueThisWeek}
@@ -465,6 +475,15 @@ export function SectionPageContent({
               <CardContent className='pt-6'>
                 {activeContract ? (
                   <div className='space-y-4'>
+                    {usesSupervisorContract && sectionContract ? (
+                      <SupervisorCascadeImportDialog
+                        open={cascadeImportOpen}
+                        onOpenChange={setCascadeImportOpen}
+                        sectionId={section._id}
+                        supervisorContractId={activeContract._id}
+                        supervisorId={sectionAccess.viewerStaffId ?? undefined}
+                      />
+                    ) : null}
                     <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
                       <div className='text-sm flex items-center gap-2 min-w-0'>
                         <FileText className='h-5 w-5 shrink-0' />
@@ -480,6 +499,27 @@ export function SectionPageContent({
                             <Plus className='h-4 w-4 mr-2' />
                             Add SSMARTA objective
                           </Button>
+                        ) : null}
+                        {usesSupervisorContract &&
+                        canManageActiveContract &&
+                        sectionContract &&
+                        activeContract ? (
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setCascadeImportOpen(true)}
+                          >
+                            Cascade from manager
+                          </Button>
+                        ) : null}
+                        {activeContract ? (
+                          <ContractExportDownloadButton
+                            sectionName={section.name}
+                            financialYearLabel={currentFY}
+                            objectives={activeContract.objectives}
+                            responsibilityCenter={contractResponsibilityCenter}
+                          />
                         ) : null}
                         <Button
                           type='button'
@@ -570,6 +610,7 @@ export function SectionPageContent({
                       supervisorId={sectionAccess.viewerStaffId ?? undefined}
                       sectionName={section.name}
                       supervisorName={personalContractDisplayName}
+                      hasManagerContract={Boolean(sectionContract)}
                       onSuccess={() => setOnboardOpen(false)}
                     />
                     <div className='flex items-center gap-2 text-muted-foreground'>

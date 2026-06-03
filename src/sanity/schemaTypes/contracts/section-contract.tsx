@@ -56,6 +56,14 @@ export const sectionContract = defineType({
       description:
         'Objectives with initiatives (cross-cutting or KPI-driven) and activities',
     }),
+    defineField({
+      name: 'cascadeRevision',
+      title: 'Cascade revision',
+      type: 'number',
+      description:
+        'Incremented when contract content changes; used to notify supervisors of required updates',
+      initialValue: 0,
+    }),
   ],
   preview: {
     select: {

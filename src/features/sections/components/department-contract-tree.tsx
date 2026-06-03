@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { DotIcon, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { DotIcon, Loader2, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -214,10 +215,13 @@ export function DepartmentContractTree({
         throw new Error(data.error || 'Failed to delete objective')
       }
       setDeleteObjectiveIndex(null)
+      toast.success('Objective deleted')
       router.refresh()
     } catch (err) {
       console.error(err)
-      alert(err instanceof Error ? err.message : 'Failed to delete objective')
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to delete objective',
+      )
     } finally {
       setDeleting(false)
     }
@@ -243,10 +247,13 @@ export function DepartmentContractTree({
         throw new Error(data.error || 'Failed to delete initiative')
       }
       setDeleteInitiative(null)
+      toast.success('Initiative deleted')
       router.refresh()
     } catch (err) {
       console.error(err)
-      alert(err instanceof Error ? err.message : 'Failed to delete initiative')
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to delete initiative',
+      )
     } finally {
       setDeleting(false)
     }
@@ -535,7 +542,14 @@ export function DepartmentContractTree({
                 handleDeleteObjective()
               }}
             >
-              Delete
+              {deleting ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  Deleting…
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -563,7 +577,14 @@ export function DepartmentContractTree({
                 handleDeleteInitiative()
               }}
             >
-              Delete
+              {deleting ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  Deleting…
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

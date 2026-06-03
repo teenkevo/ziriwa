@@ -49,8 +49,12 @@ export default async function WorkspacePage() {
     redirect('/commissioner/dashboard')
   }
 
-  if (role === 'manager' || role === 'supervisor') {
+  if (role === 'manager') {
     redirect('/manager/dashboard')
+  }
+
+  if (role === 'supervisor') {
+    redirect('/supervisor/dashboard')
   }
 
   if (role === 'officer') {

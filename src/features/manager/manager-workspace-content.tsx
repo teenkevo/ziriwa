@@ -1,12 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  ChevronsDown,
-  ChevronsUp,
-  FileText,
-  Plus,
-} from 'lucide-react'
+import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -21,12 +16,10 @@ import { ContractTree } from '@/features/sections/components/contract-tree'
 import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
 import { OnboardContractDialog } from '@/features/sections/components/onboard-contract-dialog'
 import { OnboardSupervisorContractDialog } from '@/features/sections/components/onboard-supervisor-contract-dialog'
+import { SupervisorCascadeImportDialog } from '@/features/sections/components/supervisor-cascade-import-dialog'
 import { OnboardOfficerContractDialog } from '@/features/sections/components/onboard-officer-contract-dialog'
 import { DueTodayThisWeek } from '@/features/sections/components/due-today-this-week'
-import {
-  getSprintsPageTitle,
-  type SprintView,
-} from '@/lib/sprint-view-labels'
+import { getSprintsPageTitle, type SprintView } from '@/lib/sprint-view-labels'
 import type { InitiativeWithActivities } from '@/features/sections/weekly-sprint-content'
 import type { SectionPageContentProps } from '@/features/sections/section-page-content'
 import {
@@ -43,8 +36,7 @@ import type { ContractsApiResource } from '@/lib/contracts-api'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
-
-type WorkspaceData = SectionPageContentProps
+import { ContractExportDownloadButton } from '@/features/sections/components/contract-export-download-button'
 
 type ManagerWorkspaceView =
   | 'dashboard'
@@ -53,6 +45,8 @@ type ManagerWorkspaceView =
   | 'stakeholders'
   | 'staff'
   | 'reporting'
+
+type WorkspaceData = SectionPageContentProps
 
 type ManagerWorkspaceContentProps = WorkspaceData & {
   view: ManagerWorkspaceView
@@ -153,8 +147,7 @@ export function ManagerWorkspaceContent({
     [workspaceBasePath],
   )
   const usesOfficerContract =
-    workspaceBasePath === '/officer' ||
-    shouldUseOfficerContract(sectionAccess)
+    workspaceBasePath === '/officer' || shouldUseOfficerContract(sectionAccess)
   const usesSupervisorContract =
     shouldScopeSprintsToSupervisor(sectionAccess) ||
     Boolean(
@@ -187,10 +180,16 @@ export function ManagerWorkspaceContent({
   const personalContractDisplayName = usesOfficerContract
     ? (officerContract?.officer?.fullName ?? 'Officer')
     : (supervisorContract?.supervisor?.fullName ?? 'Supervisor')
+  const contractResponsibilityCenter = usesOfficerContract
+    ? 'Officer'
+    : usesSupervisorContract
+      ? 'Supervisor'
+      : 'Manager'
   const config = viewConfig[view]
   const [panelPortalNode, setPanelPortalNode] =
     React.useState<HTMLDivElement | null>(null)
   const [onboardOpen, setOnboardOpen] = React.useState(false)
+  const [cascadeImportOpen, setCascadeImportOpen] = React.useState(false)
   const [expandAllSignal, setExpandAllSignal] = React.useState(0)
   const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
@@ -213,7 +212,9 @@ export function ManagerWorkspaceContent({
   useRegisterPageBreadcrumbs(breadcrumbs)
 
   const currentFY =
-    activeContract?.financialYearLabel ?? sectionContract?.financialYearLabel ?? 'current FY'
+    activeContract?.financialYearLabel ??
+    sectionContract?.financialYearLabel ??
+    'current FY'
   const manager = section.manager
   const hasManager = !!manager?._id
   const showRightRail = view === 'contract' || view === 'sprints'
@@ -249,6 +250,15 @@ export function ManagerWorkspaceContent({
           <CardContent className='pt-6'>
             {activeContract ? (
               <div className='space-y-4'>
+                {usesSupervisorContract && sectionContract ? (
+                  <SupervisorCascadeImportDialog
+                    open={cascadeImportOpen}
+                    onOpenChange={setCascadeImportOpen}
+                    sectionId={section._id}
+                    supervisorContractId={activeContract._id}
+                    supervisorId={sectionAccess.viewerStaffId ?? undefined}
+                  />
+                ) : null}
                 <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
                   <div className='text-sm flex items-center gap-2 min-w-0'>
                     <FileText className='h-5 w-5 shrink-0' />
@@ -264,6 +274,26 @@ export function ManagerWorkspaceContent({
                         <Plus className='h-4 w-4 mr-2' />
                         Add SSMARTA objective
                       </Button>
+                    ) : null}
+                    {usesSupervisorContract &&
+                    canManageActiveContract &&
+                    sectionContract ? (
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='outline'
+                        onClick={() => setCascadeImportOpen(true)}
+                      >
+                        Cascade from manager
+                      </Button>
+                    ) : null}
+                    {activeContract ? (
+                      <ContractExportDownloadButton
+                        sectionName={section.name}
+                        financialYearLabel={currentFY}
+                        objectives={activeContract.objectives}
+                        responsibilityCenter={contractResponsibilityCenter}
+                      />
                     ) : null}
                     <Button
                       type='button'
@@ -298,7 +328,9 @@ export function ManagerWorkspaceContent({
                     expandAllSignal={expandAllSignal}
                     collapseAllSignal={collapseAllSignal}
                     addObjectiveSignal={addObjectiveSignal}
-                    onAddObjectiveRequestConsumed={() => setAddObjectiveSignal(0)}
+                    onAddObjectiveRequestConsumed={() =>
+                      setAddObjectiveSignal(0)
+                    }
                   />
                 ) : (
                   <ContractTree
@@ -308,7 +340,9 @@ export function ManagerWorkspaceContent({
                     expandAllSignal={expandAllSignal}
                     collapseAllSignal={collapseAllSignal}
                     addObjectiveSignal={addObjectiveSignal}
-                    onAddObjectiveRequestConsumed={() => setAddObjectiveSignal(0)}
+                    onAddObjectiveRequestConsumed={() =>
+                      setAddObjectiveSignal(0)
+                    }
                   />
                 )}
               </div>
@@ -331,8 +365,8 @@ export function ManagerWorkspaceContent({
                   Onboard your contract to add SSMARTA objectives, initiatives,
                   and measurable activities.
                 </p>
-                {(sectionAccess.canManageOfficerContract ||
-                  workspaceBasePath === '/officer') ? (
+                {sectionAccess.canManageOfficerContract ||
+                workspaceBasePath === '/officer' ? (
                   <Button onClick={() => setOnboardOpen(true)}>
                     Onboard Contract
                   </Button>
@@ -347,6 +381,7 @@ export function ManagerWorkspaceContent({
                   supervisorId={sectionAccess.viewerStaffId ?? undefined}
                   sectionName={section.name}
                   supervisorName={personalContractDisplayName}
+                  hasManagerContract={Boolean(sectionContract)}
                   onSuccess={() => setOnboardOpen(false)}
                 />
                 <div className='flex items-center gap-2 text-muted-foreground'>

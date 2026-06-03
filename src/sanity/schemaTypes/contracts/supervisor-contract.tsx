@@ -48,6 +48,30 @@ export const supervisorContract = defineType({
       type: 'array',
       of: [{ type: 'ssmartaObjective' }],
     }),
+    defineField({
+      name: 'pendingCascadeUpdate',
+      title: 'Pending cascade update',
+      type: 'object',
+      fields: [
+        {
+          name: 'sectionContractRevision',
+          title: 'Manager contract revision',
+          type: 'number',
+        },
+        {
+          name: 'detectedAt',
+          title: 'Detected at',
+          type: 'datetime',
+        },
+        {
+          name: 'sectionContractId',
+          title: 'Section contract',
+          type: 'string',
+        },
+      ],
+      description:
+        'Set when the manager contract changes after items were cascaded; supervisor must apply updates',
+    }),
   ],
   preview: {
     select: {

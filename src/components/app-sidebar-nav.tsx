@@ -40,6 +40,7 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
+import { SectionLeadershipSidebarNav } from '@/components/section-leadership-sidebar-nav'
 import type { SprintNavCounts } from '@/lib/sprint-nav-counts'
 import type {
   SidebarDepartmentWithDivisions,
@@ -82,6 +83,7 @@ export function AppSidebarNav({
     | 'commissioner'
     | 'assistant-commissioner'
     | 'manager'
+    | 'supervisor'
     | 'officer'
   commissionerDivisions?: SidebarDivision[]
   assistantCommissionerSections?: SidebarSection[]
@@ -175,12 +177,12 @@ export function AppSidebarNav({
   const isCommissionerSidebar = variant === 'commissioner'
   const isAssistantCommissionerSidebar = variant === 'assistant-commissioner'
   const isManagerSidebar = variant === 'manager'
+  const isSupervisorSidebar = variant === 'supervisor'
   const isOfficerSidebar = variant === 'officer'
-  const managerSprintTab = isManagerSidebar
-    ? resolveManagerSprintTab(searchParams.get('tab'))
-    : null
-  const isManagerSprintsRoute =
-    pathname === '/manager/sprints' || pathname.startsWith('/manager/sprints/')
+  const sectionLeadershipSprintTab =
+    isManagerSidebar || isSupervisorSidebar
+      ? resolveManagerSprintTab(searchParams.get('tab'))
+      : null
   const sprintCounts = sprintNavCounts ?? {
     ready: 0,
     inReview: 0,
@@ -271,136 +273,27 @@ export function AppSidebarNav({
     )
   }
 
-  if (isManagerSidebar) {
+  if (isManagerSidebar && sectionLeadershipSprintTab) {
     return (
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/manager/dashboard' ||
-                    pathname.startsWith('/manager/dashboard/')
-                  }
-                >
-                  <Link href='/manager/dashboard'>
-                    <LayoutDashboard />
-                    <span>Dashboard</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/manager/contract' ||
-                    pathname.startsWith('/manager/contract/')
-                  }
-                >
-                  <Link href='/manager/contract'>
-                    <FileText />
-                    <span>Contract</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/manager/stakeholders' ||
-                    pathname.startsWith('/manager/stakeholders/')
-                  }
-                >
-                  <Link href='/manager/stakeholders'>
-                    <Handshake />
-                    <span>Stakeholders</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/manager/staff' ||
-                    pathname.startsWith('/manager/staff/')
-                  }
-                >
-                  <Link href='/manager/staff'>
-                    <Users />
-                    <span>Staff</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/manager/reporting' ||
-                    pathname.startsWith('/manager/reporting/')
-                  }
-                >
-                  <Link href='/manager/reporting'>
-                    <FileBarChart />
-                    <span>Reporting</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SectionLeadershipSidebarNav
+        basePath='/manager'
+        pathname={pathname}
+        sprintTab={sectionLeadershipSprintTab}
+        sprintsReviewLabel={managerSprintsReviewLabel}
+        sprintCounts={sprintCounts}
+      />
+    )
+  }
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Sprints</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    isManagerSprintsRoute && managerSprintTab === 'ready'
-                  }
-                >
-                  <Link href='/manager/sprints?tab=ready'>
-                    <Zap />
-                    <span>Ready</span>
-                  </Link>
-                </SidebarMenuButton>
-                <SprintSidebarCountBadge count={sprintCounts.ready} />
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    isManagerSprintsRoute && managerSprintTab === 'to-review'
-                  }
-                >
-                  <Link href='/manager/sprints?tab=to-review'>
-                    <ShieldCheck />
-                    <span>{managerSprintsReviewLabel}</span>
-                  </Link>
-                </SidebarMenuButton>
-                <SprintSidebarCountBadge count={sprintCounts.inReview} />
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    isManagerSprintsRoute && managerSprintTab === 'drafts'
-                  }
-                >
-                  <Link href='/manager/sprints?tab=drafts'>
-                    <FilePen />
-                    <span>Drafts</span>
-                  </Link>
-                </SidebarMenuButton>
-                <SprintSidebarCountBadge count={sprintCounts.drafts} />
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+  if (isSupervisorSidebar && sectionLeadershipSprintTab) {
+    return (
+      <SectionLeadershipSidebarNav
+        basePath='/supervisor'
+        pathname={pathname}
+        sprintTab={sectionLeadershipSprintTab}
+        sprintsReviewLabel={managerSprintsReviewLabel}
+        sprintCounts={sprintCounts}
+      />
     )
   }
 
