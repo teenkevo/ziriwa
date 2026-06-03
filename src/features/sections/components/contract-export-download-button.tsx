@@ -5,6 +5,7 @@ import { FileDown, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
+import Image from 'next/image'
 
 export interface ContractExportDownloadButtonProps {
   sectionName: string
@@ -52,16 +53,21 @@ export function ContractExportDownloadButton(
   return (
     <Button
       variant='outline'
-      size='sm'
+      size='icon'
       disabled={isLoading}
       onClick={handleExport}
     >
       {isLoading ? (
-        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+        <Loader2 className='mr-1 h-4 w-4 animate-spin' />
       ) : (
-        <FileDown className='mr-2 h-4 w-4' />
+        <Image
+          src='/pdf.png'
+          alt=''
+          width={20}
+          height={20}
+          className='h-5 w-5 object-contain'
+        />
       )}
-      {isLoading ? 'Preparing Export…' : 'Export Contract'}
     </Button>
   )
 }

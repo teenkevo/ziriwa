@@ -15,11 +15,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
-import type { CascadeImportSelection } from '@/lib/contract-cascade/types'
 import {
-  invalidateSupervisorCascadeOptionsCache,
   SupervisorCascadeImportSelector,
 } from '@/features/sections/components/supervisor-cascade-import-selector'
+import { SupervisorCascadeImportModeDialog } from '@/features/sections/components/supervisor-cascade-import-mode-dialog'
+import { SupervisorCascadeRewriteReviewDialog } from '@/features/sections/components/supervisor-cascade-rewrite-review-dialog'
+import { useSupervisorCascadeImportFlow } from '@/features/sections/components/use-supervisor-cascade-import-flow'
 
 interface OnboardSupervisorContractDialogProps {
   open: boolean
@@ -51,41 +52,28 @@ export function OnboardSupervisorContractDialog({
   const [createdContractId, setCreatedContractId] = React.useState<
     string | null
   >(null)
-  const [cascadeSelections, setCascadeSelections] = React.useState<
-    CascadeImportSelection[]
-  >([])
-  const [hasBlockedSelected, setHasBlockedSelected] = React.useState(false)
-  const [importableCount, setImportableCount] = React.useState(0)
   const currentFY = getCurrentFinancialYear()
+
+  const finish = React.useCallback(() => {
+    onOpenChange(false)
+    router.refresh()
+    onSuccess?.()
+  }, [onOpenChange, onSuccess, router])
+
+  const flow = useSupervisorCascadeImportFlow({
+    sectionId,
+    supervisorContractId: createdContractId ?? undefined,
+    supervisorId,
+    onComplete: finish,
+  })
 
   React.useEffect(() => {
     if (!open) {
       setStep('details')
       setCreatedContractId(null)
-      setCascadeSelections([])
-      setHasBlockedSelected(false)
-      setImportableCount(0)
+      flow.resetFlow()
     }
-  }, [open])
-
-  const handleCascadeSelectionChange = React.useCallback(
-    (payload: {
-      selections: CascadeImportSelection[]
-      hasBlockedSelected: boolean
-      importableCount: number
-    }) => {
-      setCascadeSelections(payload.selections)
-      setHasBlockedSelected(payload.hasBlockedSelected)
-      setImportableCount(payload.importableCount)
-    },
-    [],
-  )
-
-  const finish = () => {
-    onOpenChange(false)
-    router.refresh()
-    onSuccess?.()
-  }
+  }, [open, flow.resetFlow])
 
   const createContract = async (): Promise<string> => {
     const res = await fetch('/api/supervisor-contracts', {
@@ -100,24 +88,6 @@ export function OnboardSupervisorContractDialog({
     return data.id as string
   }
 
-  const runCascadeImport = async (contractId: string) => {
-    const res = await fetch(
-      `/api/supervisor-contracts/${contractId}/cascade-import`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selections: cascadeSelections }),
-      },
-    )
-    const data = await res.json()
-    if (!res.ok) {
-      throw new Error(
-        data.error || 'Failed to cascade from manager&apos;s contract',
-      )
-    }
-    return data as { importedActivityKeys?: string[] }
-  }
-
   const handleDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -126,6 +96,7 @@ export function OnboardSupervisorContractDialog({
       setCreatedContractId(contractId)
       if (hasManagerContract) {
         setStep('cascade')
+        flow.resetFlow()
       } else {
         finish()
       }
@@ -137,147 +108,157 @@ export function OnboardSupervisorContractDialog({
     }
   }
 
-  const handleCascadeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!createdContractId) return
-    if (hasBlockedSelected) return
-    setIsSubmitting(true)
-    try {
-      if (importableCount > 0) {
-        const data = await runCascadeImport(createdContractId)
-        invalidateSupervisorCascadeOptionsCache({
-          sectionId,
-          supervisorContractId: createdContractId,
-          supervisorId,
-        })
-        const importedCount = Array.isArray(data.importedActivityKeys)
-          ? data.importedActivityKeys.length
-          : importableCount
-        toast.success(
-          `Cascaded ${importedCount} KPI${importedCount === 1 ? '' : 's'} from manager&apos;s contract`,
-        )
-      }
-      finish()
-    } catch (err) {
-      console.error(err)
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to cascade from manager',
-      )
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const handleSkipCascade = () => {
     finish()
   }
 
+  const cascadeUiOpen = open && step === 'cascade'
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        disableClose={isSubmitting}
-        className={step === 'cascade' ? 'max-w-lg sm:max-w-xl' : undefined}
+    <>
+      <Dialog open={open && step === 'details'} onOpenChange={onOpenChange}>
+        <DialogContent disableClose={isSubmitting}>
+          <DialogHeader>
+            <DialogTitle>Onboard supervisor contract</DialogTitle>
+            <DialogDescription>
+              Create your supervisor contract for the current financial year.
+              {hasManagerContract
+                ? ' You can then import items from the manager contract.'
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleDetailsSubmit}>
+            <div className='space-y-4 py-2 pb-4'>
+              <div className='rounded-lg border p-4 space-y-2'>
+                <p className='text-sm font-medium'>Section</p>
+                <p className='text-sm text-muted-foreground'>{sectionName}</p>
+                <p className='text-sm font-medium mt-2'>Supervisor</p>
+                <p className='text-sm text-muted-foreground'>
+                  {supervisorName}
+                </p>
+                <p className='text-sm font-medium mt-2'>Financial year</p>
+                <p className='text-sm text-muted-foreground'>
+                  {currentFY.label}
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type='submit' disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                    Creating…
+                  </>
+                ) : hasManagerContract ? (
+                  'Continue'
+                ) : (
+                  'Onboard contract'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cascadeUiOpen && flow.step === 'select'}
+        onOpenChange={nextOpen => {
+          if (!nextOpen && !flow.isBusy) finish()
+        }}
       >
-        {step === 'details' ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Onboard supervisor contract</DialogTitle>
-              <DialogDescription>
-                Create your supervisor contract for the current financial year.
-                {hasManagerContract
-                  ? ' You can then import items from the manager contract.'
-                  : ''}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleDetailsSubmit}>
-              <div className='space-y-4 py-2 pb-4'>
-                <div className='rounded-lg border p-4 space-y-2'>
-                  <p className='text-sm font-medium'>Section</p>
-                  <p className='text-sm text-muted-foreground'>{sectionName}</p>
-                  <p className='text-sm font-medium mt-2'>Supervisor</p>
-                  <p className='text-sm text-muted-foreground'>
-                    {supervisorName}
-                  </p>
-                  <p className='text-sm font-medium mt-2'>Financial year</p>
-                  <p className='text-sm text-muted-foreground'>
-                    {currentFY.label}
-                  </p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type='button'
-                  variant='outline'
-                  onClick={() => onOpenChange(false)}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button type='submit' disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                      Creating…
-                    </>
-                  ) : hasManagerContract ? (
-                    'Continue'
-                  ) : (
-                    'Onboard contract'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>Cascade from manager&apos;s contract</DialogTitle>
-              <DialogDescription>
-                Choose which manager KPIs to cascade. You can skip and add your
-                own items later.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCascadeSubmit}>
-              <div className='py-2 pb-4'>
-                <SupervisorCascadeImportSelector
-                  sectionId={sectionId}
-                  supervisorContractId={createdContractId ?? undefined}
-                  supervisorId={supervisorId}
-                  disabled={isSubmitting}
-                  onSelectionChange={handleCascadeSelectionChange}
-                />
-              </div>
-              <DialogFooter className='gap-2 sm:gap-0'>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  onClick={handleSkipCascade}
-                  disabled={isSubmitting}
-                >
-                  Skip import
-                </Button>
-                <Button
-                  type='submit'
-                  disabled={
-                    isSubmitting || hasBlockedSelected || importableCount === 0
-                  }
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                      Importing…
-                    </>
-                  ) : importableCount === 0 ? (
-                    'Select KPIs to import'
-                  ) : (
-                    `Import ${importableCount} KPI${importableCount === 1 ? '' : 's'}`
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+        <DialogContent
+          disableClose={flow.isBusy || isSubmitting}
+          className='max-w-lg sm:max-w-xl'
+        >
+          <DialogHeader>
+            <DialogTitle>Cascade from manager&apos;s contract</DialogTitle>
+            <DialogDescription>
+              Choose which manager KPIs to cascade. You can skip and add your own
+              items later.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={flow.handleSelectSubmit}>
+            <div className='py-2 pb-4'>
+              <SupervisorCascadeImportSelector
+                sectionId={sectionId}
+                supervisorContractId={createdContractId ?? undefined}
+                supervisorId={supervisorId}
+                disabled={flow.isBusy || isSubmitting}
+                onSelectionChange={flow.handleSelectionChange}
+              />
+            </div>
+            <DialogFooter className='gap-2 sm:gap-0'>
+              <Button
+                type='button'
+                variant='ghost'
+                onClick={handleSkipCascade}
+                disabled={flow.isBusy || isSubmitting}
+              >
+                Skip import
+              </Button>
+              <Button
+                type='submit'
+                disabled={
+                  flow.isBusy ||
+                  isSubmitting ||
+                  flow.hasBlockedSelected ||
+                  flow.importableCount === 0
+                }
+              >
+                {flow.isBusy ? (
+                  <>
+                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                    Preparing…
+                  </>
+                ) : flow.importableCount === 0 ? (
+                  'Select KPIs to import'
+                ) : (
+                  `Continue with ${flow.importableCount} KPI${flow.importableCount === 1 ? '' : 's'}`
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <SupervisorCascadeImportModeDialog
+        open={cascadeUiOpen && flow.step === 'mode'}
+        onOpenChange={nextOpen => {
+          if (!nextOpen) flow.handleBackFromMode()
+        }}
+        importableCount={flow.importableCount}
+        aiEnabled={flow.aiEnabled}
+        selectedMode={flow.importMode}
+        onSelectMode={flow.setImportMode}
+        isLoadingAiStatus={flow.isLoadingAiStatus}
+        isSubmitting={flow.isBusy && flow.step === 'mode'}
+        onBack={flow.handleBackFromMode}
+        onFinish={() => void flow.handleModeFinish()}
+      />
+
+      <SupervisorCascadeRewriteReviewDialog
+        open={cascadeUiOpen && flow.step === 'review'}
+        onOpenChange={nextOpen => {
+          if (!nextOpen) flow.handleBackFromReview()
+        }}
+        items={flow.previewItems}
+        drafts={flow.drafts}
+        onDraftsChange={flow.setDrafts}
+        modeLabel={
+          flow.reviewMode === 'ai' ? 'AI suggestions' : 'As-is preview'
+        }
+        isSubmitting={flow.isBusy}
+        onConfirmImport={() => void flow.handleConfirmReviewImport()}
+        onBack={flow.handleBackFromReview}
+      />
+    </>
   )
 }

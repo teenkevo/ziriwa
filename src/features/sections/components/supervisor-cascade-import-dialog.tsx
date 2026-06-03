@@ -2,8 +2,6 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -14,11 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { CascadeImportSelection } from '@/lib/contract-cascade/types'
 import {
-  invalidateSupervisorCascadeOptionsCache,
   SupervisorCascadeImportSelector,
 } from '@/features/sections/components/supervisor-cascade-import-selector'
+import { SupervisorCascadeImportModeDialog } from '@/features/sections/components/supervisor-cascade-import-mode-dialog'
+import { SupervisorCascadeRewriteReviewDialog } from '@/features/sections/components/supervisor-cascade-rewrite-review-dialog'
+import { useSupervisorCascadeImportFlow } from '@/features/sections/components/use-supervisor-cascade-import-flow'
 
 interface SupervisorCascadeImportDialogProps {
   open: boolean
@@ -37,120 +36,119 @@ export function SupervisorCascadeImportDialog({
   supervisorId,
   onSuccess,
 }: SupervisorCascadeImportDialogProps) {
-  const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
-  const [cascadeSelections, setCascadeSelections] = React.useState<
-    CascadeImportSelection[]
-  >([])
-  const [hasBlockedSelected, setHasBlockedSelected] = React.useState(false)
-  const [importableCount, setImportableCount] = React.useState(0)
-
-  const handleCascadeSelectionChange = React.useCallback(
-    (payload: {
-      selections: CascadeImportSelection[]
-      hasBlockedSelected: boolean
-      importableCount: number
-    }) => {
-      setCascadeSelections(payload.selections)
-      setHasBlockedSelected(payload.hasBlockedSelected)
-      setImportableCount(payload.importableCount)
-    },
-    [],
-  )
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (hasBlockedSelected || importableCount === 0) return
-    setIsSubmitting(true)
-    try {
-      const res = await fetch(
-        `/api/supervisor-contracts/${supervisorContractId}/cascade-import`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ selections: cascadeSelections }),
-        },
-      )
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to import')
-      }
-      invalidateSupervisorCascadeOptionsCache({
-        sectionId,
-        supervisorContractId,
-        supervisorId,
-      })
-      const importedCount = Array.isArray(data.importedActivityKeys)
-        ? data.importedActivityKeys.length
-        : importableCount
-      toast.success(
-        `Cascaded ${importedCount} KPI${importedCount === 1 ? '' : 's'} from manager&apos;s contract`,
-      )
-      onOpenChange(false)
-      router.refresh()
+  const flow = useSupervisorCascadeImportFlow({
+    sectionId,
+    supervisorContractId,
+    supervisorId,
+    onComplete: () => {
       onSuccess?.()
-    } catch (err) {
-      console.error(err)
-      toast.error(err instanceof Error ? err.message : 'Failed to import')
-    } finally {
-      setIsSubmitting(false)
+      onOpenChange(false)
+    },
+  })
+
+  React.useEffect(() => {
+    if (!open) flow.resetFlow()
+  }, [open, flow.resetFlow])
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !flow.isBusy) {
+      flow.resetFlow()
     }
+    onOpenChange(nextOpen)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        disableClose={isSubmitting}
-        className='max-w-lg sm:max-w-xl'
+    <>
+      <Dialog
+        open={open && flow.step === 'select'}
+        onOpenChange={handleOpenChange}
       >
-        <DialogHeader>
-          <DialogTitle>
-            Cascade activities from manager&apos;s contract
-          </DialogTitle>
-          <DialogDescription>
-            Select activities from the Manager&apos;s Contract to cascade to
-            your own contract.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className='py-2 pb-4'>
-            <SupervisorCascadeImportSelector
-              sectionId={sectionId}
-              supervisorContractId={supervisorContractId}
-              supervisorId={supervisorId}
-              disabled={isSubmitting}
-              onSelectionChange={handleCascadeSelectionChange}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type='button'
-              variant='outline'
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type='submit'
-              disabled={
-                isSubmitting || hasBlockedSelected || importableCount === 0
-              }
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Importing…
-                </>
-              ) : importableCount === 0 ? (
-                'Select KPIs to import'
-              ) : (
-                `Import ${importableCount} KPI${importableCount === 1 ? '' : 's'}`
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <DialogContent
+          disableClose={flow.isBusy}
+          className='max-w-lg sm:max-w-xl'
+        >
+          <DialogHeader>
+            <DialogTitle>
+              Cascade activities from manager&apos;s contract
+            </DialogTitle>
+            <DialogDescription>
+              Select activities from the manager&apos;s contract to cascade to
+              your own contract.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={flow.handleSelectSubmit}>
+            <div className='py-2 pb-4'>
+              <SupervisorCascadeImportSelector
+                sectionId={sectionId}
+                supervisorContractId={supervisorContractId}
+                supervisorId={supervisorId}
+                disabled={flow.isBusy}
+                onSelectionChange={flow.handleSelectionChange}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => handleOpenChange(false)}
+                disabled={flow.isBusy}
+              >
+                Cancel
+              </Button>
+              <Button
+                type='submit'
+                disabled={
+                  flow.isBusy ||
+                  flow.hasBlockedSelected ||
+                  flow.importableCount === 0
+                }
+              >
+                {flow.isBusy ? (
+                  <>
+                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                    Preparing…
+                  </>
+                ) : flow.importableCount === 0 ? (
+                  'Select KPIs to import'
+                ) : (
+                  `Continue with ${flow.importableCount} KPI${flow.importableCount === 1 ? '' : 's'}`
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <SupervisorCascadeImportModeDialog
+        open={open && flow.step === 'mode'}
+        onOpenChange={nextOpen => {
+          if (!nextOpen) flow.handleBackFromMode()
+        }}
+        importableCount={flow.importableCount}
+        aiEnabled={flow.aiEnabled}
+        selectedMode={flow.importMode}
+        onSelectMode={flow.setImportMode}
+        isLoadingAiStatus={flow.isLoadingAiStatus}
+        isSubmitting={flow.isBusy && flow.step === 'mode'}
+        onBack={flow.handleBackFromMode}
+        onFinish={() => void flow.handleModeFinish()}
+      />
+
+      <SupervisorCascadeRewriteReviewDialog
+        open={open && flow.step === 'review'}
+        onOpenChange={nextOpen => {
+          if (!nextOpen) flow.handleBackFromReview()
+        }}
+        items={flow.previewItems}
+        drafts={flow.drafts}
+        onDraftsChange={flow.setDrafts}
+        modeLabel={
+          flow.reviewMode === 'ai' ? 'AI suggestions' : 'As-is preview'
+        }
+        isSubmitting={flow.isBusy}
+        onConfirmImport={() => void flow.handleConfirmReviewImport()}
+        onBack={flow.handleBackFromReview}
+      />
+    </>
   )
 }

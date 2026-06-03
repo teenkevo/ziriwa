@@ -2,6 +2,7 @@ import { managerKpiHasCascadeAim, normalizeAim } from './aim'
 import { buildCascadeSource } from './cascade-fields'
 import { nextInitiativeCode, nextObjectiveCode } from './allocate-codes'
 import type {
+  CascadeActivityRewrite,
   CascadeImportSelection,
   CascadeSource,
 } from './types'
@@ -42,6 +43,8 @@ export interface BuildSupervisorImportInput {
   cascadeRevision: number
   selections: CascadeImportSelection[]
   existingObjectives: SupervisorObjective[]
+  /** Optional accepted rewrites keyed by manager activityKey. */
+  rewrites?: Record<string, CascadeActivityRewrite>
 }
 
 export interface BuildSupervisorImportResult {
@@ -96,6 +99,54 @@ function copyManagerTasks(
     })
   }
   return out
+}
+
+function copyRewriteTasks(
+  tasks: string[],
+  sectionContractId: string,
+  activityKey: string,
+  revision: number,
+): SupervisorTask[] {
+  return tasks.map(text => ({
+    _type: 'detailedTask',
+    _key: crypto.randomUUID(),
+    task: text,
+    priority: 'medium',
+    status: 'to_do',
+    reportingFrequency: 'n/a',
+    cascadeKind: 'cascaded',
+    cascadeSource: buildCascadeSource(
+      {
+        sectionContractId,
+        activityKey,
+        nodeRole: 'managerTaskAsTask',
+      },
+      revision,
+    ),
+  }))
+}
+
+function resolveSupervisorTasks(
+  rewrite: CascadeActivityRewrite | undefined,
+  managerTasks: (DetailedTask | string)[] | undefined,
+  sectionContractId: string,
+  activityKey: string,
+  revision: number,
+): SupervisorTask[] {
+  if (rewrite?.tasks?.length) {
+    return copyRewriteTasks(
+      rewrite.tasks,
+      sectionContractId,
+      activityKey,
+      revision,
+    )
+  }
+  return copyManagerTasks(
+    managerTasks,
+    sectionContractId,
+    activityKey,
+    revision,
+  )
 }
 
 function findManagerInitiative(
@@ -168,6 +219,7 @@ export function buildSupervisorImport(
     cascadeRevision,
     selections,
     existingObjectives,
+    rewrites,
   } = input
 
   const objectives: SupervisorObjective[] = structuredClone(
@@ -225,6 +277,8 @@ export function buildSupervisorImport(
         continue
       }
 
+      const rewrite = rewrites?.[activityKey]
+
       let supervisorObjective = findExistingObjectiveByInitiative(
         objectives,
         sectionContractId,
@@ -240,7 +294,7 @@ export function buildSupervisorImport(
           _type: 'ssmartaObjective',
           _key: crypto.randomUUID(),
           code,
-          title: managerInitiative.title,
+          title: rewrite?.objectiveTitle ?? managerInitiative.title,
           order: objectives.length,
           initiatives: [],
           cascadeKind: 'cascaded',
@@ -270,7 +324,7 @@ export function buildSupervisorImport(
         _type: 'contractInitiative',
         _key: crypto.randomUUID(),
         code: initiativeCode,
-        title: managerKpi.title,
+        title: rewrite?.initiativeTitle ?? managerKpi.title,
         order: initiatives.length,
         measurableActivities: [],
         cascadeKind: 'cascaded',
@@ -289,12 +343,13 @@ export function buildSupervisorImport(
         _type: 'measurableActivity',
         _key: crypto.randomUUID(),
         activityType: 'measurable',
-        title: normalizeAim(managerKpi.aim),
+        title: rewrite?.measurableTitle ?? normalizeAim(managerKpi.aim),
         order: 0,
         targetDate: managerKpi.targetDate,
         status: 'not_started',
         reportingFrequency: managerKpi.reportingFrequency ?? 'monthly',
-        tasks: copyManagerTasks(
+        tasks: resolveSupervisorTasks(
+          rewrite,
           managerKpi.tasks,
           sectionContractId,
           activityKey,
