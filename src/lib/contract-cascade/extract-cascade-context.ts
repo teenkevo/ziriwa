@@ -102,8 +102,14 @@ export function normalizeCascadeRewrites(
 
   const allowed = new Map<string, string>()
   for (const selection of selections) {
-    for (const activityKey of selection.activityKeys) {
-      allowed.set(activityKey, selection.initiativeKey)
+    if (selection.activities?.length) {
+      for (const activity of selection.activities) {
+        allowed.set(activity.activityKey, selection.initiativeKey)
+      }
+    } else {
+      for (const activityKey of selection.activityKeys) {
+        allowed.set(activityKey, selection.initiativeKey)
+      }
     }
   }
 

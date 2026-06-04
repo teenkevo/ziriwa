@@ -17,6 +17,7 @@ import { DepartmentContractTree } from '@/features/sections/components/departmen
 import { OnboardContractDialog } from '@/features/sections/components/onboard-contract-dialog'
 import { OnboardSupervisorContractDialog } from '@/features/sections/components/onboard-supervisor-contract-dialog'
 import { SupervisorCascadeImportDialog } from '@/features/sections/components/supervisor-cascade-import-dialog'
+import { OfficerCascadeImportDialog } from '@/features/sections/components/officer-cascade-import-dialog'
 import { OnboardOfficerContractDialog } from '@/features/sections/components/onboard-officer-contract-dialog'
 import { DueTodayThisWeek } from '@/features/sections/components/due-today-this-week'
 import { getSprintsPageTitle, type SprintView } from '@/lib/sprint-view-labels'
@@ -97,6 +98,7 @@ export function ManagerWorkspaceContent({
   section,
   sectionContract,
   supervisorContract = null,
+  supervisorContractForCascade = null,
   officerContract = null,
   stakeholderEngagement,
   staffOptions,
@@ -234,6 +236,17 @@ export function ManagerWorkspaceContent({
                     supervisorId={sectionAccess.viewerStaffId ?? undefined}
                   />
                 ) : null}
+                {usesOfficerContract &&
+                supervisorContractForCascade &&
+                activeContract ? (
+                  <OfficerCascadeImportDialog
+                    open={cascadeImportOpen}
+                    onOpenChange={setCascadeImportOpen}
+                    sectionId={section._id}
+                    officerContractId={activeContract._id}
+                    supervisorContractId={supervisorContractForCascade._id}
+                  />
+                ) : null}
                 <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
                   <div className='text-sm flex items-center gap-2 min-w-0'>
                     <FileText className='h-5 w-5 shrink-0' />
@@ -260,6 +273,19 @@ export function ManagerWorkspaceContent({
                         onClick={() => setCascadeImportOpen(true)}
                       >
                         Cascade from manager
+                      </Button>
+                    ) : null}
+                    {usesOfficerContract &&
+                    canManageActiveContract &&
+                    supervisorContractForCascade &&
+                    activeContract ? (
+                      <Button
+                        type='button'
+                        size='sm'
+                        variant='outline'
+                        onClick={() => setCascadeImportOpen(true)}
+                      >
+                        Cascade from supervisor
                       </Button>
                     ) : null}
                     {activeContract ? (

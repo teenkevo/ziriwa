@@ -1,6 +1,6 @@
 import { defineField, defineType } from 'sanity'
 
-/** Lineage back to a manager section contract node (Manager → Supervisor cascade). */
+/** Lineage back to a manager or supervisor contract node (cascade imports). */
 export const cascadeSource = defineType({
   name: 'cascadeSource',
   title: 'Cascade Source',
@@ -8,9 +8,15 @@ export const cascadeSource = defineType({
   fields: [
     defineField({
       name: 'sectionContractId',
-      title: 'Section contract',
+      title: 'Manager section contract',
       type: 'string',
-      validation: Rule => Rule.required(),
+      description: 'Manager contract id (supervisor cascade from manager)',
+    }),
+    defineField({
+      name: 'supervisorContractId',
+      title: 'Supervisor contract',
+      type: 'string',
+      description: 'Supervisor contract id (officer cascade from supervisor)',
     }),
     defineField({
       name: 'initiativeKey',
@@ -51,6 +57,18 @@ export const cascadeSource = defineType({
           {
             title: 'Manager task → Supervisor task',
             value: 'managerTaskAsTask',
+          },
+          {
+            title: 'Supervisor initiative → Officer objective',
+            value: 'supervisorInitiativeAsObjective',
+          },
+          {
+            title: 'Supervisor measurable → Officer initiative',
+            value: 'supervisorMeasurableAsInitiative',
+          },
+          {
+            title: 'Supervisor task → Officer task',
+            value: 'supervisorTaskAsTask',
           },
         ],
       },

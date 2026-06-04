@@ -1,9 +1,18 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { endOfMonth, endOfQuarter, endOfWeek, format } from 'date-fns'
-import { CalendarIcon, Check, Loader2, Plus, Trash2, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  CalendarIcon,
+  Check,
+  Loader2,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
@@ -126,7 +135,9 @@ function resolveInitialSelectedTaskKey(
 ): string | null {
   if (!initialTaskKey?.trim()) return null
   const rows = normalizeTasks(activity.tasks)
-  return rows.some(r => (r._key ?? '') === initialTaskKey) ? initialTaskKey : null
+  return rows.some(r => (r._key ?? '') === initialTaskKey)
+    ? initialTaskKey
+    : null
 }
 
 function tasksToPayload(rows: TaskRow[]) {
@@ -257,15 +268,17 @@ export function ActivityPageContent({
   const router = useRouter()
   const isLg = useIsLg()
   const sectionSlug = section.slug?.current ?? ''
-  const sectionHref =
+  const contractHref =
     contractBackHref?.trim() ||
-    (sectionSlug ? `/sections/${sectionSlug}` : '/departments')
+    (sectionSlug ? `/sections/${sectionSlug}?tab=contract` : '/departments')
   const contractApiBase = contractsApiBase(contractsApi)
 
-  const initiativeCode =
+  const initiative =
     sectionContract.objectives?.[objectiveIndex]?.initiatives?.[initiativeIndex]
-      ?.code ??
+  const initiativeCode =
+    initiative?.code ??
     `${sectionContract.objectives?.[objectiveIndex]?.code ?? String(objectiveIndex + 1)}.${initiativeIndex + 1}`
+  const initiativeTitle = initiative?.title?.trim() ?? ''
   const initiativeActivities =
     sectionContract.objectives?.[objectiveIndex]?.initiatives?.[initiativeIndex]
       ?.measurableActivities ?? []
@@ -283,6 +296,7 @@ export function ActivityPageContent({
   /** Manager section contracts only; supervisor/officer contracts have no AIM. */
   const showActivityAim =
     contractsApi === 'section-contracts' && numberingKind === 'kpi'
+  const isOfficerContract = contractsApi === 'officer-contracts'
   const { canSuperviseDetailedTasks } = sectionAccess
   const canManageContract =
     canManageContractProp ?? sectionAccess.canManageContract
@@ -330,9 +344,9 @@ export function ActivityPageContent({
         href: `/divisions/${divSlug}`,
       })
     }
-    out.push({ label: section.name, href: sectionHref })
+    out.push({ label: section.name, href: contractHref })
     return out
-  }, [section.division, section.name, sectionHref])
+  }, [section.division, section.name, contractHref])
 
   useRegisterPageBreadcrumbs(breadcrumbItems)
 
@@ -452,22 +466,19 @@ export function ActivityPageContent({
       setIsSavingDate(true)
       setIsSavingActivity(true)
       try {
-        const res = await fetch(
-          `${contractApiBase}/${sectionContract._id}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              op: 'updateActivity',
-              payload: {
-                objectiveIndex,
-                initiativeIndex,
-                activityIndex,
-                targetDate: newDate,
-              },
-            }),
-          },
-        )
+        const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            op: 'updateActivity',
+            payload: {
+              objectiveIndex,
+              initiativeIndex,
+              activityIndex,
+              targetDate: newDate,
+            },
+          }),
+        })
         if (!res.ok) {
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
@@ -498,22 +509,19 @@ export function ActivityPageContent({
       setIsSavingStatus(true)
       setIsSavingActivity(true)
       try {
-        const res = await fetch(
-          `${contractApiBase}/${sectionContract._id}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              op: 'updateActivity',
-              payload: {
-                objectiveIndex,
-                initiativeIndex,
-                activityIndex,
-                status: value,
-              },
-            }),
-          },
-        )
+        const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            op: 'updateActivity',
+            payload: {
+              objectiveIndex,
+              initiativeIndex,
+              activityIndex,
+              status: value,
+            },
+          }),
+        })
         if (!res.ok) {
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
@@ -545,22 +553,19 @@ export function ActivityPageContent({
       setIsSavingReportingFrequency(true)
       setIsSavingActivity(true)
       try {
-        const res = await fetch(
-          `${contractApiBase}/${sectionContract._id}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              op: 'updateActivity',
-              payload: {
-                objectiveIndex,
-                initiativeIndex,
-                activityIndex,
-                reportingFrequency: v,
-              },
-            }),
-          },
-        )
+        const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            op: 'updateActivity',
+            payload: {
+              objectiveIndex,
+              initiativeIndex,
+              activityIndex,
+              reportingFrequency: v,
+            },
+          }),
+        })
         if (!res.ok) {
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
@@ -594,22 +599,19 @@ export function ActivityPageContent({
       setIsSavingReportingFrequency(true)
       setIsSavingActivity(true)
       try {
-        const res = await fetch(
-          `${contractApiBase}/${sectionContract._id}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              op: 'updateActivity',
-              payload: {
-                objectiveIndex,
-                initiativeIndex,
-                activityIndex,
-                reportingFrequency: newValue,
-              },
-            }),
-          },
-        )
+        const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            op: 'updateActivity',
+            payload: {
+              objectiveIndex,
+              initiativeIndex,
+              activityIndex,
+              reportingFrequency: newValue,
+            },
+          }),
+        })
         if (!res.ok) {
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
@@ -645,22 +647,19 @@ export function ActivityPageContent({
       setIsSavingTasks(true)
       try {
         const payload = tasksToPayload(tasksToSave)
-        const res = await fetch(
-          `${contractApiBase}/${sectionContract._id}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              op: 'updateActivityTasks',
-              payload: {
-                objectiveIndex,
-                initiativeIndex,
-                activityIndex,
-                tasks: payload,
-              },
-            }),
-          },
-        )
+        const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            op: 'updateActivityTasks',
+            payload: {
+              objectiveIndex,
+              initiativeIndex,
+              activityIndex,
+              tasks: payload,
+            },
+          }),
+        })
         if (!res.ok) {
           const data = await res.json()
           throw new Error(data.error || 'Failed to save tasks')
@@ -669,9 +668,7 @@ export function ActivityPageContent({
         router.refresh()
       } catch (err) {
         console.error(err)
-        toast.error(
-          err instanceof Error ? err.message : 'Failed to save tasks',
-        )
+        toast.error(err instanceof Error ? err.message : 'Failed to save tasks')
         throw err
       } finally {
         setIsSavingTasks(false)
@@ -698,9 +695,7 @@ export function ActivityPageContent({
       const snap = JSON.stringify(tasksToPayload(tasks))
       if (snap === lastSavedTasksPayloadRef.current) return
       saveTasks(tasks).catch(err => {
-        toast.error(
-          err instanceof Error ? err.message : 'Failed to save tasks',
-        )
+        toast.error(err instanceof Error ? err.message : 'Failed to save tasks')
       })
     }, 500)
     return () => {
@@ -1468,141 +1463,174 @@ export function ActivityPageContent({
   return (
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
       <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
+        <Button
+          variant='secondary'
+          size='sm'
+          className='w-fit -ml-2 shrink-0'
+          asChild
+        >
+          <Link href={contractHref}>
+            <ArrowLeft className='mr-2 h-4 w-4' />
+            Back to contract
+          </Link>
+        </Button>
         <div>
-          <div className='max-w-prose'>
-            {isEditingTitle ? (
-              <div ref={titleEditRef} className='space-y-2'>
-                <textarea
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Escape') handleCancelTitle()
-                  }}
-                  autoFocus
-                  disabled={isSavingActivity}
-                  rows={2}
-                  className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-2xl font-bold placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
-                />
-                <div className='flex gap-1'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='icon'
-                    className='h-8 w-8'
-                    onClick={handleConfirmTitle}
-                    disabled={isSavingActivity || !title.trim()}
-                  >
-                    <Check className='h-4 w-4' />
-                  </Button>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='icon'
-                    className='h-8 w-8'
-                    onClick={handleCancelTitle}
-                    disabled={isSavingActivity}
-                  >
-                    <X className='h-4 w-4' />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <h1
-                className={`text-2xl font-bold rounded px-2 py-1 -mx-2 -my-1 ${canManageContract ? 'cursor-pointer hover:bg-muted/50' : ''}`}
-                onClick={() => {
-                  if (!canManageContract) return
-                  setTitleBeforeEdit(title)
-                  setIsEditingTitle(true)
-                }}
-              >
-                <span className='font-bold'>{activityCode} - </span>{' '}
-                <span className='font-normal'>{title}</span>
-              </h1>
-            )}
-          </div>
-          {showActivityAim && (
-            <div className='mt-6 max-w-prose'>
-              <Label className='text-sm font-medium'>AIM</Label>
-              {isEditingAim ? (
-                <div ref={aimEditRef} className='space-y-2 mt-1'>
-                  <textarea
-                    value={aim}
-                    onChange={e => setAim(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Escape') handleCancelAim()
-                    }}
-                    autoFocus
-                    disabled={isSavingActivity}
-                    rows={2}
-                    className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
-                    placeholder='Scope, design, and validate...'
-                  />
-                  <div className='flex gap-1'>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='icon'
-                      className='h-8 w-8'
-                      onClick={handleConfirmAim}
+          {!isOfficerContract ? (
+            <>
+              <div className='max-w-prose'>
+                {isEditingTitle ? (
+                  <div ref={titleEditRef} className='space-y-2'>
+                    <textarea
+                      value={title}
+                      onChange={e => setTitle(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Escape') handleCancelTitle()
+                      }}
+                      autoFocus
                       disabled={isSavingActivity}
-                    >
-                      <Check className='h-4 w-4' />
-                    </Button>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='icon'
-                      className='h-8 w-8'
-                      onClick={handleCancelAim}
-                      disabled={isSavingActivity}
-                    >
-                      <X className='h-4 w-4' />
-                    </Button>
+                      rows={2}
+                      className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-2xl font-bold placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
+                    />
+                    <div className='flex gap-1'>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon'
+                        className='h-8 w-8'
+                        onClick={handleConfirmTitle}
+                        disabled={isSavingActivity || !title.trim()}
+                      >
+                        <Check className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon'
+                        className='h-8 w-8'
+                        onClick={handleCancelTitle}
+                        disabled={isSavingActivity}
+                      >
+                        <X className='h-4 w-4' />
+                      </Button>
+                    </div>
                   </div>
+                ) : (
+                  <h1
+                    className={`text-2xl font-bold rounded px-2 py-1 -mx-2 -my-1 ${canManageContract ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                    onClick={() => {
+                      if (!canManageContract) return
+                      setTitleBeforeEdit(title)
+                      setIsEditingTitle(true)
+                    }}
+                  >
+                    <span className='font-bold'>{activityCode} - </span>{' '}
+                    <span className='font-normal'>{title}</span>
+                  </h1>
+                )}
+              </div>
+              {showActivityAim && (
+                <div className='mt-6 max-w-prose'>
+                  <Label className='text-sm font-medium'>AIM</Label>
+                  {isEditingAim ? (
+                    <div ref={aimEditRef} className='space-y-2 mt-1'>
+                      <textarea
+                        value={aim}
+                        onChange={e => setAim(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Escape') handleCancelAim()
+                        }}
+                        autoFocus
+                        disabled={isSavingActivity}
+                        rows={2}
+                        className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
+                        placeholder='Scope, design, and validate...'
+                      />
+                      <div className='flex gap-1'>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='icon'
+                          className='h-8 w-8'
+                          onClick={handleConfirmAim}
+                          disabled={isSavingActivity}
+                        >
+                          <Check className='h-4 w-4' />
+                        </Button>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='icon'
+                          className='h-8 w-8'
+                          onClick={handleCancelAim}
+                          disabled={isSavingActivity}
+                        >
+                          <X className='h-4 w-4' />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p
+                      className={`text-sm text-muted-foreground rounded px-2 py-1 -mx-2 -my-1 min-h-[2rem] mt-1 ${canManageContract ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                      onClick={() => {
+                        if (!canManageContract) return
+                        setAimBeforeEdit(aim)
+                        setIsEditingAim(true)
+                      }}
+                    >
+                      {aim || 'Click to add AIM...'}
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <p
-                  className={`text-sm text-muted-foreground rounded px-2 py-1 -mx-2 -my-1 min-h-[2rem] mt-1 ${canManageContract ? 'cursor-pointer hover:bg-muted/50' : ''}`}
-                  onClick={() => {
-                    if (!canManageContract) return
-                    setAimBeforeEdit(aim)
-                    setIsEditingAim(true)
-                  }}
-                >
-                  {aim || 'Click to add AIM...'}
-                </p>
               )}
+            </>
+          ) : (
+            <div className='max-w-prose'>
+              <h1 className='text-2xl font-bold leading-snug'>
+                <span className='font-bold'>
+                  Initiative {initiativeCode} –{' '}
+                </span>
+                <span className='font-normal'>{initiativeTitle}</span>
+              </h1>
             </div>
           )}
 
-          <div className='space-y-4 flex-1 min-w-0 mt-10'>
+          <div
+            className={cn(
+              'space-y-4 flex-1 min-w-0',
+              isOfficerContract ? 'mt-6' : 'mt-10',
+            )}
+          >
             <h2 className='text-sm font-semibold'>Detailed Tasks</h2>
             {canSuperviseDetailedTasks ? (
-            <div className='flex gap-2'>
-              <Input
-                placeholder={`Add a task to this ${activityKindLabel} measurable activity`}
-                value={newTask}
-                onChange={e => setNewTask(e.target.value)}
-                onKeyDown={e =>
-                  e.key === 'Enter' && (e.preventDefault(), handleAddTask())
-                }
-                autoFocus
-                disabled={isSavingTasks || isAddingTask}
-              />
-              <Button
-                type='button'
-                variant='default'
-                size='icon'
-                onClick={handleAddTask}
-                disabled={isSavingTasks || isAddingTask || !newTask.trim()}
-              >
-                {isAddingTask ? (
-                  <Loader2 className='h-4 w-4 animate-spin' />
-                ) : (
-                  <Plus className='h-4 w-4' />
-                )}
-              </Button>
-            </div>
+              <div className='flex gap-2'>
+                <Input
+                  placeholder={
+                    isOfficerContract
+                      ? 'Add a detailed task'
+                      : `Add a task to this ${activityKindLabel} measurable activity`
+                  }
+                  value={newTask}
+                  onChange={e => setNewTask(e.target.value)}
+                  onKeyDown={e =>
+                    e.key === 'Enter' && (e.preventDefault(), handleAddTask())
+                  }
+                  autoFocus
+                  disabled={isSavingTasks || isAddingTask}
+                />
+                <Button
+                  type='button'
+                  variant='default'
+                  size='icon'
+                  onClick={handleAddTask}
+                  disabled={isSavingTasks || isAddingTask || !newTask.trim()}
+                >
+                  {isAddingTask ? (
+                    <Loader2 className='h-4 w-4 animate-spin' />
+                  ) : (
+                    <Plus className='h-4 w-4' />
+                  )}
+                </Button>
+              </div>
             ) : null}
             <DetailedTasksTable
               tasks={tasks}

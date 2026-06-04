@@ -47,6 +47,59 @@ export async function runCascadeImport(
   return data as { importedActivityKeys?: string[] }
 }
 
+export async function fetchOfficerCascadeRewritePreview(
+  officerContractId: string,
+  selections: CascadeImportSelection[],
+  generateAi: boolean,
+  supervisorContractId?: string,
+): Promise<CascadeRewritePreviewResponse> {
+  const res = await fetch(
+    `/api/officer-contracts/${officerContractId}/cascade-rewrite-preview`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        selections,
+        generateAi,
+        ...(supervisorContractId ? { supervisorContractId } : {}),
+      }),
+    },
+  )
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to load cascade preview')
+  }
+  return data as CascadeRewritePreviewResponse
+}
+
+export async function runOfficerCascadeImport(
+  officerContractId: string,
+  selections: CascadeImportSelection[],
+  rewrites?: CascadeActivityRewrite[],
+  supervisorContractId?: string,
+) {
+  const res = await fetch(
+    `/api/officer-contracts/${officerContractId}/cascade-import`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        selections,
+        ...(supervisorContractId ? { supervisorContractId } : {}),
+        ...(rewrites ? { rewrites } : {}),
+      }),
+    },
+  )
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to import cascaded items')
+  }
+  return data as {
+    importedActivityKeys?: string[]
+    importedTaskKeys?: string[]
+  }
+}
+
 export function buildRewriteDraftsFromPreview(
   preview: CascadeRewritePreviewResponse,
   mode: 'as-is' | 'ai',

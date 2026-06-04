@@ -74,6 +74,7 @@ import {
 import { DepartmentContractTree } from './components/department-contract-tree'
 import { OnboardSupervisorContractDialog } from './components/onboard-supervisor-contract-dialog'
 import { SupervisorCascadeImportDialog } from './components/supervisor-cascade-import-dialog'
+import { OfficerCascadeImportDialog } from './components/officer-cascade-import-dialog'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 import { OnboardOfficerContractDialog } from './components/onboard-officer-contract-dialog'
@@ -114,6 +115,7 @@ export interface SectionPageContentProps {
   section: Section
   sectionContract: SectionContract | null
   supervisorContract?: SupervisorContract | null
+  supervisorContractForCascade?: SupervisorContract | null
   officerContract?: OfficerContract | null
   stakeholderEngagement: StakeholderEngagement | null
   staffOptions: StaffOption[]
@@ -137,6 +139,7 @@ export function SectionPageContent({
   section,
   sectionContract,
   supervisorContract = null,
+  supervisorContractForCascade = null,
   officerContract = null,
   stakeholderEngagement,
   staffOptions,
@@ -464,6 +467,17 @@ export function SectionPageContent({
                         supervisorId={sectionAccess.viewerStaffId ?? undefined}
                       />
                     ) : null}
+                    {usesOfficerContract &&
+                    supervisorContractForCascade &&
+                    activeContract ? (
+                      <OfficerCascadeImportDialog
+                        open={cascadeImportOpen}
+                        onOpenChange={setCascadeImportOpen}
+                        sectionId={section._id}
+                        officerContractId={activeContract._id}
+                        supervisorContractId={supervisorContractForCascade._id}
+                      />
+                    ) : null}
                     <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
                       <div className='text-sm flex items-center gap-2 min-w-0'>
                         <FileText className='h-5 w-5 shrink-0' />
@@ -491,6 +505,19 @@ export function SectionPageContent({
                             onClick={() => setCascadeImportOpen(true)}
                           >
                             Cascade from manager
+                          </Button>
+                        ) : null}
+                        {usesOfficerContract &&
+                        canManageActiveContract &&
+                        supervisorContractForCascade &&
+                        activeContract ? (
+                          <Button
+                            type='button'
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setCascadeImportOpen(true)}
+                          >
+                            Cascade from supervisor
                           </Button>
                         ) : null}
                         {activeContract ? (

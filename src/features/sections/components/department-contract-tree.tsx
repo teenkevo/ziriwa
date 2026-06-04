@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { TreeView, TreeDataItem } from '@/components/tree-view'
 import {
+  departmentDetailedTaskNumber,
   leadershipActivityNumber,
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
@@ -74,6 +75,8 @@ const nodeMeta = new Map<
     objIdx?: number
     initIdx?: number
     actIdx?: number
+    taskKey?: string
+    isTask?: boolean
     isKpi?: boolean
   }
 >()
@@ -87,9 +90,21 @@ function contractTreeShowsActivityAim(
   )
 }
 
+function contractTreeShowsTasksOnly(
+  contractsApi: DepartmentContractTreeProps['contractsApi'],
+): boolean {
+  return contractsApi === 'officer-contracts'
+}
+
+function taskLabel(task: { task?: string } | string): string {
+  if (typeof task === 'string') return task.trim()
+  return task.task?.trim() ?? ''
+}
+
 function departmentContractToTreeData(
   departmentContract: LeadershipContract,
   showActivityAim: boolean,
+  showTasksOnlyUnderMeasurable: boolean,
 ): TreeDataItem[] {
   nodeMeta.clear()
   const objectives = departmentContract.objectives ?? []
@@ -124,14 +139,17 @@ function departmentContractToTreeData(
       const activityChildren: TreeDataItem[] = [
         {
           id: `label-activities-${objIdx}-${initIdx}`,
-          name: 'Measurable activities',
+          name: showTasksOnlyUnderMeasurable
+            ? 'Detailed tasks'
+            : 'Measurable activities',
           className: 'py-1 before:h-[1.25rem] text-primary',
         },
       ]
 
+      let officerTaskOrder = 0
+
       for (let actIdx = 0; actIdx < activities.length; actIdx++) {
         const act = activities[actIdx]
-        if (!act?.title || !String(act.title).trim()) continue
         const actOrder =
           activities
             .slice(0, actIdx)
@@ -141,6 +159,40 @@ function departmentContractToTreeData(
                 resolveActivityNumberingType(act),
             ).length + 1
         const actNum = leadershipActivityNumber(initNum, act, actOrder)
+
+        if (showTasksOnlyUnderMeasurable) {
+          const rawTasks = act.tasks ?? []
+          for (let taskIdx = 0; taskIdx < rawTasks.length; taskIdx++) {
+            const raw = rawTasks[taskIdx]
+            const title = taskLabel(raw)
+            if (!title) continue
+            officerTaskOrder += 1
+            const supervisorTaskKey =
+              typeof raw === 'string'
+                ? `idx-${taskIdx}`
+                : (raw._key ?? `idx-${taskIdx}`)
+            const treeId = `task:${act._key}:${supervisorTaskKey}`
+            const taskNum = departmentDetailedTaskNumber(
+              initNum,
+              officerTaskOrder,
+            )
+            nodeMeta.set(treeId, {
+              code: taskNum,
+              objIdx,
+              initIdx,
+              actIdx,
+              taskKey: supervisorTaskKey,
+              isTask: true,
+            })
+            activityChildren.push({
+              id: treeId,
+              name: title,
+            })
+          }
+          continue
+        }
+
+        if (!act?.title || !String(act.title).trim()) continue
         nodeMeta.set(act._key, {
           code: actNum,
           aim: showActivityAim ? act.aim : undefined,
@@ -184,6 +236,8 @@ export function DepartmentContractTree({
   const router = useRouter()
   const apiBase = contractsApiBase(contractsApi)
   const showActivityAim = contractTreeShowsActivityAim(contractsApi)
+  const showTasksOnlyUnderMeasurable =
+    contractTreeShowsTasksOnly(contractsApi)
   const [openMenu, setOpenMenu] = React.useState<string | null>(null)
   const [objectiveDialogOpen, setObjectiveDialogOpen] = React.useState(false)
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
@@ -219,8 +273,13 @@ export function DepartmentContractTree({
   }, [addObjectiveSignal, canManageContract])
 
   const treeData = React.useMemo(
-    () => departmentContractToTreeData(departmentContract, showActivityAim),
-    [departmentContract, showActivityAim],
+    () =>
+      departmentContractToTreeData(
+        departmentContract,
+        showActivityAim,
+        showTasksOnlyUnderMeasurable,
+      ),
+    [departmentContract, showActivityAim, showTasksOnlyUnderMeasurable],
   )
 
   const handleDeleteObjective = React.useCallback(async () => {
@@ -294,8 +353,12 @@ export function DepartmentContractTree({
         typeof meta.initIdx === 'number' &&
         typeof meta.actIdx === 'number'
       ) {
+        const taskQs =
+          meta.taskKey != null
+            ? `?taskKey=${encodeURIComponent(meta.taskKey)}`
+            : ''
         router.push(
-          `/sections/${sectionSlug}/activity/${departmentContract._id}/${meta.objIdx}/${meta.initIdx}/${meta.actIdx}`,
+          `/sections/${sectionSlug}/activity/${departmentContract._id}/${meta.objIdx}/${meta.initIdx}/${meta.actIdx}${taskQs}`,
         )
       }
     },
@@ -310,11 +373,17 @@ export function DepartmentContractTree({
         const hint = item.id.startsWith('label-objectives')
           ? '(Click an objective below to see its initiatives)'
           : item.id.startsWith('label-initiatives')
-            ? '(Click an initiative below to see its measurable activities)'
+            ? showTasksOnlyUnderMeasurable
+              ? '(Click an initiative below to see its detailed tasks)'
+              : '(Click an initiative below to see its measurable activities)'
             : item.id.startsWith('label-activities')
               ? sectionSlug
-                ? '(Click a measurable activity below to manage its detailed tasks)'
-                : '(Measurable activities for this initiative)'
+                ? showTasksOnlyUnderMeasurable
+                  ? '(Click a detailed task below to manage)'
+                  : '(Click a measurable activity below to manage its detailed tasks)'
+                : showTasksOnlyUnderMeasurable
+                  ? '(Detailed tasks for this initiative)'
+                  : '(Measurable activities for this initiative)'
               : undefined
         return (
           <div className='flex items-baseline gap-2 min-w-0'>
@@ -340,27 +409,30 @@ export function DepartmentContractTree({
         typeof meta?.objIdx === 'number' &&
         typeof meta?.initIdx === 'number' &&
         typeof meta?.actIdx !== 'number'
-      const isActivityRow = isLeaf && typeof meta?.actIdx === 'number'
+      const isTaskRow = Boolean(meta?.isTask)
+      const isMeasurableActivityRow =
+        isLeaf && typeof meta?.actIdx === 'number' && !isTaskRow
+      const isNavigableLeaf = isTaskRow || isMeasurableActivityRow
 
       return (
         <div
-          className={`flex gap-4 min-w-0 ${isActivityRow ? 'items-start' : 'items-center'}`}
+          className={`flex gap-4 min-w-0 ${isNavigableLeaf ? 'items-start' : 'items-center'}`}
         >
           {code && (
             <span
-              className={`font-mono text-xs leading-4 shrink-0 ${isActivityRow ? 'self-start' : ''}`}
+              className={`font-mono text-xs leading-4 shrink-0 ${isNavigableLeaf ? 'self-start' : ''}`}
             >
               {code}
             </span>
           )}
           <div className='flex-1 min-w-0'>
             <div
-              className={`flex gap-1 min-w-0 ${isActivityRow ? 'items-start' : 'items-center'}`}
+              className={`flex gap-1 min-w-0 ${isNavigableLeaf ? 'items-start' : 'items-center'}`}
             >
               <div
-                className={`flex min-w-0 flex-1 gap-1.5 ${isActivityRow ? 'items-start' : 'items-center'}`}
+                className={`flex min-w-0 flex-1 gap-1.5 ${isNavigableLeaf ? 'items-start' : 'items-center'}`}
               >
-                {isActivityRow && sectionSlug && (
+                {isNavigableLeaf && sectionSlug && (
                   <Badge
                     variant='outline'
                     className='shrink-0 px-1.5 py-1 text-[10px] border-primary text-primary font-medium leading-none'
@@ -518,14 +590,20 @@ export function DepartmentContractTree({
                 </>
               )}
             </div>
-            {showActivityAim && meta?.aim && isLeaf && (
+            {showActivityAim && meta?.aim && isMeasurableActivityRow && (
               <p className='text-xs text-muted-foreground mt-0.5'>{meta.aim}</p>
             )}
           </div>
         </div>
       )
     },
-    [openMenu, canManageContract, sectionSlug, showActivityAim],
+    [
+      openMenu,
+      canManageContract,
+      sectionSlug,
+      showActivityAim,
+      showTasksOnlyUnderMeasurable,
+    ],
   )
 
   return (

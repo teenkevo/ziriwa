@@ -24,7 +24,9 @@ import { canCreateSelfServiceDelegation } from '@/lib/role-delegation'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { getDelegationCandidatesForStaff } from '@/lib/section-delegation-candidates.server'
 import { getSectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
+import { getCurrentFinancialYear } from '@/lib/financial-year'
 import { getSupervisorContractForViewer } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract-for-viewer'
+import { getSupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import { getOfficerContractForViewer } from '@/sanity/lib/officer-contracts/get-officer-contract-for-viewer'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
@@ -238,6 +240,17 @@ export async function loadSectionWorkspaceData(
     )
   }
 
+  let supervisorContractForCascade: SupervisorContract | null = null
+  if (usesOfficerContract && supervisors.length > 0) {
+    const fy =
+      officerContract?.financialYearLabel ?? getCurrentFinancialYear().label
+    supervisorContractForCascade = await getSupervisorContract(
+      section._id,
+      supervisors[0]._id,
+      fy,
+    )
+  }
+
   const usesPersonalContract = usesSupervisorContract || usesOfficerContract
   const contractForDue = (usesOfficerContract
     ? officerContract
@@ -279,6 +292,7 @@ export async function loadSectionWorkspaceData(
     section,
     sectionContract,
     supervisorContract,
+    supervisorContractForCascade,
     officerContract,
     stakeholderEngagement,
     staffOptions,

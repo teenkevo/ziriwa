@@ -3,9 +3,13 @@ export type CascadeNodeRole =
   | 'managerKpiAsInitiative'
   | 'managerAimAsMeasurable'
   | 'managerTaskAsTask'
+  | 'supervisorInitiativeAsObjective'
+  | 'supervisorMeasurableAsInitiative'
+  | 'supervisorTaskAsTask'
 
 export interface CascadeSource {
-  sectionContractId: string
+  sectionContractId?: string
+  supervisorContractId?: string
   initiativeKey?: string
   activityKey?: string
   taskKey?: string
@@ -13,9 +17,24 @@ export interface CascadeSource {
   importedFromRevision?: number
 }
 
+export interface CascadeImportActivitySelection {
+  activityKey: string
+  taskKeys: string[]
+}
+
 export interface CascadeImportSelection {
   initiativeKey: string
+  /** Whole-measurable import (manager / supervisor cascade). */
   activityKeys: string[]
+  /** Task-level import (officer cascade); when set, drives import per measurable. */
+  activities?: CascadeImportActivitySelection[]
+}
+
+export interface CascadeKpiTaskOption {
+  taskKey: string
+  title: string
+  canCascade: boolean
+  alreadyImported: boolean
 }
 
 /** Verbatim or AI-accepted text applied during supervisor cascade import. */
@@ -69,6 +88,8 @@ export interface ManagerCascadeKpiOption {
   hasAim: boolean
   canCascade: boolean
   alreadyImported: boolean
+  /** Officer cascade: selectable detailed tasks under this KPI. */
+  tasks?: CascadeKpiTaskOption[]
 }
 
 export interface ManagerCascadeInitiativeOption {
@@ -87,6 +108,13 @@ export interface ManagerCascadeObjectiveOption {
 
 export interface ManagerCascadeOptionsResponse {
   sectionContractId: string
+  financialYearLabel: string
+  cascadeRevision: number
+  objectives: ManagerCascadeObjectiveOption[]
+}
+
+export interface SupervisorCascadeOptionsResponse {
+  supervisorContractId: string
   financialYearLabel: string
   cascadeRevision: number
   objectives: ManagerCascadeObjectiveOption[]

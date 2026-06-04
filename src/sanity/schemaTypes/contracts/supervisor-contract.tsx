@@ -49,6 +49,14 @@ export const supervisorContract = defineType({
       of: [{ type: 'ssmartaObjective' }],
     }),
     defineField({
+      name: 'cascadeRevision',
+      title: 'Cascade revision',
+      type: 'number',
+      description:
+        'Incremented when this contract changes after items were cascaded to officer contracts',
+      initialValue: 0,
+    }),
+    defineField({
       name: 'pendingCascadeUpdate',
       title: 'Pending cascade update',
       type: 'object',

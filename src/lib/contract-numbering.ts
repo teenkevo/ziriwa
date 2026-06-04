@@ -39,7 +39,10 @@ export function resolveActivityNumberingType(
   if (activity.activityType === 'kpi' || activity.activityType === 'cross-cutting') {
     return activity.activityType
   }
-  if (activity.cascadeSource?.nodeRole === 'managerAimAsMeasurable') {
+  if (
+    activity.cascadeSource?.nodeRole === 'managerAimAsMeasurable' ||
+    activity.cascadeSource?.nodeRole === 'supervisorMeasurableAsInitiative'
+  ) {
     return 'kpi'
   }
   return 'measurable'
@@ -56,6 +59,15 @@ export function leadershipActivityNumber(
     return measurableActivityNumber(initiativeNumber, kind, activityOrder)
   }
   return departmentMeasurableActivityNumber(initiativeNumber, activityOrder)
+}
+
+/** Detailed task under an officer MA row (e.g. 1.1.1-MA-a). */
+export function departmentDetailedTaskNumber(
+  initiativeNumber: string,
+  taskOrder: number,
+): string {
+  const letter = LETTERS[taskOrder - 1] ?? String(taskOrder)
+  return `${initiativeNumber}-MA-${letter}`
 }
 
 /** Measurable activity sub-number: CC = a,b,c; KPI = E1,E2 */
