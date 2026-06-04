@@ -1515,31 +1515,7 @@ export function WeeklySprintContent({
                 rows={3}
                 disabled={isSavingExtraTask}
               />
-              <div className='w-[100%] overflow-hidden space-y-1 p-1'>
-                <Label className='text-xs' required>
-                  Activity category
-                </Label>
-                <Select
-                  value={extraTaskDraft.activityCategory || undefined}
-                  onValueChange={v => setExtraTaskField('activityCategory', v)}
-                  disabled={isSavingExtraTask}
-                >
-                  <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
-                    <SelectValue placeholder='Select activity category' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SPRINT_ACTIVITY_CATEGORY_OPTIONS.map(c => (
-                      <SelectItem
-                        key={c.value}
-                        value={c.value}
-                        className='text-xs'
-                      >
-                        {c.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+
               <SprintTaskContractLinkFields
                 task={extraTaskDraft}
                 initiatives={initiatives}

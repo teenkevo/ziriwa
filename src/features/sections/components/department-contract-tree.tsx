@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DotIcon, Loader2, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -23,7 +24,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { TreeView, TreeDataItem } from '@/components/tree-view'
-import { departmentMeasurableActivityNumber } from '@/lib/contract-numbering'
+import {
+  leadershipActivityNumber,
+  resolveActivityNumberingType,
+} from '@/lib/contract-numbering'
 import { contractsApiBase, type ContractsApiResource } from '@/lib/contracts-api'
 import type { DepartmentContract } from '@/sanity/lib/department-contracts/get-department-contract'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
@@ -44,6 +48,8 @@ type LeadershipContract =
 
 interface DepartmentContractTreeProps {
   departmentContract: LeadershipContract
+  /** When set, measurable activity rows navigate to the detailed tasks page. */
+  sectionSlug?: string
   contractsApi?: Extract<
     ContractsApiResource,
     | 'department-contracts'
@@ -72,8 +78,18 @@ const nodeMeta = new Map<
   }
 >()
 
+function contractTreeShowsActivityAim(
+  contractsApi: DepartmentContractTreeProps['contractsApi'],
+): boolean {
+  return (
+    contractsApi === 'department-contracts' ||
+    contractsApi === 'division-contracts'
+  )
+}
+
 function departmentContractToTreeData(
   departmentContract: LeadershipContract,
+  showActivityAim: boolean,
 ): TreeDataItem[] {
   nodeMeta.clear()
   const objectives = departmentContract.objectives ?? []
@@ -116,11 +132,18 @@ function departmentContractToTreeData(
       for (let actIdx = 0; actIdx < activities.length; actIdx++) {
         const act = activities[actIdx]
         if (!act?.title || !String(act.title).trim()) continue
-        const actOrder = actIdx + 1
-        const actNum = departmentMeasurableActivityNumber(initNum, actOrder)
+        const actOrder =
+          activities
+            .slice(0, actIdx)
+            .filter(
+              a =>
+                resolveActivityNumberingType(a) ===
+                resolveActivityNumberingType(act),
+            ).length + 1
+        const actNum = leadershipActivityNumber(initNum, act, actOrder)
         nodeMeta.set(act._key, {
           code: actNum,
-          aim: act.aim,
+          aim: showActivityAim ? act.aim : undefined,
           objIdx,
           initIdx,
           actIdx,
@@ -150,6 +173,7 @@ function departmentContractToTreeData(
 
 export function DepartmentContractTree({
   departmentContract,
+  sectionSlug = '',
   contractsApi = 'department-contracts',
   canManageContract = false,
   expandAllSignal,
@@ -159,6 +183,7 @@ export function DepartmentContractTree({
 }: DepartmentContractTreeProps) {
   const router = useRouter()
   const apiBase = contractsApiBase(contractsApi)
+  const showActivityAim = contractTreeShowsActivityAim(contractsApi)
   const [openMenu, setOpenMenu] = React.useState<string | null>(null)
   const [objectiveDialogOpen, setObjectiveDialogOpen] = React.useState(false)
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
@@ -194,8 +219,8 @@ export function DepartmentContractTree({
   }, [addObjectiveSignal, canManageContract])
 
   const treeData = React.useMemo(
-    () => departmentContractToTreeData(departmentContract),
-    [departmentContract],
+    () => departmentContractToTreeData(departmentContract, showActivityAim),
+    [departmentContract, showActivityAim],
   )
 
   const handleDeleteObjective = React.useCallback(async () => {
@@ -259,7 +284,23 @@ export function DepartmentContractTree({
     }
   }, [deleteInitiative, router, departmentContract._id, apiBase])
 
-  const handleSelectChange = React.useCallback(() => {}, [])
+  const handleSelectChange = React.useCallback(
+    (item: { id: string } | undefined) => {
+      if (!item || !sectionSlug) return
+      const meta = nodeMeta.get(item.id)
+      if (
+        meta &&
+        typeof meta.objIdx === 'number' &&
+        typeof meta.initIdx === 'number' &&
+        typeof meta.actIdx === 'number'
+      ) {
+        router.push(
+          `/sections/${sectionSlug}/activity/${departmentContract._id}/${meta.objIdx}/${meta.initIdx}/${meta.actIdx}`,
+        )
+      }
+    },
+    [sectionSlug, departmentContract._id, router],
+  )
 
   const renderItem = React.useCallback(
     (params: TreeRenderItemParams) => {
@@ -271,7 +312,9 @@ export function DepartmentContractTree({
           : item.id.startsWith('label-initiatives')
             ? '(Click an initiative below to see its measurable activities)'
             : item.id.startsWith('label-activities')
-              ? '(Measurable activities for this initiative)'
+              ? sectionSlug
+                ? '(Click a measurable activity below to manage its detailed tasks)'
+                : '(Measurable activities for this initiative)'
               : undefined
         return (
           <div className='flex items-baseline gap-2 min-w-0'>
@@ -317,7 +360,14 @@ export function DepartmentContractTree({
               <div
                 className={`flex min-w-0 flex-1 gap-1.5 ${isActivityRow ? 'items-start' : 'items-center'}`}
               >
-                
+                {isActivityRow && sectionSlug && (
+                  <Badge
+                    variant='outline'
+                    className='shrink-0 px-1.5 py-1 text-[10px] border-primary text-primary font-medium leading-none'
+                  >
+                    Click to manage
+                  </Badge>
+                )}
                 <p className='text-sm leading-4 truncate'>{item.name}</p>
               </div>
               {isObjectiveRow && canManageContract && (
@@ -468,14 +518,14 @@ export function DepartmentContractTree({
                 </>
               )}
             </div>
-            {meta?.aim && isLeaf && (
+            {showActivityAim && meta?.aim && isLeaf && (
               <p className='text-xs text-muted-foreground mt-0.5'>{meta.aim}</p>
             )}
           </div>
         </div>
       )
     },
-    [openMenu],
+    [openMenu, canManageContract, sectionSlug, showActivityAim],
   )
 
   return (

@@ -29,9 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type { ContractsApiResource } from '@/lib/contracts-api'
+import { contractsApiBase } from '@/lib/contracts-api'
 import {
-  departmentMeasurableActivityNumber,
-  measurableActivityNumber,
+  leadershipActivityNumber,
+  resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
 import {
   getExpectedPeriodsForTask,
@@ -222,6 +224,12 @@ function tasksToPayload(rows: TaskRow[]) {
 interface ActivityPageContentProps {
   section: Section
   sectionContract: SectionContract
+  contractsApi?: Extract<
+    ContractsApiResource,
+    'section-contracts' | 'supervisor-contracts' | 'officer-contracts'
+  >
+  contractBackHref?: string
+  canManageContract?: boolean
   activity: MeasurableActivity
   objectiveIndex: number
   initiativeIndex: number
@@ -235,6 +243,9 @@ interface ActivityPageContentProps {
 export function ActivityPageContent({
   section,
   sectionContract,
+  contractsApi = 'section-contracts',
+  contractBackHref,
+  canManageContract: canManageContractProp,
   activity,
   objectiveIndex,
   initiativeIndex,
@@ -246,32 +257,41 @@ export function ActivityPageContent({
   const router = useRouter()
   const isLg = useIsLg()
   const sectionSlug = section.slug?.current ?? ''
-  const sectionHref = `/sections/${sectionSlug}`
+  const sectionHref =
+    contractBackHref?.trim() ||
+    (sectionSlug ? `/sections/${sectionSlug}` : '/departments')
+  const contractApiBase = contractsApiBase(contractsApi)
 
   const initiativeCode =
     sectionContract.objectives?.[objectiveIndex]?.initiatives?.[initiativeIndex]
       ?.code ??
     `${sectionContract.objectives?.[objectiveIndex]?.code ?? String(objectiveIndex + 1)}.${initiativeIndex + 1}`
+  const initiativeActivities =
+    sectionContract.objectives?.[objectiveIndex]?.initiatives?.[initiativeIndex]
+      ?.measurableActivities ?? []
+  const numberingKind = resolveActivityNumberingType(activity)
   const activityOrder =
-    (
-      sectionContract.objectives?.[objectiveIndex]?.initiatives?.[
-        initiativeIndex
-      ]?.measurableActivities ?? []
-    )
+    initiativeActivities
       .slice(0, activityIndex)
-      .filter(a => a.activityType === activity.activityType).length + 1
-  const activityCode =
-    activity.activityType === 'kpi' ||
-    activity.activityType === 'cross-cutting'
-      ? measurableActivityNumber(
-          initiativeCode,
-          activity.activityType,
-          activityOrder,
-        )
-      : departmentMeasurableActivityNumber(initiativeCode, activityOrder)
+      .filter(a => resolveActivityNumberingType(a) === numberingKind).length + 1
+  const activityCode = leadershipActivityNumber(
+    initiativeCode,
+    activity,
+    activityOrder,
+  )
 
-  const isKPI = activity.activityType === 'kpi'
-  const { canManageContract, canSuperviseDetailedTasks } = sectionAccess
+  /** Manager section contracts only; supervisor/officer contracts have no AIM. */
+  const showActivityAim =
+    contractsApi === 'section-contracts' && numberingKind === 'kpi'
+  const { canSuperviseDetailedTasks } = sectionAccess
+  const canManageContract =
+    canManageContractProp ?? sectionAccess.canManageContract
+  const activityKindLabel =
+    numberingKind === 'kpi'
+      ? 'KPI'
+      : numberingKind === 'cross-cutting'
+        ? 'Cross-cutting'
+        : 'measurable'
 
   const [title, setTitle] = React.useState(activity.title)
   const [aim, setAim] = React.useState(activity.aim ?? '')
@@ -320,7 +340,7 @@ export function ActivityPageContent({
     if (!title.trim()) return
     setIsSavingActivity(true)
     try {
-      const res = await fetch(`/api/section-contracts/${sectionContract._id}`, {
+      const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -362,7 +382,7 @@ export function ActivityPageContent({
   const handleConfirmAim = React.useCallback(async () => {
     setIsSavingActivity(true)
     try {
-      const res = await fetch(`/api/section-contracts/${sectionContract._id}`, {
+      const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -433,7 +453,7 @@ export function ActivityPageContent({
       setIsSavingActivity(true)
       try {
         const res = await fetch(
-          `/api/section-contracts/${sectionContract._id}`,
+          `${contractApiBase}/${sectionContract._id}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -479,7 +499,7 @@ export function ActivityPageContent({
       setIsSavingActivity(true)
       try {
         const res = await fetch(
-          `/api/section-contracts/${sectionContract._id}`,
+          `${contractApiBase}/${sectionContract._id}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -526,7 +546,7 @@ export function ActivityPageContent({
       setIsSavingActivity(true)
       try {
         const res = await fetch(
-          `/api/section-contracts/${sectionContract._id}`,
+          `${contractApiBase}/${sectionContract._id}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -575,7 +595,7 @@ export function ActivityPageContent({
       setIsSavingActivity(true)
       try {
         const res = await fetch(
-          `/api/section-contracts/${sectionContract._id}`,
+          `${contractApiBase}/${sectionContract._id}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -626,7 +646,7 @@ export function ActivityPageContent({
       try {
         const payload = tasksToPayload(tasksToSave)
         const res = await fetch(
-          `/api/section-contracts/${sectionContract._id}`,
+          `${contractApiBase}/${sectionContract._id}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -1500,7 +1520,7 @@ export function ActivityPageContent({
               </h1>
             )}
           </div>
-          {isKPI && (
+          {showActivityAim && (
             <div className='mt-6 max-w-prose'>
               <Label className='text-sm font-medium'>AIM</Label>
               {isEditingAim ? (
@@ -1560,7 +1580,7 @@ export function ActivityPageContent({
             {canSuperviseDetailedTasks ? (
             <div className='flex gap-2'>
               <Input
-                placeholder={`Add a task to this ${isKPI ? 'KPI' : 'Cross-cutting'} measurable activity`}
+                placeholder={`Add a task to this ${activityKindLabel} measurable activity`}
                 value={newTask}
                 onChange={e => setNewTask(e.target.value)}
                 onKeyDown={e =>

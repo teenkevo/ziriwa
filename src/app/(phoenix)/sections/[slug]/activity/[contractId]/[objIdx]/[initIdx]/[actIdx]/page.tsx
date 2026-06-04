@@ -1,10 +1,25 @@
 import { notFound } from 'next/navigation'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
-import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { getOfficersBySection } from '@/sanity/lib/staff/get-staff-by-section'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
 import { getSectionAccessForViewer } from '@/lib/section-access.server'
+import { contractBackHrefForViewer } from '@/lib/contract-activity-back-href'
+import {
+  contractsApiForActivityContract,
+  getActivityFromContract,
+  getContractForActivityPage,
+} from '@/sanity/lib/contracts/get-contract-for-activity'
 import { ActivityPageContent } from '@/features/sections/activity-page-content'
+
+function canManageActivityContract(
+  contractType: 'sectionContract' | 'supervisorContract' | 'officerContract',
+  sectionAccess: Awaited<ReturnType<typeof getSectionAccessForViewer>>,
+): boolean {
+  if (contractType === 'sectionContract') return sectionAccess.canManageContract
+  if (contractType === 'supervisorContract') {
+    return sectionAccess.canManageSupervisorContract
+  }
+  return sectionAccess.canManageOfficerContract
+}
 
 export default async function ActivityPage({
   params,
@@ -39,23 +54,33 @@ export default async function ActivityPage({
   const section = await getSectionBySlug(slug)
   if (!section) notFound()
 
-  const currentFY = getCurrentFinancialYear()
-  const [sectionContract, officers, sectionAccess] = await Promise.all([
-    getSectionContract(section._id, currentFY.label),
+  const [contract, officers, sectionAccess] = await Promise.all([
+    getContractForActivityPage(contractId, section._id),
     getOfficersBySection(section._id),
     getSectionAccessForViewer(section._id),
   ])
-  if (!sectionContract || sectionContract._id !== contractId) notFound()
+  if (!contract) notFound()
 
-  const activity =
-    sectionContract.objectives?.[objIndex]?.initiatives?.[initIndex]
-      ?.measurableActivities?.[actIndex]
+  const activity = getActivityFromContract(
+    contract,
+    objIndex,
+    initIndex,
+    actIndex,
+  )
   if (!activity) notFound()
+
+  const sectionSlug = section.slug?.current ?? ''
 
   return (
     <ActivityPageContent
       section={section}
-      sectionContract={sectionContract}
+      sectionContract={contract}
+      contractsApi={contractsApiForActivityContract(contract._type)}
+      contractBackHref={contractBackHrefForViewer(sectionAccess, sectionSlug)}
+      canManageContract={canManageActivityContract(
+        contract._type,
+        sectionAccess,
+      )}
       activity={activity}
       objectiveIndex={objIndex}
       initiativeIndex={initIndex}

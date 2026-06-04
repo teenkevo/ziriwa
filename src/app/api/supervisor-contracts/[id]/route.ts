@@ -6,6 +6,8 @@ import {
   remapInitiativeCodeForObjectiveRename,
 } from '@/lib/contract-code-validation'
 import { audit } from '@/lib/audit-log/events'
+import { patchContractActivityTasks } from '@/lib/patch-contract-activity-tasks'
+import { getSectionAccessForViewer } from '@/lib/section-access.server'
 import {
   assertSupervisorContractManageAllowed,
   getSectionIdFromSupervisorContract,
@@ -36,14 +38,27 @@ export async function PATCH(
     if (!sectionId) {
       return NextResponse.json({ error: 'Contract not found' }, { status: 404 })
     }
-    const contractOpDenied =
-      await assertSupervisorContractManageAllowed(sectionId)
-    if (contractOpDenied) return contractOpDenied
 
     const contractLabel = await client.fetch<string | null>(
       `coalesce(*[_type == "supervisorContract" && _id == $id][0].financialYearLabel, "Supervisor contract")`,
       { id },
     )
+
+    if (op === 'updateActivityTasks') {
+      const access = await getSectionAccessForViewer(sectionId)
+      return patchContractActivityTasks({
+        contractType: 'supervisorContract',
+        contractId: id,
+        sectionId,
+        contractLabel,
+        access,
+        payload,
+      })
+    }
+
+    const contractOpDenied =
+      await assertSupervisorContractManageAllowed(sectionId)
+    if (contractOpDenied) return contractOpDenied
 
     if (op === 'updateObjective') {
       const { objectiveIndex, code, title } = payload
@@ -498,10 +513,7 @@ export async function PATCH(
       if (title !== undefined && typeof title === 'string') {
         setPayload[`${basePath}.title`] = title.trim()
       }
-      if (aim !== undefined) {
-        setPayload[`${basePath}.aim`] =
-          typeof aim === 'string' ? aim.trim() : undefined
-      }
+      // Supervisors do not have AIM on measurable activities (manager KPI AIM becomes title).
       if (targetDate !== undefined) {
         setPayload[`${basePath}.targetDate`] = targetDate || undefined
       }

@@ -549,6 +549,7 @@ export function SectionPageContent({
                         departmentContract={
                           activeContract as SupervisorContract | OfficerContract
                         }
+                        sectionSlug={section.slug?.current ?? ''}
                         contractsApi={
                           leadershipContractsApi as
                             | 'supervisor-contracts'

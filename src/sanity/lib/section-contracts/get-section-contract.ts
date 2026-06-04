@@ -119,6 +119,7 @@ export type MeasurableActivity = {
   reportingFrequency?: 'weekly' | 'monthly' | 'quarterly' | 'n/a'
   evidence?: { asset?: { url?: string } }[]
   tasks?: (DetailedTask | string)[]
+  cascadeSource?: { nodeRole?: string }
 }
 
 export type ContractInitiative = {

@@ -52,6 +52,7 @@ export async function getOfficerContract(
             targetDate,
             status,
             "reportingFrequency": coalesce(reportingFrequency, "n/a"),
+            cascadeSource { nodeRole },
           },
         },
       },

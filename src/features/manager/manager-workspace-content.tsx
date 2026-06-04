@@ -323,6 +323,7 @@ export function ManagerWorkspaceContent({
                     departmentContract={
                       activeContract as SupervisorContract | OfficerContract
                     }
+                    sectionSlug={section.slug?.current ?? ''}
                     contractsApi={leadershipContractsApi}
                     canManageContract={canManageActiveContract}
                     expandAllSignal={expandAllSignal}
