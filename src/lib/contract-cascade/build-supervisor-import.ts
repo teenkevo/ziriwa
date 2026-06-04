@@ -58,6 +58,11 @@ function taskText(task: DetailedTask | string): string {
   return task.task?.trim() ?? ''
 }
 
+function resolveManagerTaskKey(raw: DetailedTask | string, index: number): string {
+  if (typeof raw !== 'string' && raw._key) return raw._key
+  return `idx-${index}`
+}
+
 function copyManagerTasks(
   tasks: (DetailedTask | string)[] | undefined,
   sectionContractId: string,
@@ -65,11 +70,10 @@ function copyManagerTasks(
   revision: number,
 ): SupervisorTask[] {
   const out: SupervisorTask[] = []
-  for (const raw of tasks ?? []) {
+  for (const [index, raw] of (tasks ?? []).entries()) {
     const text = taskText(raw)
     if (!text) continue
-    const managerKey =
-      typeof raw === 'string' ? undefined : raw._key
+    const managerKey = resolveManagerTaskKey(raw, index)
     out.push({
       _type: 'detailedTask',
       _key: crypto.randomUUID(),

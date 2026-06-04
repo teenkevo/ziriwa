@@ -5,7 +5,8 @@ type TaskSnapshot = {
   _key?: string
   task?: string
   priority?: string
-  assignee?: string | null
+  cascadeKind?: string | null
+  assignee?: string | { _ref?: string } | null
   status?: string
   targetDate?: string
   reportingFrequency?: string
@@ -50,6 +51,15 @@ function taskKey(task: TaskSnapshot, index: number): string {
   return task._key ?? `idx-${index}`
 }
 
+function assigneeId(task: TaskSnapshot): string | null {
+  const assignee = task.assignee
+  if (typeof assignee === 'string') return assignee
+  if (assignee && typeof assignee === 'object' && assignee._ref) {
+    return assignee._ref
+  }
+  return null
+}
+
 function stableJson(value: unknown): string {
   return JSON.stringify(value ?? null)
 }
@@ -67,14 +77,10 @@ function isAssigneeContentOnlyChange(
   after: TaskSnapshot,
   viewerStaffId: string,
 ): boolean {
-  const assigneeId =
-    typeof after.assignee === 'string'
-      ? after.assignee
-      : typeof before.assignee === 'string'
-        ? before.assignee
-        : null
+  const afterAssigneeId = assigneeId(after)
+  const beforeAssigneeId = assigneeId(before)
 
-  if (assigneeId !== viewerStaffId) return false
+  if (afterAssigneeId !== viewerStaffId) return false
 
   if (
     fieldsChanged(before, after, ['priority', 'assignee', ...PLANNING_FIELDS])
@@ -111,6 +117,13 @@ function assertTaskPairAllowed(
   before: TaskSnapshot,
   after: TaskSnapshot,
 ): string | null {
+  if (
+    before.cascadeKind === 'cascaded' &&
+    assigneeId(before) !== assigneeId(after)
+  ) {
+    return 'Assignee is locked for cascaded tasks'
+  }
+
   if (
     fieldsChanged(before, after, PLANNING_FIELDS) &&
     !access.canSuperviseDetailedTasks
@@ -188,12 +201,7 @@ export function assertActivityTasksUpdateAllowed(
     if (!afterTasks.some((t, j) => taskKey(t, j) === key)) {
       if (
         !access.viewerStaffId ||
-        !canSubmitDetailedTaskWork(
-          access,
-          typeof beforeTasks[i]?.assignee === 'string'
-            ? beforeTasks[i]?.assignee
-            : null,
-        )
+        !canSubmitDetailedTaskWork(access, assigneeId(beforeTasks[i]!))
       ) {
         return 'Only supervisors can add or remove detailed tasks'
       }

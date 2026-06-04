@@ -67,7 +67,13 @@ import {
 import { cn } from '@/lib/utils'
 import { OfficerSwitcher, type Officer } from './officer-switcher'
 import { PeriodDeliverableTabs } from './period-deliverable-tabs'
-import { hasOfficerContent, type TaskRow } from './detailed-tasks-table'
+import {
+  canEditTaskAssignee,
+  formatAssigneeDisplay,
+  hasOfficerContent,
+  type ContractOfficer,
+  type TaskRow,
+} from './detailed-tasks-table'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -125,6 +131,7 @@ interface TaskDetailsPanelProps {
   isSaving: boolean
   canManageContract?: boolean
   canSuperviseDetailedTasks?: boolean
+  contractOfficer?: ContractOfficer | null
   canSubmitTaskWork?: boolean
 }
 
@@ -135,6 +142,7 @@ export function TaskDetailsPanel({
   activityType,
   canManageContract = false,
   canSuperviseDetailedTasks = false,
+  contractOfficer = null,
   canSubmitTaskWork = false,
   onUpdate,
   onAddInputs,
@@ -211,7 +219,9 @@ export function TaskDetailsPanel({
   const isKPI = activityType === 'kpi'
   const isDone = (task?.status ?? '') === 'done'
   const taskConfigLocked = task ? hasOfficerContent(task) : false
-  const assigneeLocked = taskConfigLocked || !canSuperviseDetailedTasks
+  const canEditAssignee = task
+    ? canEditTaskAssignee(task, canSuperviseDetailedTasks)
+    : false
   const priorityLocked = !canSuperviseDetailedTasks
   const planningLocked = taskConfigLocked || !canSuperviseDetailedTasks
   const expectedDeliverableSet = !!task?.expectedDeliverable?.trim()
@@ -551,14 +561,20 @@ export function TaskDetailsPanel({
         <div>
           <Label className='text-xs text-muted-foreground'>Assignee</Label>
           <div className='mt-1'>
-            <OfficerSwitcher
-              officers={officers}
-              value={task.assignee}
-              onChange={id => onUpdate({ assignee: id })}
-              disabled={isSaving || isDone || assigneeLocked}
-              placeholder='Select officer'
-              sectionId={sectionId}
-            />
+            {canEditAssignee ? (
+              <OfficerSwitcher
+                officers={officers}
+                value={task.assignee}
+                onChange={id => onUpdate({ assignee: id })}
+                disabled={isSaving || isDone}
+                placeholder='Select officer'
+                sectionId={sectionId}
+              />
+            ) : (
+              <p className='text-sm text-muted-foreground'>
+                {formatAssigneeDisplay(task, officers, contractOfficer)}
+              </p>
+            )}
           </div>
         </div>
 

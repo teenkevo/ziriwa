@@ -16,6 +16,8 @@ export type ActivityPageContractType =
 
 export type ActivityPageContract = Pick<SectionContract, '_id' | 'objectives'> & {
   _type: ActivityPageContractType
+  /** Present on officer contracts — default assignee for cascaded detailed tasks. */
+  officer?: { _id: string; fullName?: string; staffId?: string }
 }
 
 type ActivityContractsApi = Extract<
@@ -48,6 +50,11 @@ export async function getContractForActivityPage(
     ][0] {
       _id,
       _type,
+      officer->{
+        _id,
+        "fullName": coalesce(fullName, firstName + " " + lastName),
+        staffId,
+      },
       objectives[] {
         _key,
         code,

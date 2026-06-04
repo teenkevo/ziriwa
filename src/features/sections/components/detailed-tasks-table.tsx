@@ -168,6 +168,11 @@ export type TaskRow = {
   task: string
   priority: string
   assignee: string | null
+  /** From Sanity assignee projection when roster lookup is unavailable. */
+  assigneeName?: string | null
+  /** Officer who took this task via cascade (supervisor contract view). */
+  officerCascadeAssignee?: OfficerCascadeAssignee | null
+  cascadeKind?: string | null
   inputs?: TaskInputs
   inputsReviewThread?: InputsReviewEntry[]
   deliverableReviewThread?: DeliverableReviewEntry[]
@@ -178,6 +183,106 @@ export type TaskRow = {
   reportingPeriodStart?: string
   periodDeliverables?: PeriodDeliverable[]
   deliverable?: DeliverableItem[]
+}
+
+export function isCascadedDetailedTask(task: Pick<TaskRow, 'cascadeKind'>): boolean {
+  return task.cascadeKind === 'cascaded'
+}
+
+/** Locks assignee (cascaded ownership or work already started). */
+export function isAssigneeLocked(task: TaskRow): boolean {
+  return isCascadedDetailedTask(task) || hasOfficerContent(task)
+}
+
+export interface ContractOfficer {
+  _id: string
+  fullName?: string
+  staffId?: string
+}
+
+export interface OfficerCascadeAssignee {
+  assigneeId: string
+  assigneeName: string
+}
+
+/** Fills assignee on cascaded tasks when the task reference was not stored yet. */
+/** Resolve assignee mirrored from downstream contracts (supervisor or manager KPI page). */
+export function enrichTasksWithDownstreamAssignees(
+  rows: TaskRow[],
+  lookup?: Record<string, OfficerCascadeAssignee> | null,
+): TaskRow[] {
+  if (!lookup || Object.keys(lookup).length === 0) return rows
+  return rows.map(row => {
+    const key = row._key
+    if (!key) return row
+    const match = lookup[key]
+    if (!match) return row
+    return {
+      ...row,
+      assignee: row.assignee ?? match.assigneeId,
+      assigneeName: row.assigneeName ?? match.assigneeName,
+      officerCascadeAssignee: match,
+    }
+  })
+}
+
+/** @deprecated Use enrichTasksWithDownstreamAssignees */
+export const enrichSupervisorTasksWithOfficerAssignees =
+  enrichTasksWithDownstreamAssignees
+
+export function enrichTaskRowsWithContractOfficer(
+  rows: TaskRow[],
+  contractOfficer?: ContractOfficer | null,
+): TaskRow[] {
+  if (!contractOfficer?._id) return rows
+  return rows.map(row => {
+    if (!isCascadedDetailedTask(row)) return row
+    const assignee = row.assignee ?? contractOfficer._id
+    const assigneeName =
+      row.assigneeName ??
+      (assignee === contractOfficer._id ? contractOfficer.fullName : undefined) ??
+      null
+    if (row.assignee === assignee && row.assigneeName === assigneeName) return row
+    return { ...row, assignee, assigneeName }
+  })
+}
+
+export function formatAssigneeDisplay(
+  task: Pick<
+    TaskRow,
+    'assignee' | 'assigneeName' | 'cascadeKind' | 'officerCascadeAssignee'
+  >,
+  officers: Officer[],
+  contractOfficer?: ContractOfficer | null,
+): string {
+  if (task.officerCascadeAssignee) {
+    const mirrored = task.officerCascadeAssignee
+    return (
+      officers.find(o => o._id === mirrored.assigneeId)?.fullName ??
+      mirrored.assigneeName ??
+      '—'
+    )
+  }
+  const assigneeId =
+    task.assignee ??
+    (isCascadedDetailedTask(task as TaskRow) ? contractOfficer?._id : undefined)
+  if (!assigneeId && !task.assigneeName?.trim()) return '—'
+  return (
+    officers.find(o => o._id === assigneeId)?.fullName ??
+    (assigneeId === contractOfficer?._id
+      ? contractOfficer?.fullName
+      : undefined) ??
+    task.assigneeName?.trim() ??
+    '—'
+  )
+}
+
+export function canEditTaskAssignee(
+  task: TaskRow,
+  canSuperviseDetailedTasks: boolean,
+): boolean {
+  if (task.officerCascadeAssignee) return false
+  return canSuperviseDetailedTasks && !isAssigneeLocked(task)
 }
 
 /** True when inputs or any deliverables (one-off or period) exist. Locks assignee and task config. */
@@ -203,6 +308,7 @@ interface DetailedTasksTableProps {
   onRemoveTask: (key: string) => void | Promise<void>
   isSaving: boolean
   canSuperviseDetailedTasks?: boolean
+  contractOfficer?: ContractOfficer | null
 }
 
 export function DetailedTasksTable({
@@ -215,6 +321,7 @@ export function DetailedTasksTable({
   onRemoveTask,
   isSaving,
   canSuperviseDetailedTasks = false,
+  contractOfficer = null,
 }: DetailedTasksTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -271,7 +378,17 @@ export function DetailedTasksTable({
           <DataTableColumnHeader column={column} title='Assignee' />
         ),
         cell: ({ row }) => {
-          const assigneeLocked = hasOfficerContent(row.original)
+          const canEditAssignee = canEditTaskAssignee(
+            row.original,
+            canSuperviseDetailedTasks,
+          )
+          if (!canEditAssignee) {
+            return (
+              <span className='text-xs text-muted-foreground'>
+                {formatAssigneeDisplay(row.original, officers, contractOfficer)}
+              </span>
+            )
+          }
           return (
             <div onClick={e => e.stopPropagation()}>
               <OfficerSwitcher
@@ -280,9 +397,7 @@ export function DetailedTasksTable({
                 onChange={id =>
                   onUpdateTask(row.original._key ?? '', { assignee: id })
                 }
-                disabled={
-                  isSaving || assigneeLocked || !canSuperviseDetailedTasks
-                }
+                disabled={isSaving}
                 placeholder='Select officer'
                 sectionId={sectionId}
                 compact
@@ -290,10 +405,7 @@ export function DetailedTasksTable({
             </div>
           )
         },
-        accessorFn: row => {
-          const o = officers.find(x => x._id === row.assignee)
-          return o?.fullName ?? ''
-        },
+        accessorFn: row => formatAssigneeDisplay(row, officers, contractOfficer),
       },
       {
         accessorKey: 'status',
@@ -402,6 +514,7 @@ export function DetailedTasksTable({
       onRemoveTask,
       isSaving,
       canSuperviseDetailedTasks,
+      contractOfficer,
       selectedTaskKey,
       onSelectTask,
     ],

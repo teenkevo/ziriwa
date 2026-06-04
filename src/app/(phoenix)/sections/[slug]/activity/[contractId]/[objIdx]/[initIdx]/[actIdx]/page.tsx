@@ -8,6 +8,14 @@ import {
   getActivityFromContract,
   getContractForActivityPage,
 } from '@/sanity/lib/contracts/get-contract-for-activity'
+import {
+  backfillManagerActivityAssigneesFromDownstream,
+  getManagerTaskAssigneesFromDownstream,
+} from '@/lib/contract-cascade/resolve-manager-task-assignees.server'
+import {
+  backfillSupervisorActivityAssigneesFromOfficers,
+  getSupervisorTaskAssigneesFromOfficerContracts,
+} from '@/lib/contract-cascade/resolve-supervisor-task-assignees.server'
 import { ActivityPageContent } from '@/features/sections/activity-page-content'
 
 function canManageActivityContract(
@@ -69,6 +77,66 @@ export default async function ActivityPage({
   )
   if (!activity) notFound()
 
+  let downstreamTaskAssignees:
+    | Record<string, { assigneeId: string; assigneeName: string }>
+    | undefined
+
+  if (activity._key) {
+    if (contract._type === 'supervisorContract') {
+      downstreamTaskAssignees =
+        await getSupervisorTaskAssigneesFromOfficerContracts(
+          section._id,
+          contract._id,
+          activity._key,
+        )
+      const hasMirroredAssignee = (activity.tasks ?? []).some(t => {
+        if (typeof t === 'string') return false
+        return Boolean(t.assignee?._id)
+      })
+      if (
+        !hasMirroredAssignee &&
+        Object.keys(downstreamTaskAssignees).length > 0
+      ) {
+        await backfillSupervisorActivityAssigneesFromOfficers(
+          section._id,
+          contract._id,
+          activity._key,
+        )
+        downstreamTaskAssignees =
+          await getSupervisorTaskAssigneesFromOfficerContracts(
+            section._id,
+            contract._id,
+            activity._key,
+          )
+      }
+    } else if (contract._type === 'sectionContract') {
+      downstreamTaskAssignees = await getManagerTaskAssigneesFromDownstream(
+        section._id,
+        contract._id,
+        activity._key,
+      )
+      const hasMirroredAssignee = (activity.tasks ?? []).some(t => {
+        if (typeof t === 'string') return false
+        return Boolean(t.assignee?._id)
+      })
+      if (
+        !hasMirroredAssignee &&
+        Object.keys(downstreamTaskAssignees).length > 0
+      ) {
+        await backfillManagerActivityAssigneesFromDownstream(
+          section._id,
+          contract._id,
+          activity._key,
+        )
+        downstreamTaskAssignees = await getManagerTaskAssigneesFromDownstream(
+          section._id,
+          contract._id,
+          activity._key,
+        )
+      }
+    }
+  }
+
   const sectionSlug = section.slug?.current ?? ''
 
   return (
@@ -88,6 +156,7 @@ export default async function ActivityPage({
       officers={officers}
       sectionAccess={sectionAccess}
       initialTaskKey={initialTaskKey}
+      downstreamTaskAssignees={downstreamTaskAssignees}
     />
   )
 }

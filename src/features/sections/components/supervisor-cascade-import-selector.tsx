@@ -157,7 +157,11 @@ export function SupervisorCascadeImportSelector({
     for (const obj of options.objectives) {
       for (const init of obj.initiatives) {
         for (const kpi of init.kpis) {
-          if (selectedActivityKeys.has(kpi.activityKey) && !kpi.canCascade) {
+          if (
+            selectedActivityKeys.has(kpi.activityKey) &&
+            !kpi.canCascade &&
+            !kpi.alreadyImported
+          ) {
             out.push({ activityKey: kpi.activityKey, title: kpi.title })
           }
         }
@@ -297,8 +301,11 @@ export function SupervisorCascadeImportSelector({
                 <ul className='space-y-6'>
                   {init.kpis.map(kpi => {
                     const isSelected = selectedActivityKeys.has(kpi.activityKey)
-                    const isBlockedSelection = isSelected && !kpi.canCascade
-                    const checkboxDisabled = disabled || kpi.alreadyImported
+                    const isBlockedSelection =
+                      isSelected && !kpi.canCascade && !kpi.alreadyImported
+                    const isAlreadyOnContract = kpi.alreadyImported
+                    const checkboxDisabled = disabled || isAlreadyOnContract
+                    const isCheckboxChecked = isSelected || isAlreadyOnContract
 
                     return (
                       <li
@@ -307,12 +314,11 @@ export function SupervisorCascadeImportSelector({
                           'flex gap-3 rounded-md border p-2',
                           isBlockedSelection &&
                             'border-destructive/50 bg-destructive/5',
-                          kpi.alreadyImported && 'opacity-60',
                         )}
                       >
                         <Checkbox
                           id={`cascade-kpi-${kpi.activityKey}`}
-                          checked={isSelected}
+                          checked={isCheckboxChecked}
                           disabled={checkboxDisabled}
                           onCheckedChange={() => toggleKpi(kpi.activityKey)}
                           className='mt-0.5'
@@ -339,11 +345,11 @@ export function SupervisorCascadeImportSelector({
                               No AIM — cannot cascade until manager adds one
                             </p>
                           )}
-                          {kpi.alreadyImported && (
-                            <p className='text-xs text-muted-foreground'>
+                          {isAlreadyOnContract ? (
+                            <p className='text-xs text-orange-600 dark:text-orange-400'>
                               Already on your contract
                             </p>
-                          )}
+                          ) : null}
                           {isBlockedSelection && (
                             <p className='text-xs text-destructive font-medium'>
                               Blocked from cascade — deselect or ask manager to

@@ -95,6 +95,7 @@ export type DetailedTask = {
   _key?: string
   task: string
   priority?: string
+  cascadeKind?: string
   assignee?: { _id: string; fullName?: string; staffId?: string }
   inputs?: TaskInputs
   inputsReviewThread?: InputsReviewEntry[]

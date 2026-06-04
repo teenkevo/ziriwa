@@ -40,10 +40,19 @@ type OfficerTask = DetailedTask & {
 export interface BuildOfficerImportInput {
   supervisorObjectives: SsmartaObjective[]
   supervisorContractId: string
+  officerStaffId: string
   cascadeRevision: number
   selections: CascadeImportSelection[]
   existingObjectives: OfficerObjective[]
   rewrites?: Record<string, CascadeActivityRewrite>
+}
+
+/** Sanity reference when writing cascaded tasks (read back as assignee->{ _id }). */
+function officerTaskAssignee(officerStaffId: string): DetailedTask['assignee'] {
+  return {
+    _type: 'reference',
+    _ref: officerStaffId,
+  } as unknown as DetailedTask['assignee']
 }
 
 export interface BuildOfficerImportResult {
@@ -69,6 +78,7 @@ function resolveSupervisorTaskKey(
 function copySupervisorTasks(
   tasks: (DetailedTask | string)[] | undefined,
   supervisorContractId: string,
+  officerStaffId: string,
   activityKey: string,
   revision: number,
   selectedTaskKeys: Set<string>,
@@ -92,6 +102,7 @@ function copySupervisorTasks(
         typeof raw === 'string' ? undefined : raw.expectedDeliverable,
       reportingPeriodStart:
         typeof raw === 'string' ? undefined : raw.reportingPeriodStart,
+      assignee: officerTaskAssignee(officerStaffId),
       cascadeKind: 'cascaded',
       cascadeSource: buildCascadeSource(
         {
@@ -110,6 +121,7 @@ function copySupervisorTasks(
 function copyRewriteTasks(
   tasks: string[],
   supervisorContractId: string,
+  officerStaffId: string,
   activityKey: string,
   revision: number,
 ): OfficerTask[] {
@@ -120,6 +132,7 @@ function copyRewriteTasks(
     priority: 'medium',
     status: 'to_do',
     reportingFrequency: 'n/a',
+    assignee: officerTaskAssignee(officerStaffId),
     cascadeKind: 'cascaded',
     cascadeSource: buildCascadeSource(
       {
@@ -156,6 +169,7 @@ function resolveOfficerTasks(
   rewrite: CascadeActivityRewrite | undefined,
   supervisorTasks: (DetailedTask | string)[] | undefined,
   supervisorContractId: string,
+  officerStaffId: string,
   activityKey: string,
   revision: number,
   selectedTaskKeys: Set<string>,
@@ -164,6 +178,7 @@ function resolveOfficerTasks(
     return copyRewriteTasks(
       rewrite.tasks,
       supervisorContractId,
+      officerStaffId,
       activityKey,
       revision,
     )
@@ -171,6 +186,7 @@ function resolveOfficerTasks(
   return copySupervisorTasks(
     supervisorTasks,
     supervisorContractId,
+    officerStaffId,
     activityKey,
     revision,
     selectedTaskKeys,
@@ -240,6 +256,7 @@ export function buildOfficerImport(
   const {
     supervisorObjectives,
     supervisorContractId,
+    officerStaffId,
     cascadeRevision,
     selections,
     existingObjectives,
@@ -303,6 +320,7 @@ export function buildOfficerImport(
           rewrite,
           supervisorMeasurable.tasks,
           supervisorContractId,
+          officerStaffId,
           activityKey,
           cascadeRevision,
           selectedTaskKeys,
@@ -343,6 +361,7 @@ export function buildOfficerImport(
         rewrite,
         supervisorMeasurable.tasks,
         supervisorContractId,
+        officerStaffId,
         activityKey,
         cascadeRevision,
         selectedTaskKeys,

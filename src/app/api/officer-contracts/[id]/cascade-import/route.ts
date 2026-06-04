@@ -7,6 +7,8 @@ import {
   OfficerCascadeImportContextError,
   loadOfficerCascadeImportContext,
 } from '@/lib/contract-cascade/load-officer-cascade-import-context.server'
+import { syncManagerTaskAssigneesFromOfficerCascade } from '@/lib/contract-cascade/resolve-manager-task-assignees.server'
+import { syncSupervisorTaskAssigneesFromOfficerCascade } from '@/lib/contract-cascade/resolve-supervisor-task-assignees.server'
 import { writeClient } from '@/sanity/lib/write-client'
 
 /**
@@ -60,6 +62,7 @@ export async function POST(
       buildOfficerImport({
       supervisorObjectives: context.supervisorObjectives,
       supervisorContractId: context.supervisorContractId,
+      officerStaffId: context.officerStaffId,
       cascadeRevision: context.cascadeRevision,
       selections,
       existingObjectives: context.officerObjectives,
@@ -77,6 +80,18 @@ export async function POST(
     }
 
     await writeClient.patch(officerContractId).set({ objectives }).commit()
+
+    await syncSupervisorTaskAssigneesFromOfficerCascade(
+      context.supervisorContractId,
+      context.officerStaffId,
+      selections,
+    )
+
+    await syncManagerTaskAssigneesFromOfficerCascade(
+      context.supervisorContractId,
+      context.officerStaffId,
+      selections,
+    )
 
     return NextResponse.json({
       ok: true,

@@ -13,6 +13,7 @@ export const MEASURABLE_ACTIVITIES_WITH_TASKS_PROJECTION = /* groq */ `
     evidence,
     tasks[] | {
       _key,
+      cascadeKind,
       "task": coalesce(task, @),
       "priority": coalesce(priority, "medium"),
       "assignee": select(defined(assignee) => assignee->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName), staffId }, null),

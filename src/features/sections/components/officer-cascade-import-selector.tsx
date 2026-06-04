@@ -257,18 +257,9 @@ export function OfficerCascadeImportSelector({
               <ul className='space-y-3'>
                 {init.kpis.map(kpi => {
                   const tasks = kpi.tasks ?? []
-                  const allTasksImported =
-                    tasks.length > 0 &&
-                    tasks.every(task => task.alreadyImported)
 
                   return (
-                    <li
-                      key={kpi.activityKey}
-                      className={cn(
-                        'space-y-3',
-                        allTasksImported && 'opacity-60',
-                      )}
-                    >
+                    <li key={kpi.activityKey} className='space-y-3'>
                       <p className='text-xs font-medium leading-normal'>
                         KPI:{' '}
                         <span className='font-normal text-muted-foreground'>
@@ -290,14 +281,17 @@ export function OfficerCascadeImportSelector({
                               task.taskKey,
                             )
                             const isSelected = selectedTaskIds.has(id)
+                            const isAlreadyOnContract = task.alreadyImported
                             const checkboxDisabled =
                               disabled || !task.canCascade
+                            const isCheckboxChecked =
+                              isSelected || isAlreadyOnContract
 
                             return (
                               <li key={id} className='flex items-start gap-2'>
                                 <Checkbox
                                   id={`officer-cascade-task-${id}`}
-                                  checked={isSelected}
+                                  checked={isCheckboxChecked}
                                   disabled={checkboxDisabled}
                                   onCheckedChange={() => toggleTask(id)}
                                   className='mt-0.5'
@@ -308,13 +302,16 @@ export function OfficerCascadeImportSelector({
                                     className={cn(
                                       'block text-xs font-normal leading-tight cursor-pointer',
                                       checkboxDisabled &&
-                                        'cursor-not-allowed opacity-70',
+                                        'cursor-not-allowed',
+                                      checkboxDisabled &&
+                                        !isAlreadyOnContract &&
+                                        'opacity-70',
                                     )}
                                   >
                                     {task.title}
                                   </Label>
-                                  {task.alreadyImported ? (
-                                    <p className='text-xs text-muted-foreground'>
+                                  {isAlreadyOnContract ? (
+                                    <p className='text-xs text-orange-600 dark:text-orange-400'>
                                       Already on your contract
                                     </p>
                                   ) : null}

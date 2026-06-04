@@ -2,6 +2,7 @@ import { buildOfficerCascadeRewriteContexts } from '@/lib/contract-cascade/extra
 import type { CascadeImportSelection } from '@/lib/contract-cascade/types'
 import {
   canManageOfficerContract,
+  getOfficerStaffIdFromContract,
   getSectionIdFromOfficerContract,
 } from '@/lib/officer-contract-access.server'
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
@@ -20,6 +21,7 @@ export class OfficerCascadeImportContextError extends Error {
 export interface OfficerCascadeImportContext {
   sectionId: string
   officerContractId: string
+  officerStaffId: string
   supervisorContractId: string
   cascadeRevision: number
   supervisorObjectives: SsmartaObjective[]
@@ -57,6 +59,14 @@ export async function loadOfficerCascadeImportContext(
   )
   if (!officerDoc?.financialYearLabel) {
     throw new OfficerCascadeImportContextError('Contract not found', 404)
+  }
+
+  const officerStaffId = await getOfficerStaffIdFromContract(officerContractId)
+  if (!officerStaffId) {
+    throw new OfficerCascadeImportContextError(
+      'Officer contract has no assigned officer',
+      400,
+    )
   }
 
   const supervisorContractId =
@@ -114,6 +124,7 @@ export async function loadOfficerCascadeImportContext(
   return {
     sectionId,
     officerContractId,
+    officerStaffId,
     supervisorContractId,
     cascadeRevision,
     supervisorObjectives: supervisorDoc.objectives ?? [],

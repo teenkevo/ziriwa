@@ -49,6 +49,14 @@ export async function patchContractActivityTasks(
     )
   }
 
+  const contractOfficerId =
+    contractType === 'officerContract'
+      ? await client.fetch<string | null>(
+          /* groq */ `*[_type == "officerContract" && _id == $id][0].officer._ref`,
+          { id: contractId },
+        )
+      : null
+
   const currentTasks =
     (await writeClient.fetch<unknown[] | null>(
       /* groq */ `*[_type == $contractType && _id == $id][0].objectives[$objIdx].initiatives[$initIdx].measurableActivities[$actIdx].tasks`,
@@ -60,6 +68,17 @@ export async function patchContractActivityTasks(
         actIdx: activityIndex,
       },
     )) ?? []
+
+  const storedTaskByKey = new Map<string, Record<string, unknown>>()
+  for (let i = 0; i < currentTasks.length; i++) {
+    const row = currentTasks[i]
+    if (!row || typeof row !== 'object') continue
+    const key =
+      '_key' in row && typeof (row as { _key?: string })._key === 'string'
+        ? (row as { _key: string })._key
+        : `idx-${i}`
+    storedTaskByKey.set(key, row as Record<string, unknown>)
+  }
 
   const tasksAuthError = assertActivityTasksUpdateAllowed(
     access,
@@ -291,7 +310,29 @@ export async function patchContractActivityTasks(
             )
             .filter(Boolean)
         }
-        if (obj.assignee && typeof obj.assignee === 'string') {
+        const stored = obj._key ? storedTaskByKey.get(obj._key) : undefined
+        if (stored?.cascadeKind === 'cascaded') {
+          task.cascadeKind = 'cascaded'
+          const storedAssignee = stored.assignee
+          let assigneeRef: string | null = null
+          if (
+            storedAssignee &&
+            typeof storedAssignee === 'object' &&
+            '_ref' in storedAssignee &&
+            typeof (storedAssignee as { _ref?: string })._ref === 'string'
+          ) {
+            assigneeRef = (storedAssignee as { _ref: string })._ref
+          }
+          if (!assigneeRef && typeof obj.assignee === 'string') {
+            assigneeRef = obj.assignee
+          }
+          if (!assigneeRef && contractOfficerId) {
+            assigneeRef = contractOfficerId
+          }
+          if (assigneeRef) {
+            task.assignee = { _type: 'reference', _ref: assigneeRef }
+          }
+        } else if (obj.assignee && typeof obj.assignee === 'string') {
           task.assignee = { _type: 'reference', _ref: obj.assignee }
         }
         if (Array.isArray(obj.deliverable)) {

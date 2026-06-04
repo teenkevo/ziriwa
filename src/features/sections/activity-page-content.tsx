@@ -58,6 +58,10 @@ import type { MeasurableActivity } from '@/sanity/lib/section-contracts/get-sect
 import type { Officer } from '@/features/sections/components/officer-switcher'
 import {
   DetailedTasksTable,
+  enrichTasksWithDownstreamAssignees,
+  enrichTaskRowsWithContractOfficer,
+  type ContractOfficer,
+  type OfficerCascadeAssignee,
   type TaskRow,
 } from '@/features/sections/components/detailed-tasks-table'
 import { TaskDetailsPanel } from '@/features/sections/components/task-details-panel'
@@ -97,6 +101,8 @@ function normalizeTasks(
         task: t,
         priority: 'medium',
         assignee: null,
+        assigneeName: null,
+        cascadeKind: null,
         status: 'to_do',
         targetDate: undefined,
         reportingFrequency: 'n/a' as const,
@@ -111,6 +117,8 @@ function normalizeTasks(
       task: t.task ?? '',
       priority: t.priority ?? 'medium',
       assignee: t.assignee?._id ?? null,
+      assigneeName: t.assignee?.fullName ?? null,
+      cascadeKind: t.cascadeKind ?? null,
       inputs: t.inputs ?? undefined,
       inputsReviewThread: t.inputsReviewThread ?? [],
       deliverableReviewThread: t.deliverableReviewThread ?? [],
@@ -234,7 +242,7 @@ function tasksToPayload(rows: TaskRow[]) {
 
 interface ActivityPageContentProps {
   section: Section
-  sectionContract: SectionContract
+  sectionContract: SectionContract & { officer?: ContractOfficer }
   contractsApi?: Extract<
     ContractsApiResource,
     'section-contracts' | 'supervisor-contracts' | 'officer-contracts'
@@ -249,6 +257,8 @@ interface ActivityPageContentProps {
   sectionAccess: SectionAccess
   /** When set (e.g. `?taskKey=` from dashboard), select this task in the details panel. */
   initialTaskKey?: string
+  /** Mirrored assignees from downstream cascades (supervisor/officer or manager chain). */
+  downstreamTaskAssignees?: Record<string, OfficerCascadeAssignee>
 }
 
 export function ActivityPageContent({
@@ -264,6 +274,7 @@ export function ActivityPageContent({
   officers,
   sectionAccess,
   initialTaskKey,
+  downstreamTaskAssignees,
 }: ActivityPageContentProps) {
   const router = useRouter()
   const isLg = useIsLg()
@@ -297,6 +308,11 @@ export function ActivityPageContent({
   const showActivityAim =
     contractsApi === 'section-contracts' && numberingKind === 'kpi'
   const isOfficerContract = contractsApi === 'officer-contracts'
+  const isSupervisorContract = contractsApi === 'supervisor-contracts'
+  const isSectionContract = contractsApi === 'section-contracts'
+  const contractOfficer: ContractOfficer | null = isOfficerContract
+    ? (sectionContract.officer ?? null)
+    : null
   const { canSuperviseDetailedTasks } = sectionAccess
   const canManageContract =
     canManageContractProp ?? sectionAccess.canManageContract
@@ -314,9 +330,15 @@ export function ActivityPageContent({
   const [reportingFrequency, setReportingFrequency] = React.useState<
     'weekly' | 'monthly' | 'quarterly' | 'n/a'
   >(activity.reportingFrequency ?? 'n/a')
-  const [tasks, setTasks] = React.useState<TaskRow[]>(() =>
-    normalizeTasks(activity.tasks),
-  )
+  const [tasks, setTasks] = React.useState<TaskRow[]>(() => {
+    let rows = normalizeTasks(activity.tasks)
+    if (isSupervisorContract || isSectionContract) {
+      rows = enrichTasksWithDownstreamAssignees(rows, downstreamTaskAssignees)
+    } else if (isOfficerContract) {
+      rows = enrichTaskRowsWithContractOfficer(rows, contractOfficer)
+    }
+    return rows
+  })
   const [newTask, setNewTask] = React.useState('')
   const [isSavingActivity, setIsSavingActivity] = React.useState(false)
   const [isSavingTasks, setIsSavingTasks] = React.useState(false)
@@ -1430,6 +1452,7 @@ export function ActivityPageContent({
       activityType={activity.activityType}
       canManageContract={canManageContract}
       canSuperviseDetailedTasks={canSuperviseDetailedTasks}
+      contractOfficer={contractOfficer}
       canSubmitTaskWork={canSubmitSelectedTaskWork}
       onUpdate={updates =>
         selectedTaskKey && updateTaskByKey(selectedTaskKey, updates)
@@ -1642,6 +1665,7 @@ export function ActivityPageContent({
               onRemoveTask={handleRemoveTaskByKey}
               isSaving={isSavingTasks}
               canSuperviseDetailedTasks={canSuperviseDetailedTasks}
+              contractOfficer={contractOfficer}
             />
           </div>
         </div>
