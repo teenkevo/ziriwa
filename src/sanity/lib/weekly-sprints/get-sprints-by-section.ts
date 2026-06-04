@@ -38,6 +38,8 @@ export type SprintTask = {
   initiativeTitle?: string
   activityKey?: string
   activityTitle?: string
+  contractTaskKey?: string
+  contractTaskTitle?: string
   activityCategory?:
     | 'normal_flow'
     | 'compliance'
@@ -78,6 +80,7 @@ export async function getSprintsBySection(
       tasks[] {
         _key, description, activityCategory,
         initiativeKey, initiativeTitle, activityKey, activityTitle,
+        contractTaskKey, contractTaskTitle,
         status, revisionReason, reviewedAt,
         "assignee": assignee._ref,
         "assigneeName": assignee->fullName,

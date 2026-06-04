@@ -20,7 +20,8 @@ import { SupervisorCascadeImportDialog } from '@/features/sections/components/su
 import { OnboardOfficerContractDialog } from '@/features/sections/components/onboard-officer-contract-dialog'
 import { DueTodayThisWeek } from '@/features/sections/components/due-today-this-week'
 import { getSprintsPageTitle, type SprintView } from '@/lib/sprint-view-labels'
-import type { InitiativeWithActivities } from '@/features/sections/weekly-sprint-content'
+import type { InitiativeWithActivities } from '@/lib/flatten-initiatives-with-activities'
+import { flattenInitiativesWithActivities } from '@/lib/flatten-initiatives-with-activities'
 import type { SectionPageContentProps } from '@/features/sections/section-page-content'
 import {
   scopeSprintsForViewer,
@@ -53,32 +54,6 @@ type ManagerWorkspaceContentProps = WorkspaceData & {
   sprintView?: SprintView
   sprintReviewLabel?: string
   workspaceBasePath?: WorkspaceBasePath
-}
-
-function flattenInitiativesWithActivities(
-  contract:
-    | SectionContract
-    | SupervisorContract
-    | OfficerContract
-    | null
-    | undefined,
-): InitiativeWithActivities[] {
-  if (!contract?.objectives) return []
-  const out: InitiativeWithActivities[] = []
-  for (const obj of contract.objectives) {
-    for (const init of obj.initiatives ?? []) {
-      const key = init._key
-      if (!key || !init.title) continue
-      out.push({
-        key,
-        title: `${init.code ? init.code + ' – ' : ''}${init.title}`,
-        activities: (init.measurableActivities ?? [])
-          .filter(a => a._key && a.title)
-          .map(a => ({ key: a._key, title: a.title })),
-      })
-    }
-  }
-  return out
 }
 
 const viewConfig: Record<

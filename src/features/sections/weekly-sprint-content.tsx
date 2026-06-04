@@ -86,11 +86,15 @@ import {
   sprintTaskRequiresContractLinks,
 } from '@/lib/sprint-task-validation'
 
-export type InitiativeWithActivities = {
-  key: string
-  title: string
-  activities: { key: string; title: string }[]
-}
+export type {
+  InitiativeWithActivities,
+  ContractActivityTask,
+} from '@/lib/flatten-initiatives-with-activities'
+import {
+  findContractActivity,
+  findContractDetailedTask,
+  type InitiativeWithActivities,
+} from '@/lib/flatten-initiatives-with-activities'
 
 interface WeeklySprintContentProps {
   sectionId: string
@@ -204,6 +208,7 @@ type DraftTask = {
   activityCategory: string
   initiativeKey: string
   activityKey: string
+  contractTaskKey: string
 }
 
 function sprintTaskToDraft(t: SprintTask): DraftTask {
@@ -213,6 +218,7 @@ function sprintTaskToDraft(t: SprintTask): DraftTask {
     activityCategory: t.activityCategory ?? '',
     initiativeKey: t.initiativeKey ?? '',
     activityKey: t.activityKey ?? '',
+    contractTaskKey: t.contractTaskKey ?? '',
   }
 }
 
@@ -221,7 +227,66 @@ const emptyDraftTask: DraftTask = {
   activityCategory: '',
   initiativeKey: '',
   activityKey: '',
+  contractTaskKey: '',
 }
+
+function draftTaskLinkOptions(
+  initiatives: InitiativeWithActivities[],
+  task: Pick<DraftTask, 'initiativeKey' | 'activityKey'>,
+) {
+  const activity = findContractActivity(
+    initiatives,
+    task.initiativeKey,
+    task.activityKey,
+  )
+  return { activityHasDetailedTasks: (activity?.tasks.length ?? 0) > 0 }
+}
+
+function buildDraftTaskWritePayload(
+  task: DraftTask,
+  initiatives: InitiativeWithActivities[],
+) {
+  const init = initiatives.find(i => i.key === task.initiativeKey)
+  const act = init?.activities.find(a => a.key === task.activityKey)
+  const contractTask = findContractDetailedTask(
+    initiatives,
+    task.initiativeKey,
+    task.activityKey,
+    task.contractTaskKey,
+  )
+  return buildSprintTaskWriteFields({
+    description: task.description,
+    activityCategory: task.activityCategory,
+    initiativeKey: task.initiativeKey,
+    activityKey: task.activityKey,
+    initiativeTitle: init?.title,
+    activityTitle: act?.title,
+    contractTaskKey: task.contractTaskKey,
+    contractTaskTitle: contractTask?.title,
+  })
+}
+
+type ContractLinkField = 'initiativeKey' | 'activityKey' | 'contractTaskKey'
+
+function applyContractLinkFieldChange(
+  task: DraftTask,
+  field: ContractLinkField,
+  value: string,
+): DraftTask {
+  if (field === 'initiativeKey') {
+    return { ...task, initiativeKey: value, activityKey: '', contractTaskKey: '' }
+  }
+  if (field === 'activityKey') {
+    return { ...task, activityKey: value, contractTaskKey: '' }
+  }
+  return { ...task, contractTaskKey: value }
+}
+
+const SPRINT_TASK_DIALOG_FORM_CLASS =
+  'flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden'
+
+const SPRINT_TASK_DIALOG_BODY_CLASS =
+  'min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain py-2 pr-1 pb-2'
 
 function SprintTaskContractLinkFields({
   task,
@@ -229,10 +294,13 @@ function SprintTaskContractLinkFields({
   disabled = false,
   onFieldChange,
 }: {
-  task: Pick<DraftTask, 'activityCategory' | 'initiativeKey' | 'activityKey'>
+  task: Pick<
+    DraftTask,
+    'activityCategory' | 'initiativeKey' | 'activityKey' | 'contractTaskKey'
+  >
   initiatives: InitiativeWithActivities[]
   disabled?: boolean
-  onFieldChange: (field: 'initiativeKey' | 'activityKey', value: string) => void
+  onFieldChange: (field: ContractLinkField, value: string) => void
 }) {
   if (!task.activityCategory) {
     return null
@@ -256,6 +324,12 @@ function SprintTaskContractLinkFields({
   }
 
   const selectedInit = initiatives.find(i => i.key === task.initiativeKey)
+  const selectedActivity = findContractActivity(
+    initiatives,
+    task.initiativeKey,
+    task.activityKey,
+  )
+  const detailedTasks = selectedActivity?.tasks ?? []
 
   return (
     <div className='grid gap-2'>
@@ -309,6 +383,40 @@ function SprintTaskContractLinkFields({
           </SelectContent>
         </Select>
       </div>
+      {task.activityKey ? (
+        detailedTasks.length > 0 ? (
+          <div className='w-[100%] space-y-1 overflow-hidden p-1'>
+            <Label className='text-xs' required>
+              Related detailed task
+            </Label>
+            <Select
+              value={task.contractTaskKey || undefined}
+              onValueChange={v => onFieldChange('contractTaskKey', v)}
+              disabled={disabled}
+            >
+              <SelectTrigger className='w-[100%] overflow-hidden text-xs'>
+                <SelectValue placeholder='Select related detailed task' />
+              </SelectTrigger>
+              <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
+                {detailedTasks.map(dt => (
+                  <SelectItem
+                    key={dt.key}
+                    value={dt.key}
+                    className='whitespace-normal break-words text-xs'
+                  >
+                    {dt.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <p className='rounded-md border border-dashed p-2 text-xs text-muted-foreground'>
+            This measurable activity has no detailed tasks yet. Add them on your
+            contract before linking sprint work.
+          </p>
+        )
+      ) : null}
     </div>
   )
 }
@@ -446,8 +554,8 @@ export function WeeklySprintContent({
     setDraftTasks(prev =>
       prev.map((t, i) => {
         if (i !== index) return t
-        if (field === 'initiativeKey') {
-          return { ...t, initiativeKey: value, activityKey: '' }
+        if (field === 'initiativeKey' || field === 'activityKey' || field === 'contractTaskKey') {
+          return applyContractLinkFieldChange(t, field, value)
         }
         if (field === 'activityCategory' && isEmergencySprintCategory(value)) {
           return {
@@ -455,6 +563,7 @@ export function WeeklySprintContent({
             activityCategory: value,
             initiativeKey: '',
             activityKey: '',
+            contractTaskKey: '',
           }
         }
         return { ...t, [field]: value }
@@ -481,7 +590,9 @@ export function WeeklySprintContent({
 
   const handleSaveSprint = async (e: React.FormEvent) => {
     e.preventDefault()
-    const validTasks = draftTasks.filter(isSprintDraftTaskComplete)
+    const validTasks = draftTasks.filter(t =>
+      isSprintDraftTaskComplete(t, draftTaskLinkOptions(initiatives, t)),
+    )
     const week = fyWeeks[Number(selectedWeekIdx)]
     if (validTasks.length === 0 || !week) return
     if (endOfDayLocal(parseYMDLocal(week.end)) < todayStart) {
@@ -502,21 +613,10 @@ export function WeeklySprintContent({
 
     setIsSavingSprint(true)
     try {
-      const tasksPayload = validTasks.map(t => {
-        const init = initiatives.find(i => i.key === t.initiativeKey)
-        const act = init?.activities.find(a => a.key === t.activityKey)
-        return {
-          ...(t._key && { _key: t._key }),
-          ...buildSprintTaskWriteFields({
-            description: t.description,
-            activityCategory: t.activityCategory,
-            initiativeKey: t.initiativeKey,
-            activityKey: t.activityKey,
-            initiativeTitle: init?.title,
-            activityTitle: act?.title,
-          }),
-        }
-      })
+      const tasksPayload = validTasks.map(t => ({
+        ...(t._key && { _key: t._key }),
+        ...buildDraftTaskWritePayload(t, initiatives),
+      }))
 
       if (editingSprintId) {
         const res = await fetch(`/api/weekly-sprints/${editingSprintId}`, {
@@ -575,8 +675,12 @@ export function WeeklySprintContent({
   const setReviseField = (field: keyof DraftTask, value: string) => {
     setReviseTaskDraft(prev => {
       if (!prev) return prev
-      if (field === 'initiativeKey') {
-        return { ...prev, initiativeKey: value, activityKey: '' }
+      if (
+        field === 'initiativeKey' ||
+        field === 'activityKey' ||
+        field === 'contractTaskKey'
+      ) {
+        return applyContractLinkFieldChange(prev, field, value)
       }
       if (field === 'activityCategory' && isEmergencySprintCategory(value)) {
         return {
@@ -584,6 +688,7 @@ export function WeeklySprintContent({
           activityCategory: value,
           initiativeKey: '',
           activityKey: '',
+          contractTaskKey: '',
         }
       }
       return { ...prev, [field]: value }
@@ -592,14 +697,15 @@ export function WeeklySprintContent({
 
   const handleSaveRevise = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!reviseTaskDraft?._key || !isSprintDraftTaskComplete(reviseTaskDraft)) {
+    if (
+      !reviseTaskDraft?._key ||
+      !isSprintDraftTaskComplete(
+        reviseTaskDraft,
+        draftTaskLinkOptions(initiatives, reviseTaskDraft),
+      )
+    ) {
       return
     }
-
-    const init = initiatives.find(i => i.key === reviseTaskDraft.initiativeKey)
-    const act = init?.activities.find(
-      a => a.key === reviseTaskDraft.activityKey,
-    )
 
     setIsSavingRevise(true)
     try {
@@ -609,14 +715,7 @@ export function WeeklySprintContent({
         body: JSON.stringify({
           action: 'revise-task',
           taskKey: reviseTaskDraft._key,
-          ...buildSprintTaskWriteFields({
-            description: reviseTaskDraft.description,
-            activityCategory: reviseTaskDraft.activityCategory,
-            initiativeKey: reviseTaskDraft.initiativeKey,
-            activityKey: reviseTaskDraft.activityKey,
-            initiativeTitle: init?.title,
-            activityTitle: act?.title,
-          }),
+          ...buildDraftTaskWritePayload(reviseTaskDraft, initiatives),
         }),
       })
       if (!res.ok) {
@@ -958,8 +1057,12 @@ export function WeeklySprintContent({
 
   const setExtraTaskField = (field: keyof DraftTask, value: string) => {
     setExtraTaskDraft(prev => {
-      if (field === 'initiativeKey') {
-        return { ...prev, initiativeKey: value, activityKey: '' }
+      if (
+        field === 'initiativeKey' ||
+        field === 'activityKey' ||
+        field === 'contractTaskKey'
+      ) {
+        return applyContractLinkFieldChange(prev, field, value)
       }
       if (field === 'activityCategory' && isEmergencySprintCategory(value)) {
         return {
@@ -967,6 +1070,7 @@ export function WeeklySprintContent({
           activityCategory: value,
           initiativeKey: '',
           activityKey: '',
+          contractTaskKey: '',
         }
       }
       return { ...prev, [field]: value }
@@ -975,12 +1079,15 @@ export function WeeklySprintContent({
 
   const handleCreateExtraTask = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isSprintDraftTaskComplete(extraTaskDraft) || !extraTaskSprintId) {
+    if (
+      !isSprintDraftTaskComplete(
+        extraTaskDraft,
+        draftTaskLinkOptions(initiatives, extraTaskDraft),
+      ) ||
+      !extraTaskSprintId
+    ) {
       return
     }
-
-    const init = initiatives.find(i => i.key === extraTaskDraft.initiativeKey)
-    const act = init?.activities.find(a => a.key === extraTaskDraft.activityKey)
 
     setIsSavingExtraTask(true)
     try {
@@ -989,14 +1096,7 @@ export function WeeklySprintContent({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'add-extra-task',
-          ...buildSprintTaskWriteFields({
-            description: extraTaskDraft.description,
-            activityCategory: extraTaskDraft.activityCategory,
-            initiativeKey: extraTaskDraft.initiativeKey,
-            activityKey: extraTaskDraft.activityKey,
-            initiativeTitle: init?.title,
-            activityTitle: act?.title,
-          }),
+          ...buildDraftTaskWritePayload(extraTaskDraft, initiatives),
         }),
       })
       if (!res.ok) {
@@ -1019,7 +1119,9 @@ export function WeeklySprintContent({
     }
   }
 
-  const validDraftTasks = draftTasks.filter(isSprintDraftTaskComplete)
+  const validDraftTasks = draftTasks.filter(t =>
+    isSprintDraftTaskComplete(t, draftTaskLinkOptions(initiatives, t)),
+  )
   const createSprintNeedsContractInitiatives =
     sprintDraftNeedsContractInitiatives(validDraftTasks)
 
@@ -1287,28 +1389,25 @@ export function WeeklySprintContent({
           }
         }}
       >
-        <DialogContent
-          disableClose={isSavingSprint}
-          className='flex w-full max-w-lg max-h-[85dvh] flex-col overflow-hidden sm:max-h-[85dvh] sm:overflow-hidden'
-        >
-          <DialogHeader className='shrink-0'>
-            <DialogTitle>
-              {editingSprintId ? 'Edit draft sprint' : 'New Weekly Sprint'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingSprintId
-                ? 'Update the week and tasks for this draft. Submit when ready for review.'
-                : 'Create a sprint plan for a week in the current financial year.'}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent disableClose={isSavingSprint} layout='scrollable'>
           <form
             onSubmit={e => {
               e.stopPropagation()
               handleSaveSprint(e)
             }}
-            className='flex min-h-0 flex-1 flex-col overflow-hidden'
+            className={SPRINT_TASK_DIALOG_FORM_CLASS}
           >
-            <div className='min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain py-2 pb-4 pr-1'>
+            <DialogHeader className='shrink-0 pr-8'>
+              <DialogTitle>
+                {editingSprintId ? 'Edit draft sprint' : 'New Weekly Sprint'}
+              </DialogTitle>
+              <DialogDescription>
+                {editingSprintId
+                  ? 'Update the week and tasks for this draft. Submit when ready for review.'
+                  : 'Create a sprint plan for a week in the current financial year.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className={SPRINT_TASK_DIALOG_BODY_CLASS}>
               <div className='space-y-2'>
                 <Label required>Week</Label>
                 <Select
@@ -1472,18 +1571,18 @@ export function WeeklySprintContent({
           }
         }}
       >
-        <DialogContent
-          disableClose={isSavingExtraTask}
-          className='w-full max-w-lg max-h-[85vh] overflow-y-auto'
-        >
-          <DialogHeader>
-            <DialogTitle>Add extra task</DialogTitle>
-            <DialogDescription>
-              Add an extra task to the current sprint week
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateExtraTask}>
-            <div className='space-y-3 py-2 pb-4'>
+        <DialogContent disableClose={isSavingExtraTask} layout='scrollable'>
+          <form
+            onSubmit={handleCreateExtraTask}
+            className={SPRINT_TASK_DIALOG_FORM_CLASS}
+          >
+            <DialogHeader className='shrink-0 pr-8'>
+              <DialogTitle>Add extra task</DialogTitle>
+              <DialogDescription>
+                Add an extra task to the current sprint week
+              </DialogDescription>
+            </DialogHeader>
+            <div className={SPRINT_TASK_DIALOG_BODY_CLASS}>
               <div className='space-y-2 pb-4'>
                 <Label required>Week</Label>
                 <Select
@@ -1525,7 +1624,7 @@ export function WeeklySprintContent({
                 }
               />
             </div>
-            <DialogFooter>
+            <DialogFooter className='mt-0 shrink-0 border-t bg-background pt-4'>
               <Button
                 type='button'
                 variant='outline'
@@ -1538,7 +1637,10 @@ export function WeeklySprintContent({
                 type='submit'
                 disabled={
                   isSavingExtraTask ||
-                  !isSprintDraftTaskComplete(extraTaskDraft) ||
+                  !isSprintDraftTaskComplete(
+                    extraTaskDraft,
+                    draftTaskLinkOptions(initiatives, extraTaskDraft),
+                  ) ||
                   !extraTaskSprintId ||
                   (sprintTaskRequiresContractLinks(
                     extraTaskDraft.activityCategory,
@@ -1636,25 +1738,25 @@ export function WeeklySprintContent({
           }
         }}
       >
-        <DialogContent
-          disableClose={isSavingRevise}
-          className='w-full max-w-lg max-h-[85vh] overflow-y-auto'
-        >
-          <DialogHeader>
-            <DialogTitle>Revise task</DialogTitle>
-            <DialogDescription>
-              Edit this task and resubmit it for manager review.
-              {reviseManagerFeedback ? (
-                <span className='block mt-3 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900 dark:bg-orange-950/40 dark:border-orange-900/60 dark:text-orange-100'>
-                  <span className='font-medium'>Feedback: </span>
-                  {reviseManagerFeedback}
-                </span>
-              ) : null}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent disableClose={isSavingRevise} layout='scrollable'>
           {reviseTaskDraft && (
-            <form onSubmit={handleSaveRevise}>
-              <div className='space-y-3 py-2 pb-4'>
+            <form
+              onSubmit={handleSaveRevise}
+              className={SPRINT_TASK_DIALOG_FORM_CLASS}
+            >
+              <DialogHeader className='shrink-0 pr-8'>
+                <DialogTitle>Revise task</DialogTitle>
+                <DialogDescription>
+                  Edit this task and resubmit it for manager review.
+                  {reviseManagerFeedback ? (
+                    <span className='block mt-3 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900 dark:bg-orange-950/40 dark:border-orange-900/60 dark:text-orange-100'>
+                      <span className='font-medium'>Feedback: </span>
+                      {reviseManagerFeedback}
+                    </span>
+                  ) : null}
+                </DialogDescription>
+              </DialogHeader>
+              <div className={SPRINT_TASK_DIALOG_BODY_CLASS}>
                 <Label className='text-xs' required>
                   Description
                 </Label>
@@ -1698,7 +1800,7 @@ export function WeeklySprintContent({
                   onFieldChange={(field, value) => setReviseField(field, value)}
                 />
               </div>
-              <DialogFooter>
+              <DialogFooter className='mt-0 shrink-0 border-t bg-background pt-4'>
                 <Button
                   type='button'
                   variant='outline'
@@ -1712,7 +1814,10 @@ export function WeeklySprintContent({
                   disabled={
                     isSavingRevise ||
                     !reviseTaskDraft ||
-                    !isSprintDraftTaskComplete(reviseTaskDraft) ||
+                    !isSprintDraftTaskComplete(
+                      reviseTaskDraft,
+                      draftTaskLinkOptions(initiatives, reviseTaskDraft),
+                    ) ||
                     (sprintTaskRequiresContractLinks(
                       reviseTaskDraft.activityCategory,
                     ) &&
@@ -2105,10 +2210,14 @@ function SprintCard({
                           {config.label}
                         </Badge>
                       </div>
-                      {(task.initiativeTitle || task.activityTitle) && (
+                      {(task.initiativeTitle ||
+                        task.activityTitle ||
+                        task.contractTaskTitle) && (
                         <p className='text-xs text-muted-foreground'>
                           {task.initiativeTitle}
                           {task.activityTitle && ` → ${task.activityTitle}`}
+                          {task.contractTaskTitle &&
+                            ` → ${task.contractTaskTitle}`}
                         </p>
                       )}
                       {task.status === 'rejected' && (

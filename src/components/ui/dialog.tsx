@@ -32,6 +32,11 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 interface DialogContentProps
   extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   disableClose?: boolean
+  /**
+   * Tall forms: flex column, capped height, scrollable interior.
+   * Use with a `min-h-0 flex-1 overflow-y-auto` body between header and footer.
+   */
+  layout?: 'default' | 'scrollable'
 }
 
 const DialogContent = React.forwardRef<
@@ -43,6 +48,7 @@ const DialogContent = React.forwardRef<
       className,
       children,
       disableClose = false,
+      layout = 'default',
       onEscapeKeyDown,
       onInteractOutside,
       ...props
@@ -68,14 +74,31 @@ const DialogContent = React.forwardRef<
         onInteractOutside?.(event)
       }}
       className={cn(
-        // Mobile: bottom-sheet (drawer) that slides up.
-        // Desktop (sm+): centered dialog.
-        "fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 border bg-background p-6 shadow-lg outline-none duration-200 max-h-[85vh] overflow-y-auto rounded-t-[14px] " +
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 " +
-          "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom " +
-          "before:absolute before:top-3 before:left-1/2 before:h-1.5 before:w-12 before:-translate-x-1/2 before:rounded-full before:bg-muted " +
-          "sm:before:hidden sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:max-h-none sm:overflow-visible " +
-          "sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
+        layout === 'scrollable'
+          ? [
+              'fixed z-50 flex w-full max-h-[min(85dvh,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden border bg-background p-6 shadow-lg outline-none duration-200',
+              'inset-x-0 bottom-0 rounded-t-[14px]',
+              'before:absolute before:top-3 before:left-1/2 before:h-1.5 before:w-12 before:-translate-x-1/2 before:rounded-full before:bg-muted',
+              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+              'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+              'sm:before:hidden sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg',
+              'sm:max-h-[min(85dvh,calc(100dvh-2rem))] sm:overflow-hidden',
+              'sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95',
+              'sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]',
+              'sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]',
+            ]
+          : [
+              // Mobile: bottom-sheet (drawer) that slides up.
+              // Desktop (sm+): centered dialog.
+              'fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 border bg-background p-6 shadow-lg outline-none duration-200 max-h-[85vh] overflow-y-auto rounded-t-[14px]',
+              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+              'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+              'before:absolute before:top-3 before:left-1/2 before:h-1.5 before:w-12 before:-translate-x-1/2 before:rounded-full before:bg-muted',
+              'sm:before:hidden sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:max-h-none sm:overflow-visible',
+              'sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95',
+              'sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]',
+              'sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]',
+            ],
         className
       )}
       {...props}

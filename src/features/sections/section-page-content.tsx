@@ -58,7 +58,8 @@ import {
 import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import type { StaffMember } from '@/sanity/lib/staff/get-managers'
-import type { InitiativeWithActivities } from './weekly-sprint-content'
+import type { InitiativeWithActivities } from '@/lib/flatten-initiatives-with-activities'
+import { flattenInitiativesWithActivities } from '@/lib/flatten-initiatives-with-activities'
 import {
   useRegisterHeaderIdentity,
   useRegisterPageBreadcrumbs,
@@ -79,27 +80,6 @@ import { OnboardOfficerContractDialog } from './components/onboard-officer-contr
 import { ContractExportDownloadButton } from './components/contract-export-download-button'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
 import { getWorkspaceBasePathForAccess } from '@/lib/workspace-paths'
-
-function flattenInitiativesWithActivities(
-  contract: SectionContract | null,
-): InitiativeWithActivities[] {
-  if (!contract?.objectives) return []
-  const out: InitiativeWithActivities[] = []
-  for (const obj of contract.objectives) {
-    for (const init of obj.initiatives ?? []) {
-      const key = init._key
-      if (!key || !init.title) continue
-      out.push({
-        key,
-        title: `${init.code ? init.code + ' – ' : ''}${init.title}`,
-        activities: (init.measurableActivities ?? [])
-          .filter(a => a._key && a.title)
-          .map(a => ({ key: a._key, title: a.title })),
-      })
-    }
-  }
-  return out
-}
 
 const SECTION_TAB_VALUES = [
   'dashboard',
@@ -693,9 +673,7 @@ export function SectionPageContent({
               sectionId={section._id}
               sectionName={section.name}
               sprints={scopedSprints}
-              initiatives={flattenInitiativesWithActivities(
-                activeContract as SectionContract | null,
-              )}
+              initiatives={flattenInitiativesWithActivities(activeContract)}
               officers={officers}
               onSprintTabChange={setSprintSubTab}
               panelPortalNode={panelPortalNode}

@@ -39,15 +39,23 @@ export function sprintTaskRequiresContractLinks(
   return Boolean(category) && !isEmergencySprintCategory(category)
 }
 
-export function isSprintDraftTaskComplete(t: {
-  description?: string
-  activityCategory?: string
-  initiativeKey?: string
-  activityKey?: string
-}): boolean {
+export function isSprintDraftTaskComplete(
+  t: {
+    description?: string
+    activityCategory?: string
+    initiativeKey?: string
+    activityKey?: string
+    contractTaskKey?: string
+  },
+  options?: { activityHasDetailedTasks?: boolean },
+): boolean {
   if (!t.description?.trim() || !t.activityCategory) return false
   if (isEmergencySprintCategory(t.activityCategory)) return true
-  return Boolean(t.initiativeKey?.trim()) && Boolean(t.activityKey?.trim())
+  if (!t.initiativeKey?.trim() || !t.activityKey?.trim()) return false
+  if (options?.activityHasDetailedTasks && !t.contractTaskKey?.trim()) {
+    return false
+  }
+  return true
 }
 
 export function sprintDraftNeedsContractInitiatives(
@@ -58,14 +66,19 @@ export function sprintDraftNeedsContractInitiatives(
   )
 }
 
-export function validateSprintTaskPayload(t: {
-  description?: string
-  activityCategory?: string
-  initiativeKey?: string
-  initiativeTitle?: string
-  activityKey?: string
-  activityTitle?: string
-}): string | null {
+export function validateSprintTaskPayload(
+  t: {
+    description?: string
+    activityCategory?: string
+    initiativeKey?: string
+    initiativeTitle?: string
+    activityKey?: string
+    activityTitle?: string
+    contractTaskKey?: string
+    contractTaskTitle?: string
+  },
+  options?: { activityHasDetailedTasks?: boolean },
+): string | null {
   if (!t.description || typeof t.description !== 'string' || !t.description.trim()) {
     return 'Each task must have a description'
   }
@@ -80,6 +93,14 @@ export function validateSprintTaskPayload(t: {
   }
   if (!t.activityKey || typeof t.activityKey !== 'string' || !t.activityKey.trim()) {
     return 'Each task must have a related measurable activity'
+  }
+  if (
+    options?.activityHasDetailedTasks &&
+    (!t.contractTaskKey ||
+      typeof t.contractTaskKey !== 'string' ||
+      !t.contractTaskKey.trim())
+  ) {
+    return 'Each task must be linked to a detailed task on the contract'
   }
   return null
 }
@@ -100,6 +121,8 @@ export function buildSprintTaskWriteFields(t: {
   activityKey?: string
   initiativeTitle?: string
   activityTitle?: string
+  contractTaskKey?: string
+  contractTaskTitle?: string
 }): {
   description: string
   activityCategory: string
@@ -107,6 +130,8 @@ export function buildSprintTaskWriteFields(t: {
   activityKey?: string
   initiativeTitle?: string
   activityTitle?: string
+  contractTaskKey?: string
+  contractTaskTitle?: string
 } {
   const base = {
     description: t.description.trim(),
@@ -121,5 +146,9 @@ export function buildSprintTaskWriteFields(t: {
     ...(t.initiativeTitle && { initiativeTitle: t.initiativeTitle }),
     activityKey: t.activityKey,
     ...(t.activityTitle && { activityTitle: t.activityTitle }),
+    ...(t.contractTaskKey?.trim() && { contractTaskKey: t.contractTaskKey.trim() }),
+    ...(t.contractTaskTitle?.trim() && {
+      contractTaskTitle: t.contractTaskTitle.trim(),
+    }),
   }
 }

@@ -688,6 +688,8 @@ export async function PATCH(
         initiativeTitle,
         activityKey,
         activityTitle,
+        contractTaskKey,
+        contractTaskTitle,
       } = body
 
       if (!taskKey || typeof taskKey !== 'string') {
@@ -720,10 +722,22 @@ export async function PATCH(
         activityCategory,
         initiativeKey,
         activityKey,
+        contractTaskKey,
       })
       if (err) {
         return NextResponse.json({ error: err }, { status: 400 })
       }
+
+      const linkFields = buildSprintTaskWriteFields({
+        description: String(description).trim(),
+        activityCategory,
+        initiativeKey,
+        initiativeTitle,
+        activityKey,
+        activityTitle,
+        contractTaskKey,
+        contractTaskTitle,
+      })
 
       const doc = await writeClient.getDocument(id)
       if (!doc || doc._type !== 'weeklySprint') {
@@ -770,18 +784,17 @@ export async function PATCH(
           `${patchPath}.initiativeTitle`,
           `${patchPath}.activityKey`,
           `${patchPath}.activityTitle`,
+          `${patchPath}.contractTaskKey`,
+          `${patchPath}.contractTaskTitle`,
         ])
       } else {
-        patch.set({
-          [`${patchPath}.initiativeKey`]: initiativeKey,
-          ...(initiativeTitle && {
-            [`${patchPath}.initiativeTitle`]: String(initiativeTitle).trim(),
-          }),
-          [`${patchPath}.activityKey`]: activityKey,
-          ...(activityTitle && {
-            [`${patchPath}.activityTitle`]: String(activityTitle).trim(),
-          }),
-        })
+        patch.set(
+          Object.fromEntries(
+            Object.entries(linkFields)
+              .filter(([k]) => k !== 'description' && k !== 'activityCategory')
+              .map(([k, v]) => [`${patchPath}.${k}`, v]),
+          ),
+        )
       }
 
       if (doc.status === 'reviewed') {
@@ -817,6 +830,8 @@ export async function PATCH(
         initiativeTitle,
         activityKey,
         activityTitle,
+        contractTaskKey,
+        contractTaskTitle,
       } = body
 
       const err = validateSprintTaskPayload({
@@ -824,6 +839,7 @@ export async function PATCH(
         activityCategory,
         initiativeKey,
         activityKey,
+        contractTaskKey,
       })
       if (err) {
         return NextResponse.json({ error: err }, { status: 400 })
@@ -880,6 +896,8 @@ export async function PATCH(
           initiativeTitle,
           activityKey,
           activityTitle,
+          contractTaskKey,
+          contractTaskTitle,
         }),
         status: 'accepted',
         reviewedAt: new Date().toISOString(),

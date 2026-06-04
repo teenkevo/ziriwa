@@ -227,6 +227,15 @@ export function SprintTaskDetailsPanel({
         </div>
       )}
 
+      {task.contractTaskTitle && (
+        <div>
+          <Label className='text-xs text-muted-foreground'>
+            Related detailed task
+          </Label>
+          <p className='text-sm mt-1'>{task.contractTaskTitle}</p>
+        </div>
+      )}
+
       <div>
         <Label className='text-xs text-muted-foreground'>Week</Label>
         <p className='text-sm mt-1'>{task.weekLabel}</p>

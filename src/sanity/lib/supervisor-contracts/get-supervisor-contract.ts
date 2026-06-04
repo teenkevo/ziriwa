@@ -1,5 +1,6 @@
 import { defineQuery } from 'next-sanity'
 
+import { SPRINT_CONTRACT_TASKS_PROJECTION } from '../contracts/sprint-contract-tasks-projection'
 import { sanityFetch } from '../client'
 import type {
   ContractInitiative,
@@ -53,6 +54,7 @@ export async function getSupervisorContract(
             status,
             "reportingFrequency": coalesce(reportingFrequency, "n/a"),
             cascadeSource { nodeRole },
+            ${SPRINT_CONTRACT_TASKS_PROJECTION},
           },
         },
       },
