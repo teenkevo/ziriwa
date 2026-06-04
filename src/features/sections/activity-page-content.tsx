@@ -55,6 +55,8 @@ import type {
   DetailedTask as DetailedTaskType,
 } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { MeasurableActivity } from '@/sanity/lib/section-contracts/get-section-contract'
+import type { ContractTaskSprintCycleEvidence } from '@/lib/contract-task-sprint-evidence'
+import { sprintsHrefForViewer } from '@/lib/contract-activity-back-href'
 import type { Officer } from '@/features/sections/components/officer-switcher'
 import {
   DetailedTasksTable,
@@ -259,6 +261,8 @@ interface ActivityPageContentProps {
   initialTaskKey?: string
   /** Mirrored assignees from downstream cascades (supervisor/officer or manager chain). */
   downstreamTaskAssignees?: Record<string, OfficerCascadeAssignee>
+  /** Sprint work submissions keyed by contract detailed-task _key. */
+  sprintEvidenceByTaskKey?: Record<string, ContractTaskSprintCycleEvidence[]>
 }
 
 export function ActivityPageContent({
@@ -275,6 +279,7 @@ export function ActivityPageContent({
   sectionAccess,
   initialTaskKey,
   downstreamTaskAssignees,
+  sprintEvidenceByTaskKey,
 }: ActivityPageContentProps) {
   const router = useRouter()
   const isLg = useIsLg()
@@ -282,6 +287,7 @@ export function ActivityPageContent({
   const contractHref =
     contractBackHref?.trim() ||
     (sectionSlug ? `/sections/${sectionSlug}?tab=contract` : '/departments')
+  const sprintsHref = sprintsHrefForViewer(sectionAccess, sectionSlug)
   const contractApiBase = contractsApiBase(contractsApi)
 
   const initiative =
@@ -735,6 +741,10 @@ export function ActivityPageContent({
     () => tasks.find(t => (t._key ?? '') === selectedTaskKey) ?? null,
     [tasks, selectedTaskKey],
   )
+  const selectedSprintEvidence = React.useMemo(() => {
+    if (!selectedTaskKey || !sprintEvidenceByTaskKey) return []
+    return sprintEvidenceByTaskKey[selectedTaskKey] ?? []
+  }, [selectedTaskKey, sprintEvidenceByTaskKey])
   const canSubmitSelectedTaskWork = canSubmitDetailedTaskWork(
     sectionAccess,
     selectedTask?.assignee,
@@ -1454,6 +1464,9 @@ export function ActivityPageContent({
       canSuperviseDetailedTasks={canSuperviseDetailedTasks}
       contractOfficer={contractOfficer}
       canSubmitTaskWork={canSubmitSelectedTaskWork}
+      workManagedInSprints
+      sprintEvidence={selectedSprintEvidence}
+      sprintsHref={sprintsHref}
       onUpdate={updates =>
         selectedTaskKey && updateTaskByKey(selectedTaskKey, updates)
       }

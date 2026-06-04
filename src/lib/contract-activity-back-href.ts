@@ -21,3 +21,21 @@ export function contractBackHrefForViewer(
   const slug = sectionSlug.trim()
   return slug ? `/sections/${slug}?tab=contract` : '/departments'
 }
+
+/** Weekly sprints link aligned with each role's sidebar (officer / supervisor / manager). */
+export function sprintsHrefForViewer(
+  sectionAccess: SectionAccess,
+  sectionSlug: string,
+): string {
+  if (
+    sectionAccess.isSectionOfficer ||
+    sectionAccess.isSectionSupervisor ||
+    sectionAccess.isSectionManager
+  ) {
+    const base = getWorkspaceBasePathForAccess(sectionAccess)
+    return getWorkspacePaths(base).sprintsReady
+  }
+
+  const slug = sectionSlug.trim()
+  return slug ? `/sections/${slug}?tab=weekly-sprint` : '/departments'
+}

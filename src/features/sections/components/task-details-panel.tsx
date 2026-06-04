@@ -74,6 +74,8 @@ import {
   type ContractOfficer,
   type TaskRow,
 } from './detailed-tasks-table'
+import { ContractTaskSprintEvidencePanel } from './contract-task-sprint-evidence-panel'
+import type { ContractTaskSprintCycleEvidence } from '@/lib/contract-task-sprint-evidence'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -133,6 +135,10 @@ interface TaskDetailsPanelProps {
   canSuperviseDetailedTasks?: boolean
   contractOfficer?: ContractOfficer | null
   canSubmitTaskWork?: boolean
+  /** When true, inputs/deliverables are submitted in sprints; panel shows consolidated evidence. */
+  workManagedInSprints?: boolean
+  sprintEvidence?: ContractTaskSprintCycleEvidence[]
+  sprintsHref?: string
 }
 
 export function TaskDetailsPanel({
@@ -144,6 +150,9 @@ export function TaskDetailsPanel({
   canSuperviseDetailedTasks = false,
   contractOfficer = null,
   canSubmitTaskWork = false,
+  workManagedInSprints = false,
+  sprintEvidence = [],
+  sprintsHref,
   onUpdate,
   onAddInputs,
   onApproveInputs,
@@ -514,8 +523,9 @@ export function TaskDetailsPanel({
               {TASK_STATUSES.map(s => {
                 const currentStatus = task.status ?? ''
                 const hasInputs = !!task.inputs?.file?.asset?.url
-                const disabled =
-                  currentStatus === 'to_do' && !hasInputs
+                const disabled = workManagedInSprints
+                  ? currentStatus === 'done' && s.value !== 'done'
+                  : currentStatus === 'to_do' && !hasInputs
                     ? s.value !== 'to_do'
                     : currentStatus === 'inputs_submitted'
                       ? s.value !== 'inputs_submitted'
@@ -913,7 +923,15 @@ export function TaskDetailsPanel({
           </>
         )}
 
+        {task.assignee && workManagedInSprints ? (
+          <ContractTaskSprintEvidencePanel
+            cycles={sprintEvidence}
+            sprintsHref={sprintsHref}
+          />
+        ) : null}
+
         {task.assignee &&
+          !workManagedInSprints &&
           [
             'to_do',
             'inputs_submitted',
@@ -1651,7 +1669,7 @@ export function TaskDetailsPanel({
             </div>
           )}
 
-        {task.assignee && (
+        {task.assignee && !workManagedInSprints && (
           <div className='pb-10'>
             <Label className='text-xs text-muted-foreground mb-2 block'>
               Deliverables for period

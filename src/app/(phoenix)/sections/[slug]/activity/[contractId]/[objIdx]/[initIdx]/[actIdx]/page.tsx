@@ -16,6 +16,8 @@ import {
   backfillSupervisorActivityAssigneesFromOfficers,
   getSupervisorTaskAssigneesFromOfficerContracts,
 } from '@/lib/contract-cascade/resolve-supervisor-task-assignees.server'
+import { collectSprintEvidenceForContractTask } from '@/lib/contract-task-sprint-evidence'
+import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { ActivityPageContent } from '@/features/sections/activity-page-content'
 
 function canManageActivityContract(
@@ -62,10 +64,11 @@ export default async function ActivityPage({
   const section = await getSectionBySlug(slug)
   if (!section) notFound()
 
-  const [contract, officers, sectionAccess] = await Promise.all([
+  const [contract, officers, sectionAccess, sprints] = await Promise.all([
     getContractForActivityPage(contractId, section._id),
     getOfficersBySection(section._id),
     getSectionAccessForViewer(section._id),
+    getSprintsBySection(section._id),
   ])
   if (!contract) notFound()
 
@@ -138,6 +141,28 @@ export default async function ActivityPage({
   }
 
   const sectionSlug = section.slug?.current ?? ''
+  const initiativeKey =
+    contract.objectives?.[objIndex]?.initiatives?.[initIndex]?._key ?? ''
+  const activityKey = activity._key ?? ''
+
+  const sprintEvidenceByTaskKey: Record<
+    string,
+    ReturnType<typeof collectSprintEvidenceForContractTask>
+  > = {}
+  for (const [index, raw] of (activity.tasks ?? []).entries()) {
+    const taskKey =
+      typeof raw === 'string'
+        ? `idx-${index}`
+        : (raw._key ?? `idx-${index}`)
+    sprintEvidenceByTaskKey[taskKey] = collectSprintEvidenceForContractTask(
+      sprints,
+      {
+        contractTaskKey: taskKey,
+        activityKey,
+        initiativeKey,
+      },
+    )
+  }
 
   return (
     <ActivityPageContent
@@ -157,6 +182,7 @@ export default async function ActivityPage({
       sectionAccess={sectionAccess}
       initialTaskKey={initialTaskKey}
       downstreamTaskAssignees={downstreamTaskAssignees}
+      sprintEvidenceByTaskKey={sprintEvidenceByTaskKey}
     />
   )
 }
