@@ -7,6 +7,8 @@ export async function createNotification(
   input: CreateNotificationInput,
 ): Promise<string | null> {
   try {
+    const workspaceScope = input.workspaceScope ?? 'mainstream'
+
     const doc = await writeClient.create({
       _type: 'appNotification',
       recipient: { _type: 'reference', _ref: input.recipientStaffId },
@@ -14,6 +16,10 @@ export async function createNotification(
       title: input.title,
       body: input.body ?? '',
       href: input.href,
+      workspaceScope,
+      ...(workspaceScope === 'projects' && input.projectId
+        ? { project: { _type: 'reference', _ref: input.projectId } }
+        : {}),
       metadata: input.metadata ? JSON.stringify(input.metadata) : undefined,
     })
     return doc._id

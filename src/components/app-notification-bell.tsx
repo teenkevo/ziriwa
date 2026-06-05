@@ -47,6 +47,16 @@ export function AppNotificationBell() {
     return () => clearInterval(interval)
   }, [load])
 
+  async function markAllRead() {
+    const res = await fetch('/api/notifications/read-all', { method: 'POST' })
+    if (!res.ok) return
+    const readAt = new Date().toISOString()
+    setNotifications(prev =>
+      prev.map(n => (n.readAt ? n : { ...n, readAt })),
+    )
+    setUnreadCount(0)
+  }
+
   async function markRead(id: string, href?: string) {
     if (!isVirtualNotificationId(id)) {
       await fetch(`/api/notifications/${id}`, {
@@ -81,13 +91,30 @@ export function AppNotificationBell() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-80'>
-        <DropdownMenuLabel className='flex items-center justify-between'>
-          Notifications
-          {isLoading && (
-            <span className='text-xs font-normal text-muted-foreground'>
-              Updating…
-            </span>
-          )}
+        <DropdownMenuLabel className='flex items-center justify-between gap-2'>
+          <span>Notifications</span>
+          <div className='flex items-center gap-2'>
+            {unreadCount > 0 ? (
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                className='h-7 px-2 text-xs font-normal'
+                onClick={e => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  void markAllRead()
+                }}
+              >
+                Mark all read
+              </Button>
+            ) : null}
+            {isLoading ? (
+              <span className='text-xs font-normal text-muted-foreground'>
+                Updating…
+              </span>
+            ) : null}
+          </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {notifications.length === 0 ? (

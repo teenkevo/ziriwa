@@ -2,14 +2,31 @@ import 'server-only'
 
 import { client } from '@/sanity/lib/client'
 import { createNotification } from '@/lib/notifications/create-notification'
-import type { NotificationType } from '@/lib/notifications/types'
+import { resolveNotificationWorkspaceFromSection } from '@/lib/notifications/notification-workspace.server'
+import type { CreateNotificationInput, NotificationType } from '@/lib/notifications/types'
+
+async function createScopedNotification(
+  sectionId: string | undefined,
+  input: Omit<CreateNotificationInput, 'workspaceScope' | 'projectId'>,
+) {
+  const scope = sectionId
+    ? await resolveNotificationWorkspaceFromSection(sectionId)
+    : { workspaceScope: 'mainstream' as const, projectId: null }
+
+  await createNotification({
+    ...input,
+    workspaceScope: scope.workspaceScope,
+    projectId: scope.projectId,
+  })
+}
 
 export async function notifySprintTaskAssigned(
   assigneeStaffId: string,
   taskDescription: string,
+  sectionId?: string,
   sectionSlug?: string,
 ) {
-  await createNotification({
+  await createScopedNotification(sectionId, {
     recipientStaffId: assigneeStaffId,
     type: 'sprint_task_assigned',
     title: 'New sprint task assigned',
@@ -21,8 +38,9 @@ export async function notifySprintTaskAssigned(
 export async function notifySprintPriorityChanged(
   assigneeStaffId: string,
   taskDescription: string,
+  sectionId?: string,
 ) {
-  await createNotification({
+  await createScopedNotification(sectionId, {
     recipientStaffId: assigneeStaffId,
     type: 'sprint_task_priority_changed',
     title: 'Sprint task priority updated',
@@ -34,8 +52,9 @@ export async function notifySprintWorkReview(
   assigneeStaffId: string,
   approved: boolean,
   message?: string,
+  sectionId?: string,
 ) {
-  await createNotification({
+  await createScopedNotification(sectionId, {
     recipientStaffId: assigneeStaffId,
     type: approved ? 'sprint_work_approved' : 'sprint_work_rejected',
     title: approved ? 'Work submission approved' : 'Work submission rejected',
@@ -61,7 +80,7 @@ export async function notifySupervisorsPendingSubmission(
 
   await Promise.all(
     [...recipients].map(id =>
-      createNotification({
+      createScopedNotification(sectionId, {
         recipientStaffId: id,
         type: 'sprint_submission_pending',
         title: 'Work awaiting review',
@@ -122,7 +141,7 @@ export async function notifyManagerSprintTaskReview(input: {
 
   await Promise.all(
     [...recipients].map(recipientStaffId =>
-      createNotification({
+      createScopedNotification(input.sectionId, {
         recipientStaffId,
         type: config.type,
         title: config.title,
@@ -158,7 +177,7 @@ export async function notifySprintPlanReviewComplete(input: {
 
   await Promise.all(
     [...recipients].map(recipientStaffId =>
-      createNotification({
+      createScopedNotification(input.sectionId, {
         recipientStaffId,
         type: 'sprint_plan_review_complete',
         title: 'Sprint plan review complete',
@@ -184,7 +203,7 @@ export async function notifySprintTaskReviewedByManager(
 
   await Promise.all(
     supervisorIds.map(id =>
-      createNotification({
+      createScopedNotification(undefined, {
         recipientStaffId: id,
         type: 'sprint_task_reviewed',
         title: `Sprint task ${reviewStatus.replace(/_/g, ' ')}`,

@@ -19,6 +19,25 @@ export const appNotification = defineType({
       validation: Rule => Rule.required(),
     }),
     defineField({
+      name: 'workspaceScope',
+      title: 'Workspace scope',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Mainstream', value: 'mainstream' },
+          { title: 'Projects', value: 'projects' },
+        ],
+      },
+      initialValue: 'mainstream',
+    }),
+    defineField({
+      name: 'project',
+      title: 'Project',
+      type: 'reference',
+      to: [{ type: 'project' }],
+      description: 'Set for project workspace notifications.',
+    }),
+    defineField({
       name: 'title',
       title: 'Title',
       type: 'string',

@@ -383,10 +383,10 @@ export async function PATCH(
 
       const desc = String(task.description ?? 'Sprint task')
       if (updates.assignee && typeof updates.assignee === 'string') {
-        void notifySprintTaskAssigned(updates.assignee, desc)
+        void notifySprintTaskAssigned(updates.assignee, desc, sectionId)
       }
       if (updates.priority !== undefined && assigneeRef) {
-        void notifySprintPriorityChanged(assigneeRef, desc)
+        void notifySprintPriorityChanged(assigneeRef, desc, sectionId)
       }
 
       return NextResponse.json({ success: true })
@@ -567,7 +567,7 @@ export async function PATCH(
       const assigneeRefApprove = (task.assignee as { _ref?: string } | undefined)
         ?._ref
       if (assigneeRefApprove) {
-        void notifySprintWorkReview(assigneeRefApprove, true, message)
+        void notifySprintWorkReview(assigneeRefApprove, true, message, sectionId)
       }
       return NextResponse.json({ success: true })
     }
@@ -627,7 +627,7 @@ export async function PATCH(
       const assigneeRefReject = (task.assignee as { _ref?: string } | undefined)
         ?._ref
       if (assigneeRefReject) {
-        void notifySprintWorkReview(assigneeRefReject, false, message)
+        void notifySprintWorkReview(assigneeRefReject, false, message, sectionId)
       }
       return NextResponse.json({ success: true })
     }

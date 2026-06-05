@@ -19,6 +19,8 @@ export type NotificationType =
   | 'transfer_approved'
   | 'transfer_rejected'
 
+export type NotificationWorkspaceScope = 'mainstream' | 'projects'
+
 export interface CreateNotificationInput {
   recipientStaffId: string
   type: NotificationType
@@ -26,6 +28,8 @@ export interface CreateNotificationInput {
   body?: string
   href?: string
   metadata?: Record<string, unknown>
+  workspaceScope?: NotificationWorkspaceScope
+  projectId?: string | null
 }
 
 export interface AppNotificationRow {
@@ -36,4 +40,6 @@ export interface AppNotificationRow {
   href?: string
   readAt?: string
   createdAt: string
+  workspaceScope?: NotificationWorkspaceScope | null
+  projectId?: string | null
 }
