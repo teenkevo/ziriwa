@@ -22,13 +22,37 @@ import { EditSectionStaffDialog } from '@/features/sections/components/edit-sect
 import { TransferStaffDialog } from '@/features/sections/components/transfer-staff-dialog'
 import { DelegationAuditTable } from '@/features/sections/components/delegation-audit-table'
 import { CreateStaffDialog } from '@/features/dashboard/components/create-staff-dialog'
+import { CreateProjectMemberDialog } from '@/features/projects/components/create-project-member-dialog'
 import { Dialog } from '@/components/ui/dialog'
+
+interface ProjectMemberEmailRow {
+  email?: string | null
+  status: string
+  workstreamId?: string | null
+}
+
+interface ProjectWorkstreamMemberAddConfig {
+  projectId: string
+  workstreamId: string
+  workstreamName: string
+  memberRoster: ProjectMemberEmailRow[]
+}
 
 interface SectionStaffContentProps {
   sectionId: string
   sectionName: string
   roster: SectionStaffRoster
   sectionAccess: SectionAccess
+  /** Mainstream: Section; project workstream lead: Workstream */
+  staffScopeTitle?: string
+  /** Overrides default "{staffScopeTitle} staff" card title. */
+  staffPageTitle?: string
+  /** Overrides default "Manage {sectionName} staff here." */
+  staffPageDescription?: string
+  /** Overrides default "Add staff" button label. */
+  addStaffLabel?: string
+  /** When set, "Add staff" creates a workstream member via the project members API. */
+  projectWorkstreamMemberAdd?: ProjectWorkstreamMemberAddConfig
 }
 
 function buildTableRows(roster: SectionStaffRoster): SectionStaffTableRow[] {
@@ -70,9 +94,22 @@ export function SectionStaffContent({
   sectionName,
   roster,
   sectionAccess,
+  staffScopeTitle = 'Section',
+  staffPageTitle,
+  staffPageDescription,
+  addStaffLabel = 'Add staff',
+  projectWorkstreamMemberAdd,
 }: SectionStaffContentProps) {
   const router = useRouter()
-  const canManage = sectionAccess.canManageSectionStaff
+  const pageTitle = staffPageTitle ?? `${staffScopeTitle} staff`
+  const pageDescription =
+    staffPageDescription ?? `Manage ${sectionName} staff here.`
+  const canManageMainstreamStaff = sectionAccess.canManageSectionStaff
+  const canAddWorkstreamMembers = Boolean(
+    projectWorkstreamMemberAdd && sectionAccess.canManageWorkstreamStaff,
+  )
+  const canAddStaff = canManageMainstreamStaff || canAddWorkstreamMembers
+  const canManageTableActions = canManageMainstreamStaff
 
   const [rows, setRows] = React.useState(() => buildTableRows(roster))
   const [addStaffOpen, setAddStaffOpen] = React.useState(false)
@@ -95,14 +132,14 @@ export function SectionStaffContent({
           <div>
             <CardTitle className='flex items-center gap-2 text-lg'>
               <Users className='h-5 w-5' />
-              Section staff
+              {pageTitle}
             </CardTitle>
-            <CardDescription>Manage {sectionName} staff here.</CardDescription>
+            <CardDescription>{pageDescription}</CardDescription>
           </div>
-          {canManage && (
+          {canAddStaff && (
             <Button size='sm' onClick={() => setAddStaffOpen(true)}>
               <Plus className='h-4 w-4 mr-1' />
-              Add staff
+              {addStaffLabel}
             </Button>
           )}
         </CardHeader>
@@ -123,7 +160,7 @@ export function SectionStaffContent({
 
           <SectionStaffTable
             rows={rows}
-            canManage={canManage}
+            canManage={canManageTableActions}
             onEdit={setEditStaff}
             onTransfer={setTransferStaff}
             onRefresh={refresh}
@@ -143,17 +180,39 @@ export function SectionStaffContent({
       </Card>
 
       <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
-        <CreateStaffDialog
-          open={addStaffOpen}
-          onOpenChange={setAddStaffOpen}
-          allowedRoles={['supervisor', 'officer']}
-          fixedSectionId={sectionId}
-          createApiUrl={`/api/sections/${sectionId}/staff`}
-          onSuccess={() => {
-            setAddStaffOpen(false)
-            refresh()
-          }}
-        />
+        {canAddWorkstreamMembers && projectWorkstreamMemberAdd ? (
+          <CreateProjectMemberDialog
+            open={addStaffOpen}
+            onOpenChange={setAddStaffOpen}
+            projectId={projectWorkstreamMemberAdd.projectId}
+            workstreams={[
+              {
+                _id: projectWorkstreamMemberAdd.workstreamId,
+                name: projectWorkstreamMemberAdd.workstreamName,
+              },
+            ]}
+            memberRoster={projectWorkstreamMemberAdd.memberRoster}
+            lockedRole='workstream_member'
+            fixedWorkstreamId={projectWorkstreamMemberAdd.workstreamId}
+            fixedWorkstreamName={projectWorkstreamMemberAdd.workstreamName}
+            onSuccess={() => {
+              setAddStaffOpen(false)
+              refresh()
+            }}
+          />
+        ) : (
+          <CreateStaffDialog
+            open={addStaffOpen}
+            onOpenChange={setAddStaffOpen}
+            allowedRoles={['supervisor', 'officer']}
+            fixedSectionId={sectionId}
+            createApiUrl={`/api/sections/${sectionId}/staff`}
+            onSuccess={() => {
+              setAddStaffOpen(false)
+              refresh()
+            }}
+          />
+        )}
       </Dialog>
 
       <EditSectionStaffDialog

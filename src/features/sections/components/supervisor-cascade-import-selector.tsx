@@ -7,6 +7,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import {
+  getCascadeActivityTypeLabel,
+  getSupervisorUpstreamContractNoun,
+} from '@/lib/supervisor-cascade-labels'
 import type {
   CascadeImportSelection,
   ManagerCascadeOptionsResponse,
@@ -16,6 +20,7 @@ interface SupervisorCascadeImportSelectorProps {
   sectionId: string
   supervisorContractId?: string
   supervisorId?: string
+  isProjectWorkstream?: boolean
   disabled?: boolean
   /** Called when selection or blocked-KPI state changes */
   onSelectionChange: (payload: {
@@ -78,9 +83,13 @@ export function SupervisorCascadeImportSelector({
   sectionId,
   supervisorContractId,
   supervisorId,
+  isProjectWorkstream = false,
   disabled,
   onSelectionChange,
 }: SupervisorCascadeImportSelectorProps) {
+  const upstreamContractNoun =
+    getSupervisorUpstreamContractNoun(isProjectWorkstream)
+  const upstreamRoleLabel = isProjectWorkstream ? 'project manager' : 'manager'
   const [options, setOptions] =
     React.useState<ManagerCascadeOptionsResponse | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
@@ -235,7 +244,7 @@ export function SupervisorCascadeImportSelector({
     return (
       <div className='flex items-center gap-2 text-sm text-muted-foreground py-4'>
         <Loader2 className='h-4 w-4 animate-spin' />
-        Loading manager contract…
+        Loading {upstreamContractNoun}…
       </div>
     )
   }
@@ -243,7 +252,7 @@ export function SupervisorCascadeImportSelector({
   if (loadError) {
     return (
       <Alert variant='destructive'>
-        <AlertTitle>Cannot load manager contract</AlertTitle>
+        <AlertTitle>Cannot load {upstreamContractNoun}</AlertTitle>
         <AlertDescription>{loadError}</AlertDescription>
       </Alert>
     )
@@ -252,9 +261,20 @@ export function SupervisorCascadeImportSelector({
   if (!options || options.objectives.length === 0) {
     return (
       <p className='text-sm text-muted-foreground'>
-        The manager contract has no KPIs available to cascade yet. You can
-        onboard an empty contract and add your own items, or ask your manager to
-        add KPIs with an AIM first.
+        {isProjectWorkstream ? (
+          <>
+            The {upstreamContractNoun} has no measurable activities available to
+            cascade yet. You can onboard an empty contract and add your own
+            items, or ask your {upstreamRoleLabel} to add measurable activities
+            first.
+          </>
+        ) : (
+          <>
+            The {upstreamContractNoun} has no KPIs available to cascade yet. You
+            can onboard an empty contract and add your own items, or ask your{' '}
+            {upstreamRoleLabel} to add KPIs with an AIM first.
+          </>
+        )}
       </p>
     )
   }
@@ -264,11 +284,25 @@ export function SupervisorCascadeImportSelector({
       {blockedSelected.length > 0 && (
         <Alert variant='destructive'>
           <AlertTriangle className='h-4 w-4' />
-          <AlertTitle>Selected KPIs cannot be cascaded</AlertTitle>
+          <AlertTitle>
+            Selected {isProjectWorkstream ? 'activities' : 'KPIs'} cannot be
+            cascaded
+          </AlertTitle>
           <AlertDescription>
             <p className='mb-2'>
-              The following selected KPIs have no AIM on the manager contract.
-              They will be blocked from import until your manager adds an AIM:
+              {isProjectWorkstream ? (
+                <>
+                  The following selected measurable activities are incomplete on
+                  the {upstreamContractNoun}. They will be blocked from import
+                  until your {upstreamRoleLabel} completes them:
+                </>
+              ) : (
+                <>
+                  The following selected KPIs have no AIM on the{' '}
+                  {upstreamContractNoun}. They will be blocked from import until
+                  your {upstreamRoleLabel} adds an AIM:
+                </>
+              )}
             </p>
             <ul className='list-disc pl-5 space-y-1'>
               {blockedSelected.map(item => (
@@ -281,7 +315,7 @@ export function SupervisorCascadeImportSelector({
 
       <div className='rounded-lg border max-h-[min(360px,50vh)] overflow-y-auto divide-y'>
         {options.objectives.map(obj => (
-          <div key={obj.objectiveKey} className='pt-5 p-3 space-y-5'>
+          <div key={obj.objectiveKey} className='pt-5 p-3 space-y-3'>
             <p className='text-xs tracking-wide text-foreground font-medium'>
               <span className='text-primary font-semibold'>
                 SSMARTA Objective {obj.code ? `${obj.code} – ` : ''}
@@ -289,16 +323,15 @@ export function SupervisorCascadeImportSelector({
               {obj.title.slice(0, 150)}
               {obj.title.length > 150 ? '…' : ''}
             </p>
-            {obj.initiatives.map(init => (
-              <div key={init.initiativeKey} className='space-y-4'>
-                <p className='text-xs font-medium'>
-                  Initiative {init.code ? `${init.code} – ` : ''}
-                  <span className='font-normal text-muted-foreground'>
-                    {init.title.slice(0, 100)}
-                    {init.title.length > 100 ? '…' : ''}
-                  </span>
-                </p>
-                <ul className='space-y-6'>
+            {obj.initiatives.map(init => {
+              const initiativeUsesMeasurableLayout = isProjectWorkstream
+
+              const activitiesList = (
+                <ul
+                  className={cn(
+                    initiativeUsesMeasurableLayout ? 'space-y-2' : 'space-y-5',
+                  )}
+                >
                   {init.kpis.map(kpi => {
                     const isSelected = selectedActivityKeys.has(kpi.activityKey)
                     const isBlockedSelection =
@@ -306,13 +339,24 @@ export function SupervisorCascadeImportSelector({
                     const isAlreadyOnContract = kpi.alreadyImported
                     const checkboxDisabled = disabled || isAlreadyOnContract
                     const isCheckboxChecked = isSelected || isAlreadyOnContract
+                    const activityTypeLabel = getCascadeActivityTypeLabel(
+                      kpi.activityType,
+                      isProjectWorkstream,
+                    )
+                    const isMeasurableActivity =
+                      kpi.activityType === 'measurable' || isProjectWorkstream
 
                     return (
                       <li
                         key={kpi.activityKey}
                         className={cn(
-                          'flex gap-3 rounded-md border p-2',
-                          isBlockedSelection &&
+                          'flex gap-3',
+                          initiativeUsesMeasurableLayout
+                            ? isBlockedSelection &&
+                                'rounded-md bg-destructive/5 px-1 py-0.5 -mx-1'
+                            : 'rounded-md border p-2',
+                          !initiativeUsesMeasurableLayout &&
+                            isBlockedSelection &&
                             'border-destructive/50 bg-destructive/5',
                         )}
                       >
@@ -333,16 +377,26 @@ export function SupervisorCascadeImportSelector({
                                 'cursor-not-allowed',
                             )}
                           >
-                            KPI: {kpi.title}
+                            {initiativeUsesMeasurableLayout
+                              ? kpi.title
+                              : `${activityTypeLabel}: ${kpi.title}`}
                           </Label>
-                          {kpi.hasAim ? (
+                          {isMeasurableActivity ? (
+                            kpi.hasAim ? null : (
+                              <p className='text-xs text-destructive'>
+                                No title — cannot cascade until{' '}
+                                {upstreamRoleLabel} adds one
+                              </p>
+                            )
+                          ) : kpi.hasAim ? (
                             <p className='text-xs text-muted-foreground'>
                               <span className='font-semibold'>AIM:</span>{' '}
                               {kpi.aim}
                             </p>
                           ) : (
                             <p className='text-xs text-destructive'>
-                              No AIM — cannot cascade until manager adds one
+                              No AIM — cannot cascade until {upstreamRoleLabel}{' '}
+                              adds one
                             </p>
                           )}
                           {isAlreadyOnContract ? (
@@ -352,8 +406,9 @@ export function SupervisorCascadeImportSelector({
                           ) : null}
                           {isBlockedSelection && (
                             <p className='text-xs text-destructive font-medium'>
-                              Blocked from cascade — deselect or ask manager to
-                              add an AIM
+                              {isMeasurableActivity
+                                ? `Blocked from cascade — deselect or ask ${upstreamRoleLabel} to complete the activity`
+                                : `Blocked from cascade — deselect or ask ${upstreamRoleLabel} to add an AIM`}
                             </p>
                           )}
                         </div>
@@ -361,8 +416,40 @@ export function SupervisorCascadeImportSelector({
                     )
                   })}
                 </ul>
-              </div>
-            ))}
+              )
+
+              return (
+                <div
+                  key={init.initiativeKey}
+                  className={
+                    initiativeUsesMeasurableLayout ? undefined : 'space-y-3'
+                  }
+                >
+                  <p
+                    className={cn(
+                      'text-xs font-medium',
+                      initiativeUsesMeasurableLayout && 'mb-6',
+                    )}
+                  >
+                    Initiative {init.code ? `${init.code} – ` : ''}
+                    <span className='font-normal text-muted-foreground'>
+                      {init.title.slice(0, 100)}
+                      {init.title.length > 100 ? '…' : ''}
+                    </span>
+                  </p>
+                  {initiativeUsesMeasurableLayout ? (
+                    <div className='space-y-1 pl-0.5'>
+                      <p className='text-[11px] font-medium uppercase underline tracking-wide leading-tight'>
+                        Measurable activities
+                      </p>
+                      {activitiesList}
+                    </div>
+                  ) : (
+                    activitiesList
+                  )}
+                </div>
+              )
+            })}
           </div>
         ))}
       </div>

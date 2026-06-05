@@ -47,6 +47,7 @@ import { SprintWeekTimer } from './sprint-week-timer'
 import type { AcceptedSprintTask } from './sprint-tasks-table'
 import type { WorkSubmission } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getEffectiveTaskStatus, isSprintWeekStarted } from '@/lib/sprint-week'
+import { getSprintActivityCategoryLabel } from '@/lib/sprint-task-validation'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -63,14 +64,6 @@ const TASK_STATUSES = [
   { label: 'In review', value: 'in_review' },
   { label: 'Done', value: 'done' },
 ]
-
-const CATEGORY_LABELS: Record<string, string> = {
-  normal_flow: 'Normal Flow',
-  compliance: 'Compliance',
-  staff_development: 'Staff Development',
-  stakeholder_engagement: 'Stakeholder Engagement',
-  emergency: 'Emergency',
-}
 
 const SUBMISSION_STATUS_BADGES: Record<
   string,
@@ -204,7 +197,7 @@ export function SprintTaskDetailsPanel({
             Activity Category
           </Label>
           <p className='text-sm mt-1'>
-            {CATEGORY_LABELS[task.activityCategory] ?? task.activityCategory}
+            {getSprintActivityCategoryLabel(task.activityCategory)}
           </p>
         </div>
       )}

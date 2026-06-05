@@ -114,6 +114,15 @@ type StaffOption = { _id: string; fullName?: string; staffId?: string }
 export interface SectionPageContentProps {
   section: Section
   sectionContract: SectionContract | null
+  /** Project manager workspace: FY contract at project level. */
+  isProjectManagerWorkspace?: boolean
+  /** Deputy project manager workspace: FY deputy contract at project level. */
+  isDeputyProjectManagerWorkspace?: boolean
+  /** Workstream lead/member: upstream contract is the project manager contract. */
+  isProjectWorkstreamWorkspace?: boolean
+  projectId?: string
+  /** Project name for shared project-level stakeholder engagement on workstreams. */
+  projectDisplayName?: string
   supervisorContract?: SupervisorContract | null
   supervisorContractForCascade?: SupervisorContract | null
   officerContract?: OfficerContract | null
@@ -131,6 +140,12 @@ export interface SectionPageContentProps {
   viewerStaffId?: string
   sectionAccess: SectionAccess
   staffRoster: SectionStaffRoster
+  /** Project members for email conflict checks when adding workstream members. */
+  projectMemberRoster?: {
+    email?: string | null
+    status: string
+    workstreamId?: string | null
+  }[]
   /** Managers in this section’s division (edit section dialog). */
   managers: StaffMember[]
 }
@@ -138,6 +153,7 @@ export interface SectionPageContentProps {
 export function SectionPageContent({
   section,
   sectionContract,
+  isProjectWorkstreamWorkspace = false,
   supervisorContract = null,
   supervisorContractForCascade = null,
   officerContract = null,
@@ -465,6 +481,7 @@ export function SectionPageContent({
                         sectionId={section._id}
                         supervisorContractId={activeContract._id}
                         supervisorId={sectionAccess.viewerStaffId ?? undefined}
+                        isProjectWorkstream={isProjectWorkstreamWorkspace}
                       />
                     ) : null}
                     {usesOfficerContract &&
@@ -476,6 +493,7 @@ export function SectionPageContent({
                         sectionId={section._id}
                         officerContractId={activeContract._id}
                         supervisorContractId={supervisorContractForCascade._id}
+                        isProjectWorkstream={isProjectWorkstreamWorkspace}
                       />
                     ) : null}
                     <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
@@ -504,7 +522,9 @@ export function SectionPageContent({
                             variant='outline'
                             onClick={() => setCascadeImportOpen(true)}
                           >
-                            Cascade from manager
+                            {isProjectWorkstreamWorkspace
+                              ? 'Cascade from project manager'
+                              : 'Cascade from manager'}
                           </Button>
                         ) : null}
                         {usesOfficerContract &&
@@ -517,7 +537,9 @@ export function SectionPageContent({
                             variant='outline'
                             onClick={() => setCascadeImportOpen(true)}
                           >
-                            Cascade from supervisor
+                            {isProjectWorkstreamWorkspace
+                              ? 'Cascade from workstream lead'
+                              : 'Cascade from supervisor'}
                           </Button>
                         ) : null}
                         {activeContract ? (
@@ -619,6 +641,12 @@ export function SectionPageContent({
                       sectionName={section.name}
                       supervisorName={personalContractDisplayName}
                       hasManagerContract={Boolean(sectionContract)}
+                      isProjectWorkstream={isProjectWorkstreamWorkspace}
+                      roleLabel={
+                        isProjectWorkstreamWorkspace
+                          ? 'Workstream Lead'
+                          : 'Supervisor'
+                      }
                       onSuccess={() => setOnboardOpen(false)}
                     />
                     <div className='flex items-center gap-2 text-muted-foreground'>
@@ -652,7 +680,7 @@ export function SectionPageContent({
                     </div>
                     <p className='text-sm'>
                       Onboard a contract to add SSMARTA objectives, initiatives,
-                      and KPIs.
+                      and measurable activities.
                     </p>
                     {sectionAccess.canOnboardContract && hasManager ? (
                       <Button onClick={() => setOnboardOpen(true)}>
@@ -684,7 +712,8 @@ export function SectionPageContent({
               <CardContent className='pt-6'>
                 <StakeholderEngagementContent
                   sectionId={section._id}
-                  sectionName={section.name}
+                  scopeName={section.name}
+                  scopeUnit='section'
                   engagement={stakeholderEngagement}
                   staffOptions={staffOptions}
                   initiatives={flattenInitiatives(

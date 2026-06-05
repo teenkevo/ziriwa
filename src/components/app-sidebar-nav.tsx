@@ -40,6 +40,7 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
+import { ProjectAdminSidebarNav } from '@/components/project-admin-sidebar-nav'
 import { SectionLeadershipSidebarNav } from '@/components/section-leadership-sidebar-nav'
 import type { SprintNavCounts } from '@/lib/sprint-nav-counts'
 import type {
@@ -60,6 +61,12 @@ function resolveManagerSprintTab(
   return 'ready'
 }
 
+function resolveOfficerSprintTab(
+  tab: string | null,
+): 'ready' | 'drafts' {
+  return tab === 'drafts' ? 'drafts' : 'ready'
+}
+
 function SprintSidebarCountBadge({ count }: { count: number }) {
   if (count <= 0) return null
   return (
@@ -76,8 +83,15 @@ export function AppSidebarNav({
   assistantCommissionerSections = [],
   managerSprintsReviewLabel = 'To Review',
   sprintNavCounts,
+  hideSprintReviewTab = false,
+  showWorkstreamsNav = false,
+  useProjectMembersNav = false,
+  staffNavLabel,
+  sprintsNavMode,
+  workspaceBasePath,
 }: {
   departmentsTree: SidebarDepartmentWithDivisions[]
+  workspaceBasePath?: string
   variant?:
     | 'default'
     | 'commissioner'
@@ -85,10 +99,17 @@ export function AppSidebarNav({
     | 'manager'
     | 'supervisor'
     | 'officer'
+    | 'project-admin'
   commissionerDivisions?: SidebarDivision[]
   assistantCommissionerSections?: SidebarSection[]
   managerSprintsReviewLabel?: string
   sprintNavCounts?: SprintNavCounts
+  hideSprintReviewTab?: boolean
+  showWorkstreamsNav?: boolean
+  useProjectMembersNav?: boolean
+  staffNavLabel?: string
+  /** PM/DPM: ready-only. Workstream member: split Ready/Drafts. Section officer: single link. */
+  sprintsNavMode?: 'split' | 'ready-only' | 'single'
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -178,7 +199,12 @@ export function AppSidebarNav({
   const isAssistantCommissionerSidebar = variant === 'assistant-commissioner'
   const isManagerSidebar = variant === 'manager'
   const isSupervisorSidebar = variant === 'supervisor'
+  const isProjectAdminSidebar = variant === 'project-admin'
   const isOfficerSidebar = variant === 'officer'
+  const adminBasePath = workspaceBasePath ?? '/projects'
+  const officerBasePath = workspaceBasePath ?? '/officer'
+  const managerBasePath = workspaceBasePath ?? '/manager'
+  const supervisorBasePath = workspaceBasePath ?? '/supervisor'
   const sectionLeadershipSprintTab =
     isManagerSidebar || isSupervisorSidebar
       ? resolveManagerSprintTab(searchParams.get('tab'))
@@ -187,6 +213,17 @@ export function AppSidebarNav({
     ready: 0,
     inReview: 0,
     drafts: 0,
+  }
+  const leadershipSprintsNavMode =
+    sprintsNavMode === 'ready-only' ? 'ready-only' : 'split'
+  const officerSprintsSplit = sprintsNavMode === 'split'
+  const officerSprintTab = resolveOfficerSprintTab(searchParams.get('tab'))
+  const isOfficerSprintsRoute =
+    pathname === `${officerBasePath}/sprints` ||
+    pathname.startsWith(`${officerBasePath}/sprints/`)
+
+  if (isProjectAdminSidebar) {
+    return <ProjectAdminSidebarNav adminBasePath={adminBasePath} />
   }
 
   if (isOfficerSidebar) {
@@ -199,11 +236,11 @@ export function AppSidebarNav({
                 <SidebarMenuButton
                   asChild
                   isActive={
-                    pathname === '/officer/dashboard' ||
-                    pathname.startsWith('/officer/dashboard/')
+                    pathname === `${officerBasePath}/dashboard` ||
+                    pathname.startsWith(`${officerBasePath}/dashboard/`)
                   }
                 >
-                  <Link href='/officer/dashboard'>
+                  <Link href={`${officerBasePath}/dashboard`}>
                     <LayoutDashboard />
                     <span>Dashboard</span>
                   </Link>
@@ -213,11 +250,11 @@ export function AppSidebarNav({
                 <SidebarMenuButton
                   asChild
                   isActive={
-                    pathname === '/officer/contract' ||
-                    pathname.startsWith('/officer/contract/')
+                    pathname === `${officerBasePath}/contract` ||
+                    pathname.startsWith(`${officerBasePath}/contract/`)
                   }
                 >
-                  <Link href='/officer/contract'>
+                  <Link href={`${officerBasePath}/contract`}>
                     <FileText />
                     <span>Contract</span>
                   </Link>
@@ -227,40 +264,39 @@ export function AppSidebarNav({
                 <SidebarMenuButton
                   asChild
                   isActive={
-                    pathname === '/officer/stakeholders' ||
-                    pathname.startsWith('/officer/stakeholders/')
+                    pathname === `${officerBasePath}/stakeholders` ||
+                    pathname.startsWith(`${officerBasePath}/stakeholders/`)
                   }
                 >
-                  <Link href='/officer/stakeholders'>
+                  <Link href={`${officerBasePath}/stakeholders`}>
                     <Handshake />
                     <span>Stakeholders</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {!officerSprintsSplit ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isOfficerSprintsRoute}
+                  >
+                    <Link href={`${officerBasePath}/sprints`}>
+                      <Zap />
+                      <span>Sprints</span>
+                    </Link>
+                  </SidebarMenuButton>
+                  <SprintSidebarCountBadge count={sprintCounts.ready} />
+                </SidebarMenuItem>
+              ) : null}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
                   isActive={
-                    pathname === '/officer/sprints' ||
-                    pathname.startsWith('/officer/sprints/')
+                    pathname === `${officerBasePath}/reporting` ||
+                    pathname.startsWith(`${officerBasePath}/reporting/`)
                   }
                 >
-                  <Link href='/officer/sprints'>
-                    <Zap />
-                    <span>Sprints</span>
-                  </Link>
-                </SidebarMenuButton>
-                <SprintSidebarCountBadge count={sprintCounts.ready} />
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/officer/reporting' ||
-                    pathname.startsWith('/officer/reporting/')
-                  }
-                >
-                  <Link href='/officer/reporting'>
+                  <Link href={`${officerBasePath}/reporting`}>
                     <FileBarChart />
                     <span>Reporting</span>
                   </Link>
@@ -269,6 +305,43 @@ export function AppSidebarNav({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {officerSprintsSplit ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Sprints</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      isOfficerSprintsRoute && officerSprintTab === 'ready'
+                    }
+                  >
+                    <Link href={`${officerBasePath}/sprints?tab=ready`}>
+                      <Zap />
+                      <span>Ready</span>
+                    </Link>
+                  </SidebarMenuButton>
+                  <SprintSidebarCountBadge count={sprintCounts.ready} />
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      isOfficerSprintsRoute && officerSprintTab === 'drafts'
+                    }
+                  >
+                    <Link href={`${officerBasePath}/sprints?tab=drafts`}>
+                      <FilePen />
+                      <span>Drafts</span>
+                    </Link>
+                  </SidebarMenuButton>
+                  <SprintSidebarCountBadge count={sprintCounts.drafts} />
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
     )
   }
@@ -276,11 +349,16 @@ export function AppSidebarNav({
   if (isManagerSidebar && sectionLeadershipSprintTab) {
     return (
       <SectionLeadershipSidebarNav
-        basePath='/manager'
+        basePath={managerBasePath}
         pathname={pathname}
         sprintTab={sectionLeadershipSprintTab}
         sprintsReviewLabel={managerSprintsReviewLabel}
         sprintCounts={sprintCounts}
+        sprintsNavMode={leadershipSprintsNavMode}
+        hideSprintReviewTab={hideSprintReviewTab}
+        showWorkstreamsNav={showWorkstreamsNav}
+        useProjectMembersNav={useProjectMembersNav}
+        staffNavLabel={staffNavLabel}
       />
     )
   }
@@ -288,11 +366,13 @@ export function AppSidebarNav({
   if (isSupervisorSidebar && sectionLeadershipSprintTab) {
     return (
       <SectionLeadershipSidebarNav
-        basePath='/supervisor'
+        basePath={supervisorBasePath}
         pathname={pathname}
         sprintTab={sectionLeadershipSprintTab}
         sprintsReviewLabel={managerSprintsReviewLabel}
         sprintCounts={sprintCounts}
+        hideSprintReviewTab={hideSprintReviewTab}
+        staffNavLabel={staffNavLabel}
       />
     )
   }

@@ -18,7 +18,9 @@ import {
 } from '@/components/ui/chart'
 import { StatusDonut, type DonutSlice } from './status-donut'
 
+import type { WorkspaceScopeKind } from '@/lib/project-workspace-copy'
 import type { SectionDashboardMetrics } from '@/lib/section-dashboard-metrics'
+import { getDashboardActivityCategoryKeys } from '@/lib/sprint-task-validation'
 
 const TASK_STATUS_COLORS: Record<string, { label: string; color: string }> = {
   to_do: { label: 'To do', color: 'hsl(215 16% 65%)' },
@@ -39,15 +41,36 @@ const CATEGORY_COLORS: Record<string, { label: string; color: string }> = {
     label: 'Stakeholder engagement',
     color: 'hsl(38 92% 50%)',
   },
-  emergency: { label: 'Emergency', color: 'hsl(24 95% 53%)' },
+  software_development: {
+    label: 'Software development',
+    color: 'hsl(199 89% 48%)',
+  },
+  data_management: {
+    label: 'Data management',
+    color: 'hsl(173 58% 39%)',
+  },
+  change_management: {
+    label: 'Change management',
+    color: 'hsl(291 64% 42%)',
+  },
+  uat_pilot: { label: 'UAT / Pilot', color: 'hsl(24 95% 53%)' },
+  emergency: { label: 'Emergency', color: 'hsl(0 72% 51%)' },
   uncategorized: { label: 'Uncategorized', color: 'hsl(215 16% 65%)' },
 }
 
 interface SprintSummaryProps {
   metrics: SectionDashboardMetrics
+  workspaceScope?: WorkspaceScopeKind
 }
 
-export function SprintSummary({ metrics }: SprintSummaryProps) {
+export function SprintSummary({
+  metrics,
+  workspaceScope = 'mainstream',
+}: SprintSummaryProps) {
+  const dashboardCategoryKeys = React.useMemo(
+    () => getDashboardActivityCategoryKeys(workspaceScope),
+    [workspaceScope],
+  )
   const trendChartConfig = React.useMemo<ChartConfig>(
     () => ({
       doneTasks: { label: 'Done', color: 'hsl(142 71% 45%)' },
@@ -96,21 +119,19 @@ export function SprintSummary({ metrics }: SprintSummaryProps) {
 
   const categoryLegendSlices: DonutSlice[] = React.useMemo(
     () =>
-      (
-        Object.entries(CATEGORY_COLORS) as [
-          keyof typeof CATEGORY_COLORS,
-          (typeof CATEGORY_COLORS)[keyof typeof CATEGORY_COLORS],
-        ][]
-      ).map(([k, meta]) => ({
-        key: k,
-        label: meta.label,
-        value:
-          metrics.activityCategoryBreakdown[
-            k as keyof typeof metrics.activityCategoryBreakdown
-          ] ?? 0,
-        color: meta.color,
-      })),
-    [metrics.activityCategoryBreakdown],
+      dashboardCategoryKeys.map(k => {
+        const meta = CATEGORY_COLORS[k]
+        return {
+          key: k,
+          label: meta?.label ?? k,
+          value:
+            metrics.activityCategoryBreakdown[
+              k as keyof typeof metrics.activityCategoryBreakdown
+            ] ?? 0,
+          color: meta?.color ?? CATEGORY_COLORS.uncategorized.color,
+        }
+      }),
+    [dashboardCategoryKeys, metrics.activityCategoryBreakdown],
   )
 
   const categorySlices: DonutSlice[] = React.useMemo(
@@ -125,11 +146,11 @@ export function SprintSummary({ metrics }: SprintSummaryProps) {
 
   const totalCategory = React.useMemo(
     () =>
-      Object.values(metrics.activityCategoryBreakdown).reduce(
-        (a, b) => a + b,
+      categoryLegendSlices.reduce(
+        (sum, slice) => sum + slice.value,
         0,
       ),
-    [metrics.activityCategoryBreakdown],
+    [categoryLegendSlices],
   )
 
   return (

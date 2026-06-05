@@ -6,6 +6,7 @@ import {
 } from '@/lib/sprint-task-validation'
 import { assertAuth } from '@/lib/authz/guards.server'
 import { audit } from '@/lib/audit-log/events'
+import { isSectionInProject } from '@/lib/project-access.server'
 import {
   assertSprintCreateAllowed,
   getSectionAccessForViewer,
@@ -42,8 +43,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const isProjectSection = await isSectionInProject(sectionId)
+
     for (const t of tasks) {
-      const err = validateSprintTaskPayload(t)
+      const err = validateSprintTaskPayload(t, { isProjectSection })
       if (err) {
         return NextResponse.json({ error: err }, { status: 400 })
       }

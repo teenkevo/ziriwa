@@ -15,6 +15,12 @@ import {
   findOverlappingDelegationAsDelegateeAnyScope,
   hasActiveDelegationAsDelegateeAnyScope,
 } from '@/lib/delegation-overlap.server'
+import {
+  getProjectIdForSection,
+  isDeputyProjectManagerOnProject,
+  isProjectManagerForProject,
+  projectDelegationDenied,
+} from '@/lib/project-delegation.server'
 import { syncDelegationStatuses } from '@/lib/section-delegation.server'
 import { createNotification } from '@/lib/notifications/create-notification'
 import { audit } from '@/lib/audit-log/events'
@@ -96,17 +102,8 @@ export async function POST(req: NextRequest) {
       ),
     ])
 
-    if (!fromStaff?.sectionId || fromStaff.sectionId !== sectionId) {
-      return NextResponse.json(
-        { error: 'You must belong to this section to delegate from it' },
-        { status: 400 },
-      )
-    }
-    if (!toStaff?.sectionId || toStaff.sectionId !== sectionId) {
-      return NextResponse.json(
-        { error: 'Acting staff must belong to this section' },
-        { status: 400 },
-      )
+    if (!fromStaff || !toStaff) {
+      return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
     }
 
     if (toStaff.status !== 'active') {
@@ -115,6 +112,11 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
+
+    const projectId = await getProjectIdForSection(sectionId)
+    const isProjectManagerDelegation =
+      projectId &&
+      (await isProjectManagerForProject(projectId, fromStaffId))
 
     const actingRole = fromStaff.role
     if (!isSectionActingRole(actingRole)) {
@@ -127,18 +129,45 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!staffRoleMatchesActingRole(fromStaff.role, actingRole)) {
-      return NextResponse.json(
-        { error: `Your staff role must be ${actingRole}` },
-        { status: 400 },
-      )
-    }
+    if (isProjectManagerDelegation && projectId) {
+      if (actingRole !== 'manager') {
+        return NextResponse.json(
+          { error: 'Project manager delegation requires a manager staff record' },
+          { status: 400 },
+        )
+      }
+      if (!(await isDeputyProjectManagerOnProject(projectId, toStaffId))) {
+        return projectDelegationDenied(
+          'Project managers can only delegate to the deputy project manager',
+        )
+      }
+    } else {
+      if (!fromStaff?.sectionId || fromStaff.sectionId !== sectionId) {
+        return NextResponse.json(
+          { error: 'You must belong to this section to delegate from it' },
+          { status: 400 },
+        )
+      }
+      if (!toStaff?.sectionId || toStaff.sectionId !== sectionId) {
+        return NextResponse.json(
+          { error: 'Acting staff must belong to this section' },
+          { status: 400 },
+        )
+      }
 
-    if (!canStaffReceiveDelegation(toStaff.role, actingRole)) {
-      return NextResponse.json(
-        { error: `Selected staff cannot act as ${actingRole}` },
-        { status: 400 },
-      )
+      if (!staffRoleMatchesActingRole(fromStaff.role, actingRole)) {
+        return NextResponse.json(
+          { error: `Your staff role must be ${actingRole}` },
+          { status: 400 },
+        )
+      }
+
+      if (!canStaffReceiveDelegation(toStaff.role, actingRole)) {
+        return NextResponse.json(
+          { error: `Selected staff cannot act as ${actingRole}` },
+          { status: 400 },
+        )
+      }
     }
 
     const overlapAbsent = await findOverlappingDelegationAsAbsentAnyScope(

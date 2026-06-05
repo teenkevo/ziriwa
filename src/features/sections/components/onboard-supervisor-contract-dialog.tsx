@@ -16,6 +16,11 @@ import {
 } from '@/components/ui/dialog'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
 import {
+  getSupervisorCascadeDialogTitle,
+  getSupervisorUpstreamRoleLabel,
+} from '@/lib/supervisor-cascade-labels'
+import { OnboardContractDetailsCard } from '@/features/sections/components/onboard-contract-details-card'
+import {
   SupervisorCascadeImportSelector,
 } from '@/features/sections/components/supervisor-cascade-import-selector'
 import { SupervisorCascadeImportModeDialog } from '@/features/sections/components/supervisor-cascade-import-mode-dialog'
@@ -31,6 +36,11 @@ interface OnboardSupervisorContractDialogProps {
   supervisorName: string
   /** When false, skip cascade step (no manager contract). */
   hasManagerContract?: boolean
+  /** Project workstream lead — upstream is PM contract, not mainstream section manager. */
+  isProjectWorkstream?: boolean
+  scopeLabel?: string
+  roleLabel?: string
+  upstreamRoleLabel?: string
   onSuccess?: () => void
 }
 
@@ -44,8 +54,14 @@ export function OnboardSupervisorContractDialog({
   sectionName,
   supervisorName,
   hasManagerContract = true,
+  isProjectWorkstream = false,
+  scopeLabel = 'Section',
+  roleLabel = 'Supervisor',
+  upstreamRoleLabel,
   onSuccess,
 }: OnboardSupervisorContractDialogProps) {
+  const effectiveUpstreamRoleLabel =
+    upstreamRoleLabel ?? getSupervisorUpstreamRoleLabel(isProjectWorkstream)
   const router = useRouter()
   const [step, setStep] = React.useState<Step>('details')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -64,6 +80,7 @@ export function OnboardSupervisorContractDialog({
     sectionId,
     supervisorContractId: createdContractId ?? undefined,
     supervisorId,
+    isProjectWorkstream,
     onComplete: finish,
   })
 
@@ -113,35 +130,28 @@ export function OnboardSupervisorContractDialog({
   }
 
   const cascadeUiOpen = open && step === 'cascade'
+  const cascadeDialogTitle = getSupervisorCascadeDialogTitle(isProjectWorkstream)
 
   return (
     <>
       <Dialog open={open && step === 'details'} onOpenChange={onOpenChange}>
         <DialogContent disableClose={isSubmitting}>
           <DialogHeader>
-            <DialogTitle>Onboard supervisor contract</DialogTitle>
+            <DialogTitle>Onboard Contract</DialogTitle>
             <DialogDescription>
-              Create your supervisor contract for the current financial year.
               {hasManagerContract
-                ? ' You can then import items from the manager contract.'
-                : ''}
+                ? `Cascade from the ${effectiveUpstreamRoleLabel} contract after onboarding.`
+                : `Contract for ${currentFY.label}.`}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleDetailsSubmit}>
-            <div className='space-y-4 py-2 pb-4'>
-              <div className='rounded-lg border p-4 space-y-2'>
-                <p className='text-sm font-medium'>Section</p>
-                <p className='text-sm text-muted-foreground'>{sectionName}</p>
-                <p className='text-sm font-medium mt-2'>Supervisor</p>
-                <p className='text-sm text-muted-foreground'>
-                  {supervisorName}
-                </p>
-                <p className='text-sm font-medium mt-2'>Financial year</p>
-                <p className='text-sm text-muted-foreground'>
-                  {currentFY.label}
-                </p>
-              </div>
-            </div>
+            <OnboardContractDetailsCard
+              rows={[
+                { label: scopeLabel, value: sectionName },
+                { label: roleLabel, value: supervisorName },
+                { label: 'Financial Year', value: currentFY.label },
+              ]}
+            />
             <DialogFooter>
               <Button
                 type='button'
@@ -160,7 +170,7 @@ export function OnboardSupervisorContractDialog({
                 ) : hasManagerContract ? (
                   'Continue'
                 ) : (
-                  'Onboard contract'
+                  'Onboard Contract'
                 )}
               </Button>
             </DialogFooter>
@@ -179,10 +189,9 @@ export function OnboardSupervisorContractDialog({
           className='max-w-lg sm:max-w-xl'
         >
           <DialogHeader>
-            <DialogTitle>Cascade from manager&apos;s contract</DialogTitle>
+            <DialogTitle>{cascadeDialogTitle}</DialogTitle>
             <DialogDescription>
-              Choose which manager KPIs to cascade. You can skip and add your own
-              items later.
+              Select KPIs to import, or skip for now.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={flow.handleSelectSubmit}>
@@ -191,6 +200,7 @@ export function OnboardSupervisorContractDialog({
                 sectionId={sectionId}
                 supervisorContractId={createdContractId ?? undefined}
                 supervisorId={supervisorId}
+                isProjectWorkstream={isProjectWorkstream}
                 disabled={flow.isBusy || isSubmitting}
                 onSelectionChange={flow.handleSelectionChange}
               />

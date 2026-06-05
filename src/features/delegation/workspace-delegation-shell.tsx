@@ -33,6 +33,7 @@ interface WorkspaceDelegationShellProps extends WorkspaceData {
   workspaceBasePath: WorkspaceBasePath
   sprintView?: 'ready' | 'in-review' | 'draft'
   sprintReviewLabel?: string
+  hideSprintReviewTab?: boolean
   orgActingAsDelegatee?: OrgDelegationRecord | null
 }
 
@@ -53,6 +54,7 @@ export function WorkspaceDelegationShell({
   orgActingAsDelegatee = null,
   sprintView,
   sprintReviewLabel,
+  hideSprintReviewTab,
   ...rest
 }: WorkspaceDelegationShellProps) {
   const router = useRouter()
@@ -124,6 +126,7 @@ export function WorkspaceDelegationShell({
           workspaceBasePath={workspaceBasePath}
           sprintView={sprintView}
           sprintReviewLabel={sprintReviewLabel}
+          hideSprintReviewTab={hideSprintReviewTab}
         />
       </WorkContextNavigationProvider>
     </div>

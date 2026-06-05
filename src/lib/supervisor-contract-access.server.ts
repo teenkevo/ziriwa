@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server'
 import { isSuperadmin } from '@/lib/authz/guards.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
+import { isSectionInProject } from '@/lib/project-access.server'
+import { getProjectWorkstreamSupervisorIds } from '@/lib/project-member-staff.server'
 import { getActiveDelegationAsDelegatee } from '@/lib/section-delegation.server'
 import { client } from '@/sanity/lib/client'
 
@@ -29,6 +31,25 @@ export async function resolveSupervisorStaffRefForSection(
   )
   if (isSupervisor) return viewerStaffId
 
+  if (await isSectionInProject(sectionId)) {
+    const leadIds = await getProjectWorkstreamSupervisorIds(sectionId)
+    if (leadIds.includes(viewerStaffId)) return viewerStaffId
+  } else {
+    const isWorkstreamLead = await client.fetch<boolean>(
+      /* groq */ `
+        count(
+          *[
+            _type == "section"
+            && _id == $sectionId
+            && workstreamLead._ref == $viewerStaffId
+          ][0]
+        ) > 0
+      `,
+      { sectionId, viewerStaffId },
+    )
+    if (isWorkstreamLead) return viewerStaffId
+  }
+
   const acting = await getActiveDelegationAsDelegatee(viewerStaffId, sectionId)
   if (acting?.actingRole === 'supervisor') return acting.fromStaffId
 
@@ -51,11 +72,19 @@ export function supervisorContractAccessDenied(message: string) {
   return NextResponse.json({ error: message }, { status: 403 })
 }
 
+export async function supervisorContractAccessDeniedMessage(
+  sectionId: string,
+): Promise<string> {
+  return (await isSectionInProject(sectionId))
+    ? 'Only the workstream lead can change this contract'
+    : 'Only the section supervisor can change this contract'
+}
+
 export async function assertSupervisorContractManageAllowed(
   sectionId: string,
 ): Promise<NextResponse | null> {
   if (await canManageSupervisorContract(sectionId)) return null
   return supervisorContractAccessDenied(
-    'Only the section supervisor can change this contract',
+    await supervisorContractAccessDeniedMessage(sectionId),
   )
 }

@@ -2,6 +2,7 @@ import 'server-only'
 
 import { auth, clerkClient } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { cache } from 'react'
 
 import type { AppRole } from '@/lib/app-role'
 import { getAppRole } from '@/lib/clerk-app-role.server'
@@ -86,7 +87,7 @@ export async function assertAuth(): Promise<NextResponse | { userId: string }> {
 }
 
 /** Email allowlist (`SUPERADMIN_EMAILS` / `BOOTSTRAP_ADMIN_EMAIL`). */
-export async function isSuperadmin(): Promise<boolean> {
+export const isSuperadmin = cache(async function isSuperadmin(): Promise<boolean> {
   const { userId } = await auth()
   if (!userId) return false
 
@@ -100,13 +101,18 @@ export async function isSuperadmin(): Promise<boolean> {
   )?.emailAddress
   if (!primaryEmail) return false
   return allowlist.includes(primaryEmail.toLowerCase())
-}
+})
 
 /** Superadmin or commissioner-level staff management. */
 export async function isUserAdmin(): Promise<boolean> {
   if (await isSuperadmin()) return true
   const role = await getAppRole()
   return hasPermission(role, 'staff', 'create')
+}
+
+/** Bootstrap / superadmin allowlist — create projects and org onboarding. */
+export async function canCreateProject(): Promise<boolean> {
+  return isSuperadmin()
 }
 
 export async function requireUserAdmin(): Promise<void> {

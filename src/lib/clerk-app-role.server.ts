@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { auth, currentUser } from '@clerk/nextjs/server'
+import { cache } from 'react'
 import {
   appRoleFromPublicMetadata,
   appRoleFromSessionClaims,
@@ -37,7 +38,7 @@ async function getStaffAppRoleByEmail(email: string): Promise<AppRole | null> {
  * fallback for newly signed-in users whose Clerk metadata has not been set yet.
  * Use in Server Components and Route Handlers.
  */
-export async function getAppRole(): Promise<AppRole | null> {
+export const getAppRole = cache(async function getAppRole(): Promise<AppRole | null> {
   const user = await currentUser()
   if (!user) return null
 
@@ -47,7 +48,7 @@ export async function getAppRole(): Promise<AppRole | null> {
   if (clerkRole) return clerkRole
 
   return getStaffAppRoleByEmail(getPrimaryEmail(user))
-}
+})
 
 /**
  * Role from the session JWT only (`app_role` claim). Use in `middleware.ts` after adding

@@ -4,10 +4,10 @@ import type { CascadeImportSelection } from '@/lib/contract-cascade/types'
 import {
   canManageSupervisorContract,
   getSectionIdFromSupervisorContract,
+  supervisorContractAccessDeniedMessage,
 } from '@/lib/supervisor-contract-access.server'
-import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
+import { getUpstreamManagerContractForSection } from '@/lib/project-upstream-contract.server'
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
-import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 
 export class CascadeImportContextError extends Error {
@@ -24,6 +24,7 @@ export interface CascadeImportContext {
   supervisorContractId: string
   sectionContractId: string
   cascadeRevision: number
+  upstreamIsProjectContract: boolean
   managerObjectives: SsmartaObjective[]
   supervisorObjectives: SsmartaObjective[]
   selections: CascadeImportSelection[]
@@ -42,7 +43,7 @@ export async function loadCascadeImportContext(
 
   if (!(await canManageSupervisorContract(sectionId))) {
     throw new CascadeImportContextError(
-      'Only the section supervisor can change this contract',
+      await supervisorContractAccessDeniedMessage(sectionId),
       403,
     )
   }
@@ -61,48 +62,47 @@ export async function loadCascadeImportContext(
     throw new CascadeImportContextError('Contract not found', 404)
   }
 
-  const sectionContract = await getSectionContract(
+  const upstream = await getUpstreamManagerContractForSection(
     sectionId,
     supervisorDoc.financialYearLabel,
   )
-  if (!sectionContract) {
+  if (!upstream) {
     throw new CascadeImportContextError(
-      'No manager contract for this section and financial year',
+      'No project manager contract for this workstream and financial year',
       404,
     )
   }
 
   const blocked = findActivityKeysBlockedWithoutAim(
-    sectionContract.objectives ?? [],
+    upstream.objectives ?? [],
     selections,
   )
   if (blocked.length > 0) {
     throw new CascadeImportContextError(
-      'One or more selected KPIs have no AIM and cannot be cascaded.',
+      'One or more selected activities cannot be cascaded yet.',
       400,
     )
   }
 
-  const cascadeRevision =
-    (await client.fetch<number>(
-      `coalesce(*[_type == "sectionContract" && _id == $id][0].cascadeRevision, 0)`,
-      { id: sectionContract._id },
-    )) ?? 0
-
   const rewriteContexts = buildCascadeRewriteContexts(
-    sectionContract.objectives ?? [],
+    upstream.objectives ?? [],
     selections,
+    { upstreamIsProjectContract: upstream.isProjectContract },
   )
   if (rewriteContexts.length === 0) {
-    throw new CascadeImportContextError('No valid KPIs found for import', 400)
+    throw new CascadeImportContextError(
+      'No valid activities found for import',
+      400,
+    )
   }
 
   return {
     sectionId,
     supervisorContractId,
-    sectionContractId: sectionContract._id,
-    cascadeRevision,
-    managerObjectives: sectionContract.objectives ?? [],
+    sectionContractId: upstream._id,
+    cascadeRevision: upstream.cascadeRevision,
+    upstreamIsProjectContract: upstream.isProjectContract,
+    managerObjectives: upstream.objectives ?? [],
     supervisorObjectives: supervisorDoc.objectives ?? [],
     selections,
     rewriteContexts,

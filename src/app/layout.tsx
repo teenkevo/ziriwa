@@ -6,6 +6,8 @@ import { ThemeProvider } from 'next-themes'
 import { Toaster } from '@/components/ui/sonner'
 import { ClerkProvider } from '@clerk/nextjs'
 
+import { getAppBaseUrl } from '@/lib/app-url.server'
+
 const splineSans = Spline_Sans({ subsets: ['latin'] })
 
 const geistSans = localFont({
@@ -38,8 +40,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const appBaseUrl = getAppBaseUrl()
+  const allowedRedirectOrigins = [
+    appBaseUrl,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ]
+
   return (
-    <ClerkProvider signInUrl='/sign-in' signUpUrl='/sign-in'>
+    <ClerkProvider
+      signInUrl='/sign-in'
+      signUpUrl='/sign-up'
+      signInFallbackRedirectUrl='/auth/continue'
+      signUpFallbackRedirectUrl='/auth/continue'
+      allowedRedirectOrigins={allowedRedirectOrigins}
+    >
       <html lang='en' suppressHydrationWarning>
         <body className={splineSans.className}>
           <ThemeProvider

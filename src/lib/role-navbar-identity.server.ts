@@ -4,6 +4,13 @@ import { currentUser } from '@clerk/nextjs/server'
 
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
 import { getAppRole } from '@/lib/clerk-app-role.server'
+import { isSuperadmin } from '@/lib/authz/guards.server'
+import {
+  getProjectByIdForViewer,
+  getProjectMembershipForViewer,
+} from '@/lib/project-access.server'
+import { formatProjectNavbarRoleLabel } from '@/lib/project-role'
+import { getProjectWorkspaceContext } from '@/lib/workspace-mode.server'
 import { client } from '@/sanity/lib/client'
 
 export type RoleNavbarIdentity = {
@@ -81,6 +88,32 @@ async function getLedDivisionDisplayName(email: string) {
 }
 
 export async function getRoleNavbarIdentity(): Promise<RoleNavbarIdentity | null> {
+  const { isProjects, projectId } = await getProjectWorkspaceContext()
+  if (isProjects && projectId) {
+    if (await isSuperadmin()) {
+      const project = await getProjectByIdForViewer(projectId)
+      return {
+        roleLabel: 'Administrator',
+        contextLabel: project?.projectName ?? 'Project',
+        separator: '|',
+      }
+    }
+
+    const membership = await getProjectMembershipForViewer(projectId)
+    if (membership) {
+      return {
+        roleLabel: formatProjectNavbarRoleLabel(
+          membership.role,
+          membership.workstreamName,
+        ),
+        contextLabel: membership.projectName,
+        separator: '|',
+      }
+    }
+  }
+
+  if (await isSuperadmin()) return null
+
   const role = await getAppRole()
   if (!role) return null
 

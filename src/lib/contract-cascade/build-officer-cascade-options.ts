@@ -93,6 +93,10 @@ export function buildOfficerCascadeOptions(
           activityKey: act._key,
           title: act.title,
           aim: act.title?.trim() ?? '',
+          activityType:
+            act.activityType === 'kpi'
+              ? ('kpi' as const)
+              : ('measurable' as const),
           hasAim: true,
           canCascade,
           alreadyImported,

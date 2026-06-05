@@ -29,7 +29,7 @@ const Navbar = () => {
         >
           <div className='flex flex-col sm:flex-row sm:items-center gap-4  lg:min-w-max mt-10 lg:mt-0'>
             <SignedOut>
-              <SignInButton mode='modal' fallbackRedirectUrl='/workspace'>
+              <SignInButton mode='modal' fallbackRedirectUrl='/auth/continue'>
                 <Button
                   variant='outline'
                   className='flex items-center justify-center w-full sm:w-auto h-10 px-6 rounded-md shadow-md border border-gray-200 dark:border-gray-800'
@@ -82,7 +82,7 @@ function SignInCtaButton() {
 
   return (
     <SignedOut>
-      <SignInButton mode='modal' fallbackRedirectUrl='/workspace'>
+      <SignInButton mode='modal' fallbackRedirectUrl='/auth/continue'>
         <Button
           className='group'
           onMouseEnter={() => setIsHovered(true)}

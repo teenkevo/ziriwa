@@ -6,12 +6,112 @@ import { getAppRole } from '@/lib/clerk-app-role.server'
 import { isSuperadmin } from '@/lib/authz/guards.server'
 import { currentUser } from '@clerk/nextjs/server'
 import { client } from '@/sanity/lib/client'
+import { getProjectMembershipForViewer } from '@/lib/project-access.server'
 import { getSprintNavCountsForViewer } from '@/lib/sprint-nav-counts.server'
+import { buildProjectAdminBasePath } from '@/lib/project-workspace-paths'
+import { projectRoleToWorkspaceBasePath } from '@/lib/project-role'
+import { getProjectWorkspaceContext } from '@/lib/workspace-mode.server'
+import { getProjectSlugById } from '@/sanity/lib/projects/get-project-by-id'
 
 export async function AppSidebarNavWrapper() {
   const role = await getAppRole()
   const departmentsTree = await getDepartmentsWithDivisionsForSidebar()
   const useFallbackExplorer = await isSuperadmin()
+  const { isProjects, projectId } = await getProjectWorkspaceContext()
+  const hideSprintReviewTab = isProjects
+
+  if (isProjects && projectId) {
+    const slug = await getProjectSlugById(projectId)
+    if (slug && useFallbackExplorer) {
+      return (
+        <AppSidebarNav
+          departmentsTree={departmentsTree}
+          variant='project-admin'
+          workspaceBasePath={buildProjectAdminBasePath(slug)}
+        />
+      )
+    }
+
+    const [membership, sprintNavCounts] = await Promise.all([
+      getProjectMembershipForViewer(projectId),
+      getSprintNavCountsForViewer(),
+    ])
+
+    if (membership && slug) {
+      const workspaceBasePath = projectRoleToWorkspaceBasePath(
+        slug,
+        membership.role,
+      )
+      if (membership.role === 'project_manager') {
+        return (
+          <AppSidebarNav
+            departmentsTree={departmentsTree}
+            variant='manager'
+            workspaceBasePath={workspaceBasePath}
+            managerSprintsReviewLabel='To Review'
+            sprintNavCounts={sprintNavCounts}
+            hideSprintReviewTab
+            showWorkstreamsNav
+            useProjectMembersNav
+            sprintsNavMode='ready-only'
+          />
+        )
+      }
+      if (membership.role === 'deputy_project_manager') {
+        return (
+          <AppSidebarNav
+            departmentsTree={departmentsTree}
+            variant='manager'
+            workspaceBasePath={workspaceBasePath}
+            managerSprintsReviewLabel='To Review'
+            sprintNavCounts={sprintNavCounts}
+            hideSprintReviewTab
+            showWorkstreamsNav
+            useProjectMembersNav
+            sprintsNavMode='ready-only'
+          />
+        )
+      }
+      if (membership.role === 'workstream_lead') {
+        return (
+          <AppSidebarNav
+            departmentsTree={departmentsTree}
+            variant='supervisor'
+            workspaceBasePath={workspaceBasePath}
+            managerSprintsReviewLabel='In Review'
+            sprintNavCounts={sprintNavCounts}
+            hideSprintReviewTab
+            staffNavLabel='Workstream Members'
+          />
+        )
+      }
+      if (membership.role === 'workstream_member') {
+        return (
+          <AppSidebarNav
+            departmentsTree={departmentsTree}
+            variant='officer'
+            workspaceBasePath={workspaceBasePath}
+            sprintNavCounts={sprintNavCounts}
+            sprintsNavMode='split'
+          />
+        )
+      }
+    }
+
+    // Project cookies set but nav context not ready — never fall back to mainstream /manager.
+    return (
+      <AppSidebarNav
+        departmentsTree={departmentsTree}
+        variant='manager'
+        workspaceBasePath={
+          slug && membership
+            ? projectRoleToWorkspaceBasePath(slug, membership.role)
+            : '/workspace/projects'
+        }
+        hideSprintReviewTab
+      />
+    )
+  }
 
   if (useFallbackExplorer) {
     return <AppSidebarNav departmentsTree={departmentsTree} variant='default' />
@@ -61,6 +161,7 @@ export async function AppSidebarNavWrapper() {
         variant='manager'
         managerSprintsReviewLabel='To Review'
         sprintNavCounts={sprintNavCounts}
+        hideSprintReviewTab={hideSprintReviewTab}
       />
     )
   }
@@ -73,6 +174,7 @@ export async function AppSidebarNavWrapper() {
         variant='supervisor'
         managerSprintsReviewLabel='In Review'
         sprintNavCounts={sprintNavCounts}
+        hideSprintReviewTab={hideSprintReviewTab}
       />
     )
   }

@@ -1,15 +1,20 @@
 import type { SectionAccess } from '@/lib/section-access'
 
-export type WorkspaceBasePath = '/manager' | '/officer' | '/supervisor'
+export type MainstreamWorkspaceBasePath = '/manager' | '/officer' | '/supervisor'
+
+/** Mainstream or `/projects/[slug]/[role]` workspace prefix. */
+export type WorkspaceBasePath = MainstreamWorkspaceBasePath | (string & {})
 
 export function getWorkspacePaths(basePath: WorkspaceBasePath) {
+  const isOfficerLike =
+    basePath === '/officer' || basePath.endsWith('/workstream-member')
+
   return {
     basePath,
     dashboard: `${basePath}/dashboard`,
     contract: `${basePath}/contract`,
     sprints: `${basePath}/sprints`,
-    sprintsReady:
-      basePath === '/officer'
+    sprintsReady: isOfficerLike
         ? `${basePath}/sprints`
         : `${basePath}/sprints?tab=ready`,
     stakeholders: `${basePath}/stakeholders`,

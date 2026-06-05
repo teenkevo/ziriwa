@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { OnboardContractDetailsCard } from '@/features/sections/components/onboard-contract-details-card'
 
 interface OnboardOfficerContractDialogProps {
   open: boolean
@@ -22,6 +23,13 @@ interface OnboardOfficerContractDialogProps {
   officerId?: string
   sectionName: string
   officerName: string
+  /** e.g. Section (mainstream) or Workstream (project). */
+  scopeLabel?: string
+  /** e.g. Officer or Workstream Member. */
+  roleLabel?: string
+  /** Upstream role shown above roleLabel (e.g. Workstream Lead for members). */
+  upstreamRoleLabel?: string
+  upstreamName?: string
   onSuccess?: () => void
 }
 
@@ -32,6 +40,10 @@ export function OnboardOfficerContractDialog({
   officerId,
   sectionName,
   officerName,
+  scopeLabel = 'Section',
+  roleLabel = 'Officer',
+  upstreamRoleLabel,
+  upstreamName,
   onSuccess,
 }: OnboardOfficerContractDialogProps) {
   const router = useRouter()
@@ -66,22 +78,22 @@ export function OnboardOfficerContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent disableClose={isCreating}>
         <DialogHeader>
-          <DialogTitle>Onboard officer contract</DialogTitle>
+          <DialogTitle>Onboard Contract</DialogTitle>
           <DialogDescription>
-            Create your officer contract for the current financial year
+            Cascade from your lead&apos;s contract after onboarding.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className='space-y-4 py-2 pb-4'>
-            <div className='rounded-lg border p-4 space-y-2'>
-              <p className='text-sm font-medium'>Section</p>
-              <p className='text-sm text-muted-foreground'>{sectionName}</p>
-              <p className='text-sm font-medium mt-2'>Officer</p>
-              <p className='text-sm text-muted-foreground'>{officerName}</p>
-              <p className='text-sm font-medium mt-2'>Financial year</p>
-              <p className='text-sm text-muted-foreground'>{currentFY.label}</p>
-            </div>
-          </div>
+          <OnboardContractDetailsCard
+            rows={[
+              { label: scopeLabel, value: sectionName },
+              ...(upstreamRoleLabel && upstreamName
+                ? [{ label: upstreamRoleLabel, value: upstreamName }]
+                : []),
+              { label: roleLabel, value: officerName },
+              { label: 'Financial Year', value: currentFY.label },
+            ]}
+          />
           <DialogFooter>
             <Button
               type='button'

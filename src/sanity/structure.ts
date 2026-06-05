@@ -13,7 +13,7 @@ const STUDIO_GROUPS = {
   org: {
     title: 'Organization',
     icon: MasterDetailIcon,
-    types: ['department', 'division', 'section', 'staff'],
+    types: ['department', 'division', 'project', 'projectMember', 'section', 'staff'],
   },
   contracts: {
     title: 'Performance contracts',
@@ -22,6 +22,8 @@ const STUDIO_GROUPS = {
       'departmentContract',
       'divisionContract',
       'sectionContract',
+      'projectContract',
+      'deputyProjectContract',
       'supervisorContract',
       'officerContract',
     ],

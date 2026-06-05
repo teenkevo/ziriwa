@@ -36,7 +36,7 @@ interface ManagerSwitcherProps {
   onChange: (id: string) => void
   disabled?: boolean
   placeholder?: string
-  divisionId: string
+  divisionId?: string
   /** Section being edited; keeps its manager selectable. */
   currentSectionId?: string
 }
@@ -138,7 +138,7 @@ export function ManagerSwitcher({
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         fixedRole='manager'
-        divisionId={divisionId}
+        {...(divisionId ? { divisionId } : {})}
         onSuccess={handleCreateSuccess}
       />
     </Dialog>

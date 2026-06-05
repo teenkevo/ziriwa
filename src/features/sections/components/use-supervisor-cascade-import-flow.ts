@@ -11,6 +11,7 @@ import {
   fetchCascadeRewritePreview,
   runCascadeImport,
 } from '@/features/sections/components/cascade-import-client'
+import { getSupervisorUpstreamContractNoun } from '@/lib/supervisor-cascade-labels'
 import { invalidateSupervisorCascadeOptionsCache } from '@/features/sections/components/supervisor-cascade-import-selector'
 import type { CascadeImportModeChoice } from '@/features/sections/components/supervisor-cascade-import-mode-dialog'
 
@@ -20,6 +21,7 @@ interface UseSupervisorCascadeImportFlowOptions {
   sectionId: string
   supervisorContractId?: string
   supervisorId?: string
+  isProjectWorkstream?: boolean
   onComplete?: () => void
 }
 
@@ -27,8 +29,12 @@ export function useSupervisorCascadeImportFlow({
   sectionId,
   supervisorContractId,
   supervisorId,
+  isProjectWorkstream = false,
   onComplete,
 }: UseSupervisorCascadeImportFlowOptions) {
+  const upstreamContractNoun = getSupervisorUpstreamContractNoun(
+    isProjectWorkstream,
+  )
   const router = useRouter()
   const [step, setStep] = React.useState<FlowStep>('select')
   const [isBusy, setIsBusy] = React.useState(false)
@@ -95,8 +101,11 @@ export function useSupervisorCascadeImportFlow({
       const importedCount = Array.isArray(data.importedActivityKeys)
         ? data.importedActivityKeys.length
         : importableCount
+      const itemLabel = isProjectWorkstream
+        ? `initiative${importedCount === 1 ? '' : 's'}`
+        : `KPI${importedCount === 1 ? '' : 's'}`
       toast.success(
-        `Cascaded ${importedCount} KPI${importedCount === 1 ? '' : 's'} from manager's contract`,
+        `Cascaded ${importedCount} ${itemLabel} from ${upstreamContractNoun}`,
       )
       router.refresh()
       onComplete?.()
@@ -108,6 +117,7 @@ export function useSupervisorCascadeImportFlow({
       sectionId,
       supervisorId,
       importableCount,
+      upstreamContractNoun,
       router,
       onComplete,
       resetFlow,

@@ -31,6 +31,7 @@ import {
 } from '@/lib/contract-numbering'
 import { contractsApiBase, type ContractsApiResource } from '@/lib/contracts-api'
 import type { DepartmentContract } from '@/sanity/lib/department-contracts/get-department-contract'
+import type { ProjectContract } from '@/sanity/lib/project-contracts/get-project-contract'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
@@ -46,6 +47,7 @@ type LeadershipContract =
   | DivisionContract
   | SupervisorContract
   | OfficerContract
+  | ProjectContract
 
 interface DepartmentContractTreeProps {
   departmentContract: LeadershipContract
@@ -55,6 +57,8 @@ interface DepartmentContractTreeProps {
     ContractsApiResource,
     | 'department-contracts'
     | 'division-contracts'
+    | 'project-contracts'
+    | 'deputy-project-contracts'
     | 'supervisor-contracts'
     | 'officer-contracts'
   >
@@ -86,7 +90,9 @@ function contractTreeShowsActivityAim(
 ): boolean {
   return (
     contractsApi === 'department-contracts' ||
-    contractsApi === 'division-contracts'
+    contractsApi === 'division-contracts' ||
+    contractsApi === 'project-contracts' ||
+    contractsApi === 'deputy-project-contracts'
   )
 }
 

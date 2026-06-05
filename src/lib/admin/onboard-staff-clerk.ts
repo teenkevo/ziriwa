@@ -1,6 +1,7 @@
 import { clerkClient } from '@clerk/nextjs/server'
 
 import { isAppRole, parseAppRole, type AppRole } from '@/lib/app-role'
+import { getInvitationAcceptUrl } from '@/lib/app-url.server'
 import {
   isAllowedStaffEmail,
   staffEmailRequirementMessage,
@@ -57,9 +58,56 @@ export function shouldInviteAppRole(appRole: AppRole | null): appRole is AppRole
   return appRole !== null && LOGIN_APP_ROLES.has(appRole)
 }
 
+async function findPendingClerkInvitationByEmail(email: string) {
+  const clerk = await clerkClient()
+  const normalized = email.toLowerCase()
+  const invitations = await clerk.invitations.getInvitationList({
+    status: 'pending',
+    query: normalized,
+    limit: 10,
+  })
+  return (
+    invitations.data.find(
+      inv => inv.emailAddress.toLowerCase() === normalized,
+    ) ?? null
+  )
+}
+
+async function revokePendingClerkInvitation(email: string) {
+  const pending = await findPendingClerkInvitationByEmail(email)
+  if (!pending) return false
+  const clerk = await clerkClient()
+  await clerk.invitations.revokeInvitation(pending.id)
+  return true
+}
+
+async function sendClerkInvitation(
+  emailLower: string,
+  appRole: AppRole,
+): Promise<{ invited: boolean; resent: boolean }> {
+  const clerk = await clerkClient()
+  const hadPending = await revokePendingClerkInvitation(emailLower)
+
+  await clerk.invitations.createInvitation({
+    emailAddress: emailLower,
+    notify: true,
+    publicMetadata: { appRole },
+    redirectUrl: getInvitationAcceptUrl(),
+  })
+
+  return { invited: true, resent: hadPending }
+}
+
 async function findClerkUserByEmail(email: string) {
   const clerk = await clerkClient()
   const normalized = email.toLowerCase()
+
+  const byEmail = await clerk.users.getUserList({
+    emailAddress: [normalized],
+    limit: 1,
+  })
+  if (byEmail.data[0]) return byEmail.data[0]
+
   const users = await clerk.users.getUserList({ limit: 200 })
   return (
     users.data.find(u =>
@@ -127,11 +175,69 @@ export async function ensureStaffRecord(params: {
   return created._id
 }
 
+/**
+ * Ensure a Sanity staff member can sign in via Clerk.
+ * Sends an invitation for new users; syncs appRole from Sanity for existing users.
+ */
+export async function ensureClerkAccessForStaffEmail(
+  email: string,
+  options?: { defaultAppRole?: AppRole },
+): Promise<{
+  invited: boolean
+  resent?: boolean
+  clerkUserId?: string
+  existingClerkUser?: boolean
+}> {
+  const emailLower = email.trim().toLowerCase()
+  if (!emailLower) {
+    throw new Error('Email is required for Clerk access')
+  }
+
+  const staff = await writeClient.fetch<{ role?: string } | null>(
+    /* groq */ `*[_type == "staff" && lower(email) == $email][0]{ role }`,
+    { email: emailLower },
+  )
+  const appRole =
+    staffRoleToAppRole(staff?.role) ?? options?.defaultAppRole ?? null
+  if (!appRole || !shouldInviteAppRole(appRole)) {
+    throw new Error(
+      staff?.role
+        ? `Staff role "${staff.role}" cannot sign in to the app`
+        : 'Staff record is missing a sign-in role',
+    )
+  }
+
+  const existing = await findClerkUserByEmail(emailLower)
+  if (existing) {
+    await syncClerkAppRoleFromStaffEmail(existing.id, emailLower)
+    return {
+      invited: false,
+      clerkUserId: existing.id,
+      existingClerkUser: true,
+    }
+  }
+
+  const sent = await sendClerkInvitation(emailLower, appRole)
+  return { invited: sent.invited, resent: sent.resent }
+}
+
+/** @deprecated Use ensureClerkAccessForStaffEmail */
+export async function inviteClerkUserIfNeeded(
+  email: string,
+): Promise<{ invited: boolean; clerkUserId?: string }> {
+  return ensureClerkAccessForStaffEmail(email)
+}
+
 /** Send Clerk invite or set app role on an existing Clerk user. */
 export async function inviteOrAssignClerkAppRole(
   email: string,
   appRole: AppRole,
-): Promise<{ invited: boolean; clerkUserId?: string }> {
+): Promise<{
+  invited: boolean
+  resent?: boolean
+  clerkUserId?: string
+  existingClerkUser?: boolean
+}> {
   if (appRole === 'commissioner_general') {
     const existingCg = await findCommissionerGeneralUserId()
     if (existingCg) {
@@ -143,23 +249,22 @@ export async function inviteOrAssignClerkAppRole(
 
   const emailLower = email.toLowerCase()
   const existing = await findClerkUserByEmail(emailLower)
-  const clerk = await clerkClient()
 
   if (existing) {
+    const clerk = await clerkClient()
     const meta = (existing.publicMetadata ?? {}) as Record<string, unknown>
     await clerk.users.updateUser(existing.id, {
       publicMetadata: { ...meta, appRole },
     })
-    return { invited: false, clerkUserId: existing.id }
+    return {
+      invited: false,
+      clerkUserId: existing.id,
+      existingClerkUser: true,
+    }
   }
 
-  await clerk.invitations.createInvitation({
-    emailAddress: emailLower,
-    notify: true,
-    ignoreExisting: true,
-  })
-
-  return { invited: true }
+  const sent = await sendClerkInvitation(emailLower, appRole)
+  return { invited: sent.invited, resent: sent.resent }
 }
 
 /** Sanity staff row + Clerk invite/role (admin onboarding). */

@@ -1,4 +1,6 @@
 export { department } from './department'
 export { division } from './division'
+export { project } from './project'
+export { projectMember } from './project-member'
 export { section } from './section'
 export { staff } from './staff'

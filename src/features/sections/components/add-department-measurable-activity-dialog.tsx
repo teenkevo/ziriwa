@@ -32,6 +32,8 @@ interface AddDepartmentMeasurableActivityDialogProps {
     ContractsApiResource,
     | 'department-contracts'
     | 'division-contracts'
+    | 'project-contracts'
+    | 'deputy-project-contracts'
     | 'supervisor-contracts'
     | 'officer-contracts'
   >

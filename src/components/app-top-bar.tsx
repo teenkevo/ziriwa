@@ -115,6 +115,9 @@ export function AppTopBar({
       </div>
       <div className='flex shrink-0 items-center gap-2'>
         <SignedIn>
+          <Button variant='ghost' size='sm' className='hidden sm:inline-flex' asChild>
+            <Link href='/workspace'>Switch workspace</Link>
+          </Button>
           <TransferApprovalInbox />
           <AppNotificationBell />
         </SignedIn>

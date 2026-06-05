@@ -7,7 +7,7 @@ export default async function Page() {
   const { userId } = await auth()
 
   if (userId) {
-    redirect('/workspace')
+    redirect('/auth/continue')
   }
 
   return <HomePage />

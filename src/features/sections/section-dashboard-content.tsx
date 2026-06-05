@@ -29,6 +29,7 @@ import { Calendar, CalendarClock } from 'lucide-react'
 import { computeSectionDashboardMetrics } from '@/lib/section-dashboard-metrics'
 import type { SectionAccess } from '@/lib/section-access'
 import { scopeSprintsForViewer } from '@/lib/sprint-workspace-scope'
+import type { WorkspaceScopeKind } from '@/lib/project-workspace-copy'
 import {
   getWorkspacePaths,
   type WorkspaceBasePath,
@@ -53,6 +54,7 @@ interface SectionDashboardContentProps {
   dueThisQuarter: DueItem[]
   today: string
   workspaceBasePath?: WorkspaceBasePath
+  workspaceScope?: WorkspaceScopeKind
 }
 
 export function SectionDashboardContent({
@@ -69,6 +71,7 @@ export function SectionDashboardContent({
   today,
   onNavigateToTab,
   workspaceBasePath = '/manager',
+  workspaceScope = 'mainstream',
 }: SectionDashboardContentProps) {
   const paths = React.useMemo(
     () => getWorkspacePaths(workspaceBasePath),
@@ -262,13 +265,17 @@ export function SectionDashboardContent({
         lateEngagements={metrics.lateEngagements}
         sectionSlug={sectionSlug}
         onNavigateToTab={onNavigateToTab}
+        workspaceScope={workspaceScope}
       />
 
       <ContractSummary metrics={metrics} />
 
       <div className='grid grid-cols-1 gap-4 xl:grid-cols-3'>
         <div className='xl:col-span-2'>
-          <SprintSummary metrics={metrics} />
+          <SprintSummary
+            metrics={metrics}
+            workspaceScope={workspaceScope}
+          />
         </div>
         {!isOfficerWorkspace ? (
           <StakeholderSummary metrics={metrics} />

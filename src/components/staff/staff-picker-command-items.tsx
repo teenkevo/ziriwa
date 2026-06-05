@@ -16,6 +16,12 @@ interface StaffPickerCommandItemsProps {
   roleLabel: string
   currentEntityId?: string
   onSelect: (id: string) => void
+  /** When true, show the selection checkmark on the right. */
+  checkOnEnd?: boolean
+  /** When false, omit staff id from the item label. */
+  showStaffId?: boolean
+  /** How to show an assigned workstream/entity when the item is disabled. */
+  assignedLabelFormat?: 'brackets' | 'role-suffix'
 }
 
 export function StaffPickerCommandItems({
@@ -24,12 +30,31 @@ export function StaffPickerCommandItems({
   roleLabel,
   currentEntityId,
   onSelect,
+  checkOnEnd = false,
+  showStaffId = true,
+  assignedLabelFormat = 'role-suffix',
 }: StaffPickerCommandItemsProps) {
   return (
     <>
       {members.map(member => {
         const disabled = isStaffPickerDisabled(member, currentEntityId)
-        const label = formatStaffPickerLabel(member, roleLabel, disabled)
+        const label = formatStaffPickerLabel(
+          member,
+          roleLabel,
+          disabled,
+          showStaffId,
+          assignedLabelFormat,
+        )
+        const isSelected = value === member._id
+        const check = (
+          <Check
+            className={cn(
+              'h-5 w-5 shrink-0',
+              checkOnEnd ? 'ml-2' : 'mr-2',
+              isSelected ? 'opacity-100' : 'opacity-0',
+            )}
+          />
+        )
 
         return (
           <CommandItem
@@ -40,15 +65,23 @@ export function StaffPickerCommandItems({
               if (disabled) return
               onSelect(member._id)
             }}
-            className={cn('text-sm', disabled && 'opacity-50')}
+            className={cn(
+              'text-sm',
+              checkOnEnd && 'justify-between',
+              disabled && 'opacity-50',
+            )}
           >
-            <Check
-              className={cn(
-                'mr-2 h-5 w-5',
-                value === member._id ? 'opacity-100' : 'opacity-0',
-              )}
-            />
-            {label}
+            {checkOnEnd ? (
+              <>
+                <span className='truncate'>{label}</span>
+                {check}
+              </>
+            ) : (
+              <>
+                {check}
+                {label}
+              </>
+            )}
           </CommandItem>
         )
       })}
