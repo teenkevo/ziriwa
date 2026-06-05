@@ -117,6 +117,7 @@ import {
   theContractPhrase,
   type WorkspaceScopeKind,
 } from '@/lib/project-workspace-copy'
+import { cn } from '@/lib/utils'
 
 interface WeeklySprintContentProps {
   sectionId: string
@@ -468,10 +469,10 @@ function SprintTaskContractLinkRows({
   if (!initiativeTitle && !activityTitle && !contractTaskTitle) return null
 
   return (
-    <div className='mt-1.5 space-y-3'>
+    <div className='mt-1.5 space-y-6 font-light'>
       {initiativeTitle ? (
         <div>
-          <p className='text-[10px] text-muted-foreground'>
+          <p className='text-[10px] font-medium text-muted-foreground'>
             Related initiative
           </p>
           <p className='text-xs'>{initiativeTitle}</p>
@@ -479,15 +480,15 @@ function SprintTaskContractLinkRows({
       ) : null}
       {activityTitle ? (
         <div>
-          <p className='text-[10px] text-muted-foreground'>
+          <p className='text-[10px] font-medium text-muted-foreground'>
             Related measurable activity
           </p>
-          <p className='text-xs'>{activityTitle}</p>
+          <p className='text-xs leading-relaxed'>{activityTitle}</p>
         </div>
       ) : null}
       {contractTaskTitle ? (
         <div>
-          <p className='text-[10px] text-muted-foreground'>
+          <p className='text-[10px] font-medium text-muted-foreground'>
             Related detailed task
           </p>
           <p className='text-xs'>{contractTaskTitle}</p>
@@ -1641,17 +1642,19 @@ export function WeeklySprintContent({
                       <Label className='text-xs ' required>
                         Description
                       </Label>
-                      <Textarea
-                        autoFocus={i === 0 && !editingSprintId}
-                        className='text-xs'
-                        placeholder='Describe the task...'
-                        value={task.description}
-                        onChange={e =>
-                          updateTaskField(i, 'description', e.target.value)
-                        }
-                        rows={2}
-                        disabled={isSavingSprint}
-                      />
+                      <div className='m-0.5'>
+                        <Textarea
+                          autoFocus={i === 0 && !editingSprintId}
+                          className='text-xs'
+                          placeholder='Describe the task...'
+                          value={task.description}
+                          onChange={e =>
+                            updateTaskField(i, 'description', e.target.value)
+                          }
+                          rows={2}
+                          disabled={isSavingSprint}
+                        />
+                      </div>
                       <div className='w-[100%] overflow-hidden space-y-1 p-1'>
                         <Label className='text-xs' required>
                           Activity category
@@ -1793,15 +1796,19 @@ export function WeeklySprintContent({
               <Label className='text-xs' required>
                 Description
               </Label>
-              <Textarea
-                autoFocus={true}
-                className='text-xs'
-                placeholder='Describe the task...'
-                value={extraTaskDraft.description}
-                onChange={e => setExtraTaskField('description', e.target.value)}
-                rows={3}
-                disabled={isSavingExtraTask}
-              />
+              <div className='m-0.5'>
+                <Textarea
+                  autoFocus={true}
+                  className='text-xs'
+                  placeholder='Describe the task...'
+                  value={extraTaskDraft.description}
+                  onChange={e =>
+                    setExtraTaskField('description', e.target.value)
+                  }
+                  rows={3}
+                  disabled={isSavingExtraTask}
+                />
+              </div>
               {extraTaskMode === 'supervisor-plan' ? (
                 <div className='w-[100%] overflow-hidden space-y-1 p-1'>
                   <Label className='text-xs' required>
@@ -1973,9 +1980,9 @@ export function WeeklySprintContent({
                 <DialogDescription>
                   Edit this task and resubmit it for manager review.
                   {reviseManagerFeedback ? (
-                    <span className='flexitems-center my-5 rounded-md border border-primary bg-primary/10 px-3 py-2 text-sm text-primary dark:bg-primary/20 dark:border-primary/30 dark:text-primary'>
+                    <span className='flex items-center my-5 rounded-2xl border border-yellow-600/50 bg-yellow-600/10 px-3 py-2 text-sm text-yellow-600 dark:bg-yellow-600/20 dark:border-yellow-600/30 dark:text-yellow-600'>
                       <Info className='h-4 w-4 mr-2' />
-                      <span className='font-medium'>Feedback: </span>
+                      <span className='font-medium mr-1'>Feedback : </span>
                       {reviseManagerFeedback}
                     </span>
                   ) : null}
@@ -2342,36 +2349,45 @@ function SprintCard({
     t => t.status === 'revisions_requested',
   )
 
-  const sprintStatusBadge =
-    sprint.status !== 'draft' && hasRevisionsRequested
-      ? {
-          label: isProjectSprint ? 'Updates requested' : 'Review in progress',
+  const isReviewInProgress = sprint.status !== 'draft' && hasRevisionsRequested
+
+  const sprintStatusBadge = isReviewInProgress
+    ? {
+        label: isProjectSprint ? 'Updates requested' : 'Review in progress',
+        variant: 'default' as const,
+      }
+    : {
+        draft: { label: 'Draft', variant: 'secondary' as const },
+        submitted: {
+          label: isProjectSprint ? 'Ready' : 'Submitted for Review',
           variant: 'default' as const,
-        }
-      : {
-          draft: { label: 'Draft', variant: 'secondary' as const },
-          submitted: {
-            label: isProjectSprint ? 'Ready' : 'Submitted for Review',
-            variant: 'default' as const,
-          },
-          reviewed: {
-            label: isProjectSprint ? 'Ready' : 'Review complete',
-            variant: 'outline' as const,
-          },
-        }[sprint.status]
+        },
+        reviewed: {
+          label: isProjectSprint ? 'Ready' : 'Review complete',
+          variant: 'outline' as const,
+        },
+      }[sprint.status]
 
   return (
     <Card>
       <Collapsible open={open} onOpenChange={setOpen}>
         <CardHeader className='pb-3'>
           <div className='flex items-center justify-between'>
-            <div className='space-y-1'>
+            <div className='space-y-3 min-w-0 flex-1'>
               <CardTitle className='text-base'>{sprint.weekLabel}</CardTitle>
               <p className='text-xs text-muted-foreground'>
                 {sprint.supervisor?.fullName &&
-                  `By ${sprint.supervisor.fullName} · `}
+                  `Supervised by ${sprint.supervisor.fullName} · `}
                 {accepted}/{total} accepted
               </p>
+              {!isSubmitting ? (
+                <Badge
+                  variant={sprintStatusBadge.variant}
+                  className='w-fit text-[10px] px-1.5 py-0'
+                >
+                  {sprintStatusBadge.label}
+                </Badge>
+              ) : null}
             </div>
             <div className='flex items-center gap-2'>
               <SprintTasksDownloadButton
@@ -2386,11 +2402,7 @@ function SprintCard({
                   <Loader2 className='h-3 w-3 animate-spin' />
                   {isProjectSprint ? 'Marking as ready…' : 'Submitting…'}
                 </Badge>
-              ) : (
-                <Badge variant={sprintStatusBadge.variant}>
-                  {sprintStatusBadge.label}
-                </Badge>
-              )}
+              ) : null}
               {(sprint.status === 'submitted' ||
                 sprint.status === 'reviewed') &&
                 canAddPlanTask &&
@@ -2487,7 +2499,7 @@ function SprintCard({
           </div>
         </CardHeader>
         <CollapsibleContent>
-          <CardContent className='pt-0'>
+          <CardContent className='pt-6'>
             <div className='space-y-6'>
               {tasks.map((task, i) => {
                 const config = STATUS_CONFIG[task.status] ?? {
@@ -2506,34 +2518,35 @@ function SprintCard({
                 return (
                   <div
                     key={task._key || i}
-                    className='flex items-start gap-3 rounded-md border p-3'
+                    className='flex items-start gap-3 rounded-md border border-foreground/20 bg-muted-foreground/5 shadow-md p-3'
                   >
                     <div className='flex-1 min-w-0'>
                       <div className='flex items-center gap-2 mb-4'>
-                        <span className='text-sm font-semibold text-primary'>
+                        <span className='text-sm font-semibold'>
                           {task.description}
                         </span>
                         <Badge
                           variant={config.variant}
-                          className='text-[10px] px-1.5 py-0 shrink-0'
+                          className={cn(
+                            'text-[10px] px-1.5 py-0 shrink-0',
+                            config.variant === 'destructive'
+                              ? 'text-destructive bg-destructive/10 border-destructive/50 hover:bg-destructive/20'
+                              : 'text-yellow-600 bg-yellow-600/10 border-yellow-600/50 hover:bg-yellow-600/20',
+                          )}
                         >
                           {config.label}
                         </Badge>
                       </div>
+
                       <SprintTaskContractLinkRows
                         initiativeTitle={task.initiativeTitle}
                         activityTitle={task.activityTitle}
                         contractTaskTitle={task.contractTaskTitle}
                       />
-                      {task.status === 'rejected' && (
-                        <p className='text-xs text-destructive mt-1'>
-                          Rejected — not included in this sprint plan.
-                        </p>
-                      )}
                       {task.status === 'revisions_requested' &&
                         task.revisionReason && (
-                          <div className='flex items-center p-4 mt-3 text-xs border border-primary/20 rounded-md bg-primary/10 text-orange-600 dark:text-primary dark:bg-primary/20'>
-                            <Info className='h-6 w-6 text-orange-500 inline-block mr-2' />
+                          <div className='flex items-center p-2 mt-6 text-xs border rounded-2xl border-yellow-600/50 bg-yellow-600/10 '>
+                            <Info className='h-6 w-6 text-yellow-600 mr-2' />
                             Revision requested: {task.revisionReason}
                           </div>
                         )}
@@ -2543,10 +2556,11 @@ function SprintCard({
                         <Button
                           type='button'
                           size='sm'
-                          variant='secondary'
+                          variant='outline'
                           className='h-8'
                           onClick={() => onOpenRevise?.(sprint, task)}
                         >
+                          <Pencil className='h-4 w-4' />
                           Revise
                         </Button>
                       )}

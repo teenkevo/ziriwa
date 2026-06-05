@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   groupedTaskCell: {
     width: '100%',
     padding: 6,
-    lineHeight: 1.35,
+    lineHeight: 1.2,
   },
   headerRow: {
     backgroundColor: '#f3f4f6',
@@ -163,27 +163,27 @@ const styles = StyleSheet.create({
   headerActivity: { width: '22%' },
   headerTask: { width: '55%', borderRightWidth: 0 },
   taskBlock: {
-    marginBottom: 6,
-    lineHeight: 1.5,
+    marginBottom: 4,
+    lineHeight: 1.2,
   },
   taskBlockLast: {
     marginBottom: 0,
-    lineHeight: 1.5,
+    lineHeight: 1.2,
   },
   taskDescription: {
     fontSize: 9,
     fontWeight: 700,
-    lineHeight: 1.5,
+    lineHeight: 1.2,
   },
   taskMetaLine: {
     fontSize: 8,
     color: '#374151',
-    lineHeight: 1.5,
+    lineHeight: 1.2,
   },
   taskFeedbackLine: {
     fontSize: 8,
     color: '#c2410c',
-    lineHeight: 1.5,
+    lineHeight: 1.2,
   },
   empty: {
     padding: 14,
