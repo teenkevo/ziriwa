@@ -86,19 +86,24 @@ export function WorkspaceRouteNavigationProvider({
 
   return (
     <WorkspaceRouteNavigationContext.Provider value={value}>
-      <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
-        {children}
-        {isNavigating ? (
-          <div
-            className='absolute inset-0 z-20 flex items-center justify-center bg-background'
-            role='status'
-            aria-live='polite'
-            aria-busy='true'
-          >
-            <WorkspaceRouteLoading />
-          </div>
-        ) : null}
-      </div>
+      {children}
     </WorkspaceRouteNavigationContext.Provider>
+  )
+}
+
+/** Renders over main content while a workspace route navigation is in flight. */
+export function WorkspaceRouteNavigationOverlay() {
+  const navigation = useWorkspaceRouteNavigationOptional()
+  if (!navigation?.isNavigating) return null
+
+  return (
+    <div
+      className='absolute inset-0 z-20 flex items-center justify-center bg-background'
+      role='status'
+      aria-live='polite'
+      aria-busy='true'
+    >
+      <WorkspaceRouteLoading />
+    </div>
   )
 }

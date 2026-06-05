@@ -115,11 +115,8 @@ export function SprintTasksTable({
         ),
         cell: ({ row }) => (
           <div className='min-w-[220px]'>
-            <span className='block break-words text-sm'>
+            <span className='block break-words'>
               {row.original.description || '—'}
-            </span>
-            <span className='text-xs text-muted-foreground'>
-              {row.original.weekLabel}
             </span>
           </div>
         ),

@@ -14,7 +14,10 @@ import { AppSidebarFooter } from '@/components/app-sidebar-footer'
 import { AppSidebarNavWrapper } from '@/components/app-sidebar-nav-wrapper'
 import { AppTopBarShell } from '@/components/app-top-bar-shell'
 import { AppBreadcrumbProvider } from '@/contexts/app-breadcrumb-context'
-import { WorkspaceRouteNavigationProvider } from '@/contexts/workspace-route-navigation-context'
+import {
+  WorkspaceRouteNavigationOverlay,
+  WorkspaceRouteNavigationProvider,
+} from '@/contexts/workspace-route-navigation-context'
 import { ViewerProvider } from '@/contexts/viewer-context'
 import { isSuperadmin } from '@/lib/authz/guards.server'
 
@@ -34,28 +37,29 @@ export default async function Layout({ children }: LayoutProps) {
 
   return (
     <ViewerProvider isSuperadmin={superadmin}>
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <Sidebar collapsible='icon' variant='inset'>
-        <SidebarChromeHeader />
-        <Suspense fallback={null}>
-          <AppSidebarNavWrapper />
-        </Suspense>
-        <AppSidebarFooter />
-        <SidebarRail />
-      </Sidebar>
-      <SidebarInset>
-        <AppBreadcrumbProvider>
-          <AppTopBarShell />
-          <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-            <Suspense fallback={null}>
-              <WorkspaceRouteNavigationProvider>
+    <WorkspaceRouteNavigationProvider>
+      <SidebarProvider defaultOpen={defaultOpen}>
+        <Sidebar collapsible='icon' variant='inset'>
+          <SidebarChromeHeader />
+          <Suspense fallback={null}>
+            <AppSidebarNavWrapper />
+          </Suspense>
+          <AppSidebarFooter />
+          <SidebarRail />
+        </Sidebar>
+        <SidebarInset>
+          <AppBreadcrumbProvider>
+            <AppTopBarShell />
+            <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
+              <Suspense fallback={null}>
                 {children}
-              </WorkspaceRouteNavigationProvider>
-            </Suspense>
-          </div>
-        </AppBreadcrumbProvider>
-      </SidebarInset>
-    </SidebarProvider>
+              </Suspense>
+              <WorkspaceRouteNavigationOverlay />
+            </div>
+          </AppBreadcrumbProvider>
+        </SidebarInset>
+      </SidebarProvider>
+    </WorkspaceRouteNavigationProvider>
     </ViewerProvider>
   )
 }

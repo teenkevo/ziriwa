@@ -2178,7 +2178,7 @@ function AcceptedSprintTasksCard({
     if (sprintNotStarted) {
       return {
         variant: 'outline' as const,
-        className: '',
+        className: 'border-orange-500',
         label: `Starting in ${formatTimeUntil(weekStartDate, now)}`,
       }
     }
@@ -2207,21 +2207,54 @@ function AcceptedSprintTasksCard({
     <Card>
       <Collapsible open={open} onOpenChange={setOpen}>
         <CardHeader className='pb-3'>
-          <div className='space-y-2'>
-            <div className='flex items-start justify-between gap-2'>
-              <div className='min-w-0 space-y-4'>
-                {showWorkstreamBadge && sprint.workstreamName ? (
-                  <Badge
-                    variant='outline'
-                    className='w-fit max-w-full truncate text-xs font-normal text-orange-500'
-                  >
-                    {sprint.workstreamName}
-                  </Badge>
-                ) : null}
-                <CardTitle className='min-w-0 text-base font-medium truncate'>
-                  {sprint.weekLabel}
-                </CardTitle>
-              </div>
+          <div className='flex items-center justify-between gap-3'>
+            <div className='min-w-0 flex-1 space-y-3'>
+              {showWorkstreamBadge && sprint.workstreamName ? (
+                <Badge
+                  variant='outline'
+                  className='w-fit max-w-full truncate text-xs font-normal text-orange-500'
+                >
+                  {sprint.workstreamName}
+                </Badge>
+              ) : null}
+              <CardTitle className='min-w-0 text-base font-medium truncate'>
+                {sprint.weekLabel}
+              </CardTitle>
+              <p className='text-xs text-muted-foreground'>
+                {sprint.supervisor?.fullName &&
+                  `Supervised by ${sprint.supervisor.fullName} · `}
+                {tasks.length} task{tasks.length === 1 ? '' : 's'}
+              </p>
+              <Badge
+                variant={statusBadge.variant}
+                className={`${statusBadge.className} w-fit pointer-events-none select-none`}
+              >
+                {statusBadge.label}
+              </Badge>
+              {isCurrentWeek && canSuperviseDetailedTasks && (
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='h-8'
+                  onClick={() => onAddExtraTask(sprint._id)}
+                  disabled={isSaving || !canAddExtraTask}
+                  title={
+                    !canAddExtraTask
+                      ? `Add initiatives and measurable activities to ${contractPhrase} first`
+                      : undefined
+                  }
+                >
+                  <Plus className='h-4 w-4 mr-2' />
+                  Add extra task
+                </Button>
+              )}
+            </div>
+            <div className='flex shrink-0 items-center gap-2'>
+              <SprintTasksDownloadButton
+                sectionName={sectionName}
+                sprint={sprint}
+              />
               <CollapsibleTrigger asChild>
                 <Button
                   variant='ghost'
@@ -2234,49 +2267,10 @@ function AcceptedSprintTasksCard({
                 </Button>
               </CollapsibleTrigger>
             </div>
-
-            <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-              <p className='text-xs text-muted-foreground'>
-                {sprint.supervisor?.fullName &&
-                  `By ${sprint.supervisor.fullName} · `}
-                {tasks.length} task{tasks.length === 1 ? '' : 's'}
-              </p>
-
-              <div className='flex flex-wrap items-center gap-2'>
-                <SprintTasksDownloadButton
-                  sectionName={sectionName}
-                  sprint={sprint}
-                />
-                {isCurrentWeek && canSuperviseDetailedTasks && (
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    className='h-8'
-                    onClick={() => onAddExtraTask(sprint._id)}
-                    disabled={isSaving || !canAddExtraTask}
-                    title={
-                      !canAddExtraTask
-                        ? `Add initiatives and measurable activities to ${contractPhrase} first`
-                        : undefined
-                    }
-                  >
-                    <Plus className='h-4 w-4 mr-2' />
-                    Add extra task
-                  </Button>
-                )}
-                <Badge
-                  variant={statusBadge.variant}
-                  className={`${statusBadge.className} pointer-events-none select-none`}
-                >
-                  {statusBadge.label}
-                </Badge>
-              </div>
-            </div>
           </div>
         </CardHeader>
         <CollapsibleContent>
-          <CardContent className='pt-0'>
+          <CardContent className='pt-6'>
             <SprintTasksTable
               tasks={tasks}
               officers={officers}
