@@ -19,7 +19,10 @@ export function resolveWorkspaceScopeLabels(input: {
   if (!isProjectWorkspaceBasePath(input.workspaceBasePath)) {
     return { kind: 'mainstream', unit: 'section', unitTitle: 'Section' }
   }
-  if (input.isProjectManagerWorkspace || input.isDeputyProjectManagerWorkspace) {
+  if (
+    input.isProjectManagerWorkspace ||
+    input.isDeputyProjectManagerWorkspace
+  ) {
     return { kind: 'project', unit: 'project', unitTitle: 'Project' }
   }
   return { kind: 'workstream', unit: 'workstream', unitTitle: 'Workstream' }
@@ -68,7 +71,8 @@ export function getManagerWorkspaceViewConfig(
       },
       sprints: {
         title: 'Sprints',
-        description: 'Manage weekly sprints and tasks across project workstreams.',
+        description:
+          'Manage weekly sprints and tasks across project workstreams.',
       },
       stakeholders: {
         title: 'Stakeholders',
@@ -133,8 +137,7 @@ export function getManagerWorkspaceViewConfig(
     },
     stakeholders: {
       title: 'Stakeholders',
-      description:
-        `Maintain stakeholder engagement plans and reports for your ${unit}.`,
+      description: `Maintain stakeholder engagement plans and reports for your ${unit}.`,
     },
     staff: {
       title: 'Staff',

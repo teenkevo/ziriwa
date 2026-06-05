@@ -12,6 +12,7 @@ import type { DelegationCandidate } from '@/lib/role-delegation'
 import type { OrgDelegationRecord } from '@/lib/org-role-delegation.server'
 import { canCreateSelfServiceDelegation } from '@/lib/role-delegation'
 import type { WorkContextMode } from '@/lib/section-access'
+import { useRegisterDelegationSidebar } from '@/contexts/delegation-sidebar-context'
 import { SelfServiceDelegationDialog } from '@/features/delegation/self-service-delegation-dialog'
 import { WorkContextBar } from '@/features/delegation/work-context-bar'
 
@@ -61,6 +62,17 @@ export function WorkspaceDelegationShell({
   const [delegateOpen, setDelegateOpen] = React.useState(false)
 
   const refresh = () => router.refresh()
+  const openDelegate = React.useCallback(() => setDelegateOpen(true), [])
+
+  const canSelfServiceDelegate = canCreateSelfServiceDelegation({
+    roleAllowsDelegation: sectionAccess.canSelfServiceDelegate,
+    workContext,
+    assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
+    assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
+    hasOtherScopeActingAssignment: Boolean(orgActingAsDelegatee),
+  })
+
+  useRegisterDelegationSidebar(canSelfServiceDelegate, openDelegate)
 
   const crossWorkspaceActingHref = React.useMemo(() => {
     if (!orgActingAsDelegatee || sectionAccess.workContext !== 'own') {
@@ -95,15 +107,6 @@ export function WorkspaceDelegationShell({
               sectionAccess.delegation.assignmentAsDelegatee
             }
             assignmentAsAbsent={sectionAccess.delegation.assignmentAsAbsent}
-            canSelfServiceDelegate={canCreateSelfServiceDelegation({
-              roleAllowsDelegation: sectionAccess.canSelfServiceDelegate,
-              workContext,
-              assignmentAsDelegatee:
-                sectionAccess.delegation.assignmentAsDelegatee,
-              assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
-              hasOtherScopeActingAssignment: Boolean(orgActingAsDelegatee),
-            })}
-            onOpenDelegate={() => setDelegateOpen(true)}
             crossWorkspaceActingHref={crossWorkspaceActingHref}
             crossWorkspaceActingLabel={crossWorkspaceActingLabel}
           />

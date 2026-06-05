@@ -1,9 +1,7 @@
-import { AdminSidebarNav } from '@/components/admin/admin-sidebar-nav'
+import { AppSidebarFooterClient } from '@/components/app-sidebar-footer-client'
 import { isUserAdmin } from '@/lib/authz/guards.server'
 
 export async function AppSidebarFooter() {
-  const show = await isUserAdmin()
-  if (!show) return null
-
-  return <AdminSidebarNav />
+  const showAdmin = await isUserAdmin()
+  return <AppSidebarFooterClient showAdmin={showAdmin} />
 }

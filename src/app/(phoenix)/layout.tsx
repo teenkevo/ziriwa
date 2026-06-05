@@ -18,8 +18,9 @@ import {
   WorkspaceRouteNavigationOverlay,
   WorkspaceRouteNavigationProvider,
 } from '@/contexts/workspace-route-navigation-context'
-import { ViewerProvider } from '@/contexts/viewer-context'
+import { DelegationSidebarProvider } from '@/contexts/delegation-sidebar-context'
 import { isSuperadmin } from '@/lib/authz/guards.server'
+import { ViewerProvider } from '@/contexts/viewer-context'
 
 export const metadata: Metadata = {
   title: 'Ziriwa by DIP',
@@ -37,29 +38,29 @@ export default async function Layout({ children }: LayoutProps) {
 
   return (
     <ViewerProvider isSuperadmin={superadmin}>
-    <WorkspaceRouteNavigationProvider>
-      <SidebarProvider defaultOpen={defaultOpen}>
-        <Sidebar collapsible='icon' variant='inset'>
-          <SidebarChromeHeader />
-          <Suspense fallback={null}>
-            <AppSidebarNavWrapper />
-          </Suspense>
-          <AppSidebarFooter />
-          <SidebarRail />
-        </Sidebar>
-        <SidebarInset>
-          <AppBreadcrumbProvider>
-            <AppTopBarShell />
-            <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
+      <DelegationSidebarProvider>
+        <WorkspaceRouteNavigationProvider>
+          <SidebarProvider defaultOpen={defaultOpen}>
+            <Sidebar collapsible='icon' variant='inset'>
+              <SidebarChromeHeader />
               <Suspense fallback={null}>
-                {children}
+                <AppSidebarNavWrapper />
               </Suspense>
-              <WorkspaceRouteNavigationOverlay />
-            </div>
-          </AppBreadcrumbProvider>
-        </SidebarInset>
-      </SidebarProvider>
-    </WorkspaceRouteNavigationProvider>
+              <AppSidebarFooter />
+              <SidebarRail />
+            </Sidebar>
+            <SidebarInset>
+              <AppBreadcrumbProvider>
+                <AppTopBarShell />
+                <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
+                  <Suspense fallback={null}>{children}</Suspense>
+                  <WorkspaceRouteNavigationOverlay />
+                </div>
+              </AppBreadcrumbProvider>
+            </SidebarInset>
+          </SidebarProvider>
+        </WorkspaceRouteNavigationProvider>
+      </DelegationSidebarProvider>
     </ViewerProvider>
   )
 }

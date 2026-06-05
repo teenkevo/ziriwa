@@ -14,8 +14,6 @@ interface WorkContextBarProps {
   workContext: WorkContextMode
   assignmentAsDelegatee: DelegationBarRecord | null
   assignmentAsAbsent: DelegationBarRecord | null
-  onOpenDelegate: () => void
-  canSelfServiceDelegate: boolean
   cancelApiBase?: string
   crossWorkspaceActingHref?: string | null
   crossWorkspaceActingLabel?: string | null
@@ -25,8 +23,6 @@ export function WorkContextBar({
   workContext: serverWorkContext,
   assignmentAsDelegatee,
   assignmentAsAbsent,
-  onOpenDelegate,
-  canSelfServiceDelegate,
   cancelApiBase = '/api/section-delegations',
   crossWorkspaceActingHref,
   crossWorkspaceActingLabel,
@@ -91,12 +87,7 @@ export function WorkContextBar({
     }
   }
 
-  if (
-    !showSwitcher &&
-    !assignmentAsAbsent &&
-    !canSelfServiceDelegate &&
-    !crossWorkspaceActingHref
-  ) {
+  if (!showSwitcher && !assignmentAsAbsent && !crossWorkspaceActingHref) {
     return null
   }
 
@@ -167,17 +158,6 @@ export function WorkContextBar({
             </span>
           ) : null}
         </div>
-
-        {canSelfServiceDelegate && !assignmentAsAbsent ? (
-          <Button
-            variant='outline'
-            size='sm'
-            disabled={isSwitching}
-            onClick={onOpenDelegate}
-          >
-            Delegate while on leave
-          </Button>
-        ) : null}
       </div>
     </div>
   )

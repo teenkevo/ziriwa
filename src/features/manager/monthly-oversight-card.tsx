@@ -89,6 +89,9 @@ export function SplitMetricCard({
   columns: SplitMetricColumn[]
   weeklyReport?: DivisionWeeklyReportPayload
 }) {
+  const columnHasLinks = columns.some(column => Boolean(column.href))
+  const isInteractive = Boolean(href || onCardClick || columnHasLinks)
+
   const header = (
     <div className='flex items-start justify-between gap-3 px-4 pt-4'>
       <span className='text-sm font-medium'>{title}</span>
@@ -122,15 +125,42 @@ export function SplitMetricCard({
     </div>
   )
 
-  const isInteractive = Boolean(href || onCardClick)
+  const cardClassName = cn(
+    'flex h-full flex-col',
+    isInteractive && 'transition-colors hover:border-primary/60',
+  )
+
+  if (columnHasLinks) {
+    const headerBodyClassName =
+      'block w-full rounded-t-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+
+    return (
+      <Card className={cardClassName}>
+        <CardContent className='flex flex-1 flex-col p-0'>
+          {onCardClick ? (
+            <button type='button' onClick={onCardClick} className={headerBodyClassName}>
+              {header}
+              {body}
+            </button>
+          ) : href ? (
+            <Link href={href} className={headerBodyClassName}>
+              {header}
+              {body}
+            </Link>
+          ) : (
+            <>
+              {header}
+              {body}
+            </>
+          )}
+          <div className='mt-auto'>{footer}</div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const card = (
-    <Card
-      className={cn(
-        'flex h-full flex-col',
-        isInteractive && 'transition-colors hover:border-primary/60',
-      )}
-    >
+    <Card className={cardClassName}>
       <CardContent className='flex flex-1 flex-col p-0'>
         {header}
         {body}

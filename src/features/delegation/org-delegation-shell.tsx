@@ -8,6 +8,7 @@ import { WorkContextNavigationProvider } from '@/contexts/work-context-navigatio
 import type { AssistantCommissionerWorkspaceContext } from '@/lib/assistant-commissioner-workspace.server'
 import type { CommissionerWorkspaceContext } from '@/lib/commissioner-workspace.server'
 import { canCreateSelfServiceDelegation } from '@/lib/role-delegation'
+import { useRegisterDelegationSidebar } from '@/contexts/delegation-sidebar-context'
 import { SelfServiceDelegationDialog } from '@/features/delegation/self-service-delegation-dialog'
 import { WorkContextBar } from '@/features/delegation/work-context-bar'
 
@@ -54,7 +55,17 @@ export function OrgDelegationShell({
   const [delegateOpen, setDelegateOpen] = React.useState(false)
 
   const refresh = () => router.refresh()
+  const openDelegate = React.useCallback(() => setDelegateOpen(true), [])
   const createPayload = buildCreatePayload(workspace)
+
+  const canSelfServiceDelegate = canCreateSelfServiceDelegation({
+    roleAllowsDelegation: workspace.canSelfServiceDelegate,
+    workContext: workspace.workContext,
+    assignmentAsDelegatee: workspace.delegation.assignmentAsDelegatee,
+    assignmentAsAbsent: workspace.delegation.assignmentAsAbsent,
+  })
+
+  useRegisterDelegationSidebar(canSelfServiceDelegate, openDelegate)
 
   const crossWorkspaceActingHref = React.useMemo(() => {
     if (workspace.workContext !== 'own') return null
@@ -84,13 +95,6 @@ export function OrgDelegationShell({
             workContext={workspace.workContext}
             assignmentAsDelegatee={workspace.delegation.assignmentAsDelegatee}
             assignmentAsAbsent={workspace.delegation.assignmentAsAbsent}
-            canSelfServiceDelegate={canCreateSelfServiceDelegation({
-              roleAllowsDelegation: workspace.canSelfServiceDelegate,
-              workContext: workspace.workContext,
-              assignmentAsDelegatee: workspace.delegation.assignmentAsDelegatee,
-              assignmentAsAbsent: workspace.delegation.assignmentAsAbsent,
-            })}
-            onOpenDelegate={() => setDelegateOpen(true)}
             cancelApiBase='/api/org-role-delegations'
             crossWorkspaceActingHref={crossWorkspaceActingHref}
             crossWorkspaceActingLabel={crossWorkspaceActingLabel}
