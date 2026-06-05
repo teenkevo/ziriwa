@@ -122,7 +122,11 @@ export function ProjectAdminMembersContent({
           onOpenChange={setCreateOpen}
           projectId={projectId}
           workstreams={workstreams}
-          memberRoster={roster}
+          memberRoster={roster.map(member => ({
+            email: member.email,
+            status: member.status,
+            workstreamId: member.workstreamId,
+          }))}
           hasProjectManager={hasProjectManager}
           hasDeputyProjectManager={hasDeputyProjectManager}
           occupiedWorkstreamLeadIds={occupiedWorkstreamLeadIds}

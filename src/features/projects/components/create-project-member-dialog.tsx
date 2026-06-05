@@ -192,6 +192,8 @@ export function CreateProjectMemberDialog({
   const hasFixedWorkstream = Boolean(fixedWorkstreamId)
   const shouldCheckWorkstreamEmail =
     isWorkstreamMemberOnlyFlow && Boolean(fixedWorkstreamId)
+  const shouldCheckProjectEmail = !shouldCheckWorkstreamEmail && !isLeadOnlyFlow
+  const shouldCheckEmail = shouldCheckWorkstreamEmail || shouldCheckProjectEmail
 
   const form = useForm<MemberFormValues>({
     resolver: zodResolver(
@@ -264,7 +266,7 @@ export function CreateProjectMemberDialog({
   }, [open, reset, lockedRole, fixedWorkstreamId])
 
   React.useEffect(() => {
-    if (!open || !shouldCheckWorkstreamEmail || !fixedWorkstreamId) {
+    if (!open || !shouldCheckEmail) {
       setIsCheckingEmail(false)
       return
     }
@@ -281,15 +283,21 @@ export function CreateProjectMemberDialog({
 
     setIsCheckingEmail(true)
     const timeoutId = setTimeout(() => {
-      const conflict = getWorkstreamMemberEmailConflictFromRoster(
-        trimmed,
-        memberRoster,
-        fixedWorkstreamId,
-      )
+      const conflict =
+        shouldCheckWorkstreamEmail && fixedWorkstreamId
+          ? getWorkstreamMemberEmailConflictFromRoster(
+              trimmed,
+              memberRoster,
+              fixedWorkstreamId,
+            )
+          : getProjectMemberEmailConflict(trimmed, memberRoster)
+
       if (conflict) {
         setError('email', {
           type: 'duplicate',
-          message: workstreamMemberEmailConflictMessage(conflict),
+          message: shouldCheckWorkstreamEmail
+            ? workstreamMemberEmailConflictMessage(conflict)
+            : projectMemberEmailConflictMessage(conflict),
         })
       } else if (getFieldState('email').error?.type === 'duplicate') {
         clearErrors('email')
@@ -304,6 +312,7 @@ export function CreateProjectMemberDialog({
   }, [
     open,
     emailValue,
+    shouldCheckEmail,
     shouldCheckWorkstreamEmail,
     fixedWorkstreamId,
     memberRoster,
@@ -358,26 +367,27 @@ export function CreateProjectMemberDialog({
     const role = (lockedRole ?? ('role' in values ? values.role : '')) as ProjectRole
     const email = 'email' in values ? values.email : ''
 
-    if (shouldCheckWorkstreamEmail && fixedWorkstreamId) {
+    if (shouldCheckEmail) {
       if (getFieldState('email').error || isCheckingEmail) {
         return
       }
-      const workstreamConflict = getWorkstreamMemberEmailConflictFromRoster(
-        email,
-        memberRoster,
-        fixedWorkstreamId,
-      )
-      if (workstreamConflict) {
+
+      const conflict =
+        shouldCheckWorkstreamEmail && fixedWorkstreamId
+          ? getWorkstreamMemberEmailConflictFromRoster(
+              email,
+              memberRoster,
+              fixedWorkstreamId,
+            )
+          : getProjectMemberEmailConflict(email, memberRoster)
+
+      if (conflict) {
         setError('email', {
           type: 'duplicate',
-          message: workstreamMemberEmailConflictMessage(workstreamConflict),
+          message: shouldCheckWorkstreamEmail
+            ? workstreamMemberEmailConflictMessage(conflict)
+            : projectMemberEmailConflictMessage(conflict),
         })
-        return
-      }
-    } else {
-      const emailConflict = getProjectMemberEmailConflict(email, memberRoster)
-      if (emailConflict) {
-        toast.error(projectMemberEmailConflictMessage(emailConflict))
         return
       }
     }
@@ -532,27 +542,13 @@ export function CreateProjectMemberDialog({
                         }
                         disabled={isCreating}
                         className={cn(
-                          shouldCheckWorkstreamEmail && 'pr-9',
+                          shouldCheckEmail && 'pr-9',
                           fieldState.invalid &&
                             'border-destructive focus-visible:ring-destructive',
                         )}
-                        onBlur={e => {
-                          field.onBlur()
-                          if (shouldCheckWorkstreamEmail) return
-                          const conflict = getProjectMemberEmailConflict(
-                            e.target.value,
-                            memberRoster,
-                          )
-                          if (conflict) {
-                            form.setError('email', {
-                              message: projectMemberEmailConflictMessage(conflict),
-                            })
-                          } else {
-                            form.clearErrors('email')
-                          }
-                        }}
+                        onBlur={field.onBlur}
                       />
-                      {shouldCheckWorkstreamEmail && isCheckingEmail ? (
+                      {shouldCheckEmail && isCheckingEmail ? (
                         <div className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2'>
                           <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
                         </div>
