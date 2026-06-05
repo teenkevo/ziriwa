@@ -58,7 +58,7 @@ function BreakdownColumn({
   const content = (
     <div className='flex flex-col items-center justify-center gap-1 px-3 py-4 text-center'>
       <span className='text-xs font-medium text-muted-foreground'>{label}</span>
-      <span className='text-lg font-semibold tabular-nums'>{value}</span>
+      <span className='text-lg font-medium tabular-nums'>{value}</span>
     </div>
   )
 
@@ -93,9 +93,9 @@ export function SplitMetricCard({
   const isInteractive = Boolean(href || onCardClick || columnHasLinks)
 
   const header = (
-    <div className='flex items-start justify-between gap-3 px-4 pt-4'>
-      <span className='text-sm font-medium'>{title}</span>
-      <span className='text-sm text-muted-foreground'>{data.periodLabel}</span>
+    <div className='flex items-center justify-between gap-3 px-4 pt-4'>
+      <span className='text-sm font-bold'>{title}</span>
+      <span className='text-xs text-muted-foreground'>{data.periodLabel}</span>
     </div>
   )
 
@@ -108,7 +108,7 @@ export function SplitMetricCard({
   const footer = (
     <div
       className={cn(
-        'grid border-t divide-x',
+        'grid border-t divide-x ',
         columns.length === 3 && 'grid-cols-3',
         columns.length === 2 && 'grid-cols-2',
         columns.length === 1 && 'grid-cols-1',
@@ -138,7 +138,11 @@ export function SplitMetricCard({
       <Card className={cardClassName}>
         <CardContent className='flex flex-1 flex-col p-0'>
           {onCardClick ? (
-            <button type='button' onClick={onCardClick} className={headerBodyClassName}>
+            <button
+              type='button'
+              onClick={onCardClick}
+              className={headerBodyClassName}
+            >
               {header}
               {body}
             </button>
