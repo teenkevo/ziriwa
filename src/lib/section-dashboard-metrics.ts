@@ -38,6 +38,10 @@ const ACTIVITY_CATEGORIES = [
   'staff_development',
   'stakeholder_engagement',
   'emergency',
+  'software_development',
+  'data_management',
+  'change_management',
+  'uat_pilot',
 ] as const
 const REPORTING_FREQUENCIES = ['weekly', 'monthly', 'quarterly', 'n/a'] as const
 
@@ -235,6 +239,10 @@ function emptyCategoryBreakdown(): Record<ActivityCategoryKey, number> {
     staff_development: 0,
     stakeholder_engagement: 0,
     emergency: 0,
+    software_development: 0,
+    data_management: 0,
+    change_management: 0,
+    uat_pilot: 0,
     uncategorized: 0,
   }
 }

@@ -18,6 +18,8 @@ export interface SectionAccessInput {
   officerIds: string[]
   appRole: AppRole | null
   isGlobalAdmin?: boolean
+  /** Section belongs to a project (workstream); sprint review tab is hidden. */
+  isProjectWorkstream?: boolean
   delegation?: SectionDelegationState
 }
 
@@ -45,6 +47,8 @@ export interface SectionAccess {
   canViewSprintDraftTab: boolean
   canViewSprintInReviewTab: boolean
   canManageSectionStaff: boolean
+  /** Project workstream lead: add workstream members to their workstream only. */
+  canManageWorkstreamStaff: boolean
   canSelfServiceDelegate: boolean
   isGlobalAdmin: boolean
 }
@@ -58,14 +62,16 @@ function permanentFlags(input: SectionAccessInput) {
   )
   const isPermanentSupervisor = Boolean(
     viewerStaffId &&
+      !isPermanentManager &&
       (input.supervisorIds.includes(viewerStaffId) ||
-        (input.appRole === 'supervisor' && !isPermanentManager)),
+        (input.appRole === 'supervisor' && !input.isProjectWorkstream)),
   )
   const isPermanentOfficer = Boolean(
     viewerStaffId &&
       !isPermanentManager &&
       !isPermanentSupervisor &&
-      (input.officerIds.includes(viewerStaffId) || input.appRole === 'officer'),
+      (input.officerIds.includes(viewerStaffId) ||
+        (input.appRole === 'officer' && !input.isProjectWorkstream)),
   )
   return { isPermanentManager, isPermanentSupervisor, isPermanentOfficer }
 }
@@ -79,6 +85,7 @@ function capabilitiesFromRoles(flags: {
   isGlobalAdmin: boolean
   canManageSectionStaff: boolean
   canSelfServiceDelegate: boolean
+  isProjectWorkstream?: boolean
 }): Pick<
   SectionAccess,
   | 'canManageContract'
@@ -90,6 +97,7 @@ function capabilitiesFromRoles(flags: {
   | 'canViewSprintDraftTab'
   | 'canViewSprintInReviewTab'
   | 'canManageSectionStaff'
+  | 'canManageWorkstreamStaff'
 > {
   const {
     isSectionManager,
@@ -98,6 +106,8 @@ function capabilitiesFromRoles(flags: {
     isGlobalAdmin,
     canManageSectionStaff,
   } = flags
+
+  const isProjectWorkstream = flags.isProjectWorkstream === true
 
   return {
     canManageContract: isSectionManager,
@@ -108,8 +118,12 @@ function capabilitiesFromRoles(flags: {
     canSuperviseDetailedTasks: isSectionSupervisor,
     canCreateSprints: isSectionSupervisor,
     canViewSprintDraftTab: isSectionSupervisor,
-    canViewSprintInReviewTab: isSectionManager || isSectionSupervisor,
+    canViewSprintInReviewTab:
+      !isProjectWorkstream && (isSectionManager || isSectionSupervisor),
     canManageSectionStaff: isGlobalAdmin || canManageSectionStaff,
+    canManageWorkstreamStaff:
+      isGlobalAdmin ||
+      (isProjectWorkstream && isSectionSupervisor && !isSectionManager),
   }
 }
 
@@ -144,6 +158,7 @@ export function buildSectionAccessForWorkContext(
       canViewSprintDraftTab: true,
       canViewSprintInReviewTab: true,
       canManageSectionStaff: true,
+      canManageWorkstreamStaff: true,
       canSelfServiceDelegate: false,
       isGlobalAdmin: true,
     }
@@ -173,6 +188,7 @@ export function buildSectionAccessForWorkContext(
       isGlobalAdmin: false,
       canManageSectionStaff: false,
       canSelfServiceDelegate: false,
+      isProjectWorkstream: input.isProjectWorkstream,
     }
 
     return {
@@ -204,6 +220,7 @@ export function buildSectionAccessForWorkContext(
     isGlobalAdmin: false,
     canManageSectionStaff: isSectionManager,
     canSelfServiceDelegate,
+    isProjectWorkstream: input.isProjectWorkstream,
   }
 
   return {

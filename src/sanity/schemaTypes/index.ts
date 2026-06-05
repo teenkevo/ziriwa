@@ -3,6 +3,8 @@ import { type SchemaTypeDefinition } from 'sanity'
 import {
   department,
   division,
+  project,
+  projectMember,
   section,
   staff,
 } from './org'
@@ -15,6 +17,8 @@ import {
   measurableActivity,
   officerContract,
   sectionContract,
+  projectContract,
+  deputyProjectContract,
   ssmartaObjective,
   supervisorContract,
 } from './contracts'
@@ -43,14 +47,18 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     department,
     division,
     staff,
+    project,
+    projectMember,
     section,
     // Delegation & transfers
     sectionDelegation,
     orgRoleDelegation,
     staffTransferRequest,
     // Performance contracts (documents + nested objects)
-    sectionContract,
-    departmentContract,
+  sectionContract,
+  projectContract,
+  deputyProjectContract,
+  departmentContract,
     divisionContract,
     supervisorContract,
     officerContract,

@@ -9,10 +9,18 @@ import {
   getManagedSectionsForViewer,
   loadSectionWorkspaceData,
 } from '@/features/sections/load-section-workspace-data'
+import { getProjectWorkspaceContext } from '@/lib/workspace-mode.server'
 
 export async function loadPrimaryManagerWorkspaceData(options?: {
   workContext?: WorkContextMode
 }) {
+  const { isProjects } = await getProjectWorkspaceContext()
+  if (isProjects) {
+    return (await import('@/features/manager/load-project-role-workspace')).loadProjectRoleWorkspaceData(
+      options,
+    )
+  }
+
   const sections = await getManagedSectionsForViewer()
   const first = sections[0]
   if (!first) return null

@@ -85,6 +85,7 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/auth/continue(.*)',
   '/__clerk(.*)',
   '/api/webhooks/clerk(.*)',
   '/unauthorized',
@@ -95,20 +96,9 @@ export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth()
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith('/sign-up')) {
-    return NextResponse.redirect(new URL('/sign-in', request.url))
-  }
-
-  if (userId && pathname === '/workspace') {
-    return NextResponse.redirect(
-      await getWorkspaceDestination(userId, request.url),
-    )
-  }
-
-  // Redirect authenticated users through workspace so role-specific routing
-  // stays centralized.
+  // Post-sign-in boot (loader + workspace routing).
   if (userId && pathname === '/') {
-    return NextResponse.redirect(new URL('/workspace', request.url))
+    return NextResponse.redirect(new URL('/auth/continue', request.url))
   }
 
   // Skip auth gating when AUTH_GATED is not 'true'

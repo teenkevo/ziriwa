@@ -28,6 +28,7 @@ interface SupervisorCascadeRewriteReviewDialogProps {
   drafts: Record<string, CascadeActivityRewrite>
   onDraftsChange: (drafts: Record<string, CascadeActivityRewrite>) => void
   modeLabel: 'AI suggestions' | 'As-is preview'
+  isProjectWorkstream?: boolean
   isSubmitting?: boolean
   onConfirmImport: () => void
   onBack: () => void
@@ -50,6 +51,7 @@ export function SupervisorCascadeRewriteReviewDialog({
   drafts,
   onDraftsChange,
   modeLabel,
+  isProjectWorkstream = false,
   isSubmitting = false,
   onConfirmImport,
   onBack,
@@ -105,7 +107,9 @@ export function SupervisorCascadeRewriteReviewDialog({
               >
                 <div className='space-y-1'>
                   <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
-                    Manager initiative source
+                    {isProjectWorkstream
+                      ? 'Project manager initiative source'
+                      : 'Manager initiative source'}
                   </p>
                   <p className='text-sm text-muted-foreground'>
                     {leadItem.managerInitiativeTitle}
@@ -145,16 +149,20 @@ export function SupervisorCascadeRewriteReviewDialog({
                       <div className='grid gap-3 md:grid-cols-2'>
                         <div className='space-y-1'>
                           <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
-                            Manager KPI
+                            {isProjectWorkstream
+                              ? 'Project manager MA'
+                              : 'Manager KPI'}
                           </p>
                           <p className='text-sm'>{item.managerKpiTitle}</p>
                         </div>
-                        <div className='space-y-1'>
-                          <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
-                            Manager AIM
-                          </p>
-                          <p className='text-sm'>{item.managerAim}</p>
-                        </div>
+                        {!isProjectWorkstream ? (
+                          <div className='space-y-1'>
+                            <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+                              Manager AIM
+                            </p>
+                            <p className='text-sm'>{item.managerAim}</p>
+                          </div>
+                        ) : null}
                       </div>
 
                       {item.validationWarnings.length > 0 ? (
@@ -183,42 +191,51 @@ export function SupervisorCascadeRewriteReviewDialog({
                         />
                       </div>
 
-                      <div className='space-y-2'>
-                        <Label htmlFor={`kpi-${item.activityKey}`}>
-                          Your KPI
-                        </Label>
-                        <Textarea
-                          id={`kpi-${item.activityKey}`}
-                          value={draft.measurableTitle}
-                          onChange={event =>
-                            updateDraft(item.activityKey, {
-                              measurableTitle: event.target.value,
-                            })
-                          }
-                          rows={2}
-                          disabled={isSubmitting}
-                        />
-                      </div>
+                      {!isProjectWorkstream ? (
+                        <>
+                          <div className='space-y-2'>
+                            <Label htmlFor={`kpi-${item.activityKey}`}>
+                              Your KPI
+                            </Label>
+                            <Textarea
+                              id={`kpi-${item.activityKey}`}
+                              value={draft.measurableTitle}
+                              onChange={event =>
+                                updateDraft(item.activityKey, {
+                                  measurableTitle: event.target.value,
+                                })
+                              }
+                              rows={2}
+                              disabled={isSubmitting}
+                            />
+                          </div>
 
-                      <div className='space-y-2'>
-                        <Label htmlFor={`tasks-${item.activityKey}`}>
-                          Detailed tasks (one per line)
-                        </Label>
-                        <Textarea
-                          id={`tasks-${item.activityKey}`}
-                          value={draft.tasks.join('\n')}
-                          onChange={event =>
-                            updateDraft(item.activityKey, {
-                              tasks: event.target.value
-                                .split('\n')
-                                .map(line => line.trim())
-                                .filter(Boolean),
-                            })
-                          }
-                          rows={3}
-                          disabled={isSubmitting}
-                        />
-                      </div>
+                          <div className='space-y-2'>
+                            <Label htmlFor={`tasks-${item.activityKey}`}>
+                              Detailed tasks (one per line)
+                            </Label>
+                            <Textarea
+                              id={`tasks-${item.activityKey}`}
+                              value={draft.tasks.join('\n')}
+                              onChange={event =>
+                                updateDraft(item.activityKey, {
+                                  tasks: event.target.value
+                                    .split('\n')
+                                    .map(line => line.trim())
+                                    .filter(Boolean),
+                                })
+                              }
+                              rows={3}
+                              disabled={isSubmitting}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <p className='text-xs text-muted-foreground'>
+                          Add measurable activities on your contract page after
+                          import.
+                        </p>
+                      )}
                     </div>
                   )
                 })}
@@ -243,7 +260,9 @@ export function SupervisorCascadeRewriteReviewDialog({
                 Importing…
               </>
             ) : (
-              `Import ${items.length} KPI${items.length === 1 ? '' : 's'}`
+              isProjectWorkstream
+                ? `Import ${items.length} initiative${items.length === 1 ? '' : 's'}`
+                : `Import ${items.length} KPI${items.length === 1 ? '' : 's'}`
             )}
           </Button>
         </DialogFooter>

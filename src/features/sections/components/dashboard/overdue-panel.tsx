@@ -27,12 +27,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
+import type { WorkspaceScopeKind } from '@/lib/project-workspace-copy'
 import type {
   AtRiskActivity,
   AtRiskPeriodDeliverable,
   AtRiskSprintTask,
   LateEngagement,
 } from '@/lib/section-dashboard-metrics'
+import { isProjectSprintScope } from '@/lib/sprint-task-validation'
 
 interface OverduePanelProps {
   overdueActivities: AtRiskActivity[]
@@ -46,6 +48,7 @@ interface OverduePanelProps {
   onNavigateToTab?: (
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
+  workspaceScope?: WorkspaceScopeKind
 }
 
 type AttentionTab = 'contract' | 'stakeholder-engagements' | 'weekly-sprint'
@@ -56,6 +59,8 @@ type CategoryId =
   | 'review'
   | 'revision'
   | 'engagements'
+
+const PROJECT_HIDDEN_CATEGORIES = new Set<CategoryId>(['review', 'revision'])
 
 type AttentionRow = {
   key: string
@@ -252,12 +257,24 @@ function buildAttentionRows(
 
 function defaultCategoryId(
   counts: Record<(typeof CATEGORIES)[number]['countKey'], number>,
+  categories: typeof CATEGORIES,
+  priority: CategoryId[],
 ): CategoryId {
-  for (const id of CATEGORY_PRIORITY) {
-    const cat = CATEGORIES.find(c => c.id === id)!
+  for (const id of priority) {
+    const cat = categories.find(c => c.id === id)!
     if (counts[cat.countKey] > 0) return id
   }
-  return 'activities'
+  return categories[0]?.id ?? 'activities'
+}
+
+function categoriesForScope(scope: WorkspaceScopeKind = 'mainstream') {
+  if (!isProjectSprintScope(scope)) return CATEGORIES
+  return CATEGORIES.filter(cat => !PROJECT_HIDDEN_CATEGORIES.has(cat.id))
+}
+
+function categoryPriorityForScope(scope: WorkspaceScopeKind = 'mainstream') {
+  if (!isProjectSprintScope(scope)) return CATEGORY_PRIORITY
+  return CATEGORY_PRIORITY.filter(id => !PROJECT_HIDDEN_CATEGORIES.has(id))
 }
 
 const MAX_CARDS = 8
@@ -506,7 +523,17 @@ export function OverduePanel({
   lateEngagements,
   sectionSlug,
   onNavigateToTab,
+  workspaceScope = 'mainstream',
 }: OverduePanelProps) {
+  const visibleCategories = React.useMemo(
+    () => categoriesForScope(workspaceScope),
+    [workspaceScope],
+  )
+  const visibleCategoryPriority = React.useMemo(
+    () => categoryPriorityForScope(workspaceScope),
+    [workspaceScope],
+  )
+
   const counts = {
     overdueActivities: overdueActivities.length,
     overduePeriodDeliverables: overduePeriodDeliverables.length,
@@ -515,75 +542,68 @@ export function OverduePanel({
     lateEngagements: lateEngagements.length,
   }
 
-  const totalAtRisk =
-    counts.overdueActivities +
-    counts.overduePeriodDeliverables +
-    counts.pendingReviewTasks +
-    counts.revisionRequestedTasks +
-    counts.lateEngagements
+  const totalAtRisk = visibleCategories.reduce(
+    (sum, cat) => sum + counts[cat.countKey],
+    0,
+  )
 
-  const attentionRows = React.useMemo(
-    () =>
-      buildAttentionRows(
-        overdueActivities,
-        overduePeriodDeliverables,
-        pendingReviewTasks,
-        revisionRequestedTasks,
-        sectionSlug,
-      ),
-    [
+  const attentionRows = React.useMemo(() => {
+    const rows = buildAttentionRows(
       overdueActivities,
       overduePeriodDeliverables,
       pendingReviewTasks,
       revisionRequestedTasks,
-      lateEngagements,
       sectionSlug,
-    ],
-  )
+    )
+    if (!isProjectSprintScope(workspaceScope)) return rows
+    return rows.filter(row => !PROJECT_HIDDEN_CATEGORIES.has(row.categoryId))
+  }, [
+    overdueActivities,
+    overduePeriodDeliverables,
+    pendingReviewTasks,
+    revisionRequestedTasks,
+    sectionSlug,
+    workspaceScope,
+  ])
 
   const [selectedCategoryId, setSelectedCategoryId] =
-    React.useState<CategoryId>(() => defaultCategoryId(counts))
+    React.useState<CategoryId>(() =>
+      defaultCategoryId(counts, visibleCategories, visibleCategoryPriority),
+    )
 
   React.useEffect(() => {
     if (totalAtRisk === 0) return
     setSelectedCategoryId(prev => {
-      const countFor = (id: CategoryId) => {
-        const c = CATEGORIES.find(x => x.id === id)!
-        switch (c.countKey) {
-          case 'overdueActivities':
-            return overdueActivities.length
-          case 'overduePeriodDeliverables':
-            return overduePeriodDeliverables.length
-          case 'pendingReviewTasks':
-            return pendingReviewTasks.length
-          case 'revisionRequestedTasks':
-            return revisionRequestedTasks.length
-          case 'lateEngagements':
-            return lateEngagements.length
-        }
+      if (
+        !visibleCategories.some(cat => cat.id === prev) ||
+        counts[visibleCategories.find(c => c.id === prev)!.countKey] === 0
+      ) {
+        return defaultCategoryId(
+          counts,
+          visibleCategories,
+          visibleCategoryPriority,
+        )
       }
-      if (countFor(prev) > 0) return prev
-      return defaultCategoryId({
-        overdueActivities: overdueActivities.length,
-        overduePeriodDeliverables: overduePeriodDeliverables.length,
-        pendingReviewTasks: pendingReviewTasks.length,
-        revisionRequestedTasks: revisionRequestedTasks.length,
-        lateEngagements: lateEngagements.length,
-      })
+      return prev
     })
   }, [
     totalAtRisk,
-    overdueActivities.length,
-    overduePeriodDeliverables.length,
-    pendingReviewTasks.length,
-    revisionRequestedTasks.length,
-    lateEngagements.length,
+    visibleCategories,
+    visibleCategoryPriority,
+    counts.overdueActivities,
+    counts.overduePeriodDeliverables,
+    counts.pendingReviewTasks,
+    counts.revisionRequestedTasks,
+    counts.lateEngagements,
   ])
 
-  const selectedLabel =
-    CATEGORIES.find(c => c.id === selectedCategoryId)?.label ?? ''
-  const selectedCount =
-    counts[CATEGORIES.find(c => c.id === selectedCategoryId)!.countKey]
+  const selectedCategory =
+    visibleCategories.find(c => c.id === selectedCategoryId) ??
+    visibleCategories[0]
+  const selectedLabel = selectedCategory?.label ?? ''
+  const selectedCount = selectedCategory
+    ? counts[selectedCategory.countKey]
+    : 0
 
   const filteredRows = attentionRows.filter(
     r => r.categoryId === selectedCategoryId,
@@ -640,7 +660,7 @@ export function OverduePanel({
             aria-label='At-risk categories'
             className='flex shrink-0 flex-col gap-0.5 border-b border-border pb-4 lg:w-96 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5'
           >
-            {CATEGORIES.map(cat => {
+            {visibleCategories.map(cat => {
               const n = counts[cat.countKey]
               const selected = selectedCategoryId === cat.id
               const Icon = cat.icon

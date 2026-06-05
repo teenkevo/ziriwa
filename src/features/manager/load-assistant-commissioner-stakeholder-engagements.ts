@@ -56,6 +56,8 @@ export async function loadAssistantCommissionerStakeholderEngagementsData(option
   const engagements = await client.fetch<EngagementDoc[]>(
     /* groq */ `
       *[_type == "stakeholderEngagement"
+        && defined(section._ref)
+        && !defined(project._ref)
         && section->division._ref == $divisionId
         && financialYearLabel == $financialYearLabel
       ] | order(section->order asc, section->name asc) {

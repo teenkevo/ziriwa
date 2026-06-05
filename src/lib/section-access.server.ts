@@ -10,12 +10,17 @@ import {
   type SectionAccess,
   type WorkContextMode,
 } from '@/lib/section-access'
+import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
 import {
   getActiveDelegationAsDelegatee,
   getOutgoingActiveDelegation,
   syncDelegationStatuses,
 } from '@/lib/section-delegation.server'
+import {
+  getProjectWorkstreamOfficerIds,
+  getProjectWorkstreamSupervisorIds,
+} from '@/lib/project-member-staff.server'
 import { client } from '@/sanity/lib/client'
 
 export async function getSectionAccessForViewer(
@@ -50,12 +55,22 @@ export async function getSectionAccessForViewer(
 
   await syncDelegationStatuses(sectionId)
 
-  const [viewerStaffId, sectionMeta, supervisorIds, officerIds] =
+  const [viewerStaffIdForSection, sectionMeta, mainstreamSupervisorIds, mainstreamOfficerIds] =
     await Promise.all([
       getViewerStaffIdForSection(sectionId),
-      client.fetch<{ managerId: string | null } | null>(
+      client.fetch<{
+        managerId: string | null
+        projectId: string | null
+        projectManagerId: string | null
+        deputyProjectManagerId: string | null
+        workstreamLeadId: string | null
+      } | null>(
         /* groq */ `*[_type == "section" && _id == $sectionId][0]{
-        "managerId": manager._ref
+        "managerId": manager._ref,
+        "projectId": project._ref,
+        "projectManagerId": project->projectManager._ref,
+        "deputyProjectManagerId": project->deputyProjectManager._ref,
+        "workstreamLeadId": workstreamLead._ref
       }`,
         { sectionId },
       ),
@@ -69,6 +84,42 @@ export async function getSectionAccessForViewer(
       ),
     ])
 
+  const isProjectWorkstream = Boolean(sectionMeta?.projectId)
+  const [supervisorIds, officerIds] = isProjectWorkstream
+    ? await Promise.all([
+        getProjectWorkstreamSupervisorIds(sectionId),
+        getProjectWorkstreamOfficerIds(sectionId),
+      ])
+    : [mainstreamSupervisorIds ?? [], mainstreamOfficerIds ?? []]
+
+  const viewerStaffId =
+    viewerStaffIdForSection ??
+    (sectionMeta?.projectId ? await getViewerStaffId() : null)
+
+  const mergedSupervisorIds = [...(supervisorIds ?? [])]
+  if (
+    !isProjectWorkstream &&
+    sectionMeta?.workstreamLeadId &&
+    !mergedSupervisorIds.includes(sectionMeta.workstreamLeadId)
+  ) {
+    mergedSupervisorIds.push(sectionMeta.workstreamLeadId)
+  }
+
+  let effectiveManagerId = sectionMeta?.managerId ?? null
+  if (isProjectWorkstream && viewerStaffId) {
+    if (
+      sectionMeta?.projectManagerId &&
+      viewerStaffId === sectionMeta.projectManagerId
+    ) {
+      effectiveManagerId = viewerStaffId
+    } else if (
+      sectionMeta?.deputyProjectManagerId &&
+      viewerStaffId === sectionMeta.deputyProjectManagerId
+    ) {
+      effectiveManagerId = viewerStaffId
+    }
+  }
+
   const [assignmentAsDelegatee, assignmentAsAbsent] = viewerStaffId
     ? await Promise.all([
         getActiveDelegationAsDelegatee(viewerStaffId, sectionId),
@@ -79,10 +130,11 @@ export async function getSectionAccessForViewer(
   return buildSectionAccessForWorkContext(
     {
       viewerStaffId,
-      sectionManagerId: sectionMeta?.managerId ?? null,
-      supervisorIds: supervisorIds ?? [],
+      sectionManagerId: effectiveManagerId,
+      supervisorIds: mergedSupervisorIds,
       officerIds: officerIds ?? [],
       appRole,
+      isProjectWorkstream,
       delegation: {
         assignmentAsDelegatee,
         assignmentAsAbsent,

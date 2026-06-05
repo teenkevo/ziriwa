@@ -81,7 +81,8 @@ import {
   buildSprintTaskWriteFields,
   isEmergencySprintCategory,
   isSprintDraftTaskComplete,
-  SPRINT_ACTIVITY_CATEGORY_OPTIONS,
+  getSprintActivityCategoryOptions,
+  isProjectSprintScope,
   sprintDraftNeedsContractInitiatives,
   sprintTaskRequiresContractLinks,
 } from '@/lib/sprint-task-validation'
@@ -95,6 +96,11 @@ import {
   findContractDetailedTask,
   type InitiativeWithActivities,
 } from '@/lib/flatten-initiatives-with-activities'
+import {
+  scopeLabelsFromKind,
+  theContractPhrase,
+  type WorkspaceScopeKind,
+} from '@/lib/project-workspace-copy'
 
 interface WeeklySprintContentProps {
   sectionId: string
@@ -104,9 +110,10 @@ interface WeeklySprintContentProps {
   officers?: Officer[]
   onSprintTabChange?: (tab: string) => void
   panelPortalNode?: HTMLDivElement | null
-  /** Sanity staff id for signed-in user in this section — filters accepted tasks for officers. */
+  /** Sanity staff id for signed-in user — filters accepted tasks for officers. */
   viewerStaffId?: string
   sectionAccess: SectionAccess
+  workspaceScope?: WorkspaceScopeKind
   presentation?: 'tabs' | 'single-view'
   singleView?: 'ready' | 'in-review' | 'draft'
 }
@@ -289,11 +296,13 @@ const SPRINT_TASK_DIALOG_BODY_CLASS =
   'min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain py-2 pr-1 pb-2'
 
 function SprintTaskContractLinkFields({
+  contractPhrase,
   task,
   initiatives,
   disabled = false,
   onFieldChange,
 }: {
+  contractPhrase: string
   task: Pick<
     DraftTask,
     'activityCategory' | 'initiativeKey' | 'activityKey' | 'contractTaskKey'
@@ -309,7 +318,7 @@ function SprintTaskContractLinkFields({
   if (isEmergencySprintCategory(task.activityCategory)) {
     return (
       <p className='rounded-md border border-dashed p-2 text-xs text-muted-foreground'>
-        Emergency tasks are not linked to the section contract.
+        Emergency tasks are not linked to {contractPhrase}.
       </p>
     )
   }
@@ -317,8 +326,8 @@ function SprintTaskContractLinkFields({
   if (initiatives.length === 0) {
     return (
       <p className='rounded-md border border-dashed p-2 text-xs text-muted-foreground'>
-        Add initiatives and measurable activities to the section contract before
-        you can link sprint tasks.
+        Add initiatives and measurable activities to {contractPhrase} before you
+        can link sprint tasks.
       </p>
     )
   }
@@ -431,10 +440,15 @@ export function WeeklySprintContent({
   panelPortalNode,
   viewerStaffId,
   sectionAccess,
+  workspaceScope = 'mainstream',
   presentation = 'tabs',
   singleView = 'ready',
 }: WeeklySprintContentProps) {
   const router = useRouter()
+  const scopeLabels = scopeLabelsFromKind(workspaceScope)
+  const isProjectSprint = isProjectSprintScope(workspaceScope)
+  const activityCategoryOptions = getSprintActivityCategoryOptions(workspaceScope)
+  const contractPhrase = theContractPhrase(scopeLabels)
   const sprintUiMode = getSprintUiMode(sectionAccess)
   const isOfficerView = sprintUiMode === 'officer'
   const showSprintSubTabs =
@@ -759,7 +773,9 @@ export function WeeklySprintContent({
       alert(
         err instanceof Error
           ? err.message
-          : 'Failed to submit sprint for review',
+          : isProjectSprint
+            ? 'Failed to mark sprint as ready'
+            : 'Failed to submit sprint for review',
       )
     } finally {
       setIsSubmitting(null)
@@ -1159,7 +1175,7 @@ export function WeeklySprintContent({
 
   const readySprintsEmptyMessage = isOfficerView
     ? !viewerStaffId
-      ? 'Your account could not be matched to a staff record for this section. Ensure your sign-in email matches your staff profile.'
+      ? `Your account could not be matched to a staff record for this ${scopeLabels.unit}. Ensure your sign-in email matches your staff profile.`
       : 'No tasks assigned to you yet.'
     : 'No sprints yet, Check back later'
 
@@ -1181,6 +1197,7 @@ export function WeeklySprintContent({
             tasks={tasks}
             officers={officers}
             sectionId={sectionId}
+            contractPhrase={contractPhrase}
             selectedTaskKey={selectedTaskKey}
             onSelectTask={setSelectedTaskKey}
             onUpdateTask={handleUpdateTask}
@@ -1220,6 +1237,7 @@ export function WeeklySprintContent({
             onEditDraft={() => openEditDraftSprint(sprint)}
             onDeleteDraft={() => setSprintToDelete(sprint)}
             canSubmitDraft={sectionAccess.canCreateSprints}
+            isProjectSprint={isProjectSprint}
             onReviewTask={(task, action) =>
               openReview(sprint._id, task, action)
             }
@@ -1403,7 +1421,9 @@ export function WeeklySprintContent({
               </DialogTitle>
               <DialogDescription>
                 {editingSprintId
-                  ? 'Update the week and tasks for this draft. Submit when ready for review.'
+                  ? isProjectSprint
+                    ? 'Update the week and tasks for this draft. Mark as ready when complete.'
+                    : 'Update the week and tasks for this draft. Submit when ready for review.'
                   : 'Create a sprint plan for a week in the current financial year.'}
               </DialogDescription>
             </DialogHeader>
@@ -1492,7 +1512,7 @@ export function WeeklySprintContent({
                             <SelectValue placeholder='Select activity category' />
                           </SelectTrigger>
                           <SelectContent>
-                            {SPRINT_ACTIVITY_CATEGORY_OPTIONS.map(c => (
+                            {activityCategoryOptions.map(c => (
                               <SelectItem
                                 key={c.value}
                                 value={c.value}
@@ -1505,6 +1525,7 @@ export function WeeklySprintContent({
                         </Select>
                       </div>
                       <SprintTaskContractLinkFields
+                        contractPhrase={contractPhrase}
                         task={task}
                         initiatives={initiatives}
                         disabled={isSavingSprint}
@@ -1616,6 +1637,7 @@ export function WeeklySprintContent({
               />
 
               <SprintTaskContractLinkFields
+                contractPhrase={contractPhrase}
                 task={extraTaskDraft}
                 initiatives={initiatives}
                 disabled={isSavingExtraTask}
@@ -1781,7 +1803,7 @@ export function WeeklySprintContent({
                       <SelectValue placeholder='Select activity category' />
                     </SelectTrigger>
                     <SelectContent>
-                      {SPRINT_ACTIVITY_CATEGORY_OPTIONS.map(c => (
+                      {activityCategoryOptions.map(c => (
                         <SelectItem
                           key={c.value}
                           value={c.value}
@@ -1794,6 +1816,7 @@ export function WeeklySprintContent({
                   </Select>
                 </div>
                 <SprintTaskContractLinkFields
+                  contractPhrase={contractPhrase}
                   task={reviseTaskDraft}
                   initiatives={initiatives}
                   disabled={isSavingRevise}
@@ -1887,6 +1910,7 @@ function AcceptedSprintTasksCard({
   tasks,
   officers,
   sectionId,
+  contractPhrase,
   selectedTaskKey,
   onSelectTask,
   onUpdateTask,
@@ -1899,6 +1923,7 @@ function AcceptedSprintTasksCard({
   tasks: AcceptedSprintTask[]
   officers: Officer[]
   sectionId: string
+  contractPhrase: string
   selectedTaskKey: string | null
   onSelectTask: (key: string | null) => void
   onUpdateTask: (
@@ -1997,7 +2022,7 @@ function AcceptedSprintTasksCard({
                     disabled={isSaving || !canAddExtraTask}
                     title={
                       !canAddExtraTask
-                        ? 'Add initiatives and measurable activities to the section contract first'
+                        ? `Add initiatives and measurable activities to ${contractPhrase} first`
                         : undefined
                     }
                   >
@@ -2061,6 +2086,7 @@ function SprintCard({
   isSubmitting,
   canManagerReviewPlan = false,
   canSubmitDraft = true,
+  isProjectSprint = false,
   onReviewTask,
   onOpenRevise,
 }: {
@@ -2071,6 +2097,7 @@ function SprintCard({
   isSubmitting: boolean
   canManagerReviewPlan?: boolean
   canSubmitDraft?: boolean
+  isProjectSprint?: boolean
   onReviewTask: (task: SprintTask, action: string) => void
   /** Open dialog to edit this task and resubmit for manager review. */
   onOpenRevise?: (task: SprintTask) => void
@@ -2086,14 +2113,20 @@ function SprintCard({
 
   const sprintStatusBadge =
     sprint.status !== 'draft' && hasRevisionsRequested
-      ? { label: 'Review in progress', variant: 'default' as const }
+      ? {
+          label: isProjectSprint ? 'Updates requested' : 'Review in progress',
+          variant: 'default' as const,
+        }
       : {
           draft: { label: 'Draft', variant: 'secondary' as const },
           submitted: {
-            label: 'Submitted for Review',
+            label: isProjectSprint ? 'Ready' : 'Submitted for Review',
             variant: 'default' as const,
           },
-          reviewed: { label: 'Review complete', variant: 'outline' as const },
+          reviewed: {
+            label: isProjectSprint ? 'Ready' : 'Review complete',
+            variant: 'outline' as const,
+          },
         }[sprint.status]
 
   return (
@@ -2110,9 +2143,19 @@ function SprintCard({
               </p>
             </div>
             <div className='flex items-center gap-2'>
-              <Badge variant={sprintStatusBadge.variant}>
-                {sprintStatusBadge.label}
-              </Badge>
+              {isSubmitting ? (
+                <Badge
+                  variant='secondary'
+                  className='inline-flex items-center gap-1.5'
+                >
+                  <Loader2 className='h-3 w-3 animate-spin' />
+                  {isProjectSprint ? 'Marking as ready…' : 'Submitting…'}
+                </Badge>
+              ) : (
+                <Badge variant={sprintStatusBadge.variant}>
+                  {sprintStatusBadge.label}
+                </Badge>
+              )}
               {sprint.status === 'draft' &&
                 (onEditDraft || onDeleteDraft || canSubmitDraft) && (
                   <DropdownMenu>
@@ -2123,7 +2166,11 @@ function SprintCard({
                         className='h-8 w-8'
                         disabled={isSubmitting}
                       >
-                        <MoreVertical className='h-4 w-4' />
+                        {isSubmitting ? (
+                          <Loader2 className='h-4 w-4 animate-spin' />
+                        ) : (
+                          <MoreVertical className='h-4 w-4' />
+                        )}
                         <span className='sr-only'>Sprint actions</span>
                       </Button>
                     </DropdownMenuTrigger>
@@ -2139,15 +2186,26 @@ function SprintCard({
                       ) : null}
                       {canSubmitDraft ? (
                         <DropdownMenuItem
-                          onClick={onSubmit}
                           disabled={isSubmitting || tasks.length === 0}
+                          onSelect={event => {
+                            event.preventDefault()
+                            if (!isSubmitting && tasks.length > 0) {
+                              onSubmit()
+                            }
+                          }}
                         >
                           {isSubmitting ? (
                             <Loader2 className='mr-2 h-4 w-4 animate-spin' />
                           ) : (
                             <Send className='mr-2 h-4 w-4' />
                           )}
-                          Submit to manager
+                          {isSubmitting
+                            ? isProjectSprint
+                              ? 'Marking as ready…'
+                              : 'Submitting…'
+                            : isProjectSprint
+                              ? 'Mark as Ready'
+                              : 'Submit to manager'}
                         </DropdownMenuItem>
                       ) : null}
                       {onDeleteDraft ? (

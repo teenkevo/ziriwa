@@ -1,5 +1,7 @@
 export type ContractsApiResource =
   | 'section-contracts'
+  | 'project-contracts'
+  | 'deputy-project-contracts'
   | 'department-contracts'
   | 'division-contracts'
   | 'supervisor-contracts'

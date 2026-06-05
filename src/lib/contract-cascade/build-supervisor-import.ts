@@ -1,4 +1,4 @@
-import { managerKpiHasCascadeAim, normalizeAim } from './aim'
+import { managerActivityCanCascade, normalizeAim } from './aim'
 import { buildCascadeSource } from './cascade-fields'
 import { nextInitiativeCode, nextObjectiveCode } from './allocate-codes'
 import type {
@@ -43,6 +43,8 @@ export interface BuildSupervisorImportInput {
   cascadeRevision: number
   selections: CascadeImportSelection[]
   existingObjectives: SupervisorObjective[]
+  /** Project PM contracts: initiatives only, measurables added manually by lead. */
+  upstreamIsProjectContract?: boolean
   /** Optional accepted rewrites keyed by manager activityKey. */
   rewrites?: Record<string, CascadeActivityRewrite>
 }
@@ -223,6 +225,7 @@ export function buildSupervisorImport(
     cascadeRevision,
     selections,
     existingObjectives,
+    upstreamIsProjectContract = false,
     rewrites,
   } = input
 
@@ -259,29 +262,39 @@ export function buildSupervisorImport(
         continue
       }
 
-      const managerKpi = managerInitiative.measurableActivities?.find(
+      const managerActivity = managerInitiative.measurableActivities?.find(
         a => a._key === activityKey,
       )
-      if (!managerKpi) {
-        skipped.push({ activityKey, reason: 'Manager KPI not found' })
+      if (!managerActivity) {
+        skipped.push({ activityKey, reason: 'Upstream activity not found' })
         continue
       }
-      if (managerKpi.activityType !== 'kpi') {
+      if (
+        managerActivity.activityType !== 'kpi' &&
+        managerActivity.activityType !== 'measurable'
+      ) {
         skipped.push({
           activityKey,
-          reason: 'Only manager KPIs can be cascaded (cross-cutting not supported yet)',
+          reason: 'Only KPIs and measurable activities can be cascaded',
         })
         continue
       }
-      if (!managerKpiHasCascadeAim(managerKpi.aim)) {
+      if (!managerActivityCanCascade(managerActivity)) {
         skipped.push({
           activityKey,
-          reason: 'Manager KPI has no AIM — cannot cascade',
+          reason:
+            managerActivity.activityType === 'measurable'
+              ? 'Project measurable activity has no title — cannot cascade'
+              : 'Manager KPI has no AIM — cannot cascade',
         })
         continue
       }
 
       const rewrite = rewrites?.[activityKey]
+      const isProjectCascade =
+        upstreamIsProjectContract ||
+        managerActivity.activityType === 'measurable'
+      const managerMeasurableTitle = managerActivity.title?.trim() ?? ''
 
       let supervisorObjective = findExistingObjectiveByInitiative(
         objectives,
@@ -328,7 +341,9 @@ export function buildSupervisorImport(
         _type: 'contractInitiative',
         _key: crypto.randomUUID(),
         code: initiativeCode,
-        title: rewrite?.initiativeTitle ?? managerKpi.title,
+        title:
+          rewrite?.initiativeTitle ??
+          (isProjectCascade ? managerMeasurableTitle : managerActivity.title),
         order: initiatives.length,
         measurableActivities: [],
         cascadeKind: 'cascaded',
@@ -343,35 +358,40 @@ export function buildSupervisorImport(
         ),
       }
 
-      const supervisorMeasurable: SupervisorActivity = {
-        _type: 'measurableActivity',
-        _key: crypto.randomUUID(),
-        activityType: 'measurable',
-        title: rewrite?.measurableTitle ?? normalizeAim(managerKpi.aim),
-        order: 0,
-        targetDate: managerKpi.targetDate,
-        status: 'not_started',
-        reportingFrequency: managerKpi.reportingFrequency ?? 'monthly',
-        tasks: resolveSupervisorTasks(
-          rewrite,
-          managerKpi.tasks,
-          sectionContractId,
-          activityKey,
-          cascadeRevision,
-        ),
-        cascadeKind: 'cascaded',
-        cascadeSource: buildCascadeSource(
-          {
+      if (isProjectCascade) {
+        // Workstream leads define their own measurables on the contract page.
+        supervisorInitiative.measurableActivities = []
+      } else {
+        const supervisorMeasurable: SupervisorActivity = {
+          _type: 'measurableActivity',
+          _key: crypto.randomUUID(),
+          activityType: 'measurable',
+          title:
+            rewrite?.measurableTitle ?? normalizeAim(managerActivity.aim),
+          order: 0,
+          targetDate: managerActivity.targetDate,
+          status: 'not_started',
+          reportingFrequency: managerActivity.reportingFrequency ?? 'monthly',
+          tasks: resolveSupervisorTasks(
+            rewrite,
+            managerActivity.tasks,
             sectionContractId,
-            initiativeKey: selection.initiativeKey,
             activityKey,
-            nodeRole: 'managerAimAsMeasurable',
-          },
-          cascadeRevision,
-        ),
+            cascadeRevision,
+          ),
+          cascadeKind: 'cascaded',
+          cascadeSource: buildCascadeSource(
+            {
+              sectionContractId,
+              initiativeKey: selection.initiativeKey,
+              activityKey,
+              nodeRole: 'managerAimAsMeasurable',
+            },
+            cascadeRevision,
+          ),
+        }
+        supervisorInitiative.measurableActivities = [supervisorMeasurable]
       }
-
-      supervisorInitiative.measurableActivities = [supervisorMeasurable]
       initiatives.push(supervisorInitiative)
       objectiveForKpi.initiatives = initiatives
 
@@ -382,7 +402,7 @@ export function buildSupervisorImport(
   return { objectives, importedActivityKeys, skipped }
 }
 
-/** Validates API payload; returns activity keys blocked due to missing AIM. */
+/** Validates API payload; returns activity keys that cannot cascade yet. */
 export function findActivityKeysBlockedWithoutAim(
   managerObjectives: SsmartaObjective[],
   selections: CascadeImportSelection[],
@@ -395,10 +415,12 @@ export function findActivityKeysBlockedWithoutAim(
     )
     if (!located) continue
     for (const activityKey of selection.activityKeys) {
-      const kpi = located.initiative.measurableActivities?.find(
-        a => a._key === activityKey && a.activityType === 'kpi',
+      const activity = located.initiative.measurableActivities?.find(
+        a => a._key === activityKey,
       )
-      if (kpi && !managerKpiHasCascadeAim(kpi.aim)) blocked.push(activityKey)
+      if (activity && !managerActivityCanCascade(activity)) {
+        blocked.push(activityKey)
+      }
     }
   }
   return blocked

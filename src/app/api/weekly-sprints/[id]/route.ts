@@ -19,6 +19,7 @@ import {
   notifySupervisorsPendingSubmission,
 } from '@/lib/notifications/emit-sprint-notifications'
 import { audit } from '@/lib/audit-log/events'
+import { isSectionInProject } from '@/lib/project-access.server'
 import {
   assertSprintCreateAllowed,
   assertSprintManagerPlanReviewAllowed,
@@ -45,6 +46,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
     }
     const access = await getSectionAccessForViewer(sectionId)
+    const isProjectSection = await isSectionInProject(sectionId)
 
     if (action === 'submit' || action === 'update-draft-sprint') {
       const denied = assertSprintCreateAllowed(access)
@@ -57,26 +59,58 @@ export async function PATCH(
         return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
       }
       const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
-      const invalid = tasks.some(t => !sprintTaskHasRequiredLinks(t))
+      const invalid = tasks.some(
+        t => !sprintTaskHasRequiredLinks(t, { isProjectSection }),
+      )
       if (invalid) {
         return NextResponse.json(
           {
-            error:
-              'Every task must have an activity category. Non-emergency tasks must also be linked to a contract initiative and measurable activity before submitting',
+            error: isProjectSection
+              ? 'Every task must have an activity category. Non-emergency tasks must also be linked to a contract initiative and measurable activity before marking as ready'
+              : 'Every task must have an activity category. Non-emergency tasks must also be linked to a contract initiative and measurable activity before submitting',
           },
           { status: 400 },
         )
       }
-      await writeClient.patch(id).set({ status: 'submitted' }).commit()
+      const reviewedAt = new Date().toISOString()
+      const patch = writeClient.patch(id)
+
+      if (isProjectSection) {
+        const readyTasks = tasks.map(task => {
+          if (task.status === 'accepted') return task
+          return {
+            ...task,
+            status: 'accepted',
+            reviewedAt,
+            taskStatus: task.taskStatus ?? 'to_do',
+            priority: task.priority ?? 'medium',
+            revisionReason: '',
+          }
+        })
+        patch.set({ status: 'reviewed', tasks: readyTasks })
+      } else {
+        patch.set({ status: 'submitted' })
+      }
+
+      await patch.commit()
       const submitMeta = await writeClient.fetch<{ weekLabel?: string } | null>(
         `*[_id == $id][0]{ weekLabel }`,
         { id },
       )
-      audit.weeklySprint.submitted(
-        id,
-        submitMeta?.weekLabel ?? 'Weekly sprint',
-        sectionId,
-      )
+      if (isProjectSection) {
+        audit.weeklySprint.updated(
+          id,
+          submitMeta?.weekLabel ?? 'Weekly sprint',
+          'submit-ready',
+          sectionId,
+        )
+      } else {
+        audit.weeklySprint.submitted(
+          id,
+          submitMeta?.weekLabel ?? 'Weekly sprint',
+          sectionId,
+        )
+      }
       return NextResponse.json({ success: true })
     }
 
@@ -109,7 +143,7 @@ export async function PATCH(
       }
 
       for (const t of tasks) {
-        const err = validateSprintTaskPayload(t)
+        const err = validateSprintTaskPayload(t, { isProjectSection })
         if (err) {
           return NextResponse.json({ error: err }, { status: 400 })
         }
@@ -717,13 +751,16 @@ export async function PATCH(
         )
       }
 
-      const err = validateSprintTaskPayload({
-        description,
-        activityCategory,
-        initiativeKey,
-        activityKey,
-        contractTaskKey,
-      })
+      const err = validateSprintTaskPayload(
+        {
+          description,
+          activityCategory,
+          initiativeKey,
+          activityKey,
+          contractTaskKey,
+        },
+        { isProjectSection },
+      )
       if (err) {
         return NextResponse.json({ error: err }, { status: 400 })
       }
@@ -834,13 +871,16 @@ export async function PATCH(
         contractTaskTitle,
       } = body
 
-      const err = validateSprintTaskPayload({
-        description,
-        activityCategory,
-        initiativeKey,
-        activityKey,
-        contractTaskKey,
-      })
+      const err = validateSprintTaskPayload(
+        {
+          description,
+          activityCategory,
+          initiativeKey,
+          activityKey,
+          contractTaskKey,
+        },
+        { isProjectSection },
+      )
       if (err) {
         return NextResponse.json({ error: err }, { status: 400 })
       }

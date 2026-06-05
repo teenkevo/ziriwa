@@ -67,6 +67,36 @@ export async function getAssistantCommissionersForPicker(): Promise<
   }
 }
 
+export async function getOfficersForPicker(): Promise<StaffPickerMember[]> {
+  const query = defineQuery(`
+    *[_type == "staff" && role == "officer" && status == "active"] | order(coalesce(fullName, firstName + " " + lastName) asc) {
+      ${staffBaseFields}
+    }
+  `)
+
+  try {
+    return (await sanityFetch({ query, revalidate: 0 })) as StaffPickerMember[]
+  } catch (error) {
+    console.error('Error fetching officers for picker', error)
+    return []
+  }
+}
+
+export async function getSupervisorsForPicker(): Promise<StaffPickerMember[]> {
+  const query = defineQuery(`
+    *[_type == "staff" && role == "supervisor" && status == "active"] | order(coalesce(fullName, firstName + " " + lastName) asc) {
+      ${staffBaseFields}
+    }
+  `)
+
+  try {
+    return (await sanityFetch({ query, revalidate: 0 })) as StaffPickerMember[]
+  } catch (error) {
+    console.error('Error fetching supervisors for picker', error)
+    return []
+  }
+}
+
 export async function getManagersForPicker(): Promise<StaffPickerMember[]> {
   const query = defineQuery(`
     *[_type == "staff" && role == "manager" && status == "active"] | order(coalesce(fullName, firstName + " " + lastName) asc) {

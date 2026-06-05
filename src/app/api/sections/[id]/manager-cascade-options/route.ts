@@ -5,10 +5,8 @@ import { buildManagerCascadeOptions } from '@/lib/contract-cascade/build-cascade
 import {
   assertSupervisorContractManageAllowed,
 } from '@/lib/supervisor-contract-access.server'
-import {
-  getSectionContract,
-  type SsmartaObjective,
-} from '@/sanity/lib/section-contracts/get-section-contract'
+import { getUpstreamManagerContractForSection } from '@/lib/project-upstream-contract.server'
+import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
 import { getSupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import { client } from '@/sanity/lib/client'
 
@@ -26,13 +24,16 @@ export async function GET(
     if (denied) return denied
 
     const currentFY = getCurrentFinancialYear()
-    const sectionContract = await getSectionContract(
+    const upstream = await getUpstreamManagerContractForSection(
       sectionId,
       currentFY.label,
     )
-    if (!sectionContract) {
+    if (!upstream) {
       return NextResponse.json(
-        { error: 'No manager contract for this section and financial year' },
+        {
+          error:
+            'No project manager contract for this workstream and financial year',
+        },
         { status: 404 },
       )
     }
@@ -60,17 +61,11 @@ export async function GET(
       }
     }
 
-    const revision =
-      (await client.fetch<number>(
-        `coalesce(*[_type == "sectionContract" && _id == $id][0].cascadeRevision, 0)`,
-        { id: sectionContract._id },
-      )) ?? 0
-
     const options = buildManagerCascadeOptions(
-      sectionContract._id,
-      sectionContract.financialYearLabel ?? currentFY.label,
-      revision,
-      sectionContract.objectives,
+      upstream._id,
+      upstream.financialYearLabel ?? currentFY.label,
+      upstream.cascadeRevision,
+      upstream.objectives,
       supervisorObjectives,
     )
 

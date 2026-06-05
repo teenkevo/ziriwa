@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 
 import { SupervisorWorkspacePage } from '@/features/manager/supervisor-workspace-page'
-
 type SprintsPageProps = {
   searchParams: Promise<{
     tab?: string | string[]

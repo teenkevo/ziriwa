@@ -87,7 +87,7 @@ export const stakeholderEntry = defineType({
       title: 'Linked Initiative',
       type: 'string',
       description:
-        'Optional. Link to an initiative from the section contract. Some engagements may be out of scope.',
+        'Optional. Link to an initiative from the section or project contract. Some engagements may be out of scope.',
     }),
     // Objective
     defineField({

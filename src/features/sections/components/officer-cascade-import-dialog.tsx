@@ -23,6 +23,7 @@ interface OfficerCascadeImportDialogProps {
   sectionId: string
   officerContractId: string
   supervisorContractId: string
+  isProjectWorkstream?: boolean
   onSuccess?: () => void
 }
 
@@ -32,6 +33,7 @@ export function OfficerCascadeImportDialog({
   sectionId,
   officerContractId,
   supervisorContractId,
+  isProjectWorkstream = false,
   onSuccess,
 }: OfficerCascadeImportDialogProps) {
   const flow = useOfficerCascadeImportFlow({
@@ -67,11 +69,14 @@ export function OfficerCascadeImportDialog({
         >
           <DialogHeader>
             <DialogTitle>
-              Cascade activities from supervisor&apos;s contract
+              {isProjectWorkstream
+                ? "Cascade from workstream lead's contract"
+                : "Cascade activities from supervisor's contract"}
             </DialogTitle>
             <DialogDescription>
-              Select activities from the supervisor&apos;s contract to cascade
-              to your own contract.
+              {isProjectWorkstream
+                ? 'Select tasks from measurable activities your workstream lead has added to their contract.'
+                : "Select activities from the supervisor's contract to cascade to your own contract."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={flow.handleSelectSubmit}>
@@ -80,6 +85,7 @@ export function OfficerCascadeImportDialog({
                 sectionId={sectionId}
                 officerContractId={officerContractId}
                 supervisorContractId={supervisorContractId}
+                isProjectWorkstream={isProjectWorkstream}
                 disabled={flow.isBusy}
                 onSelectionChange={flow.handleSelectionChange}
               />

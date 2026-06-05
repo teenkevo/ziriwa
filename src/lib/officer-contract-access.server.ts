@@ -42,7 +42,21 @@ export async function canManageOfficerContractForStaff(
       /* groq */ `*[_type == "staff" && _id == $id && role == "officer"][0]._id != null`,
       { id: viewerStaffId },
     )
-    return isOfficer
+    if (isOfficer) return true
+    return client.fetch<boolean>(
+      /* groq */ `
+        count(
+          *[
+            _type == "projectMember"
+            && status == "active"
+            && role == "workstream_member"
+            && workstream._ref == $sectionId
+            && staff._ref == $viewerStaffId
+          ][0]
+        ) > 0
+      `,
+      { sectionId, viewerStaffId },
+    )
   }
 
   const acting = await getActiveDelegationAsDelegatee(viewerStaffId, sectionId)
@@ -62,6 +76,22 @@ export async function resolveOfficerStaffRefForSection(
     { id: viewerStaffId },
   )
   if (isOfficer) return viewerStaffId
+
+  const isWorkstreamMember = await client.fetch<boolean>(
+    /* groq */ `
+      count(
+        *[
+          _type == "projectMember"
+          && status == "active"
+          && role == "workstream_member"
+          && workstream._ref == $sectionId
+          && staff._ref == $viewerStaffId
+        ][0]
+      ) > 0
+    `,
+    { sectionId, viewerStaffId },
+  )
+  if (isWorkstreamMember) return viewerStaffId
 
   const acting = await getActiveDelegationAsDelegatee(viewerStaffId, sectionId)
   if (acting?.actingRole === 'officer') return acting.fromStaffId

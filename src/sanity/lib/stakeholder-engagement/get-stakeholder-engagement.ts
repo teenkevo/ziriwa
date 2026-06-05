@@ -28,46 +28,55 @@ export type StakeholderEntry = {
 export type StakeholderEngagement = {
   _id: string
   section?: { _id: string; name: string }
+  project?: { _id: string; name: string }
   financialYearLabel?: string
   stakeholders?: StakeholderEntry[]
 }
 
+const STAKEHOLDER_ENGAGEMENT_PROJECTION = `
+  _id,
+  section->{ _id, name },
+  project->{ _id, name },
+  financialYearLabel,
+  stakeholders[] {
+    _key,
+    sn,
+    stakeholder,
+    designation,
+    name,
+    phoneNumber,
+    emailAddress,
+    address,
+    objectiveOfEngagement,
+    initiativeCode,
+    power,
+    interest,
+    priority,
+    stakeholderExpectations,
+    uraExpectations,
+    proposedDateOfEngagement,
+    modeOfEngagement,
+    engagementReport,
+    budgetHighlights,
+    totalCost,
+    "uraDelegation": uraDelegation->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName), staffId },
+  },
+`
+
 /**
- * Get the stakeholder engagement document for a section and financial year.
- * One engagement doc per section per FY.
+ * Section (or workstream) engagement for a financial year.
  */
 export async function getStakeholderEngagement(
   sectionId: string,
   financialYearLabel: string,
 ): Promise<StakeholderEngagement | null> {
   const query = defineQuery(`
-    *[_type == "stakeholderEngagement" && section._ref == $sectionId && financialYearLabel == $financialYearLabel][0] {
-      _id,
-      section->{ _id, name },
-      financialYearLabel,
-      stakeholders[] {
-        _key,
-        sn,
-        stakeholder,
-        designation,
-        name,
-        phoneNumber,
-        emailAddress,
-        address,
-        objectiveOfEngagement,
-        initiativeCode,
-        power,
-        interest,
-        priority,
-        stakeholderExpectations,
-        uraExpectations,
-        proposedDateOfEngagement,
-        modeOfEngagement,
-        engagementReport,
-        budgetHighlights,
-        totalCost,
-        "uraDelegation": uraDelegation->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName), staffId },
-      },
+    *[_type == "stakeholderEngagement"
+      && section._ref == $sectionId
+      && !defined(project._ref)
+      && financialYearLabel == $financialYearLabel
+    ][0] {
+      ${STAKEHOLDER_ENGAGEMENT_PROJECTION}
     }
   `)
 
@@ -80,6 +89,35 @@ export async function getStakeholderEngagement(
     return doc || null
   } catch (error) {
     console.error('Error fetching stakeholder engagement', error)
+    return null
+  }
+}
+
+/**
+ * Project-level engagement for a financial year (separate from workstream sections).
+ */
+export async function getStakeholderEngagementByProject(
+  projectId: string,
+  financialYearLabel: string,
+): Promise<StakeholderEngagement | null> {
+  const query = defineQuery(`
+    *[_type == "stakeholderEngagement"
+      && project._ref == $projectId
+      && financialYearLabel == $financialYearLabel
+    ][0] {
+      ${STAKEHOLDER_ENGAGEMENT_PROJECTION}
+    }
+  `)
+
+  try {
+    const doc = await sanityFetch({
+      query,
+      params: { projectId, financialYearLabel },
+      revalidate: 0,
+    })
+    return doc || null
+  } catch (error) {
+    console.error('Error fetching project stakeholder engagement', error)
     return null
   }
 }

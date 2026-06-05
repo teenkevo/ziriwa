@@ -62,6 +62,7 @@ export async function POST(
         cascadeRevision: context.cascadeRevision,
         selections,
         existingObjectives: context.supervisorObjectives,
+        upstreamIsProjectContract: context.upstreamIsProjectContract,
         rewrites: rewriteMap,
       },
     )

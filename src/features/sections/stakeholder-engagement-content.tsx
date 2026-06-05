@@ -20,8 +20,14 @@ type StaffOption = { _id: string; fullName?: string; staffId?: string }
 type InitiativeOption = { code: string; title: string }
 
 interface StakeholderEngagementContentProps {
-  sectionId: string
-  sectionName: string
+  /** Section id (mainstream section workspace only). */
+  sectionId?: string
+  /** Project id (PM/DPM and project workstreams share one matrix). */
+  projectId?: string
+  scopeName: string
+  scopeUnit?: 'section' | 'project' | 'workstream'
+  /** When false, empty state directs users to PM/DPM instead of creating a matrix. */
+  canBootstrapEngagement?: boolean
   engagement: StakeholderEngagement | null
   staffOptions: StaffOption[]
   initiatives?: InitiativeOption[]
@@ -29,7 +35,10 @@ interface StakeholderEngagementContentProps {
 
 export function StakeholderEngagementContent({
   sectionId,
-  sectionName,
+  projectId,
+  scopeName,
+  scopeUnit = sectionId ? 'section' : 'project',
+  canBootstrapEngagement = true,
   engagement,
   staffOptions,
   initiatives = [],
@@ -52,12 +61,15 @@ export function StakeholderEngagementContent({
     engagement?.financialYearLabel ?? getCurrentFinancialYear().label
 
   const handleCreateEngagement = async () => {
+    if (!sectionId && !projectId) return
     setIsCreating(true)
     try {
       const res = await fetch('/api/stakeholder-engagement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sectionId }),
+        body: JSON.stringify(
+          projectId ? { projectId } : { sectionId: sectionId! },
+        ),
       })
       // TODO: Map Engagements to Auto Reporting
       if (!res.ok) {
@@ -92,25 +104,33 @@ export function StakeholderEngagementContent({
   }
 
   if (!engagement) {
+    if (!canBootstrapEngagement) {
+      return (
+        <p className='text-muted-foreground text-sm'>
+          No stakeholder engagement matrix for {scopeName} in {currentFY}. Your
+          project manager or deputy project manager needs to create the project
+          matrix first.
+        </p>
+      )
+    }
+
     return (
-      <Card>
-        <CardContent className='pt-6'>
-          <p className='text-muted-foreground mb-4'>
-            No stakeholder engagement matrix for {currentFY}. Create one to
-            start adding stakeholders.
-          </p>
-          <Button onClick={handleCreateEngagement} disabled={isCreating}>
-            {isCreating ? (
-              <>
-                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                Creating...
-              </>
-            ) : (
-              'Create Stakeholder Engagement'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+      <div>
+        <p className='text-muted-foreground mb-4 text-sm'>
+          No stakeholder engagement matrix for {scopeName} in {currentFY}.
+          Create one to start adding stakeholders for this {scopeUnit}.
+        </p>
+        <Button onClick={handleCreateEngagement} disabled={isCreating}>
+          {isCreating ? (
+            <>
+              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              Creating...
+            </>
+          ) : (
+            'Create Stakeholder Engagement'
+          )}
+        </Button>
+      </div>
     )
   }
 
@@ -118,7 +138,7 @@ export function StakeholderEngagementContent({
     <div className='space-y-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <p className='text-sm text-muted-foreground min-w-0 flex-1'>
-          Stakeholder engagement matrix for {currentFY}
+          Stakeholder engagement for {scopeName} · {currentFY}
         </p>
         <div className='flex items-center gap-1 shrink-0'>
           <Button

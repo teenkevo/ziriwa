@@ -17,6 +17,7 @@ import {
 } from '@/features/sections/components/supervisor-cascade-import-selector'
 import { SupervisorCascadeImportModeDialog } from '@/features/sections/components/supervisor-cascade-import-mode-dialog'
 import { SupervisorCascadeRewriteReviewDialog } from '@/features/sections/components/supervisor-cascade-rewrite-review-dialog'
+import { getSupervisorCascadeDialogTitle } from '@/lib/supervisor-cascade-labels'
 import { useSupervisorCascadeImportFlow } from '@/features/sections/components/use-supervisor-cascade-import-flow'
 
 interface SupervisorCascadeImportDialogProps {
@@ -25,6 +26,7 @@ interface SupervisorCascadeImportDialogProps {
   sectionId: string
   supervisorContractId: string
   supervisorId?: string
+  isProjectWorkstream?: boolean
   onSuccess?: () => void
 }
 
@@ -34,12 +36,14 @@ export function SupervisorCascadeImportDialog({
   sectionId,
   supervisorContractId,
   supervisorId,
+  isProjectWorkstream = false,
   onSuccess,
 }: SupervisorCascadeImportDialogProps) {
   const flow = useSupervisorCascadeImportFlow({
     sectionId,
     supervisorContractId,
     supervisorId,
+    isProjectWorkstream,
     onComplete: () => {
       onSuccess?.()
       onOpenChange(false)
@@ -69,12 +73,9 @@ export function SupervisorCascadeImportDialog({
         >
           <DialogHeader>
             <DialogTitle>
-              Cascade activities from manager&apos;s contract
+              {getSupervisorCascadeDialogTitle(isProjectWorkstream)}
             </DialogTitle>
-            <DialogDescription>
-              Select activities from the manager&apos;s contract to cascade to
-              your own contract.
-            </DialogDescription>
+            <DialogDescription>Select activities to import.</DialogDescription>
           </DialogHeader>
           <form onSubmit={flow.handleSelectSubmit}>
             <div className='py-2 pb-4'>
@@ -82,6 +83,7 @@ export function SupervisorCascadeImportDialog({
                 sectionId={sectionId}
                 supervisorContractId={supervisorContractId}
                 supervisorId={supervisorId}
+                isProjectWorkstream={isProjectWorkstream}
                 disabled={flow.isBusy}
                 onSelectionChange={flow.handleSelectionChange}
               />
@@ -109,9 +111,15 @@ export function SupervisorCascadeImportDialog({
                     Preparing…
                   </>
                 ) : flow.importableCount === 0 ? (
-                  'Select KPIs to import'
+                  isProjectWorkstream
+                    ? 'Select initiatives to import'
+                    : 'Select KPIs to import'
                 ) : (
-                  `Continue with ${flow.importableCount} KPI${flow.importableCount === 1 ? '' : 's'}`
+                  `Continue with ${flow.importableCount} ${
+                    isProjectWorkstream
+                      ? `initiative${flow.importableCount === 1 ? '' : 's'}`
+                      : `KPI${flow.importableCount === 1 ? '' : 's'}`
+                  }`
                 )}
               </Button>
             </DialogFooter>
@@ -145,6 +153,7 @@ export function SupervisorCascadeImportDialog({
         modeLabel={
           flow.reviewMode === 'ai' ? 'AI suggestions' : 'As-is preview'
         }
+        isProjectWorkstream={isProjectWorkstream}
         isSubmitting={flow.isBusy}
         onConfirmImport={() => void flow.handleConfirmReviewImport()}
         onBack={flow.handleBackFromReview}

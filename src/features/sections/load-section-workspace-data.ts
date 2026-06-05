@@ -6,6 +6,8 @@ import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionContractBySection } from '@/sanity/lib/section-contracts/get-section-contract-by-section'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { getStakeholderEngagementBySection } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement-by-section'
+import { getStakeholderEngagementForProject } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement-by-project'
+import { getProjectIdForSection } from '@/lib/project-access.server'
 import {
   getSupervisorsBySection,
   getOfficersBySection,
@@ -64,7 +66,9 @@ export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
 
   return client.fetch<SectionLookup[]>(
     /* groq */ `
-      *[_type == "section" && (
+      *[_type == "section"
+        && !defined(project._ref)
+        && (
         lower(manager->email) == $email ||
         lower(division->assistantCommissioner->email) == $email ||
         division._ref in *[_type == "staff" && lower(email) == $email && status == "active" && role == "assistant_commissioner" && defined(division._ref)].division._ref ||
@@ -112,6 +116,8 @@ export async function loadSectionWorkspaceData(
 
   if (!section) return null
 
+  const parentProjectId = await getProjectIdForSection(section._id)
+
   const [
     sectionContract,
     stakeholderEngagement,
@@ -122,7 +128,9 @@ export async function loadSectionWorkspaceData(
     staffRoster,
   ] = await Promise.all([
     getSectionContractBySection(section._id),
-    getStakeholderEngagementBySection(section._id),
+    parentProjectId
+      ? getStakeholderEngagementForProject(parentProjectId)
+      : getStakeholderEngagementBySection(section._id),
     getSupervisorsBySection(section._id),
     getOfficersBySection(section._id),
     getSprintsBySection(section._id),

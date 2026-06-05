@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ScrollText, User } from 'lucide-react'
+import { FolderKanban, ScrollText, User } from 'lucide-react'
 
 import {
   SidebarFooter,
@@ -13,6 +13,7 @@ import {
 
 const ADMIN_LINKS = [
   { href: '/admin/users', label: 'User management', icon: User },
+  { href: '/admin/projects', label: 'Projects', icon: FolderKanban },
   { href: '/admin/audit-log', label: 'Audit log', icon: ScrollText },
 ] as const
 

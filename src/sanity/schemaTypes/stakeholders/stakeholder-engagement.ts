@@ -1,9 +1,8 @@
 import { defineField, defineType } from 'sanity'
 
 /**
- * Stakeholder engagement matrix for a section.
- * One document per section per financial year (aligned with section contracts).
- * Contains an array of stakeholder entries.
+ * Stakeholder engagement matrix for a section or a project.
+ * One document per section (or project) per financial year.
  */
 export const stakeholderEngagement = defineType({
   name: 'stakeholderEngagement',
@@ -15,8 +14,14 @@ export const stakeholderEngagement = defineType({
       title: 'Section',
       type: 'reference',
       to: [{ type: 'section' }],
-      validation: Rule => Rule.required(),
-      description: 'Section this engagement matrix belongs to',
+      description: 'Mainstream section or project workstream (not the project itself)',
+    }),
+    defineField({
+      name: 'project',
+      title: 'Project',
+      type: 'reference',
+      to: [{ type: 'project' }],
+      description: 'Project-level engagement matrix (PM/DPM workspace)',
     }),
     defineField({
       name: 'financialYearLabel',
@@ -33,15 +38,37 @@ export const stakeholderEngagement = defineType({
       description: 'Stakeholder entries in the engagement matrix',
     }),
   ],
+  validation: Rule =>
+    Rule.custom((_, context) => {
+      const doc = context.document as {
+        section?: { _ref?: string }
+        project?: { _ref?: string }
+      }
+      const hasSection = Boolean(doc?.section?._ref)
+      const hasProject = Boolean(doc?.project?._ref)
+      if (hasSection && hasProject) {
+        return 'Link either a section or a project, not both'
+      }
+      if (!hasSection && !hasProject) {
+        return 'Section or project is required'
+      }
+      return true
+    }),
   preview: {
     select: {
       section: 'section.name',
+      project: 'project.name',
       fy: 'financialYearLabel',
     },
     prepare(selection) {
-      const { section, fy } = selection
+      const { section, project, fy } = selection
+      const scope = project
+        ? `Project – ${project}`
+        : section
+          ? `Section – ${section}`
+          : 'Stakeholder Engagement'
       return {
-        title: section ? `Stakeholder Engagement – ${section}` : 'Stakeholder Engagement',
+        title: scope,
         subtitle: fy,
       }
     },

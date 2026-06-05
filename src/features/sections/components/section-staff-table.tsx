@@ -34,10 +34,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { STAFF_ROLE_OPTIONS } from '@/lib/staff-roles'
+import { PROJECT_ROLE_LABELS } from '@/lib/project-role'
 
-const ROLE_LABELS = Object.fromEntries(
-  STAFF_ROLE_OPTIONS.map(r => [r.value, r.title]),
-) as Record<string, string>
+const ROLE_LABELS = {
+  ...Object.fromEntries(STAFF_ROLE_OPTIONS.map(r => [r.value, r.title])),
+  ...PROJECT_ROLE_LABELS,
+} as Record<string, string>
 
 export interface SectionStaffTableRow extends SectionStaffRosterRow {
   actingLabel?: string | null

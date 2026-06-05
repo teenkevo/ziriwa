@@ -16,6 +16,7 @@ interface OfficerCascadeImportSelectorProps {
   sectionId: string
   officerContractId?: string
   supervisorContractId?: string
+  isProjectWorkstream?: boolean
   disabled?: boolean
   onSelectionChange: (payload: {
     selections: CascadeImportSelection[]
@@ -95,6 +96,7 @@ export function OfficerCascadeImportSelector({
   sectionId,
   officerContractId,
   supervisorContractId,
+  isProjectWorkstream = false,
   disabled,
   onSelectionChange,
 }: OfficerCascadeImportSelectorProps) {
@@ -227,9 +229,20 @@ export function OfficerCascadeImportSelector({
   if (!options || options.objectives.length === 0) {
     return (
       <p className='text-sm text-muted-foreground'>
-        The supervisor contract has no measurable activities available to
-        cascade yet. You can onboard an empty contract and add your own items,
-        or ask your supervisor to add initiatives and measurables first.
+        {isProjectWorkstream ? (
+          <>
+            The workstream lead contract has no measurable activities yet. Ask
+            your workstream lead to add measurable activities on their contract
+            before you can cascade tasks.
+          </>
+        ) : (
+          <>
+            The supervisor contract has no measurable activities available to
+            cascade yet. You can onboard an empty contract and add your own
+            items, or ask your supervisor to add initiatives and measurables
+            first.
+          </>
+        )}
       </p>
     )
   }

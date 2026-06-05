@@ -30,7 +30,9 @@ function findManagerKpi(
 export function buildCascadeRewriteContexts(
   managerObjectives: SsmartaObjective[],
   selections: CascadeImportSelection[],
+  options?: { upstreamIsProjectContract?: boolean },
 ): CascadeRewriteContextItem[] {
+  const upstreamIsProjectContract = options?.upstreamIsProjectContract === true
   const items: CascadeRewriteContextItem[] = []
 
   for (const selection of selections) {
@@ -44,6 +46,11 @@ export function buildCascadeRewriteContexts(
 
       const { objective, initiative, kpi } = located
       const managerTasks = (kpi.tasks ?? []).map(taskText).filter(Boolean)
+      const isProjectCascade =
+        upstreamIsProjectContract || kpi.activityType === 'measurable'
+      const measurableTitle = isProjectCascade
+        ? (kpi.title?.trim() ?? '')
+        : normalizeAim(kpi.aim)
 
       items.push({
         activityKey,
@@ -53,14 +60,16 @@ export function buildCascadeRewriteContexts(
         managerObjectiveTitle: objective.title,
         managerInitiativeTitle: initiative.title,
         managerKpiTitle: kpi.title,
-        managerAim: kpi.aim?.trim() ?? '',
+        managerAim: isProjectCascade
+          ? (kpi.title?.trim() ?? '')
+          : (kpi.aim?.trim() ?? ''),
         managerTargetDate: kpi.targetDate,
-        managerTasks,
+        managerTasks: isProjectCascade ? [] : managerTasks,
         asIs: {
           objectiveTitle: initiative.title,
           initiativeTitle: kpi.title,
-          measurableTitle: normalizeAim(kpi.aim),
-          tasks: managerTasks,
+          measurableTitle,
+          tasks: isProjectCascade ? [] : managerTasks,
         },
       })
     }

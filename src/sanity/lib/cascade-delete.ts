@@ -51,7 +51,9 @@ async function deleteDocumentsBySectionRef(
   type: 'sectionContract' | 'weeklySprint' | 'stakeholderEngagement',
 ) {
   const ids = await client.fetch<string[]>(
-    `*[_type == $type && section._ref == $sectionId]._id`,
+    type === 'stakeholderEngagement'
+      ? `*[_type == $type && section._ref == $sectionId && !defined(project._ref)]._id`
+      : `*[_type == $type && section._ref == $sectionId]._id`,
     { type, sectionId },
   )
   for (const id of ids) {

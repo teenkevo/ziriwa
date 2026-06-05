@@ -24,12 +24,33 @@ export const section = defineType({
       validation: Rule => Rule.required(),
     }),
     defineField({
+      name: 'project',
+      title: 'Project',
+      type: 'reference',
+      to: [{ type: 'project' }],
+      description:
+        'When set, this section is a project workstream (not mainstream org structure)',
+    }),
+    defineField({
+      name: 'workstreamLead',
+      title: 'Workstream Lead',
+      type: 'reference',
+      to: [{ type: 'staff' }],
+      description: 'Supervisor-equivalent for this project workstream',
+      hidden: ({ parent }) => !(parent as { project?: unknown })?.project,
+    }),
+    defineField({
       name: 'division',
       title: 'Division',
       type: 'reference',
       to: [{ type: 'division' }],
-      validation: Rule => Rule.required(),
-      description: 'Division this section belongs to',
+      description: 'Division this section belongs to (mainstream only)',
+      validation: Rule =>
+        Rule.custom((division, context) => {
+          const parent = context.parent as { project?: unknown }
+          if (parent?.project) return true
+          return division ? true : 'Division is required for mainstream sections'
+        }),
     }),
     defineField({
       name: 'manager',

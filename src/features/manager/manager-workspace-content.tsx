@@ -15,6 +15,9 @@ import { WeeklySprintContent } from '@/features/sections/weekly-sprint-content'
 import { ContractTree } from '@/features/sections/components/contract-tree'
 import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
 import { OnboardContractDialog } from '@/features/sections/components/onboard-contract-dialog'
+import { OnboardProjectContractDialog } from '@/features/sections/components/onboard-project-contract-dialog'
+import { OnboardDeputyProjectContractDialog } from '@/features/sections/components/onboard-deputy-project-contract-dialog'
+import { ContractOnboardEmptyState } from '@/features/sections/components/contract-onboard-empty-state'
 import { OnboardSupervisorContractDialog } from '@/features/sections/components/onboard-supervisor-contract-dialog'
 import { SupervisorCascadeImportDialog } from '@/features/sections/components/supervisor-cascade-import-dialog'
 import { OfficerCascadeImportDialog } from '@/features/sections/components/officer-cascade-import-dialog'
@@ -34,6 +37,11 @@ import {
   getWorkspacePaths,
   type WorkspaceBasePath,
 } from '@/lib/workspace-paths'
+import { isOfficerLikeWorkspaceBasePath } from '@/lib/project-workspace-paths'
+import {
+  getManagerWorkspaceViewConfig,
+  resolveWorkspaceScopeLabels,
+} from '@/lib/project-workspace-copy'
 import type { ContractsApiResource } from '@/lib/contracts-api'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
@@ -54,40 +62,8 @@ type ManagerWorkspaceContentProps = WorkspaceData & {
   view: ManagerWorkspaceView
   sprintView?: SprintView
   sprintReviewLabel?: string
+  hideSprintReviewTab?: boolean
   workspaceBasePath?: WorkspaceBasePath
-}
-
-const viewConfig: Record<
-  ManagerWorkspaceView,
-  { title: string; description: string }
-> = {
-  dashboard: {
-    title: 'Dashboard',
-    description:
-      'Section performance, sprint progress, contract status, and pending work.',
-  },
-  contract: {
-    title: 'Contract',
-    description:
-      'Manage SSMARTA objectives, initiatives, measurable activities, and deliverables.',
-  },
-  sprints: {
-    title: 'Sprints',
-    description: 'Manage weekly sprints and tasks for your section.',
-  },
-  stakeholders: {
-    title: 'Stakeholders',
-    description:
-      'Maintain stakeholder engagement plans and reports for your section.',
-  },
-  staff: {
-    title: 'Staff',
-    description: 'Manage section staff, delegations, and transfers.',
-  },
-  reporting: {
-    title: 'Reporting',
-    description: 'Generate weekly reports from completed sprints.',
-  },
 }
 
 export function ManagerWorkspaceContent({
@@ -96,6 +72,11 @@ export function ManagerWorkspaceContent({
   sprintReviewLabel = 'To Review',
   workspaceBasePath = '/manager',
   section,
+  isProjectManagerWorkspace = false,
+  isDeputyProjectManagerWorkspace = false,
+  isProjectWorkstreamWorkspace = false,
+  projectId,
+  projectDisplayName,
   sectionContract,
   supervisorContract = null,
   supervisorContractForCascade = null,
@@ -113,6 +94,7 @@ export function ManagerWorkspaceContent({
   viewerStaffId,
   sectionAccess,
   staffRoster,
+  projectMemberRoster,
 }: ManagerWorkspaceContentProps) {
   const safeSprints = sprints ?? []
   const scopedSprints = React.useMemo(
@@ -123,8 +105,30 @@ export function ManagerWorkspaceContent({
     () => getWorkspacePaths(workspaceBasePath),
     [workspaceBasePath],
   )
+  const scopeLabels = React.useMemo(
+    () =>
+      resolveWorkspaceScopeLabels({
+        workspaceBasePath,
+        isProjectManagerWorkspace,
+        isDeputyProjectManagerWorkspace,
+        isProjectWorkstreamWorkspace,
+      }),
+    [
+      workspaceBasePath,
+      isProjectManagerWorkspace,
+      isDeputyProjectManagerWorkspace,
+      isProjectWorkstreamWorkspace,
+    ],
+  )
+  const viewConfig = React.useMemo(
+    () => getManagerWorkspaceViewConfig(scopeLabels),
+    [scopeLabels],
+  )
+  const scopeLabel =
+    scopeLabels.kind === 'mainstream' ? 'Section' : scopeLabels.unitTitle
   const usesOfficerContract =
-    workspaceBasePath === '/officer' || shouldUseOfficerContract(sectionAccess)
+    isOfficerLikeWorkspaceBasePath(workspaceBasePath) ||
+    shouldUseOfficerContract(sectionAccess)
   const usesSupervisorContract =
     shouldScopeSprintsToSupervisor(sectionAccess) ||
     Boolean(
@@ -138,7 +142,8 @@ export function ManagerWorkspaceContent({
       ? supervisorContract
       : sectionContract
   const canManageActiveContract = usesOfficerContract
-    ? sectionAccess.canManageOfficerContract || workspaceBasePath === '/officer'
+    ? sectionAccess.canManageOfficerContract ||
+      isOfficerLikeWorkspaceBasePath(workspaceBasePath)
     : usesSupervisorContract
       ? sectionAccess.canManageSupervisorContract ||
         sectionAccess.isSectionSupervisor
@@ -147,16 +152,42 @@ export function ManagerWorkspaceContent({
     ContractsApiResource,
     'supervisor-contracts' | 'officer-contracts'
   > = usesOfficerContract ? 'officer-contracts' : 'supervisor-contracts'
-  const workspaceRoleLabel = sectionAccess.isSectionManager
-    ? 'Manager'
-    : sectionAccess.isSectionSupervisor
-      ? 'Supervisor'
-      : sectionAccess.isSectionOfficer
-        ? 'Officer'
-        : 'Manager'
+  const workspaceRoleLabel = isProjectManagerWorkspace
+    ? 'Project Manager'
+    : isDeputyProjectManagerWorkspace
+      ? 'Deputy Project Manager'
+      : isProjectWorkstreamWorkspace && sectionAccess.isSectionSupervisor
+        ? 'Workstream Lead'
+        : isProjectWorkstreamWorkspace && sectionAccess.isSectionOfficer
+          ? 'Workstream Member'
+          : sectionAccess.isSectionManager
+            ? 'Manager'
+            : sectionAccess.isSectionSupervisor
+              ? 'Supervisor'
+              : sectionAccess.isSectionOfficer
+                ? 'Officer'
+                : 'Manager'
+  const viewerSupervisor = supervisors.find(
+    s => s._id === sectionAccess.viewerStaffId,
+  )
+  const viewerOfficer = officers.find(
+    o => o._id === sectionAccess.viewerStaffId,
+  )
+  const rosterSupervisor = staffRoster.supervisors.find(
+    s => s._id === sectionAccess.viewerStaffId,
+  )
+  const rosterOfficer = staffRoster.officers.find(
+    o => o._id === sectionAccess.viewerStaffId,
+  )
   const personalContractDisplayName = usesOfficerContract
-    ? (officerContract?.officer?.fullName ?? 'Officer')
-    : (supervisorContract?.supervisor?.fullName ?? 'Supervisor')
+    ? (officerContract?.officer?.fullName ??
+      viewerOfficer?.fullName ??
+      rosterOfficer?.fullName ??
+      'Officer')
+    : (supervisorContract?.supervisor?.fullName ??
+      viewerSupervisor?.fullName ??
+      rosterSupervisor?.fullName ??
+      'Supervisor')
   const contractResponsibilityCenter = usesOfficerContract
     ? 'Officer'
     : usesSupervisorContract
@@ -172,12 +203,19 @@ export function ManagerWorkspaceContent({
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
   const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
 
-  const activeSprintView: SprintView = usesOfficerContract
-    ? 'ready'
-    : (sprintView ?? 'ready')
+  const activeSprintView: SprintView =
+    isProjectManagerWorkspace || isDeputyProjectManagerWorkspace
+      ? 'ready'
+      : usesOfficerContract && !isProjectWorkstreamWorkspace
+        ? 'ready'
+        : (sprintView ?? 'ready')
 
   const pageTitle =
-    view === 'sprints' ? getSprintsPageTitle(activeSprintView) : config.title
+    view === 'sprints'
+      ? isProjectManagerWorkspace || isDeputyProjectManagerWorkspace
+        ? 'Sprints'
+        : getSprintsPageTitle(activeSprintView)
+      : config.title
 
   const breadcrumbs = React.useMemo(
     () => [
@@ -211,6 +249,7 @@ export function ManagerWorkspaceContent({
           sprints={safeSprints}
           sectionAccess={sectionAccess}
           workspaceBasePath={workspaceBasePath}
+          workspaceScope={scopeLabels.kind}
           engagement={stakeholderEngagement}
           dueToday={dueToday}
           dueThisWeek={dueThisWeek}
@@ -234,6 +273,7 @@ export function ManagerWorkspaceContent({
                     sectionId={section._id}
                     supervisorContractId={activeContract._id}
                     supervisorId={sectionAccess.viewerStaffId ?? undefined}
+                    isProjectWorkstream={isProjectWorkstreamWorkspace}
                   />
                 ) : null}
                 {usesOfficerContract &&
@@ -245,6 +285,7 @@ export function ManagerWorkspaceContent({
                     sectionId={section._id}
                     officerContractId={activeContract._id}
                     supervisorContractId={supervisorContractForCascade._id}
+                    isProjectWorkstream={isProjectWorkstreamWorkspace}
                   />
                 ) : null}
                 <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
@@ -272,7 +313,9 @@ export function ManagerWorkspaceContent({
                         variant='outline'
                         onClick={() => setCascadeImportOpen(true)}
                       >
-                        Cascade from manager
+                        {isProjectWorkstreamWorkspace
+                          ? 'Cascade from project manager'
+                          : 'Cascade from manager'}
                       </Button>
                     ) : null}
                     {usesOfficerContract &&
@@ -285,7 +328,9 @@ export function ManagerWorkspaceContent({
                         variant='outline'
                         onClick={() => setCascadeImportOpen(true)}
                       >
-                        Cascade from supervisor
+                        {isProjectWorkstreamWorkspace
+                          ? 'Cascade from workstream lead'
+                          : 'Cascade from supervisor'}
                       </Button>
                     ) : null}
                     {activeContract ? (
@@ -334,6 +379,24 @@ export function ManagerWorkspaceContent({
                       setAddObjectiveSignal(0)
                     }
                   />
+                ) : (isProjectManagerWorkspace ||
+                    isDeputyProjectManagerWorkspace) &&
+                  sectionContract ? (
+                  <DepartmentContractTree
+                    departmentContract={sectionContract}
+                    contractsApi={
+                      isDeputyProjectManagerWorkspace
+                        ? 'deputy-project-contracts'
+                        : 'project-contracts'
+                    }
+                    canManageContract={canManageActiveContract}
+                    expandAllSignal={expandAllSignal}
+                    collapseAllSignal={collapseAllSignal}
+                    addObjectiveSignal={addObjectiveSignal}
+                    onAddObjectiveRequestConsumed={() =>
+                      setAddObjectiveSignal(0)
+                    }
+                  />
                 ) : (
                   <ContractTree
                     sectionContract={sectionContract!}
@@ -357,22 +420,36 @@ export function ManagerWorkspaceContent({
                   officerId={sectionAccess.viewerStaffId ?? undefined}
                   sectionName={section.name}
                   officerName={personalContractDisplayName}
+                  scopeLabel={scopeLabel}
+                  roleLabel={
+                    isProjectWorkstreamWorkspace
+                      ? 'Workstream Member'
+                      : 'Officer'
+                  }
+                  upstreamRoleLabel={
+                    isProjectWorkstreamWorkspace ? 'Workstream Lead' : undefined
+                  }
+                  upstreamName={
+                    isProjectWorkstreamWorkspace
+                      ? (supervisors[0]?.fullName ??
+                        staffRoster.supervisors[0]?.fullName)
+                      : undefined
+                  }
                   onSuccess={() => setOnboardOpen(false)}
                 />
-                <div className='flex items-center gap-2 text-muted-foreground'>
-                  <FileText className='h-5 w-5' />
-                  <span>No officer contract for {currentFY}</span>
-                </div>
-                <p className='text-sm'>
-                  Onboard your contract to add SSMARTA objectives, initiatives,
-                  and measurable activities.
-                </p>
-                {sectionAccess.canManageOfficerContract ||
-                workspaceBasePath === '/officer' ? (
-                  <Button onClick={() => setOnboardOpen(true)}>
-                    Onboard Contract
-                  </Button>
-                ) : null}
+                <ContractOnboardEmptyState
+                  financialYearLabel={currentFY}
+                  description={
+                    scopeLabels.kind === 'workstream'
+                      ? 'Add objectives and activities, then cascade from your workstream lead.'
+                      : 'Add objectives and activities, then cascade from your supervisor.'
+                  }
+                  canOnboard={
+                    sectionAccess.canManageOfficerContract ||
+                    isOfficerLikeWorkspaceBasePath(workspaceBasePath)
+                  }
+                  onOnboard={() => setOnboardOpen(true)}
+                />
               </div>
             ) : usesSupervisorContract ? (
               <div className='space-y-4'>
@@ -384,21 +461,83 @@ export function ManagerWorkspaceContent({
                   sectionName={section.name}
                   supervisorName={personalContractDisplayName}
                   hasManagerContract={Boolean(sectionContract)}
+                  isProjectWorkstream={isProjectWorkstreamWorkspace}
+                  scopeLabel={scopeLabel}
+                  roleLabel={
+                    isProjectWorkstreamWorkspace
+                      ? 'Workstream Lead'
+                      : 'Supervisor'
+                  }
                   onSuccess={() => setOnboardOpen(false)}
                 />
-                <div className='flex items-center gap-2 text-muted-foreground'>
-                  <FileText className='h-5 w-5' />
-                  <span>No supervisor contract for {currentFY}</span>
-                </div>
-                <p className='text-sm'>
-                  Onboard your contract to add SSMARTA objectives, initiatives,
-                  and measurable activities.
-                </p>
-                {canManageActiveContract ? (
-                  <Button onClick={() => setOnboardOpen(true)}>
-                    Onboard Contract
-                  </Button>
-                ) : null}
+                <ContractOnboardEmptyState
+                  financialYearLabel={currentFY}
+                  description={
+                    scopeLabels.kind === 'workstream'
+                      ? 'Onboard your contract to add activities or cascade from the project manager.'
+                      : 'Onboard your contract and cascade to other project members.'
+                  }
+                  canOnboard={canManageActiveContract}
+                  onOnboard={() => setOnboardOpen(true)}
+                />
+              </div>
+            ) : isDeputyProjectManagerWorkspace ? (
+              <div className='space-y-4'>
+                <OnboardDeputyProjectContractDialog
+                  open={onboardOpen}
+                  onOpenChange={setOnboardOpen}
+                  projectId={projectId ?? section._id}
+                  deputyProjectManagerId={manager?._id ?? viewerStaffId ?? ''}
+                  projectName={section.name}
+                  deputyProjectManagerName={
+                    manager?.fullName ?? 'Deputy Project Manager'
+                  }
+                  onSuccess={() => setOnboardOpen(false)}
+                />
+                <ContractOnboardEmptyState
+                  financialYearLabel={currentFY}
+                  description='Onboard your contract and cascade to other project members.'
+                  canOnboard={
+                    sectionAccess.canOnboardContract &&
+                    Boolean(hasManager || viewerStaffId)
+                  }
+                  onOnboard={() => setOnboardOpen(true)}
+                  missingAssigneeMessage={
+                    sectionAccess.canOnboardContract &&
+                    !hasManager &&
+                    !viewerStaffId
+                      ? 'Assign a deputy project manager before onboarding a contract.'
+                      : undefined
+                  }
+                />
+              </div>
+            ) : isProjectManagerWorkspace ? (
+              <div className='space-y-4'>
+                <OnboardProjectContractDialog
+                  open={onboardOpen}
+                  onOpenChange={setOnboardOpen}
+                  projectId={projectId ?? section._id}
+                  projectManagerId={manager?._id ?? viewerStaffId ?? ''}
+                  projectName={section.name}
+                  projectManagerName={manager?.fullName ?? 'Project Manager'}
+                  onSuccess={() => setOnboardOpen(false)}
+                />
+                <ContractOnboardEmptyState
+                  financialYearLabel={currentFY}
+                  description='Onboard your contract and cascade to other project members'
+                  canOnboard={
+                    sectionAccess.canOnboardContract &&
+                    Boolean(hasManager || viewerStaffId)
+                  }
+                  onOnboard={() => setOnboardOpen(true)}
+                  missingAssigneeMessage={
+                    sectionAccess.canOnboardContract &&
+                    !hasManager &&
+                    !viewerStaffId
+                      ? 'Assign a project manager before onboarding a contract.'
+                      : undefined
+                  }
+                />
               </div>
             ) : (
               <div className='space-y-4'>
@@ -411,24 +550,17 @@ export function ManagerWorkspaceContent({
                   managerName={manager?.fullName ?? '—'}
                   onSuccess={() => setOnboardOpen(false)}
                 />
-                <div className='flex items-center gap-2 text-muted-foreground'>
-                  <FileText className='h-5 w-5' />
-                  <span>No contract for {currentFY}</span>
-                </div>
-                <p className='text-sm'>
-                  Onboard a contract to add SSMARTA objectives, initiatives, and
-                  KPIs.
-                </p>
-                {sectionAccess.canOnboardContract && hasManager ? (
-                  <Button onClick={() => setOnboardOpen(true)}>
-                    Onboard Contract
-                  </Button>
-                ) : sectionAccess.canOnboardContract ? null : (
-                  <p className='text-sm text-muted-foreground'>
-                    Assign a manager to this section before onboarding a
-                    contract.
-                  </p>
-                )}
+                <ContractOnboardEmptyState
+                  financialYearLabel={currentFY}
+                  description='Add SSMARTA objectives, initiatives, and KPIs.'
+                  canOnboard={sectionAccess.canOnboardContract && hasManager}
+                  onOnboard={() => setOnboardOpen(true)}
+                  missingAssigneeMessage={
+                    sectionAccess.canOnboardContract && !hasManager
+                      ? `Assign a manager to this ${scopeLabels.unit} before onboarding a contract.`
+                      : undefined
+                  }
+                />
               </div>
             )}
           </CardContent>
@@ -447,6 +579,7 @@ export function ManagerWorkspaceContent({
           panelPortalNode={panelPortalNode}
           viewerStaffId={viewerStaffId}
           sectionAccess={sectionAccess}
+          workspaceScope={scopeLabels.kind}
           presentation='single-view'
           singleView={activeSprintView}
         />
@@ -454,16 +587,29 @@ export function ManagerWorkspaceContent({
     }
 
     if (view === 'stakeholders') {
+      const usesProjectStakeholderMatrix =
+        scopeLabels.kind === 'project' || scopeLabels.kind === 'workstream'
+      const stakeholderScopeName = usesProjectStakeholderMatrix
+        ? (stakeholderEngagement?.project?.name ??
+          projectDisplayName ??
+          section.name)
+        : section.name
+
       return (
         <Card>
           <CardContent className='pt-6'>
             <StakeholderEngagementContent
-              sectionId={section._id}
-              sectionName={section.name}
+              sectionId={usesProjectStakeholderMatrix ? undefined : section._id}
+              projectId={usesProjectStakeholderMatrix ? projectId : undefined}
+              scopeName={stakeholderScopeName}
+              scopeUnit={usesProjectStakeholderMatrix ? 'project' : 'section'}
+              canBootstrapEngagement={scopeLabels.kind === 'project'}
               engagement={stakeholderEngagement}
               staffOptions={staffOptions}
               initiatives={flattenInitiatives(
-                activeContract as SectionContract | null,
+                (isProjectWorkstreamWorkspace
+                  ? sectionContract
+                  : activeContract) as SectionContract | null,
               )}
             />
           </CardContent>
@@ -472,12 +618,35 @@ export function ManagerWorkspaceContent({
     }
 
     if (view === 'staff') {
+      const projectWorkstreamMemberAdd =
+        isProjectWorkstreamWorkspace &&
+        projectId &&
+        sectionAccess.canManageWorkstreamStaff
+          ? {
+              projectId,
+              workstreamId: section._id,
+              workstreamName: section.name,
+              memberRoster: projectMemberRoster ?? [],
+            }
+          : undefined
+
       return (
         <SectionStaffContent
           sectionId={section._id}
           sectionName={section.name}
           roster={staffRoster}
           sectionAccess={sectionAccess}
+          staffScopeTitle={
+            scopeLabels.kind === 'workstream' ? 'Workstream' : 'Section'
+          }
+          staffPageTitle={
+            scopeLabels.kind === 'workstream' ? 'Members' : undefined
+          }
+          staffPageDescription={
+            scopeLabels.kind === 'workstream' ? `` : undefined
+          }
+          addStaffLabel={projectWorkstreamMemberAdd ? 'Add member' : undefined}
+          projectWorkstreamMemberAdd={projectWorkstreamMemberAdd}
         />
       )
     }
