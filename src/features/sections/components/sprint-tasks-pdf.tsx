@@ -284,11 +284,11 @@ function SprintTaskPlanBlock({
 
   return (
     <View style={isLast ? styles.taskBlockLast : styles.taskBlock}>
-      <Text style={styles.taskDescription}>{task.description || '—'}</Text>
       <Text style={styles.taskMetaLine}>
         <Text style={styles.taskMetaLineLabel}>Plan status:</Text>{' '}
         {PLAN_STATUS_LABELS[task.status] ?? task.status}
       </Text>
+      <Text style={styles.taskDescription}>{task.description || '—'}</Text>
       {categoryLabel ? (
         <Text style={styles.taskMetaLine}>
           <Text style={styles.taskMetaLineLabel}>Category:</Text>{' '}

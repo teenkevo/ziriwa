@@ -2521,14 +2521,11 @@ function SprintCard({
                     className='flex items-start gap-3 rounded-md border border-foreground/20 bg-muted-foreground/5 shadow-md p-3'
                   >
                     <div className='flex-1 min-w-0'>
-                      <div className='flex items-center gap-2 mb-4'>
-                        <span className='text-sm font-semibold'>
-                          {task.description}
-                        </span>
+                      <div className='mb-4 space-y-2'>
                         <Badge
                           variant={config.variant}
                           className={cn(
-                            'text-[10px] px-1.5 py-0 shrink-0',
+                            'w-fit text-[10px] px-1.5 py-0',
                             config.variant === 'destructive'
                               ? 'text-destructive bg-destructive/10 border-destructive/50 hover:bg-destructive/20'
                               : 'text-yellow-600 bg-yellow-600/10 border-yellow-600/50 hover:bg-yellow-600/20',
@@ -2536,6 +2533,9 @@ function SprintCard({
                         >
                           {config.label}
                         </Badge>
+                        <span className='block text-sm font-semibold'>
+                          {task.description}
+                        </span>
                       </div>
 
                       <SprintTaskContractLinkRows
