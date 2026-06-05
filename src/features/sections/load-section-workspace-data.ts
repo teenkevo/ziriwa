@@ -27,6 +27,7 @@ import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.ser
 import { getDelegationCandidatesForStaff } from '@/lib/section-delegation-candidates.server'
 import { getSectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { buildSupervisorSprintInitiativesByStaffId } from '@/lib/supervisor-sprint-initiatives.server'
 import { getSupervisorContractForViewer } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract-for-viewer'
 import { getSupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
@@ -296,6 +297,11 @@ export async function loadSectionWorkspaceData(
       )
     : []
 
+  const supervisorSprintInitiativesByStaffId =
+    sprints.length > 0
+      ? await buildSupervisorSprintInitiativesByStaffId(section._id, sprints)
+      : {}
+
   return {
     section,
     sectionContract,
@@ -314,6 +320,7 @@ export async function loadSectionWorkspaceData(
       : dueThisQuarter,
     today,
     sprints,
+    supervisorSprintInitiativesByStaffId,
     viewerStaffId: sectionAccess.viewerStaffId ?? undefined,
     sectionAccess,
     staffRoster,

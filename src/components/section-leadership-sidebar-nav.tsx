@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   FileBarChart,
   FilePen,
@@ -23,6 +24,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { SprintTabSidebarLink } from '@/components/sprint-tab-sidebar-link'
+import { buildSprintTabHref } from '@/lib/sprint-tab-href'
 import type { SprintNavCounts } from '@/lib/sprint-nav-counts'
 import type { WorkspaceBasePath } from '@/lib/workspace-paths'
 
@@ -65,6 +68,7 @@ export function SectionLeadershipSidebarNav({
   useProjectMembersNav = false,
   staffNavLabel,
 }: SectionLeadershipSidebarNavProps) {
+  const searchParams = useSearchParams()
   const membersHref = `${basePath}/members`
   const staffHref = `${basePath}/staff`
   const membersNavActive =
@@ -207,10 +211,12 @@ export function SectionLeadershipSidebarNav({
                     asChild
                     isActive={isSprintsRoute && sprintTab === 'ready'}
                   >
-                    <Link href={`${basePath}/sprints?tab=ready`}>
+                    <SprintTabSidebarLink
+                      href={buildSprintTabHref(basePath, 'ready', searchParams)}
+                    >
                       <Zap />
                       <span>Ready</span>
-                    </Link>
+                    </SprintTabSidebarLink>
                   </SidebarMenuButton>
                   <SprintSidebarCountBadge count={sprintCounts.ready} />
                 </SidebarMenuItem>
@@ -220,10 +226,16 @@ export function SectionLeadershipSidebarNav({
                       asChild
                       isActive={isSprintsRoute && sprintTab === 'to-review'}
                     >
-                      <Link href={`${basePath}/sprints?tab=to-review`}>
+                      <SprintTabSidebarLink
+                        href={buildSprintTabHref(
+                          basePath,
+                          'to-review',
+                          searchParams,
+                        )}
+                      >
                         <ShieldCheck />
                         <span>{sprintsReviewLabel}</span>
-                      </Link>
+                      </SprintTabSidebarLink>
                     </SidebarMenuButton>
                     <SprintSidebarCountBadge count={sprintCounts.inReview} />
                   </SidebarMenuItem>
@@ -233,10 +245,12 @@ export function SectionLeadershipSidebarNav({
                     asChild
                     isActive={isSprintsRoute && sprintTab === 'drafts'}
                   >
-                    <Link href={`${basePath}/sprints?tab=drafts`}>
+                    <SprintTabSidebarLink
+                      href={buildSprintTabHref(basePath, 'drafts', searchParams)}
+                    >
                       <FilePen />
                       <span>Drafts</span>
-                    </Link>
+                    </SprintTabSidebarLink>
                   </SidebarMenuButton>
                   <SprintSidebarCountBadge count={sprintCounts.drafts} />
                 </SidebarMenuItem>

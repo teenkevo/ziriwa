@@ -123,7 +123,7 @@ export function SupervisorCascadeImportModeDialog({
               <div className='space-y-1'>
                 <p className='text-sm font-medium'>Rewrite with AI</p>
                 <p className='text-sm text-muted-foreground'>
-                  Generate supervisor-appropriate wording, then review and edit
+                  Generate workstream-appropriate wording, then review and edit
                   before importing.
                 </p>
                 {isLoadingAiStatus ? (

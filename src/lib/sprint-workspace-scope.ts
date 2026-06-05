@@ -62,3 +62,15 @@ export function scopeSprintsForViewer(
   }
   return sprints
 }
+
+/** Whether the viewer is the supervisor who owns this sprint. */
+export function canSupervisorManageSprint(
+  sprint: WeeklySprint,
+  access: SectionAccess,
+): boolean {
+  if (!access.canCreateSprints) return false
+  const effectiveSupervisorId =
+    access.supervisorContextStaffId ?? access.viewerStaffId
+  if (!effectiveSupervisorId) return false
+  return sprint.supervisor?._id === effectiveSupervisorId
+}

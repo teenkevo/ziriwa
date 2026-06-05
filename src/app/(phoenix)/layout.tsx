@@ -14,6 +14,7 @@ import { AppSidebarFooter } from '@/components/app-sidebar-footer'
 import { AppSidebarNavWrapper } from '@/components/app-sidebar-nav-wrapper'
 import { AppTopBarShell } from '@/components/app-top-bar-shell'
 import { AppBreadcrumbProvider } from '@/contexts/app-breadcrumb-context'
+import { WorkspaceRouteNavigationProvider } from '@/contexts/workspace-route-navigation-context'
 import { ViewerProvider } from '@/contexts/viewer-context'
 import { isSuperadmin } from '@/lib/authz/guards.server'
 
@@ -46,7 +47,11 @@ export default async function Layout({ children }: LayoutProps) {
         <AppBreadcrumbProvider>
           <AppTopBarShell />
           <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
-            {children}
+            <Suspense fallback={null}>
+              <WorkspaceRouteNavigationProvider>
+                {children}
+              </WorkspaceRouteNavigationProvider>
+            </Suspense>
           </div>
         </AppBreadcrumbProvider>
       </SidebarInset>

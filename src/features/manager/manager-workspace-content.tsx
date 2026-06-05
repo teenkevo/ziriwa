@@ -91,6 +91,7 @@ export function ManagerWorkspaceContent({
   dueThisQuarter,
   today,
   sprints,
+  supervisorSprintInitiativesByStaffId = {},
   viewerStaffId,
   sectionAccess,
   staffRoster,
@@ -575,6 +576,9 @@ export function ManagerWorkspaceContent({
           sectionName={section.name}
           sprints={scopedSprints}
           initiatives={flattenInitiativesWithActivities(activeContract)}
+          supervisorSprintInitiativesByStaffId={
+            supervisorSprintInitiativesByStaffId
+          }
           officers={officers}
           panelPortalNode={panelPortalNode}
           viewerStaffId={viewerStaffId}

@@ -14,6 +14,7 @@ import {
   Trash2,
   Pencil,
   MoreVertical,
+  Info,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -76,6 +77,7 @@ import {
   type SectionAccess,
 } from '@/lib/section-access'
 import { useIsLg } from '@/hooks/use-is-lg'
+import { toast } from 'sonner'
 import { getEffectiveTaskStatus } from '@/lib/sprint-week'
 import {
   buildSprintTaskWriteFields,
@@ -96,6 +98,8 @@ import {
   findContractDetailedTask,
   type InitiativeWithActivities,
 } from '@/lib/flatten-initiatives-with-activities'
+import { getSupervisorSprintInitiatives } from '@/lib/supervisor-sprint-initiatives'
+import { canSupervisorManageSprint } from '@/lib/sprint-workspace-scope'
 import {
   scopeLabelsFromKind,
   theContractPhrase,
@@ -107,6 +111,11 @@ interface WeeklySprintContentProps {
   sectionName: string
   sprints: WeeklySprint[]
   initiatives?: InitiativeWithActivities[]
+  /** Supervisor contract initiatives keyed by `${sectionId}:${supervisorStaffId}`. */
+  supervisorSprintInitiativesByStaffId?: Record<
+    string,
+    InitiativeWithActivities[]
+  >
   officers?: Officer[]
   onSprintTabChange?: (tab: string) => void
   panelPortalNode?: HTMLDivElement | null
@@ -435,11 +444,53 @@ function SprintTaskContractLinkFields({
   )
 }
 
+function SprintTaskContractLinkRows({
+  initiativeTitle,
+  activityTitle,
+  contractTaskTitle,
+}: {
+  initiativeTitle?: string
+  activityTitle?: string
+  contractTaskTitle?: string
+}) {
+  if (!initiativeTitle && !activityTitle && !contractTaskTitle) return null
+
+  return (
+    <div className='mt-1.5 space-y-3'>
+      {initiativeTitle ? (
+        <div>
+          <p className='text-[10px] text-muted-foreground'>
+            Related initiative
+          </p>
+          <p className='text-xs'>{initiativeTitle}</p>
+        </div>
+      ) : null}
+      {activityTitle ? (
+        <div>
+          <p className='text-[10px] text-muted-foreground'>
+            Related measurable activity
+          </p>
+          <p className='text-xs'>{activityTitle}</p>
+        </div>
+      ) : null}
+      {contractTaskTitle ? (
+        <div>
+          <p className='text-[10px] text-muted-foreground'>
+            Related detailed task
+          </p>
+          <p className='text-xs'>{contractTaskTitle}</p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function WeeklySprintContent({
   sectionId,
   sectionName,
   sprints,
   initiatives = [],
+  supervisorSprintInitiativesByStaffId = {},
   officers = [],
   onSprintTabChange,
   panelPortalNode,
@@ -486,6 +537,9 @@ export function WeeklySprintContent({
   const [isDeletingSprint, setIsDeletingSprint] = React.useState(false)
   const [reviseOpen, setReviseOpen] = React.useState(false)
   const [reviseSprintId, setReviseSprintId] = React.useState('')
+  const [reviseSprintSectionId, setReviseSprintSectionId] = React.useState('')
+  const [reviseSupervisorStaffId, setReviseSupervisorStaffId] =
+    React.useState('')
   const [reviseTaskDraft, setReviseTaskDraft] =
     React.useState<DraftTask | null>(null)
   const [reviseManagerFeedback, setReviseManagerFeedback] = React.useState('')
@@ -504,11 +558,57 @@ export function WeeklySprintContent({
   )
   const [isSavingTask, setIsSavingTask] = React.useState(false)
   const [extraTaskOpen, setExtraTaskOpen] = React.useState(false)
+  const [extraTaskMode, setExtraTaskMode] = React.useState<
+    'officer-extra' | 'supervisor-plan'
+  >('officer-extra')
   const [extraTaskSprintId, setExtraTaskSprintId] = React.useState('')
+  const [extraTaskSprintSectionId, setExtraTaskSprintSectionId] =
+    React.useState('')
+  const [extraTaskSupervisorStaffId, setExtraTaskSupervisorStaffId] =
+    React.useState('')
   const [extraTaskDraft, setExtraTaskDraft] = React.useState<DraftTask>({
     ...emptyDraftTask,
   })
   const [isSavingExtraTask, setIsSavingExtraTask] = React.useState(false)
+
+  const reviseInitiatives = React.useMemo(() => {
+    if (!reviseSupervisorStaffId) return initiatives
+    const supervisorInitiatives = getSupervisorSprintInitiatives(
+      supervisorSprintInitiativesByStaffId,
+      reviseSprintSectionId || sectionId,
+      reviseSupervisorStaffId,
+    )
+    return supervisorInitiatives.length > 0
+      ? supervisorInitiatives
+      : initiatives
+  }, [
+    reviseSupervisorStaffId,
+    reviseSprintSectionId,
+    sectionId,
+    supervisorSprintInitiativesByStaffId,
+    initiatives,
+  ])
+
+  const extraTaskInitiatives = React.useMemo(() => {
+    if (extraTaskMode !== 'supervisor-plan' || !extraTaskSupervisorStaffId) {
+      return initiatives
+    }
+    const supervisorInitiatives = getSupervisorSprintInitiatives(
+      supervisorSprintInitiativesByStaffId,
+      extraTaskSprintSectionId || sectionId,
+      extraTaskSupervisorStaffId,
+    )
+    return supervisorInitiatives.length > 0
+      ? supervisorInitiatives
+      : initiatives
+  }, [
+    extraTaskMode,
+    extraTaskSupervisorStaffId,
+    extraTaskSprintSectionId,
+    sectionId,
+    supervisorSprintInitiativesByStaffId,
+    initiatives,
+  ])
 
   const fyWeeks = React.useMemo(() => getFYWeeks(), [])
   const [selectedWeekIdx, setSelectedWeekIdx] = React.useState('0')
@@ -689,8 +789,10 @@ export function WeeklySprintContent({
     }
   }
 
-  const openReviseDialog = (sprintId: string, task: SprintTask) => {
-    setReviseSprintId(sprintId)
+  const openReviseDialog = (sprint: WeeklySprint, task: SprintTask) => {
+    setReviseSprintId(sprint._id)
+    setReviseSprintSectionId(sprint.sectionId ?? sectionId)
+    setReviseSupervisorStaffId(sprint.supervisor?._id ?? '')
     setReviseTaskDraft(sprintTaskToDraft(task))
     setReviseManagerFeedback(task.revisionReason?.trim() ?? '')
     setReviseOpen(true)
@@ -725,7 +827,7 @@ export function WeeklySprintContent({
       !reviseTaskDraft?._key ||
       !isSprintDraftTaskComplete(
         reviseTaskDraft,
-        draftTaskLinkOptions(initiatives, reviseTaskDraft),
+        draftTaskLinkOptions(reviseInitiatives, reviseTaskDraft),
       )
     ) {
       return
@@ -739,7 +841,7 @@ export function WeeklySprintContent({
         body: JSON.stringify({
           action: 'revise-task',
           taskKey: reviseTaskDraft._key,
-          ...buildDraftTaskWritePayload(reviseTaskDraft, initiatives),
+          ...buildDraftTaskWritePayload(reviseTaskDraft, reviseInitiatives),
         }),
       })
       if (!res.ok) {
@@ -753,6 +855,8 @@ export function WeeklySprintContent({
       setReviseOpen(false)
       setReviseTaskDraft(null)
       setReviseSprintId('')
+      setReviseSprintSectionId('')
+      setReviseSupervisorStaffId('')
       setReviseManagerFeedback('')
       router.refresh()
     } catch (err) {
@@ -850,6 +954,9 @@ export function WeeklySprintContent({
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || 'Failed to review task')
+      }
+      if (reviewAction === 'revisions_requested') {
+        toast.success('Feedback sent successfully')
       }
       setReviewDialogOpen(false)
       router.refresh()
@@ -1076,8 +1183,20 @@ export function WeeklySprintContent({
   }
 
   const openExtraTaskDialog = (sprintId?: string) => {
+    setExtraTaskMode('officer-extra')
     setExtraTaskDraft({ ...emptyDraftTask })
     setExtraTaskSprintId(sprintId ?? currentWeekNonDraftSprints[0]?._id ?? '')
+    setExtraTaskSprintSectionId('')
+    setExtraTaskSupervisorStaffId('')
+    setExtraTaskOpen(true)
+  }
+
+  const openPlanTaskDialog = (sprint: WeeklySprint) => {
+    setExtraTaskMode('supervisor-plan')
+    setExtraTaskDraft({ ...emptyDraftTask })
+    setExtraTaskSprintId(sprint._id)
+    setExtraTaskSprintSectionId(sprint.sectionId ?? sectionId)
+    setExtraTaskSupervisorStaffId(sprint.supervisor?._id ?? '')
     setExtraTaskOpen(true)
   }
 
@@ -1105,10 +1224,12 @@ export function WeeklySprintContent({
 
   const handleCreateExtraTask = async (e: React.FormEvent) => {
     e.preventDefault()
+    const taskInitiatives =
+      extraTaskMode === 'supervisor-plan' ? extraTaskInitiatives : initiatives
     if (
       !isSprintDraftTaskComplete(
         extraTaskDraft,
-        draftTaskLinkOptions(initiatives, extraTaskDraft),
+        draftTaskLinkOptions(taskInitiatives, extraTaskDraft),
       ) ||
       !extraTaskSprintId
     ) {
@@ -1121,8 +1242,11 @@ export function WeeklySprintContent({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'add-extra-task',
-          ...buildDraftTaskWritePayload(extraTaskDraft, initiatives),
+          action:
+            extraTaskMode === 'supervisor-plan'
+              ? 'add-plan-task'
+              : 'add-extra-task',
+          ...buildDraftTaskWritePayload(extraTaskDraft, taskInitiatives),
         }),
       })
       if (!res.ok) {
@@ -1136,6 +1260,9 @@ export function WeeklySprintContent({
       setExtraTaskOpen(false)
       setExtraTaskDraft({ ...emptyDraftTask })
       setExtraTaskSprintId('')
+      setExtraTaskSprintSectionId('')
+      setExtraTaskSupervisorStaffId('')
+      setExtraTaskMode('officer-extra')
       router.refresh()
     } catch (err) {
       console.error(err)
@@ -1279,7 +1406,9 @@ export function WeeklySprintContent({
             onReviewTask={(task, action) =>
               openReview(sprint._id, task, action)
             }
-            onOpenRevise={task => openReviseDialog(sprint._id, task)}
+            onOpenRevise={openReviseDialog}
+            canAddPlanTask={canSupervisorManageSprint(sprint, sectionAccess)}
+            onAddPlanTask={openPlanTaskDialog}
           />
         ))
       )}
@@ -1600,6 +1729,9 @@ export function WeeklySprintContent({
           if (!open) {
             setExtraTaskDraft({ ...emptyDraftTask })
             setExtraTaskSprintId('')
+            setExtraTaskSprintSectionId('')
+            setExtraTaskSupervisorStaffId('')
+            setExtraTaskMode('officer-extra')
           }
         }}
       >
@@ -1609,9 +1741,15 @@ export function WeeklySprintContent({
             className={SPRINT_TASK_DIALOG_FORM_CLASS}
           >
             <DialogHeader className='shrink-0 pr-8'>
-              <DialogTitle>Add extra task</DialogTitle>
+              <DialogTitle>
+                {extraTaskMode === 'supervisor-plan'
+                  ? 'Add task to sprint'
+                  : 'Add extra task'}
+              </DialogTitle>
               <DialogDescription>
-                Add an extra task to the current sprint week
+                {extraTaskMode === 'supervisor-plan'
+                  ? 'Add a new task to this sprint plan for manager review.'
+                  : 'Add an extra task to the current sprint week'}
               </DialogDescription>
             </DialogHeader>
             <div className={SPRINT_TASK_DIALOG_BODY_CLASS}>
@@ -1626,7 +1764,10 @@ export function WeeklySprintContent({
                     <SelectValue placeholder='Select week' />
                   </SelectTrigger>
                   <SelectContent>
-                    {currentWeekNonDraftSprints.map(s => (
+                    {(extraTaskMode === 'supervisor-plan'
+                      ? submittedOrReviewedSprints
+                      : currentWeekNonDraftSprints
+                    ).map(s => (
                       <SelectItem key={s._id} value={s._id}>
                         {s.weekLabel}
                       </SelectItem>
@@ -1646,11 +1787,40 @@ export function WeeklySprintContent({
                 rows={3}
                 disabled={isSavingExtraTask}
               />
+              {extraTaskMode === 'supervisor-plan' ? (
+                <div className='w-[100%] overflow-hidden space-y-1 p-1'>
+                  <Label className='text-xs' required>
+                    Activity category
+                  </Label>
+                  <Select
+                    value={extraTaskDraft.activityCategory || undefined}
+                    onValueChange={v =>
+                      setExtraTaskField('activityCategory', v)
+                    }
+                    disabled={isSavingExtraTask}
+                  >
+                    <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
+                      <SelectValue placeholder='Select activity category' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activityCategoryOptions.map(c => (
+                        <SelectItem
+                          key={c.value}
+                          value={c.value}
+                          className='text-xs'
+                        >
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
 
               <SprintTaskContractLinkFields
                 contractPhrase={contractPhrase}
                 task={extraTaskDraft}
-                initiatives={initiatives}
+                initiatives={extraTaskInitiatives}
                 disabled={isSavingExtraTask}
                 onFieldChange={(field, value) =>
                   setExtraTaskField(field, value)
@@ -1672,13 +1842,13 @@ export function WeeklySprintContent({
                   isSavingExtraTask ||
                   !isSprintDraftTaskComplete(
                     extraTaskDraft,
-                    draftTaskLinkOptions(initiatives, extraTaskDraft),
+                    draftTaskLinkOptions(extraTaskInitiatives, extraTaskDraft),
                   ) ||
                   !extraTaskSprintId ||
                   (sprintTaskRequiresContractLinks(
                     extraTaskDraft.activityCategory,
                   ) &&
-                    initiatives.length === 0)
+                    extraTaskInitiatives.length === 0)
                 }
               >
                 {isSavingExtraTask ? (
@@ -1750,8 +1920,12 @@ export function WeeklySprintContent({
               {isReviewing ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Reviewing...
+                  {reviewAction === 'revisions_requested'
+                    ? 'Submitting Feedback...'
+                    : 'Reviewing...'}
                 </>
+              ) : reviewAction === 'revisions_requested' ? (
+                'Submit Feedback'
               ) : (
                 'Confirm'
               )}
@@ -1767,6 +1941,8 @@ export function WeeklySprintContent({
           if (!open) {
             setReviseTaskDraft(null)
             setReviseSprintId('')
+            setReviseSprintSectionId('')
+            setReviseSupervisorStaffId('')
             setReviseManagerFeedback('')
           }
         }}
@@ -1782,7 +1958,8 @@ export function WeeklySprintContent({
                 <DialogDescription>
                   Edit this task and resubmit it for manager review.
                   {reviseManagerFeedback ? (
-                    <span className='block mt-3 rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900 dark:bg-orange-950/40 dark:border-orange-900/60 dark:text-orange-100'>
+                    <span className='flexitems-center my-5 rounded-md border border-primary bg-primary/10 px-3 py-2 text-sm text-primary dark:bg-primary/20 dark:border-primary/30 dark:text-primary'>
+                      <Info className='h-4 w-4 mr-2' />
                       <span className='font-medium'>Feedback: </span>
                       {reviseManagerFeedback}
                     </span>
@@ -1793,14 +1970,18 @@ export function WeeklySprintContent({
                 <Label className='text-xs' required>
                   Description
                 </Label>
-                <Textarea
-                  className='text-xs'
-                  placeholder='Describe the task...'
-                  value={reviseTaskDraft.description}
-                  onChange={e => setReviseField('description', e.target.value)}
-                  rows={3}
-                  disabled={isSavingRevise}
-                />
+                <div className='m-0.5'>
+                  <Textarea
+                    className='text-xs'
+                    placeholder='Describe the task...'
+                    value={reviseTaskDraft.description}
+                    onChange={e =>
+                      setReviseField('description', e.target.value)
+                    }
+                    rows={3}
+                    disabled={isSavingRevise}
+                  />
+                </div>
                 <div className='w-[100%] overflow-hidden space-y-1 p-1'>
                   <Label className='text-xs' required>
                     Activity category
@@ -1829,7 +2010,7 @@ export function WeeklySprintContent({
                 <SprintTaskContractLinkFields
                   contractPhrase={contractPhrase}
                   task={reviseTaskDraft}
-                  initiatives={initiatives}
+                  initiatives={reviseInitiatives}
                   disabled={isSavingRevise}
                   onFieldChange={(field, value) => setReviseField(field, value)}
                 />
@@ -1850,12 +2031,12 @@ export function WeeklySprintContent({
                     !reviseTaskDraft ||
                     !isSprintDraftTaskComplete(
                       reviseTaskDraft,
-                      draftTaskLinkOptions(initiatives, reviseTaskDraft),
+                      draftTaskLinkOptions(reviseInitiatives, reviseTaskDraft),
                     ) ||
                     (sprintTaskRequiresContractLinks(
                       reviseTaskDraft.activityCategory,
                     ) &&
-                      initiatives.length === 0)
+                      reviseInitiatives.length === 0)
                   }
                 >
                   {isSavingRevise ? (
@@ -2112,6 +2293,8 @@ function SprintCard({
   isProjectSprint = false,
   onReviewTask,
   onOpenRevise,
+  canAddPlanTask = false,
+  onAddPlanTask,
 }: {
   sprint: WeeklySprint
   onSubmit: () => void
@@ -2123,7 +2306,9 @@ function SprintCard({
   isProjectSprint?: boolean
   onReviewTask: (task: SprintTask, action: string) => void
   /** Open dialog to edit this task and resubmit for manager review. */
-  onOpenRevise?: (task: SprintTask) => void
+  onOpenRevise?: (sprint: WeeklySprint, task: SprintTask) => void
+  canAddPlanTask?: boolean
+  onAddPlanTask?: (sprint: WeeklySprint) => void
 }) {
   const [open, setOpen] = React.useState(true)
   const tasks = sprint.tasks || []
@@ -2179,6 +2364,21 @@ function SprintCard({
                   {sprintStatusBadge.label}
                 </Badge>
               )}
+              {(sprint.status === 'submitted' ||
+                sprint.status === 'reviewed') &&
+                canAddPlanTask &&
+                onAddPlanTask && (
+                  <Button
+                    type='button'
+                    size='sm'
+                    variant='outline'
+                    className='h-8'
+                    onClick={() => onAddPlanTask(sprint)}
+                  >
+                    <Plus className='mr-1 h-4 w-4' />
+                    Add task
+                  </Button>
+                )}
               {sprint.status === 'draft' &&
                 (onEditDraft || onDeleteDraft || canSubmitDraft) && (
                   <DropdownMenu>
@@ -2261,7 +2461,7 @@ function SprintCard({
         </CardHeader>
         <CollapsibleContent>
           <CardContent className='pt-0'>
-            <div className='space-y-2'>
+            <div className='space-y-6'>
               {tasks.map((task, i) => {
                 const config = STATUS_CONFIG[task.status] ?? {
                   label: task.status ?? 'Unknown',
@@ -2282,8 +2482,10 @@ function SprintCard({
                     className='flex items-start gap-3 rounded-md border p-3'
                   >
                     <div className='flex-1 min-w-0'>
-                      <div className='flex items-start gap-2 mb-1'>
-                        <span className='text-sm'>{task.description}</span>
+                      <div className='flex items-center gap-2 mb-4'>
+                        <span className='text-sm font-semibold text-primary'>
+                          {task.description}
+                        </span>
                         <Badge
                           variant={config.variant}
                           className='text-[10px] px-1.5 py-0 shrink-0'
@@ -2291,16 +2493,11 @@ function SprintCard({
                           {config.label}
                         </Badge>
                       </div>
-                      {(task.initiativeTitle ||
-                        task.activityTitle ||
-                        task.contractTaskTitle) && (
-                        <p className='text-xs text-muted-foreground'>
-                          {task.initiativeTitle}
-                          {task.activityTitle && ` → ${task.activityTitle}`}
-                          {task.contractTaskTitle &&
-                            ` → ${task.contractTaskTitle}`}
-                        </p>
-                      )}
+                      <SprintTaskContractLinkRows
+                        initiativeTitle={task.initiativeTitle}
+                        activityTitle={task.activityTitle}
+                        contractTaskTitle={task.contractTaskTitle}
+                      />
                       {task.status === 'rejected' && (
                         <p className='text-xs text-destructive mt-1'>
                           Rejected — not included in this sprint plan.
@@ -2320,7 +2517,7 @@ function SprintCard({
                           size='sm'
                           variant='secondary'
                           className='h-8'
-                          onClick={() => onOpenRevise?.(task)}
+                          onClick={() => onOpenRevise?.(sprint, task)}
                         >
                           Revise
                         </Button>

@@ -257,3 +257,25 @@ export function assertSprintSupervisorTaskUpdate(
   }
   return null
 }
+
+export function assertSprintSupervisorPlanReviseAllowed(
+  access: SectionAccess,
+  sprintSupervisorStaffId: string | null | undefined,
+): NextResponse | null {
+  if (access.isGlobalAdmin) return null
+  const denied = assertSprintCreateAllowed(access)
+  if (denied) return denied
+
+  const effectiveSupervisorId =
+    access.supervisorContextStaffId ?? access.viewerStaffId
+  if (
+    sprintSupervisorStaffId &&
+    effectiveSupervisorId &&
+    sprintSupervisorStaffId !== effectiveSupervisorId
+  ) {
+    return sectionAccessDenied(
+      'Only the sprint supervisor can revise this task',
+    )
+  }
+  return null
+}

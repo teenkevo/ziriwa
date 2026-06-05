@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { WorkContextMode } from '@/lib/section-access'
 import { buildSectionAccessForWorkContext } from '@/lib/section-access'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { buildSupervisorSprintInitiativesByStaffId } from '@/lib/supervisor-sprint-initiatives.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import type { ProjectMembership } from '@/lib/project-access.server'
@@ -237,6 +238,11 @@ async function loadProjectManagerWorkspace(
     ? projectContractAsSectionContract(projectContract, section)
     : null
 
+  const supervisorSprintInitiativesByStaffId =
+    sprints.length > 0
+      ? await buildSupervisorSprintInitiativesByStaffId(section._id, sprints)
+      : {}
+
   return {
     section,
     sectionContract,
@@ -256,6 +262,7 @@ async function loadProjectManagerWorkspace(
     dueThisQuarter,
     today,
     sprints,
+    supervisorSprintInitiativesByStaffId,
     viewerStaffId: viewerStaffId ?? undefined,
     sectionAccess,
     staffRoster,
@@ -408,6 +415,11 @@ async function loadDeputyProjectManagerWorkspace(
     ? projectContractAsSectionContract(projectContract, section)
     : null
 
+  const supervisorSprintInitiativesByStaffId =
+    sprints.length > 0
+      ? await buildSupervisorSprintInitiativesByStaffId(section._id, sprints)
+      : {}
+
   return {
     section,
     sectionContract: deputyAsSection,
@@ -427,6 +439,7 @@ async function loadDeputyProjectManagerWorkspace(
     dueThisQuarter,
     today,
     sprints,
+    supervisorSprintInitiativesByStaffId,
     viewerStaffId: viewerStaffId ?? undefined,
     sectionAccess,
     staffRoster,

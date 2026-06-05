@@ -23,6 +23,7 @@ import { isSectionInProject } from '@/lib/project-access.server'
 import {
   assertSprintCreateAllowed,
   assertSprintManagerPlanReviewAllowed,
+  assertSprintSupervisorPlanReviseAllowed,
   assertSprintSupervisorTaskUpdate,
   getSectionAccessForViewer,
   getSectionIdFromWeeklySprint,
@@ -742,14 +743,18 @@ export async function PATCH(
       const reviseTask = reviseTasks.find(
         (t: Record<string, unknown>) => t._key === taskKey,
       )
-      const reviseAssigneeRef = (
-        reviseTask?.assignee as { _ref?: string } | undefined
-      )?._ref
-      if (!canSubmitDetailedTaskWork(access, reviseAssigneeRef)) {
-        return sectionAccessDenied(
-          'Only the assigned officer can revise this task',
-        )
+      if (!reviseTask) {
+        return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
+
+      const sprintSupervisorRef = (
+        docForReviseAuth.supervisor as { _ref?: string } | undefined
+      )?._ref
+      const reviseDenied = assertSprintSupervisorPlanReviseAllowed(
+        access,
+        sprintSupervisorRef,
+      )
+      if (reviseDenied) return reviseDenied
 
       const err = validateSprintTaskPayload(
         {
@@ -834,6 +839,82 @@ export async function PATCH(
         )
       }
 
+      if (doc.status === 'reviewed') {
+        patch.set({ status: 'submitted' })
+      }
+
+      await patch.commit()
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'add-plan-task') {
+      const {
+        description,
+        activityCategory,
+        initiativeKey,
+        initiativeTitle,
+        activityKey,
+        activityTitle,
+        contractTaskKey,
+        contractTaskTitle,
+      } = body
+
+      const doc = await writeClient.getDocument(id)
+      if (!doc || doc._type !== 'weeklySprint') {
+        return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
+      }
+
+      const sprintSupervisorRef = (
+        doc.supervisor as { _ref?: string } | undefined
+      )?._ref
+      const planTaskDenied = assertSprintSupervisorPlanReviseAllowed(
+        access,
+        sprintSupervisorRef,
+      )
+      if (planTaskDenied) return planTaskDenied
+
+      if (doc.status !== 'submitted' && doc.status !== 'reviewed') {
+        return NextResponse.json(
+          {
+            error:
+              'Can only add plan tasks to sprints that are submitted or in review',
+          },
+          { status: 400 },
+        )
+      }
+
+      const err = validateSprintTaskPayload(
+        {
+          description,
+          activityCategory,
+          initiativeKey,
+          activityKey,
+          contractTaskKey,
+        },
+        { isProjectSection },
+      )
+      if (err) {
+        return NextResponse.json({ error: err }, { status: 400 })
+      }
+
+      const tasks = (doc.tasks as Array<Record<string, unknown>>) || []
+      const newTask: Record<string, unknown> = {
+        _type: 'sprintTask',
+        _key: crypto.randomUUID(),
+        ...buildSprintTaskWriteFields({
+          description: String(description),
+          activityCategory,
+          initiativeKey,
+          initiativeTitle,
+          activityKey,
+          activityTitle,
+          contractTaskKey,
+          contractTaskTitle,
+        }),
+        status: 'pending',
+      }
+
+      const patch = writeClient.patch(id).set({ tasks: [...tasks, newTask] })
       if (doc.status === 'reviewed') {
         patch.set({ status: 'submitted' })
       }

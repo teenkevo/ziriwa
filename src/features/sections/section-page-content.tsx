@@ -136,6 +136,8 @@ export interface SectionPageContentProps {
   dueThisQuarter: DueItem[]
   today: string
   sprints?: WeeklySprint[]
+  /** Supervisor contract initiatives keyed by `${sectionId}:${supervisorStaffId}`. */
+  supervisorSprintInitiativesByStaffId?: Record<string, InitiativeWithActivities[]>
   /** Signed-in user’s Sanity staff id for this section (for officer sprint filtering). */
   viewerStaffId?: string
   sectionAccess: SectionAccess
@@ -167,6 +169,7 @@ export function SectionPageContent({
   dueThisQuarter,
   today,
   sprints = [],
+  supervisorSprintInitiativesByStaffId = {},
   viewerStaffId,
   sectionAccess,
   staffRoster,
@@ -730,6 +733,9 @@ export function SectionPageContent({
               sectionName={section.name}
               sprints={scopedSprints}
               initiatives={flattenInitiativesWithActivities(activeContract)}
+              supervisorSprintInitiativesByStaffId={
+                supervisorSprintInitiativesByStaffId
+              }
               officers={officers}
               onSprintTabChange={setSprintSubTab}
               panelPortalNode={panelPortalNode}

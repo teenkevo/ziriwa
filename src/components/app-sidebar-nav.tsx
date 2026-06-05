@@ -42,6 +42,8 @@ import {
 import { cn } from '@/lib/utils'
 import { ProjectAdminSidebarNav } from '@/components/project-admin-sidebar-nav'
 import { SectionLeadershipSidebarNav } from '@/components/section-leadership-sidebar-nav'
+import { SprintTabSidebarLink } from '@/components/sprint-tab-sidebar-link'
+import { buildSprintTabHref } from '@/lib/sprint-tab-href'
 import type { SprintNavCounts } from '@/lib/sprint-nav-counts'
 import type {
   SidebarDepartmentWithDivisions,
@@ -317,10 +319,16 @@ export function AppSidebarNav({
                       isOfficerSprintsRoute && officerSprintTab === 'ready'
                     }
                   >
-                    <Link href={`${officerBasePath}/sprints?tab=ready`}>
+                    <SprintTabSidebarLink
+                      href={buildSprintTabHref(
+                        officerBasePath,
+                        'ready',
+                        searchParams,
+                      )}
+                    >
                       <Zap />
                       <span>Ready</span>
-                    </Link>
+                    </SprintTabSidebarLink>
                   </SidebarMenuButton>
                   <SprintSidebarCountBadge count={sprintCounts.ready} />
                 </SidebarMenuItem>
@@ -331,10 +339,16 @@ export function AppSidebarNav({
                       isOfficerSprintsRoute && officerSprintTab === 'drafts'
                     }
                   >
-                    <Link href={`${officerBasePath}/sprints?tab=drafts`}>
+                    <SprintTabSidebarLink
+                      href={buildSprintTabHref(
+                        officerBasePath,
+                        'drafts',
+                        searchParams,
+                      )}
+                    >
                       <FilePen />
                       <span>Drafts</span>
-                    </Link>
+                    </SprintTabSidebarLink>
                   </SidebarMenuButton>
                   <SprintSidebarCountBadge count={sprintCounts.drafts} />
                 </SidebarMenuItem>
