@@ -125,13 +125,13 @@ const styles = StyleSheet.create({
     borderTop: '1 solid #d1d5db',
   },
   groupedActivityCell: {
-    width: '28.571428%',
+    width: '40%',
     padding: 6,
     borderRight: '1 solid #d1d5db',
     lineHeight: 1.2,
   },
   groupedTaskWrapper: {
-    width: '71.428572%',
+    width: '60%',
   },
   groupedTaskRow: {
     flexDirection: 'row',
@@ -160,11 +160,12 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   headerInitiative: { width: '23%' },
-  headerActivity: { width: '22%' },
-  headerTask: { width: '55%', borderRightWidth: 0 },
+  headerActivity: { width: '31%' },
+  headerTask: { width: '46%', borderRightWidth: 0 },
   taskBlock: {
     marginBottom: 4,
     lineHeight: 1.2,
+    fontSize: 9,
   },
   taskBlockLast: {
     marginBottom: 0,
@@ -174,11 +175,19 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: 700,
     lineHeight: 1.2,
+    marginBottom: 10,
   },
   taskMetaLine: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#374151',
-    lineHeight: 1.2,
+    lineHeight: 1.8,
+  },
+  taskMetaLineLabel: {
+    fontSize: 9,
+    fontWeight: 600,
+    lineHeight: 1.8,
+    marginBottom: 10,
+    color: 'black',
   },
   taskFeedbackLine: {
     fontSize: 8,
@@ -223,8 +232,7 @@ function slugify(value: string) {
 function buildPlanRows(sprint: WeeklySprint): PlanReportRow[] {
   return (sprint.tasks ?? []).map(task => ({
     initiative: task.initiativeTitle || 'Unassigned initiative',
-    measurableActivity:
-      task.activityTitle || 'Unassigned measurable activity',
+    measurableActivity: task.activityTitle || 'Unassigned measurable activity',
     task,
   }))
 }
@@ -278,22 +286,31 @@ function SprintTaskPlanBlock({
     <View style={isLast ? styles.taskBlockLast : styles.taskBlock}>
       <Text style={styles.taskDescription}>{task.description || '—'}</Text>
       <Text style={styles.taskMetaLine}>
-        Plan status: {PLAN_STATUS_LABELS[task.status] ?? task.status}
+        <Text style={styles.taskMetaLineLabel}>Plan status:</Text>{' '}
+        {PLAN_STATUS_LABELS[task.status] ?? task.status}
       </Text>
       {categoryLabel ? (
-        <Text style={styles.taskMetaLine}>Category: {categoryLabel}</Text>
+        <Text style={styles.taskMetaLine}>
+          <Text style={styles.taskMetaLineLabel}>Category:</Text>{' '}
+          {categoryLabel}
+        </Text>
       ) : null}
       {task.contractTaskTitle ? (
         <Text style={styles.taskMetaLine}>
-          Detailed task: {task.contractTaskTitle}
+          <Text style={styles.taskMetaLineLabel}>Detailed task:</Text>{' '}
+          {task.contractTaskTitle}
         </Text>
       ) : null}
       {task.assigneeName ? (
-        <Text style={styles.taskMetaLine}>Assignee: {task.assigneeName}</Text>
+        <Text style={styles.taskMetaLine}>
+          <Text style={styles.taskMetaLineLabel}>Assignee:</Text>{' '}
+          {task.assigneeName}
+        </Text>
       ) : null}
       {task.revisionReason?.trim() ? (
         <Text style={styles.taskFeedbackLine}>
-          Manager feedback: {task.revisionReason.trim()}
+          <Text style={styles.taskMetaLineLabel}>Manager feedback:</Text>{' '}
+          {task.revisionReason.trim()}
         </Text>
       ) : null}
     </View>
@@ -351,7 +368,9 @@ export function SprintTasksReportPage({
           <Text style={[styles.headerCell, styles.headerActivity]}>
             Measurable activity
           </Text>
-          <Text style={[styles.headerCell, styles.headerTask]}>Sprint task</Text>
+          <Text style={[styles.headerCell, styles.headerTask]}>
+            Sprint task
+          </Text>
         </View>
 
         {rows.length === 0 ? (
@@ -359,7 +378,9 @@ export function SprintTasksReportPage({
         ) : (
           groups.map(group => (
             <View key={group.initiative} style={styles.groupedRow}>
-              <Text style={styles.groupedInitiativeCell}>{group.initiative}</Text>
+              <Text style={styles.groupedInitiativeCell}>
+                {group.initiative}
+              </Text>
 
               <View style={styles.groupedActivityWrapper}>
                 {group.activities.map((activity, activityIndex) => (
