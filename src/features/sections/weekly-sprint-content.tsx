@@ -16,6 +16,8 @@ import {
   Pencil,
   MoreVertical,
   Info,
+  FilePenLine,
+  TriangleAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -469,7 +471,7 @@ function SprintTaskContractLinkRows({
   if (!initiativeTitle && !activityTitle && !contractTaskTitle) return null
 
   return (
-    <div className='mt-1.5 space-y-6 font-light'>
+    <div className='mt-6 space-y-6 font-light bg-muted dark:bg-muted/30 rounded-md p-4'>
       {initiativeTitle ? (
         <div>
           <p className='text-[10px] font-medium text-muted-foreground'>
@@ -2516,25 +2518,29 @@ function SprintCard({
                   (sprint.status === 'submitted' ||
                     sprint.status === 'reviewed') &&
                   Boolean(onOpenRevise)
+                const showRevisionReason =
+                  task.status === 'revisions_requested' &&
+                  Boolean(task.revisionReason)
+                const hasFooter = showRevisionReason || canRevise || canReview
                 return (
                   <div
                     key={task._key || i}
-                    className='flex items-start gap-3 rounded-md border border-foreground/20 bg-muted-foreground/5 shadow-md p-3'
+                    className='flex flex-col rounded-md border shadow-md p-6'
                   >
-                    <div className='flex-1 min-w-0'>
-                      <div className='mb-4 space-y-2'>
+                    <div className='min-w-0'>
+                      <div className='mb-4 space-y-5'>
                         <Badge
                           variant={config.variant}
                           className={cn(
                             'w-fit text-[10px] px-1.5 py-0',
                             config.variant === 'destructive'
                               ? 'text-destructive bg-destructive/10 border-destructive/50 hover:bg-destructive/20'
-                              : 'text-yellow-600 bg-yellow-600/10 border-yellow-600/50 hover:bg-yellow-600/20',
+                              : 'text-orange-500 bg-orange-500/10 border-orange-500/50 hover:bg-orange-500/20',
                           )}
                         >
                           {config.label}
                         </Badge>
-                        <span className='block text-sm font-semibold'>
+                        <span className='block text-sm'>
                           {task.description}
                         </span>
                       </div>
@@ -2544,61 +2550,80 @@ function SprintCard({
                         activityTitle={task.activityTitle}
                         contractTaskTitle={task.contractTaskTitle}
                       />
-                      {task.status === 'revisions_requested' &&
-                        task.revisionReason && (
-                          <div className='flex items-center p-2 mt-6 text-xs border rounded-2xl border-yellow-600/50 bg-yellow-600/10 '>
-                            <Info className='h-6 w-6 text-yellow-600 mr-2' />
-                            Revision requested: {task.revisionReason}
+                    </div>
+                    {hasFooter ? (
+                      <div
+                        className={cn(
+                          'mt-4 flex items-center gap-3 border-t pt-4',
+                          showRevisionReason
+                            ? 'justify-between'
+                            : 'justify-end',
+                        )}
+                      >
+                        {showRevisionReason ? (
+                          <div className='flex min-w-0 flex-1 items-center rounded-2xl p-2 text-xs'>
+                            <TriangleAlert
+                              strokeWidth={1.5}
+                              className='mr-2 h-6 w-6 shrink-0 text-orange-500'
+                            />
+                            <span className='min-w-0'>
+                              Revisions requested: {task.revisionReason}
+                            </span>
+                          </div>
+                        ) : null}
+                        {(canRevise || canReview) && (
+                          <div className='flex shrink-0 items-center gap-2'>
+                            {canRevise && (
+                              <Button
+                                type='button'
+                                size='sm'
+                                className='h-8'
+                                onClick={() => onOpenRevise?.(sprint, task)}
+                              >
+                                <FilePenLine
+                                  className='h-4 w-4'
+                                  strokeWidth={1.2}
+                                />
+                                Make revisions
+                              </Button>
+                            )}
+                            {canReview && (
+                              <div className='flex items-center gap-1'>
+                                <Button
+                                  size='sm'
+                                  variant='ghost'
+                                  className='h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50'
+                                  title='Accept'
+                                  onClick={() => onReviewTask(task, 'accepted')}
+                                >
+                                  <CheckCircle2 className='h-4 w-4' />
+                                </Button>
+                                <Button
+                                  size='sm'
+                                  variant='ghost'
+                                  className='h-7 w-7 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-50'
+                                  title='Request Revisions'
+                                  onClick={() =>
+                                    onReviewTask(task, 'revisions_requested')
+                                  }
+                                >
+                                  <RotateCcw className='h-4 w-4' />
+                                </Button>
+                                <Button
+                                  size='sm'
+                                  variant='ghost'
+                                  className='h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50'
+                                  title='Reject'
+                                  onClick={() => onReviewTask(task, 'rejected')}
+                                >
+                                  <XCircle className='h-4 w-4' />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
-                    </div>
-                    <div className='flex flex-col items-end gap-1.5 shrink-0'>
-                      {canRevise && (
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='outline'
-                          className='h-8'
-                          onClick={() => onOpenRevise?.(sprint, task)}
-                        >
-                          <Pencil className='h-4 w-4' />
-                          Revise
-                        </Button>
-                      )}
-                      {canReview && (
-                        <div className='flex items-center gap-1'>
-                          <Button
-                            size='sm'
-                            variant='ghost'
-                            className='h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-50'
-                            title='Accept'
-                            onClick={() => onReviewTask(task, 'accepted')}
-                          >
-                            <CheckCircle2 className='h-4 w-4' />
-                          </Button>
-                          <Button
-                            size='sm'
-                            variant='ghost'
-                            className='h-7 w-7 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-50'
-                            title='Request Revisions'
-                            onClick={() =>
-                              onReviewTask(task, 'revisions_requested')
-                            }
-                          >
-                            <RotateCcw className='h-4 w-4' />
-                          </Button>
-                          <Button
-                            size='sm'
-                            variant='ghost'
-                            className='h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50'
-                            title='Reject'
-                            onClick={() => onReviewTask(task, 'rejected')}
-                          >
-                            <XCircle className='h-4 w-4' />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
                 )
               })}
