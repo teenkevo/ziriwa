@@ -3,6 +3,7 @@
 import * as React from 'react'
 import {
   Document,
+  Link,
   Page,
   PDFDownloadLink,
   StyleSheet,
@@ -27,8 +28,21 @@ type WeeklyReportPdfProps = {
 type ReportRow = {
   initiative: string
   measurableActivity: string
-  tasksDone: string
-  evidenceItems: string
+  task: SprintTask
+}
+
+const TASK_STATUS_LABELS: Record<string, string> = {
+  to_do: 'To do',
+  in_progress: 'In progress',
+  delivered: 'Delivered',
+  in_review: 'In review',
+  done: 'Done',
+}
+
+const SUBMISSION_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending review',
+  approved: 'Approved',
+  rejected: 'Rejected',
 }
 
 type ActivityReportGroup = {
@@ -137,12 +151,63 @@ const styles = StyleSheet.create({
     width: '54.545455%',
     padding: 6,
     borderRight: '1 solid #d1d5db',
-    lineHeight: 0.8,
+    lineHeight: 1.35,
   },
   groupedEvidenceCell: {
     width: '45.454545%',
     padding: 6,
-    lineHeight: 0.8,
+    lineHeight: 1.35,
+  },
+  taskBlock: {
+    marginBottom: 6,
+    lineHeight: 1.5,
+  },
+  taskBlockLast: {
+    marginBottom: 0,
+    lineHeight: 1.5,
+  },
+  taskDescription: {
+    fontSize: 9,
+    fontWeight: 700,
+    lineHeight: 1.5,
+  },
+  taskMetaLine: {
+    fontSize: 8,
+    color: '#374151',
+    lineHeight: 1.5,
+  },
+  submissionBlock: {
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottom: '1 solid #e5e7eb',
+  },
+  submissionBlockLast: {
+    marginBottom: 0,
+    paddingBottom: 0,
+    borderBottomWidth: 0,
+  },
+  submissionHeading: {
+    fontSize: 8,
+    fontWeight: 700,
+    color: '#374151',
+    marginBottom: 3,
+    textTransform: 'uppercase',
+  },
+  submissionLine: {
+    fontSize: 8,
+    color: '#111827',
+    marginBottom: 2,
+  },
+  submissionMuted: {
+    fontSize: 8,
+    color: '#6b7280',
+    fontStyle: 'italic',
+  },
+  evidenceLink: {
+    fontSize: 7,
+    color: '#1d4ed8',
+    textDecoration: 'underline',
+    marginTop: 2,
   },
   headerRow: {
     backgroundColor: '#f3f4f6',
@@ -201,27 +266,114 @@ function formatDate(date?: string) {
   })
 }
 
-function getTaskDoneLabel(task: SprintTask) {
-  const assignee = task.assigneeName ? `Assigned to ${task.assigneeName}. ` : ''
-  const status = task.taskStatus
-    ? `Task status: ${task.taskStatus.replace(/_/g, ' ')}. `
-    : ''
-  return `${assignee}${status}${task.description || '—'}`.trim()
+function formatTaskStatusLabel(task: SprintTask) {
+  if (task.taskStatus) {
+    return (
+      TASK_STATUS_LABELS[task.taskStatus] ?? task.taskStatus.replace(/_/g, ' ')
+    )
+  }
+  return '—'
 }
 
-function getSubmissionLabel(submission: WorkSubmission, index: number) {
-  const parts = [
-    `${index + 1}. ${submission.description || 'Work submission'}`,
-    submission.status ? `Status: ${submission.status}` : undefined,
-    submission.date ? `Date: ${formatDate(submission.date)}` : undefined,
-    submission.output?.asset?.originalFilename
-      ? `Evidence: ${submission.output.asset.originalFilename}`
-      : submission.output?.asset?.url
-        ? 'Evidence file attached'
-        : undefined,
-  ].filter(Boolean)
+function formatSubmissionStatusLabel(status?: string) {
+  if (!status) return '—'
+  return SUBMISSION_STATUS_LABELS[status] ?? status
+}
 
-  return parts.join(' | ')
+function formatSubmissionTimeRange(submission: WorkSubmission) {
+  if (!submission.startTime && !submission.endTime) return null
+  if (submission.startTime && submission.endTime) {
+    return `${submission.startTime} – ${submission.endTime}`
+  }
+  return submission.startTime ?? submission.endTime ?? null
+}
+
+function TaskDoneBlock({
+  task,
+  isLast = true,
+}: {
+  task: SprintTask
+  isLast?: boolean
+}) {
+  return (
+    <View style={isLast ? styles.taskBlockLast : styles.taskBlock}>
+      <Text style={styles.taskDescription}>{task.description || '—'}</Text>
+      <Text style={styles.taskMetaLine}>
+        Status: {formatTaskStatusLabel(task)}
+      </Text>
+      {task.assigneeName ? (
+        <Text style={styles.taskMetaLine}>
+          Assigned to: {task.assigneeName}
+        </Text>
+      ) : null}
+    </View>
+  )
+}
+
+function WorkSubmissionsBlock({
+  submissions,
+}: {
+  submissions: WorkSubmission[]
+}) {
+  if (submissions.length === 0) {
+    return (
+      <Text style={styles.submissionMuted}>
+        No work submissions or evidence attached
+      </Text>
+    )
+  }
+
+  return (
+    <View>
+      {submissions.map((submission, index) => {
+        const asset = submission.output?.asset
+        const timeRange = formatSubmissionTimeRange(submission)
+        const isLast = index === submissions.length - 1
+
+        return (
+          <View
+            key={submission._key}
+            style={isLast ? styles.submissionBlockLast : styles.submissionBlock}
+          >
+            <Text style={styles.submissionHeading}>Submission {index + 1}</Text>
+            <Text style={styles.submissionLine}>
+              {submission.description || 'Work submission'}
+            </Text>
+            <Text style={styles.submissionLine}>
+              Status: {formatSubmissionStatusLabel(submission.status)}
+            </Text>
+            {submission.date ? (
+              <Text style={styles.submissionLine}>
+                Date: {formatDate(submission.date)}
+              </Text>
+            ) : null}
+            {timeRange ? (
+              <Text style={styles.submissionLine}>Time: {timeRange}</Text>
+            ) : null}
+            {submission.totalHours != null ? (
+              <Text style={styles.submissionLine}>
+                Hours: {submission.totalHours}
+              </Text>
+            ) : null}
+            {asset?.originalFilename ? (
+              <Text style={styles.submissionLine}>
+                Evidence: {asset.originalFilename}
+              </Text>
+            ) : null}
+            {asset?.url ? (
+              <Link src={asset.url} style={styles.evidenceLink}>
+                {asset.url}
+              </Link>
+            ) : asset?.originalFilename ? (
+              <Text style={styles.submissionMuted}>
+                Evidence URL unavailable
+              </Text>
+            ) : null}
+          </View>
+        )
+      })}
+    </View>
+  )
 }
 
 function buildRows(sprint: WeeklySprint): ReportRow[] {
@@ -236,10 +388,7 @@ function buildRows(sprint: WeeklySprint): ReportRow[] {
       initiative: task.initiativeTitle || 'Unassigned initiative',
       measurableActivity:
         task.activityTitle || 'Unassigned measurable activity',
-      tasksDone: getTaskDoneLabel(task),
-      evidenceItems:
-        (task.workSubmissions ?? []).map(getSubmissionLabel).join('\n') ||
-        'No work submissions or evidence attached',
+      task,
     }))
 }
 
@@ -285,126 +434,126 @@ export type DivisionWeeklyReportPdfProps = {
   sections: DivisionWeeklyReportSection[]
 }
 
-export function WeeklyReportPage({ sectionName, sprint }: WeeklyReportPdfProps) {
+export function WeeklyReportPage({
+  sectionName,
+  sprint,
+}: WeeklyReportPdfProps) {
   const rows = buildRows(sprint)
   const groups = buildGroups(rows)
 
   return (
     <Page size='A4' orientation='landscape' style={styles.page}>
-        <Text style={styles.eyebrow}>Weekly sprint report</Text>
-        <Text style={styles.title}>{sectionName}</Text>
-        <Text style={styles.subtitle}>{sprint.weekLabel}</Text>
+      <Text style={styles.eyebrow}>Weekly sprint report</Text>
+      <Text style={styles.title}>{sectionName}</Text>
+      <Text style={styles.subtitle}>{sprint.weekLabel}</Text>
 
-        <View style={styles.metaGrid}>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Week period</Text>
-            <Text style={styles.metaValue}>
-              {formatDate(sprint.weekStart)} – {formatDate(sprint.weekEnd)}
-            </Text>
-          </View>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Sprint status</Text>
-            <Text style={styles.metaValue}>{sprint.status}</Text>
-          </View>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Supervisor</Text>
-            <Text style={styles.metaValue}>
-              {sprint.supervisor?.fullName ?? '—'}
-            </Text>
-          </View>
-          <View style={styles.metaBox}>
-            <Text style={styles.metaLabel}>Report rows</Text>
-            <Text style={styles.metaValue}>{rows.length}</Text>
-          </View>
+      <View style={styles.metaGrid}>
+        <View style={styles.metaBox}>
+          <Text style={styles.metaLabel}>Workstream name</Text>
+          <Text style={styles.metaValue}>{sprint.workstreamName ?? '—'}</Text>
         </View>
-
-        <View style={styles.table}>
-          <View style={[styles.row, styles.headerRow]} fixed>
-            <Text
-              style={[styles.cell, styles.headerCell, styles.initiativeCell]}
-            >
-              Initiative
-            </Text>
-            <Text style={[styles.cell, styles.headerCell, styles.activityCell]}>
-              Measurable activity
-            </Text>
-            <Text style={[styles.cell, styles.headerCell, styles.taskCell]}>
-              Tasks done
-            </Text>
-            <Text
-              style={[
-                styles.cell,
-                styles.headerCell,
-                styles.evidenceCell,
-                styles.lastCell,
-              ]}
-            >
-              Work submissions / evidence items
-            </Text>
-          </View>
-
-          {rows.length === 0 ? (
-            <Text style={styles.empty}>
-              No accepted, delivered, done, or submitted tasks were found for
-              this sprint.
-            </Text>
-          ) : (
-            groups.map(group => (
-              <View key={group.initiative} style={styles.groupedRow}>
-                <Text style={styles.groupedInitiativeCell}>
-                  {group.initiative}
-                </Text>
-
-                <View style={styles.groupedActivityWrapper}>
-                  {group.activities.map((activity, activityIndex) => (
-                    <View
-                      key={`${group.initiative}-${activity.measurableActivity}`}
-                      style={[
-                        styles.groupedActivityRow,
-                        activityIndex > 0
-                          ? styles.groupedActivityRowDivider
-                          : {},
-                      ]}
-                    >
-                      <Text style={styles.groupedActivityCell}>
-                        {activity.measurableActivity}
-                      </Text>
-
-                      <View style={styles.groupedTaskWrapper}>
-                        {activity.rows.map((row, taskIndex) => (
-                          <View
-                            key={`${row.tasksDone}-${taskIndex}`}
-                            style={[
-                              styles.groupedTaskRow,
-                              taskIndex > 0 ? styles.groupedTaskRowDivider : {},
-                            ]}
-                          >
-                            <Text style={styles.groupedTaskCell}>
-                              {row.tasksDone}
-                            </Text>
-                            <Text style={styles.groupedEvidenceCell}>
-                              {row.evidenceItems}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ))
-          )}
+        <View style={styles.metaBox}>
+          <Text style={styles.metaLabel}>Work stream lead</Text>
+          <Text style={styles.metaValue}>
+            {sprint.supervisor?.fullName ?? '—'}
+          </Text>
         </View>
+        <View style={styles.metaBox}>
+          <Text style={styles.metaLabel}>Week period</Text>
+          <Text style={styles.metaValue}>
+            {formatDate(sprint.weekStart)} – {formatDate(sprint.weekEnd)}
+          </Text>
+        </View>
+      </View>
 
-        <View style={styles.footer} fixed>
-          <Text>Generated from sprint data</Text>
+      <View style={styles.table}>
+        <View style={[styles.row, styles.headerRow]} fixed>
+          <Text style={[styles.cell, styles.headerCell, styles.initiativeCell]}>
+            Initiative
+          </Text>
+          <Text style={[styles.cell, styles.headerCell, styles.activityCell]}>
+            Measurable activity
+          </Text>
+          <Text style={[styles.cell, styles.headerCell, styles.taskCell]}>
+            Tasks done
+          </Text>
           <Text
-            render={({ pageNumber, totalPages }) =>
-              `Page ${pageNumber} of ${totalPages}`
-            }
-          />
+            style={[
+              styles.cell,
+              styles.headerCell,
+              styles.evidenceCell,
+              styles.lastCell,
+            ]}
+          >
+            Work submissions / evidence items
+          </Text>
         </View>
-      </Page>
+
+        {rows.length === 0 ? (
+          <Text style={styles.empty}>
+            No accepted, delivered, done, or submitted tasks were found for this
+            sprint.
+          </Text>
+        ) : (
+          groups.map(group => (
+            <View key={group.initiative} style={styles.groupedRow}>
+              <Text style={styles.groupedInitiativeCell}>
+                {group.initiative}
+              </Text>
+
+              <View style={styles.groupedActivityWrapper}>
+                {group.activities.map((activity, activityIndex) => (
+                  <View
+                    key={`${group.initiative}-${activity.measurableActivity}`}
+                    style={[
+                      styles.groupedActivityRow,
+                      activityIndex > 0 ? styles.groupedActivityRowDivider : {},
+                    ]}
+                  >
+                    <Text style={styles.groupedActivityCell}>
+                      {activity.measurableActivity}
+                    </Text>
+
+                    <View style={styles.groupedTaskWrapper}>
+                      {activity.rows.map((row, taskIndex) => (
+                        <View
+                          key={`${row.task._key}-${taskIndex}`}
+                          style={[
+                            styles.groupedTaskRow,
+                            taskIndex > 0 ? styles.groupedTaskRowDivider : {},
+                          ]}
+                        >
+                          <View style={styles.groupedTaskCell}>
+                            <TaskDoneBlock
+                              task={row.task}
+                              isLast={taskIndex === activity.rows.length - 1}
+                            />
+                          </View>
+                          <View style={styles.groupedEvidenceCell}>
+                            <WorkSubmissionsBlock
+                              submissions={row.task.workSubmissions ?? []}
+                            />
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.footer} fixed>
+        <Text>Generated from sprint data</Text>
+        <Text
+          render={({ pageNumber, totalPages }) =>
+            `Page ${pageNumber} of ${totalPages}`
+          }
+        />
+      </View>
+    </Page>
   )
 }
 

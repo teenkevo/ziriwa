@@ -81,6 +81,7 @@ export async function getSprintsBySection(
       weekEnd,
       status,
       supervisor->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
+      "workstreamName": select(defined(section->project) => section->name, null),
       tasks[] {
         _key, description, activityCategory,
         initiativeKey, initiativeTitle, activityKey, activityTitle,
