@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { createPortal } from 'react-dom'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
   Loader2,
@@ -100,6 +101,17 @@ import {
 } from '@/lib/flatten-initiatives-with-activities'
 import { getSupervisorSprintInitiatives } from '@/lib/supervisor-sprint-initiatives'
 import { canSupervisorManageSprint } from '@/lib/sprint-workspace-scope'
+
+const SprintTasksDownloadButton = dynamic(
+  () =>
+    import('./components/sprint-tasks-pdf').then(
+      mod => mod.SprintTasksDownloadButton,
+    ),
+  {
+    ssr: false,
+    loading: () => null,
+  },
+)
 import {
   scopeLabelsFromKind,
   theContractPhrase,
@@ -1331,6 +1343,7 @@ export function WeeklySprintContent({
           <AcceptedSprintTasksCard
             key={sprint._id}
             sprint={sprint}
+            sectionName={sectionName}
             tasks={tasks}
             officers={officers}
             sectionId={sectionId}
@@ -1366,6 +1379,7 @@ export function WeeklySprintContent({
         draftSprints.map(sprint => (
           <SprintCard
             key={sprint._id}
+            sectionName={sectionName}
             sprint={sprint}
             onSubmit={() => handleSubmitSprint(sprint._id)}
             isSubmitting={
@@ -1399,6 +1413,7 @@ export function WeeklySprintContent({
         submittedOrReviewedSprints.map(sprint => (
           <SprintCard
             key={sprint._id}
+            sectionName={sectionName}
             sprint={sprint}
             onSubmit={() => handleSubmitSprint(sprint._id)}
             isSubmitting={isSubmitting === sprint._id}
@@ -2099,6 +2114,7 @@ export function WeeklySprintContent({
 
 function AcceptedSprintTasksCard({
   sprint,
+  sectionName,
   tasks,
   officers,
   sectionId,
@@ -2113,6 +2129,7 @@ function AcceptedSprintTasksCard({
   onAddExtraTask,
 }: {
   sprint: WeeklySprint
+  sectionName: string
   tasks: AcceptedSprintTask[]
   officers: Officer[]
   sectionId: string
@@ -2216,6 +2233,10 @@ function AcceptedSprintTasksCard({
               </p>
 
               <div className='flex flex-wrap items-center gap-2'>
+                <SprintTasksDownloadButton
+                  sectionName={sectionName}
+                  sprint={sprint}
+                />
                 {isCurrentWeek && canSuperviseDetailedTasks && (
                   <Button
                     type='button'
@@ -2283,6 +2304,7 @@ function formatTimeUntil(target: Date, from: Date) {
 }
 
 function SprintCard({
+  sectionName,
   sprint,
   onSubmit,
   onEditDraft,
@@ -2296,6 +2318,7 @@ function SprintCard({
   canAddPlanTask = false,
   onAddPlanTask,
 }: {
+  sectionName: string
   sprint: WeeklySprint
   onSubmit: () => void
   onEditDraft?: () => void
@@ -2351,6 +2374,10 @@ function SprintCard({
               </p>
             </div>
             <div className='flex items-center gap-2'>
+              <SprintTasksDownloadButton
+                sectionName={sectionName}
+                sprint={sprint}
+              />
               {isSubmitting ? (
                 <Badge
                   variant='secondary'
@@ -2505,9 +2532,10 @@ function SprintCard({
                       )}
                       {task.status === 'revisions_requested' &&
                         task.revisionReason && (
-                          <p className='text-xs text-orange-600 dark:text-orange-400 mt-1'>
-                            Revision reason: {task.revisionReason}
-                          </p>
+                          <div className='flex items-center p-4 mt-3 text-xs border border-primary/20 rounded-md bg-primary/10 text-orange-600 dark:text-primary dark:bg-primary/20'>
+                            <Info className='h-6 w-6 text-orange-500 inline-block mr-2' />
+                            Revision requested: {task.revisionReason}
+                          </div>
                         )}
                     </div>
                     <div className='flex flex-col items-end gap-1.5 shrink-0'>
