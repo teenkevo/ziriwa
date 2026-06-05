@@ -1980,11 +1980,12 @@ export function WeeklySprintContent({
                 <DialogDescription>
                   Edit this task and resubmit it for manager review.
                   {reviseManagerFeedback ? (
-                    <span className='flex items-center my-5 rounded-2xl border border-yellow-600/50 bg-yellow-600/10 px-3 py-2 text-sm text-yellow-600 dark:bg-yellow-600/20 dark:border-yellow-600/30 dark:text-yellow-600'>
-                      <Info className='h-4 w-4 mr-2' />
-                      <span className='font-medium mr-1'>Feedback : </span>
+                    <div className='items-start gap-2 text-xs my-5 rounded-xl text-orange-500 border border-orange-500/50 bg-orange-500/10 px-4 py-2 leading-relaxed'>
+                      <span className='font-medium uppercase text-foreground mr-1'>
+                        Feedback :{' '}
+                      </span>
                       {reviseManagerFeedback}
-                    </span>
+                    </div>
                   ) : null}
                 </DialogDescription>
               </DialogHeader>
