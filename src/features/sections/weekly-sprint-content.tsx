@@ -281,7 +281,12 @@ function applyContractLinkFieldChange(
   value: string,
 ): DraftTask {
   if (field === 'initiativeKey') {
-    return { ...task, initiativeKey: value, activityKey: '', contractTaskKey: '' }
+    return {
+      ...task,
+      initiativeKey: value,
+      activityKey: '',
+      contractTaskKey: '',
+    }
   }
   if (field === 'activityKey') {
     return { ...task, activityKey: value, contractTaskKey: '' }
@@ -447,7 +452,8 @@ export function WeeklySprintContent({
   const router = useRouter()
   const scopeLabels = scopeLabelsFromKind(workspaceScope)
   const isProjectSprint = isProjectSprintScope(workspaceScope)
-  const activityCategoryOptions = getSprintActivityCategoryOptions(workspaceScope)
+  const activityCategoryOptions =
+    getSprintActivityCategoryOptions(workspaceScope)
   const contractPhrase = theContractPhrase(scopeLabels)
   const sprintUiMode = getSprintUiMode(sectionAccess)
   const isOfficerView = sprintUiMode === 'officer'
@@ -568,7 +574,11 @@ export function WeeklySprintContent({
     setDraftTasks(prev =>
       prev.map((t, i) => {
         if (i !== index) return t
-        if (field === 'initiativeKey' || field === 'activityKey' || field === 'contractTaskKey') {
+        if (
+          field === 'initiativeKey' ||
+          field === 'activityKey' ||
+          field === 'contractTaskKey'
+        ) {
           return applyContractLinkFieldChange(t, field, value)
         }
         if (field === 'activityCategory' && isEmergencySprintCategory(value)) {
@@ -1198,6 +1208,7 @@ export function WeeklySprintContent({
             officers={officers}
             sectionId={sectionId}
             contractPhrase={contractPhrase}
+            showWorkstreamBadge={isProjectSprint}
             selectedTaskKey={selectedTaskKey}
             onSelectTask={setSelectedTaskKey}
             onUpdateTask={handleUpdateTask}
@@ -1911,6 +1922,7 @@ function AcceptedSprintTasksCard({
   officers,
   sectionId,
   contractPhrase,
+  showWorkstreamBadge = false,
   selectedTaskKey,
   onSelectTask,
   onUpdateTask,
@@ -1924,6 +1936,7 @@ function AcceptedSprintTasksCard({
   officers: Officer[]
   sectionId: string
   contractPhrase: string
+  showWorkstreamBadge?: boolean
   selectedTaskKey: string | null
   onSelectTask: (key: string | null) => void
   onUpdateTask: (
@@ -1988,9 +2001,19 @@ function AcceptedSprintTasksCard({
         <CardHeader className='pb-3'>
           <div className='space-y-2'>
             <div className='flex items-start justify-between gap-2'>
-              <CardTitle className='min-w-0 text-base font-medium truncate'>
-                {sprint.weekLabel}
-              </CardTitle>
+              <div className='min-w-0 space-y-4'>
+                {showWorkstreamBadge && sprint.workstreamName ? (
+                  <Badge
+                    variant='outline'
+                    className='w-fit max-w-full truncate text-xs font-normal text-orange-500'
+                  >
+                    {sprint.workstreamName}
+                  </Badge>
+                ) : null}
+                <CardTitle className='min-w-0 text-base font-medium truncate'>
+                  {sprint.weekLabel}
+                </CardTitle>
+              </div>
               <CollapsibleTrigger asChild>
                 <Button
                   variant='ghost'

@@ -64,6 +64,10 @@ export type WeeklySprint = {
   status: 'draft' | 'submitted' | 'reviewed'
   supervisor: { _id: string; fullName: string }
   tasks: SprintTask[]
+  /** Project workstream section id (aggregated PM sprints). */
+  sectionId?: string
+  /** Workstream name when sprint belongs to a project workstream. */
+  workstreamName?: string
 }
 
 export async function getSprintsBySection(

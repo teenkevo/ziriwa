@@ -17,6 +17,7 @@ export async function getSprintsByWorkstreamIds(
       status,
       supervisor->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
       "sectionId": section._ref,
+      "workstreamName": section->name,
       tasks[] {
         _key, description, activityCategory,
         initiativeKey, initiativeTitle, activityKey, activityTitle,
