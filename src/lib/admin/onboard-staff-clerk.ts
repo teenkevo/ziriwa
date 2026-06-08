@@ -71,40 +71,53 @@ export function formatClerkApiError(error: unknown): string {
   return String(error)
 }
 
+function isPendingInvitationClerkError(error: unknown): boolean {
+  if (!isClerkAPIResponseError(error)) return false
+  return error.errors.some(e => {
+    const text = `${e.code ?? ''} ${e.longMessage ?? ''} ${e.message ?? ''}`
+    return /pending invitation/i.test(text)
+  })
+}
+
 function clerkInviteFailureMessage(error: unknown, redirectUrl: string): string {
   const detail = formatClerkApiError(error)
+  if (isPendingInvitationClerkError(error)) return detail
   return `${detail} (invitation redirect: ${redirectUrl}). Ensure NEXT_PUBLIC_APP_URL matches your production domain and that URL is listed under Clerk Dashboard → Configure → Paths → Allowed redirect URLs.`
 }
 
-async function findPendingClerkInvitationByEmail(email: string) {
+async function findPendingClerkInvitationsByEmail(email: string) {
   const clerk = await clerkClient()
   const normalized = email.toLowerCase()
+  const pending: { id: string }[] = []
   const pageSize = 100
   let offset = 0
 
   while (true) {
     const invitations = await clerk.invitations.getInvitationList({
       status: 'pending',
+      query: normalized,
       limit: pageSize,
       offset,
     })
-    const match = invitations.data.find(
-      inv => inv.emailAddress.toLowerCase() === normalized,
-    )
-    if (match) return match
+    for (const inv of invitations.data) {
+      if (inv.emailAddress.toLowerCase() === normalized) {
+        pending.push(inv)
+      }
+    }
     if (invitations.data.length < pageSize) break
     offset += pageSize
   }
 
-  return null
+  return pending
 }
 
-async function revokePendingClerkInvitation(email: string) {
-  const pending = await findPendingClerkInvitationByEmail(email)
-  if (!pending) return false
+async function revokeAllPendingClerkInvitations(email: string): Promise<number> {
   const clerk = await clerkClient()
-  await clerk.invitations.revokeInvitation(pending.id)
-  return true
+  const pending = await findPendingClerkInvitationsByEmail(email)
+  await Promise.all(
+    pending.map(inv => clerk.invitations.revokeInvitation(inv.id)),
+  )
+  return pending.length
 }
 
 async function assignAppRoleToClerkUser(
@@ -124,17 +137,20 @@ async function sendClerkInvitation(
   appRole: AppRole,
 ): Promise<{ invited: boolean; resent: boolean }> {
   const clerk = await clerkClient()
-  const hadPending = await revokePendingClerkInvitation(emailLower)
   const redirectUrl = getInvitationAcceptUrl()
+  const revokedCount = await revokeAllPendingClerkInvitations(emailLower)
 
-  try {
-    await clerk.invitations.createInvitation({
+  const createInvite = () =>
+    clerk.invitations.createInvitation({
       emailAddress: emailLower,
       notify: true,
       publicMetadata: { appRole },
       redirectUrl,
     })
-    return { invited: true, resent: hadPending }
+
+  try {
+    await createInvite()
+    return { invited: true, resent: revokedCount > 0 }
   } catch (error) {
     const existing = await findClerkUserByEmail(emailLower)
     if (existing) {
@@ -143,18 +159,13 @@ async function sendClerkInvitation(
         appRole,
         (existing.publicMetadata ?? {}) as Record<string, unknown>,
       )
-      return { invited: false, resent: hadPending }
+      return { invited: false, resent: revokedCount > 0 }
     }
 
-    if (hadPending) {
-      await revokePendingClerkInvitation(emailLower)
+    if (isPendingInvitationClerkError(error)) {
+      await revokeAllPendingClerkInvitations(emailLower)
       try {
-        await clerk.invitations.createInvitation({
-          emailAddress: emailLower,
-          notify: true,
-          publicMetadata: { appRole },
-          redirectUrl,
-        })
+        await createInvite()
         return { invited: true, resent: true }
       } catch (retryError) {
         throw new Error(clerkInviteFailureMessage(retryError, redirectUrl), {
