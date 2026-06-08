@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  formatClerkApiError,
   inviteOrAssignClerkAppRole,
   staffRoleToAppRole,
   shouldInviteAppRole,
 } from '@/lib/admin/onboard-staff-clerk'
+import { isClerkAPIResponseError } from '@clerk/nextjs/errors'
 import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
 import { writeClient } from '@/sanity/lib/write-client'
 import {
@@ -91,6 +93,17 @@ export async function POST(req: NextRequest) {
     }
 
     const fullName = `${firstName.trim()} ${lastName.trim()}`
+
+    const existingStaff = await writeClient.fetch<{ _id: string } | null>(
+      `*[_type == "staff" && lower(email) == $email][0]{ _id }`,
+      { email: emailLower },
+    )
+    if (existingStaff?._id) {
+      return NextResponse.json(
+        { error: 'A staff member with this email already exists' },
+        { status: 409 },
+      )
+    }
 
     let sectionRef: string | undefined
     let divisionRef: string | undefined
@@ -243,20 +256,44 @@ export async function POST(req: NextRequest) {
 
     const appRole = staffRoleToAppRole(role)
     let invited = false
+    let inviteError: string | undefined
     if (shouldInviteAppRole(appRole)) {
-      const clerkResult = await inviteOrAssignClerkAppRole(emailLower, appRole)
-      invited = clerkResult.invited
+      try {
+        const clerkResult = await inviteOrAssignClerkAppRole(
+          emailLower,
+          appRole,
+        )
+        invited = clerkResult.invited
+      } catch (inviteErr) {
+        inviteError = formatClerkApiError(inviteErr)
+        console.error('Staff created but Clerk invite failed', {
+          email: emailLower,
+          inviteError,
+          error: inviteErr,
+        })
+      }
     }
 
     return NextResponse.json(
-      { id: result._id, fullName, role, invited },
+      {
+        id: result._id,
+        fullName,
+        role,
+        invited,
+        ...(inviteError && { inviteError }),
+      },
       { status: 201 },
     )
   } catch (error) {
-    console.error('Error creating staff', error)
+    const message = formatClerkApiError(error)
+    console.error('Error creating staff', message, error)
+    const status =
+      isClerkAPIResponseError(error) && error.status >= 400 && error.status < 500
+        ? error.status
+        : 500
     return NextResponse.json(
-      { error: 'Failed to create staff' },
-      { status: 500 },
+      { error: message || 'Failed to create staff' },
+      { status },
     )
   }
 }

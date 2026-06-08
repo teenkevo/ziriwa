@@ -148,19 +148,24 @@ export function CreateStaffDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to create staff')
       }
-      const { id, fullName, invited } = (await res.json()) as {
+      const { id, fullName, invited, inviteError } = (await res.json()) as {
         id: string
         fullName: string
         invited?: boolean
+        inviteError?: string
       }
       const newStaff: StaffMember = { _id: id, fullName }
       form.reset()
       onOpenChange(false)
-      toast.success(
-        invited
-          ? 'Staff created and invitation sent'
-          : 'Staff created; app role updated for existing user',
-      )
+      if (inviteError) {
+        toast.warning(`Staff created, but invitation failed: ${inviteError}`)
+      } else {
+        toast.success(
+          invited
+            ? 'Staff created and invitation sent'
+            : 'Staff created; app role updated for existing user',
+        )
+      }
       onSuccess?.(newStaff)
     } catch (err) {
       console.error(err)

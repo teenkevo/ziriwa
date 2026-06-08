@@ -1,4 +1,5 @@
 import { clerkClient } from '@clerk/nextjs/server'
+import { isClerkAPIResponseError } from '@clerk/nextjs/errors'
 
 import { isAppRole, parseAppRole, type AppRole } from '@/lib/app-role'
 import { getInvitationAcceptUrl } from '@/lib/app-url.server'
@@ -58,19 +59,44 @@ export function shouldInviteAppRole(appRole: AppRole | null): appRole is AppRole
   return appRole !== null && LOGIN_APP_ROLES.has(appRole)
 }
 
+export function formatClerkApiError(error: unknown): string {
+  if (isClerkAPIResponseError(error)) {
+    const details = error.errors
+      .map(e => e.longMessage || e.message)
+      .filter(Boolean)
+      .join('; ')
+    return details || error.message || 'Clerk API error'
+  }
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
+function clerkInviteFailureMessage(error: unknown, redirectUrl: string): string {
+  const detail = formatClerkApiError(error)
+  return `${detail} (invitation redirect: ${redirectUrl}). Ensure NEXT_PUBLIC_APP_URL matches your production domain and that URL is listed under Clerk Dashboard → Configure → Paths → Allowed redirect URLs.`
+}
+
 async function findPendingClerkInvitationByEmail(email: string) {
   const clerk = await clerkClient()
   const normalized = email.toLowerCase()
-  const invitations = await clerk.invitations.getInvitationList({
-    status: 'pending',
-    query: normalized,
-    limit: 10,
-  })
-  return (
-    invitations.data.find(
+  const pageSize = 100
+  let offset = 0
+
+  while (true) {
+    const invitations = await clerk.invitations.getInvitationList({
+      status: 'pending',
+      limit: pageSize,
+      offset,
+    })
+    const match = invitations.data.find(
       inv => inv.emailAddress.toLowerCase() === normalized,
-    ) ?? null
-  )
+    )
+    if (match) return match
+    if (invitations.data.length < pageSize) break
+    offset += pageSize
+  }
+
+  return null
 }
 
 async function revokePendingClerkInvitation(email: string) {
@@ -81,21 +107,66 @@ async function revokePendingClerkInvitation(email: string) {
   return true
 }
 
+async function assignAppRoleToClerkUser(
+  clerkUserId: string,
+  appRole: AppRole,
+  existingMeta?: Record<string, unknown>,
+) {
+  const clerk = await clerkClient()
+  const meta = existingMeta ?? {}
+  await clerk.users.updateUser(clerkUserId, {
+    publicMetadata: { ...meta, appRole },
+  })
+}
+
 async function sendClerkInvitation(
   emailLower: string,
   appRole: AppRole,
 ): Promise<{ invited: boolean; resent: boolean }> {
   const clerk = await clerkClient()
   const hadPending = await revokePendingClerkInvitation(emailLower)
+  const redirectUrl = getInvitationAcceptUrl()
 
-  await clerk.invitations.createInvitation({
-    emailAddress: emailLower,
-    notify: true,
-    publicMetadata: { appRole },
-    redirectUrl: getInvitationAcceptUrl(),
-  })
+  try {
+    await clerk.invitations.createInvitation({
+      emailAddress: emailLower,
+      notify: true,
+      publicMetadata: { appRole },
+      redirectUrl,
+    })
+    return { invited: true, resent: hadPending }
+  } catch (error) {
+    const existing = await findClerkUserByEmail(emailLower)
+    if (existing) {
+      await assignAppRoleToClerkUser(
+        existing.id,
+        appRole,
+        (existing.publicMetadata ?? {}) as Record<string, unknown>,
+      )
+      return { invited: false, resent: hadPending }
+    }
 
-  return { invited: true, resent: hadPending }
+    if (hadPending) {
+      await revokePendingClerkInvitation(emailLower)
+      try {
+        await clerk.invitations.createInvitation({
+          emailAddress: emailLower,
+          notify: true,
+          publicMetadata: { appRole },
+          redirectUrl,
+        })
+        return { invited: true, resent: true }
+      } catch (retryError) {
+        throw new Error(clerkInviteFailureMessage(retryError, redirectUrl), {
+          cause: retryError,
+        })
+      }
+    }
+
+    throw new Error(clerkInviteFailureMessage(error, redirectUrl), {
+      cause: error,
+    })
+  }
 }
 
 async function findClerkUserByEmail(email: string) {
@@ -106,16 +177,7 @@ async function findClerkUserByEmail(email: string) {
     emailAddress: [normalized],
     limit: 1,
   })
-  if (byEmail.data[0]) return byEmail.data[0]
-
-  const users = await clerk.users.getUserList({ limit: 200 })
-  return (
-    users.data.find(u =>
-      u.emailAddresses.some(
-        e => e.emailAddress?.toLowerCase() === normalized,
-      ),
-    ) ?? null
-  )
+  return byEmail.data[0] ?? null
 }
 
 async function findCommissionerGeneralUserId(
@@ -251,11 +313,11 @@ export async function inviteOrAssignClerkAppRole(
   const existing = await findClerkUserByEmail(emailLower)
 
   if (existing) {
-    const clerk = await clerkClient()
-    const meta = (existing.publicMetadata ?? {}) as Record<string, unknown>
-    await clerk.users.updateUser(existing.id, {
-      publicMetadata: { ...meta, appRole },
-    })
+    await assignAppRoleToClerkUser(
+      existing.id,
+      appRole,
+      (existing.publicMetadata ?? {}) as Record<string, unknown>,
+    )
     return {
       invited: false,
       clerkUserId: existing.id,
