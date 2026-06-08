@@ -71,53 +71,9 @@ export function formatClerkApiError(error: unknown): string {
   return String(error)
 }
 
-function isPendingInvitationClerkError(error: unknown): boolean {
-  if (!isClerkAPIResponseError(error)) return false
-  return error.errors.some(e => {
-    const text = `${e.code ?? ''} ${e.longMessage ?? ''} ${e.message ?? ''}`
-    return /pending invitation/i.test(text)
-  })
-}
-
 function clerkInviteFailureMessage(error: unknown, redirectUrl: string): string {
   const detail = formatClerkApiError(error)
-  if (isPendingInvitationClerkError(error)) return detail
   return `${detail} (invitation redirect: ${redirectUrl}). Ensure NEXT_PUBLIC_APP_URL matches your production domain and that URL is listed under Clerk Dashboard → Configure → Paths → Allowed redirect URLs.`
-}
-
-async function findPendingClerkInvitationsByEmail(email: string) {
-  const clerk = await clerkClient()
-  const normalized = email.toLowerCase()
-  const pending: { id: string }[] = []
-  const pageSize = 100
-  let offset = 0
-
-  while (true) {
-    const invitations = await clerk.invitations.getInvitationList({
-      status: 'pending',
-      query: normalized,
-      limit: pageSize,
-      offset,
-    })
-    for (const inv of invitations.data) {
-      if (inv.emailAddress.toLowerCase() === normalized) {
-        pending.push(inv)
-      }
-    }
-    if (invitations.data.length < pageSize) break
-    offset += pageSize
-  }
-
-  return pending
-}
-
-async function revokeAllPendingClerkInvitations(email: string): Promise<number> {
-  const clerk = await clerkClient()
-  const pending = await findPendingClerkInvitationsByEmail(email)
-  await Promise.all(
-    pending.map(inv => clerk.invitations.revokeInvitation(inv.id)),
-  )
-  return pending.length
 }
 
 async function assignAppRoleToClerkUser(
@@ -135,45 +91,20 @@ async function assignAppRoleToClerkUser(
 async function sendClerkInvitation(
   emailLower: string,
   appRole: AppRole,
-): Promise<{ invited: boolean; resent: boolean }> {
+): Promise<{ invited: boolean }> {
   const clerk = await clerkClient()
   const redirectUrl = getInvitationAcceptUrl()
-  const revokedCount = await revokeAllPendingClerkInvitations(emailLower)
 
-  const createInvite = () =>
-    clerk.invitations.createInvitation({
+  try {
+    await clerk.invitations.createInvitation({
       emailAddress: emailLower,
       notify: true,
       publicMetadata: { appRole },
       redirectUrl,
+      ignoreExisting: true,
     })
-
-  try {
-    await createInvite()
-    return { invited: true, resent: revokedCount > 0 }
+    return { invited: true }
   } catch (error) {
-    const existing = await findClerkUserByEmail(emailLower)
-    if (existing) {
-      await assignAppRoleToClerkUser(
-        existing.id,
-        appRole,
-        (existing.publicMetadata ?? {}) as Record<string, unknown>,
-      )
-      return { invited: false, resent: revokedCount > 0 }
-    }
-
-    if (isPendingInvitationClerkError(error)) {
-      await revokeAllPendingClerkInvitations(emailLower)
-      try {
-        await createInvite()
-        return { invited: true, resent: true }
-      } catch (retryError) {
-        throw new Error(clerkInviteFailureMessage(retryError, redirectUrl), {
-          cause: retryError,
-        })
-      }
-    }
-
     throw new Error(clerkInviteFailureMessage(error, redirectUrl), {
       cause: error,
     })
@@ -257,7 +188,6 @@ export async function ensureClerkAccessForStaffEmail(
   options?: { defaultAppRole?: AppRole },
 ): Promise<{
   invited: boolean
-  resent?: boolean
   clerkUserId?: string
   existingClerkUser?: boolean
 }> {
@@ -291,7 +221,7 @@ export async function ensureClerkAccessForStaffEmail(
   }
 
   const sent = await sendClerkInvitation(emailLower, appRole)
-  return { invited: sent.invited, resent: sent.resent }
+  return { invited: sent.invited }
 }
 
 /** @deprecated Use ensureClerkAccessForStaffEmail */
@@ -307,7 +237,6 @@ export async function inviteOrAssignClerkAppRole(
   appRole: AppRole,
 ): Promise<{
   invited: boolean
-  resent?: boolean
   clerkUserId?: string
   existingClerkUser?: boolean
 }> {
@@ -337,7 +266,7 @@ export async function inviteOrAssignClerkAppRole(
   }
 
   const sent = await sendClerkInvitation(emailLower, appRole)
-  return { invited: sent.invited, resent: sent.resent }
+  return { invited: sent.invited }
 }
 
 /** Sanity staff row + Clerk invite/role (admin onboarding). */
