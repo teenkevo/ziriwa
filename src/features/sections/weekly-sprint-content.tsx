@@ -943,13 +943,20 @@ export function WeeklySprintContent({
     setReviewingSprintId(sprintId)
     setReviewingTask(task)
     setReviewAction(action)
-    setRevisionReason('')
+    setRevisionReason(
+      action === 'revisions_requested'
+        ? (task.revisionReason?.trim() ?? '')
+        : '',
+    )
     setReviewDialogOpen(true)
   }
 
   const handleReview = async () => {
     if (!reviewingTask || !reviewAction) return
     if (reviewAction === 'revisions_requested' && !revisionReason.trim()) return
+
+    const reviewStatus =
+      reviewAction === 'withdraw_revision' ? 'pending' : reviewAction
 
     setIsReviewing(true)
     try {
@@ -959,7 +966,7 @@ export function WeeklySprintContent({
         body: JSON.stringify({
           action: 'review-task',
           taskKey: reviewingTask._key,
-          reviewStatus: reviewAction,
+          reviewStatus,
           revisionReason:
             reviewAction === 'revisions_requested'
               ? revisionReason.trim()
@@ -971,7 +978,14 @@ export function WeeklySprintContent({
         throw new Error(data.error || 'Failed to review task')
       }
       if (reviewAction === 'revisions_requested') {
-        toast.success('Feedback sent successfully')
+        toast.success(
+          reviewingTask.status === 'revisions_requested'
+            ? 'Revision request updated'
+            : 'Feedback sent successfully',
+        )
+      }
+      if (reviewAction === 'withdraw_revision') {
+        toast.success('Revision request withdrawn')
       }
       setReviewDialogOpen(false)
       router.refresh()
@@ -1424,7 +1438,9 @@ export function WeeklySprintContent({
             onReviewTask={(task, action) =>
               openReview(sprint._id, task, action)
             }
-            onOpenRevise={openReviseDialog}
+            onOpenRevise={
+              sectionAccess.isSectionManager ? undefined : openReviseDialog
+            }
             canAddPlanTask={canSupervisorManageSprint(sprint, sectionAccess)}
             onAddPlanTask={openPlanTaskDialog}
           />
@@ -1896,7 +1912,11 @@ export function WeeklySprintContent({
             <DialogTitle>
               {reviewAction === 'accepted' && 'Accept Task'}
               {reviewAction === 'rejected' && 'Reject Task'}
-              {reviewAction === 'revisions_requested' && 'Request Revisions'}
+              {reviewAction === 'revisions_requested' &&
+                (reviewingTask?.status === 'revisions_requested'
+                  ? 'Update revision request'
+                  : 'Request Revisions')}
+              {reviewAction === 'withdraw_revision' && 'Withdraw revision request'}
             </DialogTitle>
             <DialogDescription>{reviewingTask?.description}</DialogDescription>
           </DialogHeader>
@@ -1923,6 +1943,12 @@ export function WeeklySprintContent({
                 Are you sure you want to reject this task?
               </p>
             )}
+            {reviewAction === 'withdraw_revision' && (
+              <p className='text-sm text-muted-foreground'>
+                This will return the task to pending review and remove your
+                revision request.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -1939,17 +1965,28 @@ export function WeeklySprintContent({
                 (reviewAction === 'revisions_requested' &&
                   !revisionReason.trim())
               }
-              variant={reviewAction === 'rejected' ? 'destructive' : 'default'}
+              variant={
+                reviewAction === 'rejected' ||
+                reviewAction === 'withdraw_revision'
+                  ? 'destructive'
+                  : 'default'
+              }
             >
               {isReviewing ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />
                   {reviewAction === 'revisions_requested'
-                    ? 'Submitting Feedback...'
+                    ? 'Saving...'
                     : 'Reviewing...'}
                 </>
               ) : reviewAction === 'revisions_requested' ? (
-                'Submit Feedback'
+                reviewingTask?.status === 'revisions_requested' ? (
+                  'Update request'
+                ) : (
+                  'Submit Feedback'
+                )
+              ) : reviewAction === 'withdraw_revision' ? (
+                'Withdraw request'
               ) : (
                 'Confirm'
               )}
@@ -2508,14 +2545,24 @@ function SprintCard({
                   sprint.status === 'submitted' &&
                   task.status === 'pending'
                 const canRevise =
+                  !canManagerReviewPlan &&
                   task.status === 'revisions_requested' &&
                   (sprint.status === 'submitted' ||
                     sprint.status === 'reviewed') &&
                   Boolean(onOpenRevise)
+                const canManageRevisionRequest =
+                  canManagerReviewPlan &&
+                  task.status === 'revisions_requested' &&
+                  (sprint.status === 'submitted' ||
+                    sprint.status === 'reviewed')
                 const showRevisionReason =
                   task.status === 'revisions_requested' &&
                   Boolean(task.revisionReason)
-                const hasFooter = showRevisionReason || canRevise || canReview
+                const hasFooter =
+                  showRevisionReason ||
+                  canRevise ||
+                  canReview ||
+                  canManageRevisionRequest
                 return (
                   <div
                     key={task._key || i}
@@ -2565,7 +2612,7 @@ function SprintCard({
                             </span>
                           </div>
                         ) : null}
-                        {(canRevise || canReview) && (
+                        {(canRevise || canReview || canManageRevisionRequest) && (
                           <div className='flex shrink-0 items-center gap-2'>
                             {canRevise && (
                               <Button
@@ -2580,6 +2627,33 @@ function SprintCard({
                                 />
                                 Make revisions
                               </Button>
+                            )}
+                            {canManageRevisionRequest && (
+                              <>
+                                <Button
+                                  type='button'
+                                  size='sm'
+                                  variant='outline'
+                                  className='h-8'
+                                  onClick={() =>
+                                    onReviewTask(task, 'revisions_requested')
+                                  }
+                                >
+                                  <Pencil className='h-4 w-4' />
+                                  Update request
+                                </Button>
+                                <Button
+                                  type='button'
+                                  size='sm'
+                                  variant='outline'
+                                  className='h-8'
+                                  onClick={() =>
+                                    onReviewTask(task, 'withdraw_revision')
+                                  }
+                                >
+                                  Withdraw
+                                </Button>
+                              </>
                             )}
                             {canReview && (
                               <div className='flex items-center gap-1'>

@@ -211,7 +211,12 @@ export async function PATCH(
         )
       }
 
-      const validStatuses = ['accepted', 'rejected', 'revisions_requested']
+      const validStatuses = [
+        'accepted',
+        'rejected',
+        'revisions_requested',
+        'pending',
+      ]
       if (!validStatuses.includes(reviewStatus)) {
         return NextResponse.json(
           { error: `reviewStatus must be one of: ${validStatuses.join(', ')}` },
@@ -239,12 +244,29 @@ export async function PATCH(
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
 
+      const currentTaskStatus = tasks[taskIndex]?.status
+      if (
+        reviewStatus === 'pending' &&
+        currentTaskStatus !== 'revisions_requested'
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Only tasks with revisions requested can be returned to pending',
+          },
+          { status: 400 },
+        )
+      }
+
       const patchPath = `tasks[_key=="${taskKey}"]`
       const setFields: Record<string, unknown> = {
         [`${patchPath}.status`]: reviewStatus,
-        [`${patchPath}.reviewedAt`]: new Date().toISOString(),
         [`${patchPath}.revisionReason`]:
           reviewStatus === 'revisions_requested' ? revisionReason.trim() : '',
+      }
+
+      if (reviewStatus !== 'pending') {
+        setFields[`${patchPath}.reviewedAt`] = new Date().toISOString()
       }
 
       if (reviewStatus === 'accepted') {
@@ -253,18 +275,31 @@ export async function PATCH(
       }
 
       const patch = writeClient.patch(id).set(setFields)
+      if (reviewStatus === 'pending') {
+        patch.unset([`${patchPath}.reviewedAt`])
+      }
 
-      const allReviewed = tasks.every(
+      const resolvedTaskStatus =
+        reviewStatus === 'pending' ? 'pending' : reviewStatus
+      const anyPending = tasks.some(
         (t: Record<string, unknown>, i: number) =>
-          i === taskIndex ? true : t.status !== 'pending',
+          (i === taskIndex ? resolvedTaskStatus : t.status) === 'pending',
       )
-      if (allReviewed) {
-        patch.set({ status: 'reviewed' })
+      if (anyPending) {
+        patch.set({ status: 'submitted' })
+      } else {
+        const allReviewed = tasks.every(
+          (t: Record<string, unknown>, i: number) =>
+            (i === taskIndex ? resolvedTaskStatus : t.status) !== 'pending',
+        )
+        if (allReviewed) {
+          patch.set({ status: 'reviewed' })
+        }
       }
 
       await patch.commit()
 
-      if (sectionId) {
+      if (sectionId && reviewStatus !== 'pending') {
         const sprintMeta = await writeClient.fetch<{
           weekLabel?: string
           supervisorId?: string
