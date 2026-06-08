@@ -285,16 +285,14 @@ export async function PATCH(
         (t: Record<string, unknown>, i: number) =>
           (i === taskIndex ? resolvedTaskStatus : t.status) === 'pending',
       )
+      const allReviewed = tasks.every(
+        (t: Record<string, unknown>, i: number) =>
+          (i === taskIndex ? resolvedTaskStatus : t.status) !== 'pending',
+      )
       if (anyPending) {
         patch.set({ status: 'submitted' })
-      } else {
-        const allReviewed = tasks.every(
-          (t: Record<string, unknown>, i: number) =>
-            (i === taskIndex ? resolvedTaskStatus : t.status) !== 'pending',
-        )
-        if (allReviewed) {
-          patch.set({ status: 'reviewed' })
-        }
+      } else if (allReviewed) {
+        patch.set({ status: 'reviewed' })
       }
 
       await patch.commit()
