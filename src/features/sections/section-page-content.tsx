@@ -719,6 +719,7 @@ export function SectionPageContent({
                   scopeUnit='section'
                   engagement={stakeholderEngagement}
                   staffOptions={staffOptions}
+                  viewerStaffId={viewerStaffId}
                   initiatives={flattenInitiatives(
                     activeContract as SectionContract | null,
                   )}

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { purgeStakeholderEngagement } from '@/sanity/lib/cascade-delete'
 import { writeClient } from '@/sanity/lib/write-client'
-import { getStakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import { purgeStakeholderEntryAssets } from '@/sanity/lib/stakeholder-engagement/purge-stakeholder-entry-assets'
+import {
+  buildApprovedMinutesDoc,
+  buildMinutesApprovalsDoc,
+  buildPublishedMinutesDoc,
+  buildSavedMinutesDoc,
+} from '@/sanity/lib/stakeholder-engagement/stakeholder-minutes-mutations'
 
 const POWER_VALUES = ['H', 'M', 'L'] as const
 const STAKEHOLDER_CATEGORIES = [
@@ -59,6 +66,28 @@ function buildStakeholderDoc(payload: Record<string, unknown>) {
   if (payload.uraDelegation && typeof payload.uraDelegation === 'string')
     doc.uraDelegation = { _type: 'reference', _ref: payload.uraDelegation }
   return doc
+}
+
+function buildActionPointDoc(payload: Record<string, unknown>) {
+  const description = String(payload.description || '').trim()
+  const dueDate = String(payload.dueDate || '').trim()
+  const assignee =
+    typeof payload.assignee === 'string' ? payload.assignee.trim() : ''
+
+  if (!description || !dueDate || !assignee) {
+    return null
+  }
+
+  return {
+    _type: 'stakeholderActionPoint',
+    _key:
+      typeof payload._key === 'string' && payload._key.trim()
+        ? payload._key.trim()
+        : crypto.randomUUID(),
+    description,
+    dueDate,
+    assignee: { _type: 'reference', _ref: assignee },
+  }
 }
 
 /**
@@ -120,7 +149,12 @@ export async function PATCH(
     }
 
     if (op === 'updateReport') {
-      const { stakeholderIndex, engagementReport } = payload
+      const {
+        stakeholderIndex,
+        engagementReport,
+        attendanceSheetFileId,
+        clearAttendanceSheet,
+      } = payload
       if (typeof stakeholderIndex !== 'number') {
         return NextResponse.json(
           { error: 'stakeholderIndex is required' },
@@ -133,11 +167,304 @@ export async function PATCH(
           { status: 400 },
         )
       }
+      if (
+        attendanceSheetFileId !== undefined &&
+        typeof attendanceSheetFileId !== 'string'
+      ) {
+        return NextResponse.json(
+          { error: 'attendanceSheetFileId must be a string' },
+          { status: 400 },
+        )
+      }
+
+      const setPayload: Record<string, unknown> = {}
+      if (typeof engagementReport === 'string') {
+        setPayload[`stakeholders[${stakeholderIndex}].engagementReport`] =
+          engagementReport.trim()
+      }
+      const existingDoc = await writeClient.fetch<{
+        stakeholders?: unknown[]
+      }>(`*[_id == $id][0]{ stakeholders }`, { id })
+      const existingEntry = existingDoc?.stakeholders?.[stakeholderIndex]
+
+      if (clearAttendanceSheet === true) {
+        setPayload[`stakeholders[${stakeholderIndex}].attendanceSheet`] = null
+      } else if (
+        typeof attendanceSheetFileId === 'string' &&
+        attendanceSheetFileId.trim()
+      ) {
+        setPayload[`stakeholders[${stakeholderIndex}].attendanceSheet`] = {
+          _type: 'file',
+          asset: {
+            _type: 'reference',
+            _ref: attendanceSheetFileId.trim(),
+          },
+        }
+      }
+
+      if (Object.keys(setPayload).length === 0) {
+        return NextResponse.json(
+          { error: 'No report updates provided' },
+          { status: 400 },
+        )
+      }
+
+      await writeClient.patch(id).set(setPayload).commit()
+
+      if (
+        clearAttendanceSheet === true ||
+        (typeof attendanceSheetFileId === 'string' && attendanceSheetFileId.trim())
+      ) {
+        await purgeStakeholderEntryAssets(writeClient, existingEntry)
+      }
+
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'setActionPoints') {
+      const { stakeholderIndex, actionPoints } = payload
+      if (typeof stakeholderIndex !== 'number') {
+        return NextResponse.json(
+          { error: 'stakeholderIndex is required' },
+          { status: 400 },
+        )
+      }
+      if (!Array.isArray(actionPoints)) {
+        return NextResponse.json(
+          { error: 'actionPoints must be an array' },
+          { status: 400 },
+        )
+      }
+
+      const docs = actionPoints
+        .map((item: Record<string, unknown>) => buildActionPointDoc(item))
+        .filter(Boolean)
+
+      if (docs.length !== actionPoints.length) {
+        return NextResponse.json(
+          {
+            error:
+              'Each action point requires a description, assignee, and due date',
+          },
+          { status: 400 },
+        )
+      }
+
       await writeClient
         .patch(id)
         .set({
-          [`stakeholders[${stakeholderIndex}].engagementReport`]: engagementReport.trim(),
+          [`stakeholders[${stakeholderIndex}].actionPoints`]: docs,
         })
+        .commit()
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'saveMinutes') {
+      const { stakeholderIndex, content, authorId, meetingDate } = payload
+      if (typeof stakeholderIndex !== 'number') {
+        return NextResponse.json(
+          { error: 'stakeholderIndex is required' },
+          { status: 400 },
+        )
+      }
+      if (typeof content !== 'string') {
+        return NextResponse.json(
+          { error: 'content is required' },
+          { status: 400 },
+        )
+      }
+
+      const doc = await writeClient.fetch<{ stakeholders?: unknown[] }>(
+        `*[_id == $id][0]{ stakeholders }`,
+        { id },
+      )
+      const entry = doc?.stakeholders?.[stakeholderIndex]
+      if (!entry) {
+        return NextResponse.json(
+          { error: 'Stakeholder not found' },
+          { status: 404 },
+        )
+      }
+
+      const existingMinutes = (entry as { minutes?: { status?: string } }).minutes
+      if (existingMinutes?.status === 'published') {
+        return NextResponse.json(
+          { error: 'Published minutes cannot be edited' },
+          { status: 400 },
+        )
+      }
+
+      const minutesDoc = buildSavedMinutesDoc({
+        existingEntry: entry,
+        content,
+        authorId: typeof authorId === 'string' ? authorId : undefined,
+        meetingDate: typeof meetingDate === 'string' ? meetingDate : undefined,
+      })
+
+      await writeClient
+        .patch(id)
+        .set({
+          [`stakeholders[${stakeholderIndex}].minutes`]: minutesDoc,
+        })
+        .commit()
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'setMinutesApprovals') {
+      const { stakeholderIndex, approverIds } = payload
+      if (typeof stakeholderIndex !== 'number') {
+        return NextResponse.json(
+          { error: 'stakeholderIndex is required' },
+          { status: 400 },
+        )
+      }
+      if (!Array.isArray(approverIds)) {
+        return NextResponse.json(
+          { error: 'approverIds must be an array' },
+          { status: 400 },
+        )
+      }
+
+      const doc = await writeClient.fetch<{ stakeholders?: unknown[] }>(
+        `*[_id == $id][0]{ stakeholders }`,
+        { id },
+      )
+      const entry = doc?.stakeholders?.[stakeholderIndex]
+      if (!entry) {
+        return NextResponse.json(
+          { error: 'Stakeholder not found' },
+          { status: 404 },
+        )
+      }
+
+      try {
+        const minutesDoc = buildMinutesApprovalsDoc(
+          entry,
+          approverIds.filter((value: unknown) => typeof value === 'string'),
+        )
+        await writeClient
+          .patch(id)
+          .set({
+            [`stakeholders[${stakeholderIndex}].minutes`]: minutesDoc,
+          })
+          .commit()
+        return NextResponse.json({ ok: true })
+      } catch (error) {
+        return NextResponse.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Failed to assign approvals',
+          },
+          { status: 400 },
+        )
+      }
+    }
+
+    if (op === 'approveMinutes') {
+      const { stakeholderIndex, assigneeId } = payload
+      if (typeof stakeholderIndex !== 'number') {
+        return NextResponse.json(
+          { error: 'stakeholderIndex is required' },
+          { status: 400 },
+        )
+      }
+      if (typeof assigneeId !== 'string' || !assigneeId.trim()) {
+        return NextResponse.json(
+          { error: 'assigneeId is required' },
+          { status: 400 },
+        )
+      }
+
+      const doc = await writeClient.fetch<{ stakeholders?: unknown[] }>(
+        `*[_id == $id][0]{ stakeholders }`,
+        { id },
+      )
+      const entry = doc?.stakeholders?.[stakeholderIndex]
+      if (!entry) {
+        return NextResponse.json(
+          { error: 'Stakeholder not found' },
+          { status: 404 },
+        )
+      }
+
+      try {
+        const minutesDoc = buildApprovedMinutesDoc(entry, assigneeId.trim())
+        await writeClient
+          .patch(id)
+          .set({
+            [`stakeholders[${stakeholderIndex}].minutes`]: minutesDoc,
+          })
+          .commit()
+        return NextResponse.json({ ok: true })
+      } catch (error) {
+        return NextResponse.json(
+          {
+            error:
+              error instanceof Error ? error.message : 'Failed to approve minutes',
+          },
+          { status: 400 },
+        )
+      }
+    }
+
+    if (op === 'publishMinutes') {
+      const { stakeholderIndex, content } = payload
+      if (typeof stakeholderIndex !== 'number') {
+        return NextResponse.json(
+          { error: 'stakeholderIndex is required' },
+          { status: 400 },
+        )
+      }
+
+      const doc = await writeClient.fetch<{ stakeholders?: unknown[] }>(
+        `*[_id == $id][0]{ stakeholders }`,
+        { id },
+      )
+      const entry = doc?.stakeholders?.[stakeholderIndex]
+      if (!entry) {
+        return NextResponse.json(
+          { error: 'Stakeholder not found' },
+          { status: 404 },
+        )
+      }
+
+      try {
+        const minutesDoc = buildPublishedMinutesDoc(
+          entry,
+          typeof content === 'string' ? content : undefined,
+        )
+        await writeClient
+          .patch(id)
+          .set({
+            [`stakeholders[${stakeholderIndex}].minutes`]: minutesDoc,
+          })
+          .commit()
+        return NextResponse.json({ ok: true })
+      } catch (error) {
+        return NextResponse.json(
+          {
+            error:
+              error instanceof Error ? error.message : 'Failed to publish minutes',
+          },
+          { status: 400 },
+        )
+      }
+    }
+
+    if (op === 'deleteMinutes') {
+      const { stakeholderIndex } = payload
+      if (typeof stakeholderIndex !== 'number') {
+        return NextResponse.json(
+          { error: 'stakeholderIndex is required' },
+          { status: 400 },
+        )
+      }
+
+      await writeClient
+        .patch(id)
+        .unset([`stakeholders[${stakeholderIndex}].minutes`])
         .commit()
       return NextResponse.json({ ok: true })
     }
@@ -155,9 +482,24 @@ export async function PATCH(
         { id },
       )
       const stakeholders = doc?.stakeholders ?? []
+      const entry = stakeholders[stakeholderIndex]
+      if (!entry) {
+        return NextResponse.json(
+          { error: 'Stakeholder not found' },
+          { status: 404 },
+        )
+      }
+
       const filtered = stakeholders.filter((_, i) => i !== stakeholderIndex)
+
+      if (filtered.length === 0) {
+        await purgeStakeholderEngagement(writeClient, id)
+        return NextResponse.json({ ok: true, engagementDeleted: true })
+      }
+
+      await purgeStakeholderEntryAssets(writeClient, entry)
       await writeClient.patch(id).set({ stakeholders: filtered }).commit()
-      return NextResponse.json({ ok: true })
+      return NextResponse.json({ ok: true, engagementDeleted: false })
     }
 
     return NextResponse.json({ error: 'Unknown op' }, { status: 400 })
@@ -165,6 +507,38 @@ export async function PATCH(
     console.error('Error patching stakeholder engagement', error)
     return NextResponse.json(
       { error: 'Failed to update stakeholder engagement' },
+      { status: 500 },
+    )
+  }
+}
+
+/**
+ * DELETE /api/stakeholder-engagement/[id]
+ * Removes the engagement matrix, all stakeholder entries, and embedded file assets.
+ */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params
+    const doc = await writeClient.fetch<{ _id: string } | null>(
+      `*[_id == $id && _type == "stakeholderEngagement"][0]{ _id }`,
+      { id },
+    )
+    if (!doc) {
+      return NextResponse.json(
+        { error: 'Stakeholder engagement not found' },
+        { status: 404 },
+      )
+    }
+
+    await purgeStakeholderEngagement(writeClient, id)
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('Error deleting stakeholder engagement', error)
+    return NextResponse.json(
+      { error: 'Failed to delete stakeholder engagement' },
       { status: 500 },
     )
   }

@@ -28,7 +28,13 @@ import {
   staffTransferRequest,
 } from './delegation'
 import { sprintTask, weeklySprint, workSubmission } from './sprints'
-import { stakeholderEngagement, stakeholderEntry } from './stakeholders'
+import {
+  stakeholderActionPoint,
+  stakeholderEngagement,
+  stakeholderEntry,
+  stakeholderMinutes,
+  stakeholderMinutesApproval,
+} from './stakeholders'
 import {
   appNotification,
   auditLogBatch,
@@ -68,6 +74,9 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     contractInitiative,
     ssmartaObjective,
     // Stakeholders
+    stakeholderActionPoint,
+    stakeholderMinutesApproval,
+    stakeholderMinutes,
     stakeholderEntry,
     stakeholderEngagement,
     // Sprints & work

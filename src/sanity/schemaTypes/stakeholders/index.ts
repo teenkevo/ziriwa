@@ -1,2 +1,5 @@
+export { stakeholderActionPoint } from './stakeholder-action-point'
+export { stakeholderMinutesApproval } from './stakeholder-minutes-approval'
+export { stakeholderMinutes } from './stakeholder-minutes'
 export { stakeholderEntry } from './stakeholder-entry'
 export { stakeholderEngagement } from './stakeholder-engagement'

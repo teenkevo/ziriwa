@@ -1,9 +1,23 @@
 'use client'
 
 import * as React from 'react'
-import { Pencil, Trash2, FileText } from 'lucide-react'
+import {
+  Pencil,
+  Trash2,
+  FileText,
+  ListChecks,
+  MoreVertical,
+  ScrollText,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -22,12 +36,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import type { StakeholderEntry } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 
 const STAKEHOLDER_LABELS: Record<string, string> = {
@@ -67,6 +75,8 @@ interface StakeholderEngagementTableProps {
   onEdit: (entry: StakeholderEntry, index: number) => void
   onDelete: (index: number) => void
   onReport?: (entry: StakeholderEntry, index: number) => void
+  onActionPoints?: (entry: StakeholderEntry, index: number) => void
+  onMinutes?: (entry: StakeholderEntry, index: number) => void
 }
 
 export function StakeholderEngagementTable({
@@ -76,6 +86,8 @@ export function StakeholderEngagementTable({
   onEdit,
   onDelete,
   onReport,
+  onActionPoints,
+  onMinutes,
 }: StakeholderEngagementTableProps) {
   const [deleteIndex, setDeleteIndex] = React.useState<number | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
@@ -122,13 +134,18 @@ export function StakeholderEngagementTable({
               <TableHead>Priority</TableHead>
               <TableHead>Proposed Date</TableHead>
               <TableHead>Mode</TableHead>
-              <TableHead className='w-24'>Actions</TableHead>
+              <TableHead className='w-12'>
+                <span className='sr-only'>Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {stakeholders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className='text-center text-muted-foreground py-8'>
+                <TableCell
+                  colSpan={11}
+                  className='text-center text-muted-foreground py-8'
+                >
                   No stakeholders yet. Add one to get started.
                 </TableCell>
               </TableRow>
@@ -137,7 +154,9 @@ export function StakeholderEngagementTable({
                 <TableRow key={s._key}>
                   <TableCell>{s.sn ?? i + 1}</TableCell>
                   <TableCell>
-                    {STAKEHOLDER_LABELS[s.stakeholder ?? ''] ?? s.stakeholder ?? '—'}
+                    {STAKEHOLDER_LABELS[s.stakeholder ?? ''] ??
+                      s.stakeholder ??
+                      '—'}
                   </TableCell>
                   <TableCell>{s.designation ?? '—'}</TableCell>
                   <TableCell className='font-medium'>{s.name}</TableCell>
@@ -147,65 +166,77 @@ export function StakeholderEngagementTable({
                   <TableCell>{s.priority ?? '—'}</TableCell>
                   <TableCell>
                     {s.proposedDateOfEngagement
-                      ? new Date(s.proposedDateOfEngagement).toLocaleDateString()
+                      ? new Date(
+                          s.proposedDateOfEngagement,
+                        ).toLocaleDateString()
                       : '—'}
                   </TableCell>
                   <TableCell>
-                    {MODE_LABELS[s.modeOfEngagement ?? ''] ?? s.modeOfEngagement ?? '—'}
+                    {MODE_LABELS[s.modeOfEngagement ?? ''] ??
+                      s.modeOfEngagement ??
+                      '—'}
                   </TableCell>
                   <TableCell>
-                    <TooltipProvider delayDuration={300}>
-                      <div className='flex items-center gap-1'>
-                        {onReport && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant='ghost'
-                                size='icon'
-                                className='h-8 w-8'
-                                disabled={!isReportAllowed(s.proposedDateOfEngagement)}
-                                onClick={() =>
-                                  isReportAllowed(s.proposedDateOfEngagement) && onReport(s, i)
-                                }
-                              >
-                                <FileText className='h-4 w-4' />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {isReportAllowed(s.proposedDateOfEngagement)
-                                ? 'Submit engagement report'
-                                : 'Report available on or after proposed date'}
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant='ghost'
-                              size='icon'
-                              className='h-8 w-8'
-                              onClick={() => onEdit(s, i)}
-                            >
-                              <Pencil className='h-4 w-4' />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Edit stakeholder</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant='ghost'
-                              size='icon'
-                              className='h-8 w-8 text-destructive hover:text-destructive'
-                              onClick={() => setDeleteIndex(i)}
-                            >
-                              <Trash2 className='h-4 w-4' />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Delete stakeholder</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </TooltipProvider>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-8 w-8 text-muted-foreground'
+                        >
+                          <MoreVertical className='h-4 w-4' />
+                          <span className='sr-only'>Actions for {s.name}</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align='end' className='w-52'>
+                        <DropdownMenuItem onClick={() => onEdit(s, i)}>
+                          <Pencil className='mr-2 h-4 w-4' />
+                          Edit stakeholder
+                        </DropdownMenuItem>
+                        {onMinutes ? (
+                          <DropdownMenuItem onClick={() => onMinutes(s, i)}>
+                            <ScrollText className='mr-2 h-4 w-4' />
+                            {s.minutes?.status === 'published'
+                              ? 'View minutes'
+                              : s.minutes
+                                ? 'Edit minutes'
+                                : 'Write minutes'}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {onActionPoints ? (
+                          <DropdownMenuItem
+                            onClick={() => onActionPoints(s, i)}
+                          >
+                            <ListChecks className='mr-2 h-4 w-4' />
+                            {s.actionPoints?.length
+                              ? `Action points (${s.actionPoints.length})`
+                              : 'Assign action points'}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {onReport ? (
+                          <DropdownMenuItem
+                            disabled={
+                              !isReportAllowed(s.proposedDateOfEngagement)
+                            }
+                            onClick={() =>
+                              isReportAllowed(s.proposedDateOfEngagement) &&
+                              onReport(s, i)
+                            }
+                          >
+                            <FileText className='mr-2 h-4 w-4' />
+                            Engagement report
+                          </DropdownMenuItem>
+                        ) : null}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className='text-destructive focus:text-destructive'
+                          onClick={() => setDeleteIndex(i)}
+                        >
+                          <Trash2 className='mr-2 h-4 w-4' />
+                          Delete stakeholder
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
@@ -214,13 +245,17 @@ export function StakeholderEngagementTable({
         </Table>
       </div>
 
-      <AlertDialog open={deleteIndex !== null} onOpenChange={() => setDeleteIndex(null)}>
+      <AlertDialog
+        open={deleteIndex !== null}
+        onOpenChange={() => setDeleteIndex(null)}
+      >
         <AlertDialogContent disableClose={isDeleting}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete stakeholder?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the stakeholder from the engagement matrix. This action cannot be
-              undone.
+              {deleteIndex !== null && stakeholders.length === 1
+                ? 'This will remove the stakeholder, delete all associated reports, minutes, action points, and files, and remove the engagement matrix for this period. This cannot be undone.'
+                : 'This will remove the stakeholder and delete all associated reports, minutes, action points, and files. This cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

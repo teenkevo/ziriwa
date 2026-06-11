@@ -87,6 +87,9 @@ export async function loadAssistantCommissionerStakeholderEngagementsData(option
           proposedDateOfEngagement,
           modeOfEngagement,
           engagementReport,
+          attendanceSheet {
+            asset->{ _id, url, originalFilename, size, mimeType },
+          },
           budgetHighlights,
           totalCost,
           "uraDelegation": uraDelegation->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName), staffId }

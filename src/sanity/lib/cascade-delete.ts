@@ -26,6 +26,19 @@ export function collectSanityAssetRefs(value: unknown): string[] {
   return [...set]
 }
 
+export async function deleteSanityAssetRefs(
+  client: SanityClient,
+  assetIds: string[],
+) {
+  for (const assetId of assetIds) {
+    try {
+      await client.delete(assetId)
+    } catch {
+      // Asset may already be removed or referenced elsewhere
+    }
+  }
+}
+
 async function deleteDocumentAndEmbeddedAssets(
   client: SanityClient,
   docId: string,
@@ -36,13 +49,15 @@ async function deleteDocumentAndEmbeddedAssets(
   if (!doc) return
   const assetIds = collectSanityAssetRefs(doc)
   await client.delete(docId)
-  for (const assetId of assetIds) {
-    try {
-      await client.delete(assetId)
-    } catch {
-      // Asset may already be removed or referenced elsewhere
-    }
-  }
+  await deleteSanityAssetRefs(client, assetIds)
+}
+
+/** Deletes a stakeholder engagement document and any embedded file assets. */
+export async function purgeStakeholderEngagement(
+  client: SanityClient,
+  engagementId: string,
+) {
+  await deleteDocumentAndEmbeddedAssets(client, engagementId)
 }
 
 async function deleteDocumentsBySectionRef(

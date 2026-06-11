@@ -460,6 +460,7 @@ export function CommissionerStakeholderEngagementsTable({
         sectionName={viewRow?.sectionName}
         divisionName={viewRow?.divisionName}
         reportHtml={viewRow?.engagementReport}
+        attendanceSheet={viewRow?.attendanceSheet}
       />
     </>
   )

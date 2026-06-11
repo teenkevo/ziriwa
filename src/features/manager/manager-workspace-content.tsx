@@ -610,6 +610,7 @@ export function ManagerWorkspaceContent({
               canBootstrapEngagement={scopeLabels.kind === 'project'}
               engagement={stakeholderEngagement}
               staffOptions={staffOptions}
+              viewerStaffId={viewerStaffId}
               initiatives={flattenInitiatives(
                 (isProjectWorkstreamWorkspace
                   ? sectionContract

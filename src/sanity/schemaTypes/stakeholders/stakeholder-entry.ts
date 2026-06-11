@@ -185,6 +185,28 @@ export const stakeholderEntry = defineType({
       description:
         'Report submitted on or after the proposed engagement date. Rich text supported.',
     }),
+    defineField({
+      name: 'attendanceSheet',
+      title: 'Attendance Sheet',
+      type: 'file',
+      description: 'PDF attendance sheet for the engagement (optional).',
+      options: {
+        accept: 'application/pdf',
+      },
+    }),
+    defineField({
+      name: 'actionPoints',
+      title: 'Action Points',
+      type: 'array',
+      of: [{ type: 'stakeholderActionPoint' }],
+      description: 'Follow-up actions assigned after stakeholder engagement',
+    }),
+    defineField({
+      name: 'minutes',
+      title: 'Meeting Minutes',
+      type: 'stakeholderMinutes',
+      description: 'Written minutes for this stakeholder engagement.',
+    }),
   ],
   preview: {
     select: { name: 'name', designation: 'designation' },

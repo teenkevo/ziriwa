@@ -9,6 +9,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { AddStakeholderDialog } from './components/add-stakeholder-dialog'
 import { StakeholderEngagementTable } from './components/stakeholder-engagement-table'
 import { StakeholderMatrix } from './components/stakeholder-matrix'
+import { AssignActionPointsDialog } from './components/assign-action-points-dialog'
+import { StakeholderMinutesDialog } from './components/stakeholder-minutes-dialog'
 import { SubmitReportDialog } from './components/submit-report-dialog'
 import { getCurrentFinancialYear } from '@/lib/financial-year'
 import type {
@@ -31,6 +33,7 @@ interface StakeholderEngagementContentProps {
   engagement: StakeholderEngagement | null
   staffOptions: StaffOption[]
   initiatives?: InitiativeOption[]
+  viewerStaffId?: string
 }
 
 export function StakeholderEngagementContent({
@@ -42,6 +45,7 @@ export function StakeholderEngagementContent({
   engagement,
   staffOptions,
   initiatives = [],
+  viewerStaffId,
 }: StakeholderEngagementContentProps) {
   const router = useRouter()
   const [viewMode, setViewMode] = React.useState<'table' | 'matrix'>('table')
@@ -54,7 +58,19 @@ export function StakeholderEngagementContent({
   )
   const [reportIndex, setReportIndex] = React.useState<number | null>(null)
   const [reportDialogOpen, setReportDialogOpen] = React.useState(false)
+  const [actionPointsEntry, setActionPointsEntry] =
+    React.useState<StakeholderEntry | null>(null)
+  const [actionPointsIndex, setActionPointsIndex] = React.useState<
+    number | null
+  >(null)
+  const [actionPointsDialogOpen, setActionPointsDialogOpen] =
+    React.useState(false)
   const [isCreating, setIsCreating] = React.useState(false)
+  const [minutesEntry, setMinutesEntry] = React.useState<StakeholderEntry | null>(
+    null,
+  )
+  const [minutesIndex, setMinutesIndex] = React.useState<number | null>(null)
+  const [minutesDialogOpen, setMinutesDialogOpen] = React.useState(false)
 
   const stakeholders = engagement?.stakeholders ?? []
   const currentFY =
@@ -101,6 +117,18 @@ export function StakeholderEngagementContent({
     setReportEntry(entry)
     setReportIndex(index)
     setReportDialogOpen(true)
+  }
+
+  const handleActionPoints = (entry: StakeholderEntry, index: number) => {
+    setActionPointsEntry(entry)
+    setActionPointsIndex(index)
+    setActionPointsDialogOpen(true)
+  }
+
+  const handleMinutes = (entry: StakeholderEntry, index: number) => {
+    setMinutesEntry(entry)
+    setMinutesIndex(index)
+    setMinutesDialogOpen(true)
   }
 
   if (!engagement) {
@@ -187,6 +215,8 @@ export function StakeholderEngagementContent({
           onEdit={handleEdit}
           onDelete={() => router.refresh()}
           onReport={handleReport}
+          onActionPoints={handleActionPoints}
+          onMinutes={handleMinutes}
         />
       ) : (
         <StakeholderMatrix stakeholders={stakeholders} onSelect={handleEdit} />
@@ -208,6 +238,43 @@ export function StakeholderEngagementContent({
         editingEntry={editingEntry}
         editingIndex={editingIndex ?? undefined}
         onSuccess={handleAddSuccess}
+      />
+
+      <AssignActionPointsDialog
+        open={actionPointsDialogOpen}
+        onOpenChange={open => {
+          setActionPointsDialogOpen(open)
+          if (!open) {
+            setActionPointsEntry(null)
+            setActionPointsIndex(null)
+          }
+        }}
+        entry={actionPointsEntry}
+        stakeholderIndex={actionPointsIndex}
+        engagementId={engagement._id}
+        staffOptions={staffOptions}
+        onSuccess={() => router.refresh()}
+      />
+
+      <StakeholderMinutesDialog
+        open={minutesDialogOpen}
+        onOpenChange={open => {
+          setMinutesDialogOpen(open)
+          if (!open) {
+            setMinutesEntry(null)
+            setMinutesIndex(null)
+          }
+        }}
+        entry={
+          minutesIndex !== null
+            ? (stakeholders[minutesIndex] ?? minutesEntry)
+            : minutesEntry
+        }
+        stakeholderIndex={minutesIndex}
+        engagementId={engagement._id}
+        staffOptions={staffOptions}
+        viewerStaffId={viewerStaffId}
+        onSuccess={() => router.refresh()}
       />
 
       <SubmitReportDialog
