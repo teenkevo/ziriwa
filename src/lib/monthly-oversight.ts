@@ -29,6 +29,13 @@ export type MonthlyOversightSummary = {
   sectionTotal: number
 }
 
+/** Scheduled work items: sprint tasks plus stakeholder engagements. */
+export function countScheduledOversightItems(
+  breakdown: MonthlyOversightBreakdown,
+): number {
+  return breakdown.tasks + breakdown.engagements
+}
+
 function isMonthlyDivisionReportReady(
   sectionResults: {
     engagement: StakeholderEngagement | null
@@ -126,7 +133,7 @@ export function computeDivisionMonthlyOversight(
     }
   }
 
-  const total = breakdown.sprints + breakdown.engagements + breakdown.tasks
+  const total = countScheduledOversightItems(breakdown)
 
   let monthLabel = today.slice(0, 7)
   let periodLabel = monthLabel
@@ -219,7 +226,7 @@ export function computeDivisionWeeklyOversight(
     }
   }
 
-  const total = breakdown.sprints + breakdown.engagements + breakdown.tasks
+  const total = countScheduledOversightItems(breakdown)
 
   const { weekStart, weekEnd } = getWorkingWeekRange(today)
   let periodLabel = `${weekStart} - ${weekEnd}`

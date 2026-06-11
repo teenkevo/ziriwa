@@ -9,6 +9,7 @@ import {
 import {
   computeSectionMonthlyOversight,
   computeSectionWeeklyOversight,
+  countScheduledOversightItems,
   type MonthlyOversightSummary,
 } from '@/lib/monthly-oversight'
 import {
@@ -88,7 +89,7 @@ export function buildSectionWeeklyOversightSummary(input: {
         today: input.today,
       })
     : computeSectionWeeklyOversight(input)
-  const total = breakdown.sprints + breakdown.engagements + breakdown.tasks
+  const total = countScheduledOversightItems(breakdown)
 
   const { weekStart, weekEnd } = getWorkingWeekRange(input.today)
   let periodLabel = `${weekStart} - ${weekEnd}`
@@ -129,7 +130,7 @@ export function buildSectionMonthlyOversightSummary(input: {
         today: input.today,
       })
     : computeSectionMonthlyOversight(input)
-  const total = breakdown.sprints + breakdown.engagements + breakdown.tasks
+  const total = countScheduledOversightItems(breakdown)
 
   let periodLabel = input.today.slice(0, 7)
   try {
