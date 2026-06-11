@@ -196,6 +196,7 @@ export function SectionDashboardContent({
       breakdownLinks={{
         sprints: sprintsHref,
         engagements: stakeholdersHref,
+        tasks: sprintsHref,
       }}
     />
   )
@@ -210,6 +211,7 @@ export function SectionDashboardContent({
       breakdownLinks={{
         sprints: sprintsHref,
         engagements: stakeholdersHref,
+        tasks: sprintsHref,
       }}
     />
   )

@@ -1,28 +1,11 @@
 import type { MonthlyOversightBreakdown } from '@/lib/monthly-oversight'
+import {
+  computeSprintOversightCounts,
+  isSprintInCalendarMonth,
+  isSprintInCurrentWeek,
+} from '@/lib/sprint-oversight-counts'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
-
-function isInCurrentWeek(sprint: WeeklySprint, today: string): boolean {
-  return Boolean(
-    sprint.weekStart &&
-      sprint.weekEnd &&
-      sprint.weekStart <= today &&
-      today <= sprint.weekEnd,
-  )
-}
-
-function isInCalendarMonth(sprint: WeeklySprint, today: string): boolean {
-  return Boolean(
-    sprint.weekStart && sprint.weekStart.slice(0, 7) === today.slice(0, 7),
-  )
-}
-
-function officerTasksInSprint(
-  sprint: WeeklySprint,
-  officerStaffId: string,
-) {
-  return (sprint.tasks ?? []).filter(task => task.assignee === officerStaffId)
-}
 
 export function computeOfficerWeeklyOversight(input: {
   contract: SectionContract | null
@@ -30,20 +13,18 @@ export function computeOfficerWeeklyOversight(input: {
   officerStaffId: string
   today: string
 }): MonthlyOversightBreakdown {
-  let sprints = 0
-  let tasks = 0
+  const sprintCounts = computeSprintOversightCounts(
+    input.sprints,
+    sprint =>
+      sprint.status !== 'draft' && isSprintInCurrentWeek(sprint, input.today),
+    task => task.assignee === input.officerStaffId,
+  )
 
-  for (const sprint of input.sprints) {
-    if (sprint.status === 'draft') continue
-    const assigned = officerTasksInSprint(sprint, input.officerStaffId)
-    if (assigned.length === 0) continue
-    if (isInCurrentWeek(sprint, input.today)) {
-      sprints++
-      tasks += assigned.length
-    }
+  return {
+    sprints: sprintCounts.activities,
+    engagements: 0,
+    tasks: sprintCounts.tasks,
   }
-
-  return { sprints, engagements: 0, tasks }
 }
 
 export function computeOfficerMonthlyOversight(input: {
@@ -52,18 +33,17 @@ export function computeOfficerMonthlyOversight(input: {
   officerStaffId: string
   today: string
 }): MonthlyOversightBreakdown {
-  let sprints = 0
-  let tasks = 0
+  const sprintCounts = computeSprintOversightCounts(
+    input.sprints,
+    sprint =>
+      sprint.status !== 'draft' &&
+      isSprintInCalendarMonth(sprint, input.today),
+    task => task.assignee === input.officerStaffId,
+  )
 
-  for (const sprint of input.sprints) {
-    if (sprint.status === 'draft') continue
-    const assigned = officerTasksInSprint(sprint, input.officerStaffId)
-    if (assigned.length === 0) continue
-    if (isInCalendarMonth(sprint, input.today)) {
-      sprints++
-      tasks += assigned.length
-    }
+  return {
+    sprints: sprintCounts.activities,
+    engagements: 0,
+    tasks: sprintCounts.tasks,
   }
-
-  return { sprints, engagements: 0, tasks }
 }

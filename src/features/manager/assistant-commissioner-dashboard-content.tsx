@@ -14,9 +14,9 @@ export function AssistantCommissionerDashboardContent({
 }) {
   const divisionName =
     data.division.fullName || data.division.acronym || data.division.name
-  const { activeSprints, weeklyOversight } = data
+  const { activeSprints } = data
   const soleActivitySection =
-    weeklyOversight.breakdown.sprints === 1
+    activeSprints.sections.length === 1
       ? activeSprints.sections[0]
       : undefined
   const sprintCardHref = soleActivitySection

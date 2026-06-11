@@ -2,7 +2,11 @@ import { addDays, format, parseISO, startOfWeek } from 'date-fns'
 
 import { isWeeklyDivisionReportReady } from '@/lib/sprint-report-readiness'
 import { hasSubmittedEngagementReport } from '@/lib/stakeholder-engagement-report'
-import { getDueItemsFromContract } from '@/sanity/lib/contract-items/get-due-items'
+import {
+  computeSprintOversightCounts,
+  isSprintInCalendarMonth,
+  isSprintInCurrentWeek,
+} from '@/lib/sprint-oversight-counts'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
@@ -74,12 +78,10 @@ export function computeSectionMonthlyOversight(input: {
   engagement: StakeholderEngagement | null
   today: string
 }): MonthlyOversightBreakdown {
-  let sprints = 0
-  for (const sprint of input.sprints) {
-    if (sprint.weekStart && isInCalendarMonth(sprint.weekStart, input.today)) {
-      sprints++
-    }
-  }
+  const sprintCounts = computeSprintOversightCounts(
+    input.sprints,
+    sprint => isSprintInCalendarMonth(sprint, input.today),
+  )
 
   let engagements = 0
   for (const entry of input.engagement?.stakeholders ?? []) {
@@ -91,11 +93,11 @@ export function computeSectionMonthlyOversight(input: {
     }
   }
 
-  const tasks = getDueItemsFromContract(input.contract, date =>
-    isInCalendarMonth(date, input.today),
-  ).length
-
-  return { sprints, engagements, tasks }
+  return {
+    sprints: sprintCounts.activities,
+    engagements,
+    tasks: sprintCounts.tasks,
+  }
 }
 
 export function computeDivisionMonthlyOversight(
@@ -169,17 +171,10 @@ export function computeSectionWeeklyOversight(input: {
   engagement: StakeholderEngagement | null
   today: string
 }): MonthlyOversightBreakdown {
-  let sprints = 0
-  for (const sprint of input.sprints) {
-    if (
-      sprint.weekStart &&
-      sprint.weekEnd &&
-      sprint.weekStart <= input.today &&
-      input.today <= sprint.weekEnd
-    ) {
-      sprints++
-    }
-  }
+  const sprintCounts = computeSprintOversightCounts(
+    input.sprints,
+    sprint => isSprintInCurrentWeek(sprint, input.today),
+  )
 
   let engagements = 0
   for (const entry of input.engagement?.stakeholders ?? []) {
@@ -191,11 +186,11 @@ export function computeSectionWeeklyOversight(input: {
     }
   }
 
-  const tasks = getDueItemsFromContract(input.contract, date =>
-    isInCurrentWeek(date, input.today),
-  ).length
-
-  return { sprints, engagements, tasks }
+  return {
+    sprints: sprintCounts.activities,
+    engagements,
+    tasks: sprintCounts.tasks,
+  }
 }
 
 export function computeDivisionWeeklyOversight(

@@ -14,7 +14,9 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -188,53 +190,73 @@ export function StakeholderEngagementTable({
                           <span className='sr-only'>Actions for {s.name}</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align='end' className='w-52'>
-                        <DropdownMenuItem onClick={() => onEdit(s, i)}>
-                          <Pencil className='mr-2 h-4 w-4' />
-                          Edit stakeholder
-                        </DropdownMenuItem>
-                        {onMinutes ? (
-                          <DropdownMenuItem onClick={() => onMinutes(s, i)}>
-                            <ScrollText className='mr-2 h-4 w-4' />
-                            {s.minutes?.status === 'published'
-                              ? 'View minutes'
-                              : s.minutes
-                                ? 'Edit minutes'
-                                : 'Write minutes'}
+                      <DropdownMenuContent align='end' className='w-56'>
+                        <DropdownMenuLabel className='text-xs text-muted-foreground'>
+                          Stakeholder
+                        </DropdownMenuLabel>
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem onClick={() => onEdit(s, i)}>
+                            <Pencil className='mr-2 h-4 w-4' />
+                            Edit stakeholder
                           </DropdownMenuItem>
-                        ) : null}
-                        {onActionPoints ? (
-                          <DropdownMenuItem
-                            onClick={() => onActionPoints(s, i)}
-                          >
-                            <ListChecks className='mr-2 h-4 w-4' />
-                            {s.actionPoints?.length
-                              ? `Action points (${s.actionPoints.length})`
-                              : 'Assign action points'}
-                          </DropdownMenuItem>
-                        ) : null}
-                        {onReport ? (
-                          <DropdownMenuItem
-                            disabled={
-                              !isReportAllowed(s.proposedDateOfEngagement)
-                            }
-                            onClick={() =>
-                              isReportAllowed(s.proposedDateOfEngagement) &&
-                              onReport(s, i)
-                            }
-                          >
-                            <FileText className='mr-2 h-4 w-4' />
-                            Engagement report
-                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                        {onMinutes || onActionPoints || onReport ? (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className='text-xs text-muted-foreground'>
+                              Follow-up
+                            </DropdownMenuLabel>
+                            <DropdownMenuGroup>
+                              {onMinutes ? (
+                                <DropdownMenuItem
+                                  onClick={() => onMinutes(s, i)}
+                                >
+                                  <ScrollText className='mr-2 h-4 w-4' />
+                                  {s.minutes?.status === 'published'
+                                    ? 'View minutes'
+                                    : s.minutes
+                                      ? 'Edit minutes'
+                                      : 'Write minutes'}
+                                </DropdownMenuItem>
+                              ) : null}
+                              {onActionPoints ? (
+                                <DropdownMenuItem
+                                  onClick={() => onActionPoints(s, i)}
+                                >
+                                  <ListChecks className='mr-2 h-4 w-4' />
+                                  {s.actionPoints?.length
+                                    ? `Action points (${s.actionPoints.length})`
+                                    : 'Assign action points'}
+                                </DropdownMenuItem>
+                              ) : null}
+                              {onReport ? (
+                                <DropdownMenuItem
+                                  disabled={
+                                    !isReportAllowed(s.proposedDateOfEngagement)
+                                  }
+                                  onClick={() =>
+                                    isReportAllowed(
+                                      s.proposedDateOfEngagement,
+                                    ) && onReport(s, i)
+                                  }
+                                >
+                                  <FileText className='mr-2 h-4 w-4' />
+                                  Engagement report
+                                </DropdownMenuItem>
+                              ) : null}
+                            </DropdownMenuGroup>
+                          </>
                         ) : null}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className='text-destructive focus:text-destructive'
-                          onClick={() => setDeleteIndex(i)}
-                        >
-                          <Trash2 className='mr-2 h-4 w-4' />
-                          Delete stakeholder
-                        </DropdownMenuItem>
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            className='text-destructive focus:text-destructive'
+                            onClick={() => setDeleteIndex(i)}
+                          >
+                            <Trash2 className='mr-2 h-4 w-4' />
+                            Delete stakeholder
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
