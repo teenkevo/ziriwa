@@ -21,7 +21,7 @@ export function computeOfficerWeeklyOversight(input: {
   )
 
   return {
-    sprints: sprintCounts.activities,
+    sprints: sprintCounts.sprints,
     engagements: 0,
     tasks: sprintCounts.tasks,
   }
@@ -42,7 +42,7 @@ export function computeOfficerMonthlyOversight(input: {
   )
 
   return {
-    sprints: sprintCounts.activities,
+    sprints: sprintCounts.sprints,
     engagements: 0,
     tasks: sprintCounts.tasks,
   }

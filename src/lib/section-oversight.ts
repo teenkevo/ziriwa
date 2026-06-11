@@ -1,4 +1,4 @@
-import { addDays, format, parseISO, startOfWeek } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 import { buildContractOversightSummary } from '@/lib/contract-oversight'
 import type { ContractOversightSummary } from '@/lib/contract-oversight'
@@ -15,6 +15,7 @@ import {
   countReportableSprintTasks,
   isCurrentWeekSprint,
 } from '@/lib/sprint-report-readiness'
+import { getWorkingWeekRange } from '@/lib/sprint-week'
 import { hasSubmittedEngagementReport } from '@/lib/stakeholder-engagement-report'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
@@ -33,16 +34,6 @@ export type StakeholderOversightSummary = {
     total: number
     reported: number
     pending: number
-  }
-}
-
-function getCurrentWeekRange(today: string) {
-  const todayDate = parseISO(today)
-  const weekStartDate = startOfWeek(todayDate, { weekStartsOn: 1 })
-  const weekEndDate = addDays(weekStartDate, 6)
-  return {
-    weekStart: format(weekStartDate, 'yyyy-MM-dd'),
-    weekEnd: format(weekEndDate, 'yyyy-MM-dd'),
   }
 }
 
@@ -99,7 +90,7 @@ export function buildSectionWeeklyOversightSummary(input: {
     : computeSectionWeeklyOversight(input)
   const total = breakdown.sprints + breakdown.engagements + breakdown.tasks
 
-  const { weekStart, weekEnd } = getCurrentWeekRange(input.today)
+  const { weekStart, weekEnd } = getWorkingWeekRange(input.today)
   let periodLabel = `${weekStart} - ${weekEnd}`
   try {
     periodLabel = `${format(parseISO(weekStart), 'MMM d')} - ${format(parseISO(weekEnd), 'MMM d')}`

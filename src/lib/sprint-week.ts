@@ -1,4 +1,19 @@
+import { addDays, format, parseISO, startOfWeek } from 'date-fns'
+
 import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+
+/** Monday–Friday working week containing `today` (YYYY-MM-DD). */
+export function getWorkingWeekRange(today: string): {
+  weekStart: string
+  weekEnd: string
+} {
+  const weekStartDate = startOfWeek(parseISO(today), { weekStartsOn: 1 })
+  const weekEndDate = addDays(weekStartDate, 4)
+  return {
+    weekStart: format(weekStartDate, 'yyyy-MM-dd'),
+    weekEnd: format(weekEndDate, 'yyyy-MM-dd'),
+  }
+}
 
 /**
  * Sprint week starts Monday 10:00 local on `weekStart` (YYYY-MM-DD).

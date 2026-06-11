@@ -231,7 +231,7 @@ export function MonthlyOversightCard({
       weeklyReport={weeklyReport}
       columns={[
         {
-          label: 'Activities',
+          label: 'Sprints',
           value: breakdown.sprints,
           href: breakdownLinks?.sprints,
         },

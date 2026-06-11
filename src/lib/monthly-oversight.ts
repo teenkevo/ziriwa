@@ -1,6 +1,7 @@
-import { addDays, format, parseISO, startOfWeek } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 import { isWeeklyDivisionReportReady } from '@/lib/sprint-report-readiness'
+import { getWorkingWeekRange } from '@/lib/sprint-week'
 import { hasSubmittedEngagementReport } from '@/lib/stakeholder-engagement-report'
 import {
   computeSprintOversightCounts,
@@ -57,18 +58,8 @@ function isInCalendarMonth(isoDate: string, today: string): boolean {
   return isoDate.slice(0, 7) === today.slice(0, 7)
 }
 
-function getCurrentWeekRange(today: string) {
-  const todayDate = parseISO(today)
-  const weekStartDate = startOfWeek(todayDate, { weekStartsOn: 1 })
-  const weekEndDate = addDays(weekStartDate, 6)
-  return {
-    weekStart: format(weekStartDate, 'yyyy-MM-dd'),
-    weekEnd: format(weekEndDate, 'yyyy-MM-dd'),
-  }
-}
-
 function isInCurrentWeek(isoDate: string, today: string): boolean {
-  const { weekStart, weekEnd } = getCurrentWeekRange(today)
+  const { weekStart, weekEnd } = getWorkingWeekRange(today)
   return isoDate >= weekStart && isoDate <= weekEnd
 }
 
@@ -94,7 +85,7 @@ export function computeSectionMonthlyOversight(input: {
   }
 
   return {
-    sprints: sprintCounts.activities,
+    sprints: sprintCounts.sprints,
     engagements,
     tasks: sprintCounts.tasks,
   }
@@ -187,7 +178,7 @@ export function computeSectionWeeklyOversight(input: {
   }
 
   return {
-    sprints: sprintCounts.activities,
+    sprints: sprintCounts.sprints,
     engagements,
     tasks: sprintCounts.tasks,
   }
@@ -230,7 +221,7 @@ export function computeDivisionWeeklyOversight(
 
   const total = breakdown.sprints + breakdown.engagements + breakdown.tasks
 
-  const { weekStart, weekEnd } = getCurrentWeekRange(today)
+  const { weekStart, weekEnd } = getWorkingWeekRange(today)
   let periodLabel = `${weekStart} - ${weekEnd}`
   try {
     periodLabel = `${format(parseISO(weekStart), 'MMM d')} - ${format(parseISO(weekEnd), 'MMM d')}`
