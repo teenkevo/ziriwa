@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Highlight from '@tiptap/extension-highlight'
+import { Mention } from '@tiptap/extension-mention'
 import { TableKit } from '@tiptap/extension-table'
 import TextAlign from '@tiptap/extension-text-align'
 import Underline from '@tiptap/extension-underline'
@@ -35,6 +36,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { createStaffMentionSuggestion } from '@/lib/tiptap/staff-mention-suggestion'
 import { Button } from '@/components/ui/button'
 import { Toggle } from '@/components/ui/toggle'
 
@@ -42,6 +44,9 @@ const RICH_TEXT_TABLE_BASE_PROSE =
   '[&_table]:my-3 [&_table]:w-full [&_table]:table-fixed [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2'
 
 export const RICH_TEXT_TABLE_PROSE = RICH_TEXT_TABLE_BASE_PROSE
+
+export const RICH_TEXT_MENTION_PROSE =
+  '[&_[data-type=mention]]:rounded [&_[data-type=mention]]:bg-primary/10 [&_[data-type=mention]]:px-1 [&_[data-type=mention]]:py-0.5 [&_[data-type=mention]]:font-medium [&_[data-type=mention]]:text-primary'
 
 const RICH_TEXT_TABLE_EDITOR_PROSE = [
   RICH_TEXT_TABLE_BASE_PROSE.replace(/\[&_/g, '[&_.ProseMirror_'),
@@ -491,6 +496,8 @@ export interface RichTextEditorProps {
   placeholder?: string
   className?: string
   minHeight?: string
+  /** Enable @mentions for all active staff. Defaults to true. */
+  enableMentions?: boolean
 }
 
 export function RichTextEditor({
@@ -499,10 +506,13 @@ export function RichTextEditor({
   placeholder = 'Write your report here...',
   className,
   minHeight = '200px',
+  enableMentions = true,
 }: RichTextEditorProps) {
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
+  const onChangeRef = React.useRef(onChange)
+  onChangeRef.current = onChange
+
+  const extensions = React.useMemo(
+    () => [
       StarterKit,
       Underline,
       Highlight,
@@ -515,7 +525,24 @@ export function RichTextEditor({
           lastColumnResizable: true,
         },
       }),
+      ...(enableMentions
+        ? [
+            Mention.configure({
+              HTMLAttributes: {
+                class:
+                  'mention rounded bg-primary/10 px-1 py-0.5 font-medium text-primary',
+              },
+              suggestion: createStaffMentionSuggestion(),
+            }),
+          ]
+        : []),
     ],
+    [enableMentions],
+  )
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions,
     content: value || '',
     editorProps: {
       attributes: {
@@ -525,9 +552,9 @@ export function RichTextEditor({
       },
     },
     onUpdate: ({ editor }) => {
-      onChange?.(editor.getHTML())
+      onChangeRef.current?.(editor.getHTML())
     },
-  })
+  }, [extensions, placeholder])
 
   React.useEffect(() => {
     if (editor && value !== undefined && value !== editor.getHTML()) {
@@ -549,6 +576,7 @@ export function RichTextEditor({
           className={cn(
             '[&_.ProseMirror]:min-h-[120px] [&_.ProseMirror]:px-3 [&_.ProseMirror]:py-2 [&_.ProseMirror]:outline-none [&_.ProseMirror]:empty:before:content-[attr(data-placeholder)] [&_.ProseMirror]:empty:before:text-muted-foreground [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-6 [&_.ProseMirror_ul_li]:my-0.5 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_ol_li]:my-0.5 [&_.ProseMirror_.selectedCell]:bg-primary/10',
             RICH_TEXT_TABLE_EDITOR_PROSE,
+            RICH_TEXT_MENTION_PROSE.replace(/\[&_/g, '[&_.ProseMirror_'),
           )}
         />
         <TableCellExtendOverlay

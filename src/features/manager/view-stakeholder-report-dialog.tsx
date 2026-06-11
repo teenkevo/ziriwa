@@ -11,7 +11,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { RICH_TEXT_TABLE_PROSE } from '@/components/ui/rich-text-editor'
+import {
+  RICH_TEXT_MENTION_PROSE,
+  RICH_TEXT_TABLE_PROSE,
+} from '@/components/ui/rich-text-editor'
 import type { StakeholderFileAsset } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 import { cn } from '@/lib/utils'
 
@@ -111,6 +114,7 @@ export function ViewStakeholderReportDialog({
               className={cn(
                 'prose prose-sm dark:prose-invert max-w-none [&_ol]:list-decimal [&_ul]:list-disc',
                 RICH_TEXT_TABLE_PROSE,
+                RICH_TEXT_MENTION_PROSE,
               )}
               dangerouslySetInnerHTML={{ __html: reportHtml ?? '' }}
             />

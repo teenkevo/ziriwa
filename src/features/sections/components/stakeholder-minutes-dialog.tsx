@@ -40,6 +40,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  RICH_TEXT_MENTION_PROSE,
   RICH_TEXT_TABLE_PROSE,
   RichTextEditor,
 } from '@/components/ui/rich-text-editor'
@@ -444,6 +445,7 @@ export function StakeholderMinutesDialog({
                     className={cn(
                       'prose prose-sm dark:prose-invert max-w-none [&_ol]:list-decimal [&_ul]:list-disc',
                       RICH_TEXT_TABLE_PROSE,
+                      RICH_TEXT_MENTION_PROSE,
                     )}
                     dangerouslySetInnerHTML={{ __html: content }}
                   />
