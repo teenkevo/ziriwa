@@ -41,22 +41,27 @@ export const MentionList = React.forwardRef<
     [command, items],
   )
 
+  const selectedIndexRef = React.useRef(selectedIndex)
+  selectedIndexRef.current = selectedIndex
+
   React.useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }) => {
       if (event.key === 'ArrowUp') {
-        setSelectedIndex(
-          (selectedIndex + items.length - 1) % items.length,
+        setSelectedIndex(current =>
+          items.length ? (current + items.length - 1) % items.length : 0,
         )
         return true
       }
 
       if (event.key === 'ArrowDown') {
-        setSelectedIndex((selectedIndex + 1) % items.length)
+        setSelectedIndex(current =>
+          items.length ? (current + 1) % items.length : 0,
+        )
         return true
       }
 
       if (event.key === 'Enter') {
-        selectItem(selectedIndex)
+        selectItem(selectedIndexRef.current)
         return true
       }
 
@@ -89,8 +94,12 @@ export const MentionList = React.forwardRef<
                 ? 'bg-accent text-accent-foreground'
                 : 'hover:bg-accent/60',
             )}
-            onMouseDown={event => event.preventDefault()}
-            onClick={() => selectItem(index)}
+            onMouseEnter={() => setSelectedIndex(index)}
+            onMouseDown={event => {
+              event.preventDefault()
+              event.stopPropagation()
+              selectItem(index)
+            }}
           >
             <span className='font-medium'>{item.label}</span>
             {subtitle ? (

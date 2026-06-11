@@ -131,8 +131,10 @@ body {
   border: 0;
   box-shadow: none;
   padding: 0;
+  pointer-events: auto;
 }
 
 .tippy-box[data-theme~='mention'] > .tippy-content {
   padding: 0;
+  pointer-events: auto;
 }

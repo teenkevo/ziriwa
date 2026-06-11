@@ -570,7 +570,11 @@ export function RichTextEditor({
       style={{ minHeight }}
     >
       <Toolbar editor={editor} />
-      <div ref={editorSurfaceRef} className='relative overflow-x-auto'>
+      <div
+        ref={editorSurfaceRef}
+        data-editor-surface
+        className='relative overflow-x-auto'
+      >
         <EditorContent
           editor={editor}
           className={cn(
