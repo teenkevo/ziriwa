@@ -1,11 +1,11 @@
 import 'server-only'
 
-import { getAppRole } from '@/lib/clerk-app-role.server'
+import { getEffectiveAppRole } from '@/lib/authz/guards.server'
 import { getCapabilitiesForRole } from '@/lib/authz/capabilities-client'
 import type { Capabilities } from '@/lib/authz/types'
 
-/** Server Components and Route Handlers — resolves role from Clerk. */
+/** Server Components and Route Handlers — respects impersonation. */
 export async function getCapabilities(): Promise<Capabilities> {
-  const role = await getAppRole()
+  const role = await getEffectiveAppRole()
   return getCapabilitiesForRole(role)
 }

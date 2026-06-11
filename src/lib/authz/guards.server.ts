@@ -7,6 +7,7 @@ import { cache } from 'react'
 import type { AppRole } from '@/lib/app-role'
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { getSuperadminEmailWhitelist } from '@/lib/authz/env'
+import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
 import { hasPermission } from '@/lib/authz/permissions'
 import type { CrudAction, ResourceKey } from '@/lib/authz/types'
 
@@ -38,11 +39,13 @@ export async function requireAppRole(): Promise<AppRole> {
   return role
 }
 
-/** Superadmins are treated as commissioner_general for RBAC checks. */
+/** Superadmins are treated as commissioner_general unless impersonating. */
 export async function getEffectiveAppRole(): Promise<AppRole | null> {
-  if (await isSuperadmin()) return 'commissioner_general'
+  if (await canUseSuperadminPowers()) return 'commissioner_general'
   return getAppRole()
 }
+
+export { canUseSuperadminPowers }
 
 export async function requirePermission(
   resource: ResourceKey,

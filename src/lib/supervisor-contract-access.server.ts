@@ -2,7 +2,7 @@ import 'server-only'
 
 import { NextResponse } from 'next/server'
 
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
 import { isSectionInProject } from '@/lib/project-access.server'
@@ -63,7 +63,7 @@ export async function canManageSupervisorContract(
   sectionId: string,
 ): Promise<boolean> {
   const appRole = await getAppRole()
-  if ((await isSuperadmin()) || appRole === 'commissioner_general') return true
+  if ((await canUseSuperadminPowers()) || appRole === 'commissioner_general') return true
 
   return Boolean(await resolveSupervisorStaffRefForSection(sectionId))
 }

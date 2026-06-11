@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
+import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { writeClient } from '@/sanity/lib/write-client'
 
 /**
@@ -10,11 +10,7 @@ import { writeClient } from '@/sanity/lib/write-client'
 export async function getViewerStaffIdForSection(
   sectionId: string,
 ): Promise<string | null> {
-  const user = await currentUser()
-  const emailRaw =
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress
-  const email = emailRaw?.trim().toLowerCase()
+  const email = await getEffectiveViewerEmail()
   if (!email) return null
 
   const bySection = await writeClient.fetch<string | null>(

@@ -1,10 +1,12 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
-
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
 import { getAppRole } from '@/lib/clerk-app-role.server'
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import {
+  canUseSuperadminPowers,
+  getEffectiveViewerEmail,
+  getViewerContext,
+} from '@/lib/impersonation/viewer-context.server'
 import {
   getProjectByIdForViewer,
   getProjectMembershipForViewer,
@@ -17,17 +19,6 @@ export type RoleNavbarIdentity = {
   roleLabel: string
   contextLabel?: string
   separator: '|' | '-'
-}
-
-async function getViewerEmail() {
-  const user = await currentUser()
-  return (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
 }
 
 async function getStaffSectionName(email: string) {
@@ -90,7 +81,7 @@ async function getLedDivisionDisplayName(email: string) {
 export async function getRoleNavbarIdentity(): Promise<RoleNavbarIdentity | null> {
   const { isProjects, projectId } = await getProjectWorkspaceContext()
   if (isProjects && projectId) {
-    if (await isSuperadmin()) {
+    if (await canUseSuperadminPowers()) {
       const project = await getProjectByIdForViewer(projectId)
       return {
         roleLabel: 'Administrator',
@@ -112,12 +103,13 @@ export async function getRoleNavbarIdentity(): Promise<RoleNavbarIdentity | null
     }
   }
 
-  if (await isSuperadmin()) return null
+  const ctx = await getViewerContext()
+  if (ctx.isSuperadmin && !ctx.isImpersonating) return null
 
   const role = await getAppRole()
   if (!role) return null
 
-  const email = await getViewerEmail()
+  const email = await getEffectiveViewerEmail()
 
   if (role === 'officer') {
     const sectionName = await getStaffSectionName(email)

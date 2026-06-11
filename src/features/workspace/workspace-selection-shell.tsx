@@ -2,9 +2,8 @@
 
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { SignOutButton } from '@clerk/nextjs'
-
 import Logo from '@/components/logo'
+import { SignOutButton } from '@/components/sign-out-button'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -41,15 +40,10 @@ export function WorkspaceSelectionShell({
         <div className='flex min-w-0 flex-1 flex-col bg-card px-8 py-8 text-card-foreground sm:px-12 sm:py-10'>
           <div className='mb-8 flex items-center justify-between gap-4'>
             <Logo href='/workspace' />
-            <SignOutButton redirectUrl='/'>
-              <Button
-                variant='ghost'
-                size='sm'
-                className='shrink-0 text-muted-foreground hover:text-foreground'
-              >
-                Log out
-              </Button>
-            </SignOutButton>
+            <SignOutButton
+              redirectUrl='/'
+              className='shrink-0 text-muted-foreground hover:text-foreground'
+            />
           </div>
 
           <div className='mb-8 space-y-2'>

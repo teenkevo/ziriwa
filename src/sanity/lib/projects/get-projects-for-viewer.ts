@@ -1,9 +1,10 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
-
 import { client } from '@/sanity/lib/client'
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import {
+  canUseSuperadminPowers,
+  getEffectiveViewerEmail,
+} from '@/lib/impersonation/viewer-context.server'
 
 import type { ProjectRole } from '@/lib/project-role'
 
@@ -15,20 +16,9 @@ export interface ViewerProjectOption {
   memberCount: number
 }
 
-async function getViewerEmail() {
-  const user = await currentUser()
-  return (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
-}
-
 /** Active projects the signed-in user belongs to (or all active projects for superadmin). */
 export async function getProjectsForViewer(): Promise<ViewerProjectOption[]> {
-  if (await isSuperadmin()) {
+  if (await canUseSuperadminPowers()) {
     return client.fetch<ViewerProjectOption[]>(
       /* groq */ `
         *[_type == "project" && coalesce(status, "active") == "active"] | order(name asc) {
@@ -42,7 +32,7 @@ export async function getProjectsForViewer(): Promise<ViewerProjectOption[]> {
     )
   }
 
-  const email = await getViewerEmail()
+  const email = await getEffectiveViewerEmail()
   if (!email) return []
 
   const rows = (await client.fetch<ViewerProjectOption[]>(

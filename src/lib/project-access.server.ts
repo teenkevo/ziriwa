@@ -1,10 +1,11 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
-
 import { parseProjectRole, type ProjectRole } from '@/lib/project-role'
+import {
+  canUseSuperadminPowers,
+  getEffectiveViewerEmail,
+} from '@/lib/impersonation/viewer-context.server'
 import { client } from '@/sanity/lib/client'
-import { isSuperadmin } from '@/lib/authz/guards.server'
 
 export interface ProjectMembership {
   projectId: string
@@ -12,17 +13,6 @@ export interface ProjectMembership {
   role: ProjectRole
   workstreamId: string | null
   workstreamName: string | null
-}
-
-async function getViewerEmail() {
-  const user = await currentUser()
-  return (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
 }
 
 export async function getProjectByIdForViewer(
@@ -42,7 +32,7 @@ export async function getProjectByIdForViewer(
 export async function canAccessProjectWorkspace(
   projectId: string,
 ): Promise<boolean> {
-  if (await isSuperadmin()) {
+  if (await canUseSuperadminPowers()) {
     return Boolean(await getProjectByIdForViewer(projectId))
   }
   return Boolean(await getProjectMembershipForViewer(projectId))
@@ -51,7 +41,7 @@ export async function canAccessProjectWorkspace(
 export async function getProjectMembershipForViewer(
   projectId: string,
 ): Promise<ProjectMembership | null> {
-  const email = await getViewerEmail()
+  const email = await getEffectiveViewerEmail()
   if (!email) return null
 
   const row = await client.fetch<{

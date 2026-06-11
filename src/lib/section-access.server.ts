@@ -1,10 +1,9 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-import { parseAppRole } from '@/lib/app-role'
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
+import { getViewerContext } from '@/lib/impersonation/viewer-context.server'
 import {
   buildSectionAccessForWorkContext,
   type SectionAccess,
@@ -27,16 +26,11 @@ export async function getSectionAccessForViewer(
   sectionId: string,
   workContext: WorkContextMode = 'own',
 ): Promise<SectionAccess> {
-  const user = await currentUser()
-  const emailRaw =
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress
-  const appRole = parseAppRole(
-    (user?.publicMetadata as Record<string, unknown> | undefined)?.appRole,
-  )
+  const ctx = await getViewerContext()
+  const appRole = ctx.effectiveAppRole
 
   const globalAdmin =
-    (await isSuperadmin()) || appRole === 'commissioner_general'
+    (await canUseSuperadminPowers()) || appRole === 'commissioner_general'
 
   if (globalAdmin) {
     const viewerStaffId = await getViewerStaffIdForSection(sectionId)

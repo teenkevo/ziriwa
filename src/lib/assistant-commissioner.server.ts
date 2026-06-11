@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { client } from '@/sanity/lib/client'
@@ -13,14 +14,7 @@ export type AssistantCommissionerDivision = {
 }
 
 export async function getAssistantCommissionerViewerEmail() {
-  const user = await import('@clerk/nextjs/server').then(m => m.currentUser())
-  return (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
+  return getEffectiveViewerEmail()
 }
 
 export async function getAssistantCommissionerDivision(): Promise<AssistantCommissionerDivision | null> {

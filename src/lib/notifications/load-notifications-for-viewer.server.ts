@@ -1,9 +1,9 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
 import { client } from '@/sanity/lib/client'
-import { parseAppRole } from '@/lib/app-role'
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import { getAppRole } from '@/lib/clerk-app-role.server'
+import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
+import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getUnsubmittedSprintNotifications } from '@/lib/notifications/get-unsubmitted-sprint-notifications'
 import { notificationTypesForViewer } from '@/lib/notifications/notification-audience'
 import {
@@ -17,11 +17,7 @@ export async function loadNotificationsForViewer(): Promise<{
   notifications: AppNotificationRow[]
   unreadCount: number
 }> {
-  const user = await currentUser()
-  const emailRaw =
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress
-  const email = emailRaw?.trim().toLowerCase()
+  const email = await getEffectiveViewerEmail()
   if (!email) {
     return { notifications: [], unreadCount: 0 }
   }
@@ -37,11 +33,9 @@ export async function loadNotificationsForViewer(): Promise<{
     return { notifications: [], unreadCount: 0 }
   }
 
-  const appRole = parseAppRole(
-    (user?.publicMetadata as Record<string, unknown> | undefined)?.appRole,
-  )
+  const appRole = await getAppRole()
   const globalAdmin =
-    (await isSuperadmin()) || appRole === 'commissioner_general'
+    (await canUseSuperadminPowers()) || appRole === 'commissioner_general'
   const allowedTypes = notificationTypesForViewer({
     staffRole: staff.role ?? null,
     appRole,

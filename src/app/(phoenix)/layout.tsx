@@ -19,8 +19,9 @@ import {
   WorkspaceRouteNavigationProvider,
 } from '@/contexts/workspace-route-navigation-context'
 import { DelegationSidebarProvider } from '@/contexts/delegation-sidebar-context'
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 import { ViewerProvider } from '@/contexts/viewer-context'
+import { getViewerContext } from '@/lib/impersonation/viewer-context.server'
 
 export const metadata: Metadata = {
   title: 'Ziriwa by DIP',
@@ -34,10 +35,14 @@ interface LayoutProps {
 export default async function Layout({ children }: LayoutProps) {
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false'
-  const superadmin = await isSuperadmin()
+  const viewer = await getViewerContext()
 
   return (
-    <ViewerProvider isSuperadmin={superadmin}>
+    <ViewerProvider
+      isSuperadmin={viewer.isSuperadmin}
+      isImpersonating={viewer.isImpersonating}
+      effectiveRole={viewer.effectiveAppRole}
+    >
       <DelegationSidebarProvider>
         <WorkspaceRouteNavigationProvider>
           <SidebarProvider defaultOpen={defaultOpen}>
@@ -51,6 +56,13 @@ export default async function Layout({ children }: LayoutProps) {
             </Sidebar>
             <SidebarInset>
               <AppBreadcrumbProvider>
+                {viewer.isImpersonating ? (
+                  <ImpersonationBanner
+                    targetName={viewer.effectiveName}
+                    targetEmail={viewer.effectiveEmail}
+                    targetRole={viewer.effectiveAppRole}
+                  />
+                ) : null}
                 <AppTopBarShell />
                 <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
                   <Suspense fallback={null}>{children}</Suspense>

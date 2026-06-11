@@ -11,6 +11,8 @@ interface BatchDoc {
     timestamp?: string
     authorName?: string
     authorEmail?: string
+    impersonatorName?: string
+    impersonatorEmail?: string
     change?: string
     resourceType?: string
     resourceId?: string
@@ -51,6 +53,8 @@ export async function getAuditEntries(
         timestamp,
         authorName,
         authorEmail,
+        impersonatorName,
+        impersonatorEmail,
         change,
         resourceType,
         resourceId,
@@ -72,6 +76,8 @@ export async function getAuditEntries(
         timestamp: e.timestamp,
         authorName: e.authorName ?? '—',
         authorEmail: e.authorEmail ?? '',
+        impersonatorName: e.impersonatorName,
+        impersonatorEmail: e.impersonatorEmail,
         change: e.change ?? 'UPDATED',
         resourceType: e.resourceType ?? '—',
         resourceLabel: e.resourceLabel ?? e.resourceId ?? '—',

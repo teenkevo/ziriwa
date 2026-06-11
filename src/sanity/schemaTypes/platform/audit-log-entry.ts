@@ -28,6 +28,16 @@ export const auditLogEntry = defineType({
       type: 'string',
     }),
     defineField({
+      name: 'impersonatorName',
+      title: 'Impersonator name',
+      type: 'string',
+    }),
+    defineField({
+      name: 'impersonatorEmail',
+      title: 'Impersonator email',
+      type: 'string',
+    }),
+    defineField({
       name: 'change',
       title: 'Change',
       type: 'string',

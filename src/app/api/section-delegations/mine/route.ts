@@ -1,29 +1,11 @@
 import { NextResponse } from 'next/server'
 
 import { assertAuth } from '@/lib/authz/guards.server'
-import { currentUser } from '@clerk/nextjs/server'
-import { client } from '@/sanity/lib/client'
+import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import {
   getActiveDelegationAsDelegatee,
   getOutgoingActiveDelegation,
 } from '@/lib/section-delegation.server'
-
-async function getViewerStaffId() {
-  const user = await currentUser()
-  const email = (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
-  if (!email) return null
-
-  return client.fetch<string | null>(
-    /* groq */ `*[_type == "staff" && lower(email) == $email && status == "active"][0]._id`,
-    { email },
-  )
-}
 
 export async function GET(req: Request) {
   try {

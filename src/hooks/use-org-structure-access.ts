@@ -7,8 +7,10 @@ import { useAppRole } from '@/hooks/use-app-role'
 function effectiveRole(
   role: AppRole | null,
   isSuperadmin: boolean,
+  isImpersonating: boolean,
 ): AppRole | null {
-  return isSuperadmin ? 'commissioner_general' : role
+  if (isSuperadmin && !isImpersonating) return 'commissioner_general'
+  return role
 }
 
 /**
@@ -17,8 +19,8 @@ function effectiveRole(
  */
 export function useOrgStructureAccess() {
   const { role, isLoaded } = useAppRole()
-  const { isSuperadmin } = useViewer()
-  const effective = effectiveRole(role, isSuperadmin)
+  const { isSuperadmin, isImpersonating } = useViewer()
+  const effective = effectiveRole(role, isSuperadmin, isImpersonating)
 
   return {
     isLoaded,

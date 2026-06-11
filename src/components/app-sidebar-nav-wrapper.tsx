@@ -3,8 +3,10 @@ import { AppSidebarNav } from '@/components/app-sidebar-nav'
 import type { SidebarSection } from '@/components/app-sidebar-nav'
 import { getAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
-import { isSuperadmin } from '@/lib/authz/guards.server'
-import { currentUser } from '@clerk/nextjs/server'
+import {
+  canUseSuperadminPowers,
+  getEffectiveViewerEmail,
+} from '@/lib/impersonation/viewer-context.server'
 import { client } from '@/sanity/lib/client'
 import { getProjectMembershipForViewer } from '@/lib/project-access.server'
 import { getSprintNavCountsForViewer } from '@/lib/sprint-nav-counts.server'
@@ -16,7 +18,7 @@ import { getProjectSlugById } from '@/sanity/lib/projects/get-project-by-id'
 export async function AppSidebarNavWrapper() {
   const role = await getAppRole()
   const departmentsTree = await getDepartmentsWithDivisionsForSidebar()
-  const useFallbackExplorer = await isSuperadmin()
+  const useFallbackExplorer = await canUseSuperadminPowers()
   const { isProjects, projectId } = await getProjectWorkspaceContext()
   const hideSprintReviewTab = isProjects
 
@@ -118,14 +120,7 @@ export async function AppSidebarNavWrapper() {
   }
 
   if (role === 'commissioner') {
-    const user = await currentUser()
-    const email = (
-      user?.primaryEmailAddress?.emailAddress ??
-      user?.emailAddresses?.[0]?.emailAddress ??
-      ''
-    )
-      .trim()
-      .toLowerCase()
+    const email = await getEffectiveViewerEmail()
 
     const commissionerDepartmentId = email
       ? await client.fetch<string | null>(

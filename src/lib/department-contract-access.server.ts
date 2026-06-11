@@ -1,23 +1,15 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import {
+  canUseSuperadminPowers,
+  getEffectiveViewerEmail,
+} from '@/lib/impersonation/viewer-context.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { client } from '@/sanity/lib/client'
-
-function getViewerEmail(user: Awaited<ReturnType<typeof currentUser>>) {
-  return (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
-}
 
 export async function getDepartmentIdFromContract(
   contractId: string,
@@ -61,13 +53,10 @@ export async function resolveCommissionerStaffRefForDepartment(
 export async function canManageDepartmentContract(
   departmentId: string,
 ): Promise<boolean> {
-  const user = await currentUser()
-  if (!user) return false
-
   const appRole = await getAppRole()
-  if ((await isSuperadmin()) || appRole === 'commissioner_general') return true
+  if ((await canUseSuperadminPowers()) || appRole === 'commissioner_general') return true
 
-  const email = getViewerEmail(user)
+  const email = await getEffectiveViewerEmail()
   if (!email) return false
 
   /** Treat missing commissioner status as active (legacy / incomplete Sanity data). */

@@ -1,7 +1,11 @@
 import 'server-only'
 
 import { recordAudit } from '@/lib/audit-log/record-audit.server'
-import type { AuditChangeType, AuditResourceType } from '@/lib/audit-log/types'
+import type {
+  AuditActor,
+  AuditChangeType,
+  AuditResourceType,
+} from '@/lib/audit-log/types'
 
 interface AuditEventBase {
   resourceId: string
@@ -219,6 +223,40 @@ export const audit = {
         message: `Transfer request ${decision}`,
         actionKey: 'staff-transfer.decide',
         newValue: detail,
+      }),
+  },
+  impersonation: {
+    started: (
+      staffId: string,
+      label: string,
+      detail?: unknown,
+      actor?: AuditActor | null,
+    ) =>
+      recordAudit({
+        change: 'IMPERSONATION_STARTED',
+        resourceType: 'impersonation',
+        resourceId: staffId,
+        resourceLabel: label,
+        message: `Impersonation started for ${label}`,
+        actionKey: 'impersonation.start',
+        newValue: detail,
+        actor,
+      }),
+    stopped: (
+      staffId: string,
+      label: string,
+      detail?: unknown,
+      actor?: AuditActor | null,
+    ) =>
+      recordAudit({
+        change: 'IMPERSONATION_STOPPED',
+        resourceType: 'impersonation',
+        resourceId: staffId,
+        resourceLabel: label,
+        message: `Impersonation stopped for ${label}`,
+        actionKey: 'impersonation.stop',
+        newValue: detail,
+        actor,
       }),
   },
 }

@@ -1,10 +1,34 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
 import { parseAppRole } from '@/lib/app-role'
 import { getSuperadminEmailWhitelist } from '@/lib/authz/env'
+import { impersonationCookieClearOptions } from '@/lib/impersonation/cookie-options'
+import { IMPERSONATION_COOKIE_NAME } from '@/lib/impersonation/constants'
 import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
 import { client } from '@/sanity/lib/client'
+
+function clearImpersonationCookieOnResponse(response: NextResponse) {
+  const options = impersonationCookieClearOptions()
+  response.cookies.set(options.name, options.value, {
+    httpOnly: options.httpOnly,
+    secure: options.secure,
+    sameSite: options.sameSite,
+    path: options.path,
+    maxAge: options.maxAge,
+  })
+  return response
+}
+
+function finalizeResponse(
+  userId: string | null | undefined,
+  request: NextRequest,
+  response: NextResponse,
+) {
+  if (userId) return response
+  if (!request.cookies.get(IMPERSONATION_COOKIE_NAME)?.value) return response
+  return clearImpersonationCookieOnResponse(response)
+}
 
 // Set to 'true' to require auth + staff email in Sanity. 'false' = open access (dev).
 const AUTH_GATED = process.env.AUTH_GATED === 'true'
@@ -98,12 +122,16 @@ export default clerkMiddleware(async (auth, request) => {
 
   // Post-sign-in boot (loader + workspace routing).
   if (userId && pathname === '/') {
-    return NextResponse.redirect(new URL('/auth/continue', request.url))
+    return finalizeResponse(
+      userId,
+      request,
+      NextResponse.redirect(new URL('/auth/continue', request.url)),
+    )
   }
 
   // Skip auth gating when AUTH_GATED is not 'true'
   if (!AUTH_GATED) {
-    return NextResponse.next()
+    return finalizeResponse(userId, request, NextResponse.next())
   }
 
   // Protect all routes except public routes
@@ -124,22 +152,36 @@ export default clerkMiddleware(async (auth, request) => {
 
           if (!emailExists) {
             // User's email is not in Sanity, redirect to unauthorized
-            return NextResponse.redirect(new URL('/unauthorized', request.url))
+            return finalizeResponse(
+              userId,
+              request,
+              NextResponse.redirect(new URL('/unauthorized', request.url)),
+            )
           }
         } else {
           // No email found, redirect to unauthorized
-          return NextResponse.redirect(new URL('/unauthorized', request.url))
+          return finalizeResponse(
+            userId,
+            request,
+            NextResponse.redirect(new URL('/unauthorized', request.url)),
+          )
         }
       } catch (error) {
         // If there's an error getting the user (e.g., user was deleted),
         // redirect to unauthorized page
-        return NextResponse.redirect(new URL('/unauthorized', request.url))
+        return finalizeResponse(
+          userId,
+          request,
+          NextResponse.redirect(new URL('/unauthorized', request.url)),
+        )
       }
     }
 
     // Protect the route (will redirect to sign-in if not authenticated)
     await auth.protect()
   }
+
+  return finalizeResponse(userId, request, NextResponse.next())
 })
 
 export const config = {

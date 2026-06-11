@@ -3,7 +3,7 @@ import 'server-only'
 import { currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
 import { getActiveDelegationAsDelegatee } from '@/lib/section-delegation.server'
@@ -32,7 +32,7 @@ export async function canManageOfficerContractForStaff(
   officerStaffId: string,
 ): Promise<boolean> {
   const appRole = await getAppRole()
-  if ((await isSuperadmin()) || appRole === 'commissioner_general') return true
+  if ((await canUseSuperadminPowers()) || appRole === 'commissioner_general') return true
 
   const viewerStaffId = await getViewerStaffIdForSection(sectionId)
   if (!viewerStaffId) return false

@@ -2,12 +2,12 @@ import 'server-only'
 
 import { getManagedSectionsForViewer } from '@/features/sections/load-section-workspace-data'
 import { getAppRole } from '@/lib/clerk-app-role.server'
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
 import { getProjectsForViewer } from '@/sanity/lib/projects/get-projects-for-viewer'
 
 /** Whether the viewer can use the mainstream (section/org) workspace. */
 export async function hasMainstreamWorkspaceForViewer(): Promise<boolean> {
-  if (await isSuperadmin()) return true
+  if (await canUseSuperadminPowers()) return true
 
   const role = await getAppRole()
   if (
@@ -24,7 +24,7 @@ export async function hasMainstreamWorkspaceForViewer(): Promise<boolean> {
 
 /** Mainstream dashboard URL after workspace mode is mainstream. */
 export async function resolveMainstreamDashboardHref(): Promise<string> {
-  if (await isSuperadmin()) return '/departments'
+  if (await canUseSuperadminPowers()) return '/departments'
 
   const role = await getAppRole()
   if (role === 'assistant_commissioner') {
@@ -47,7 +47,7 @@ export interface WorkspaceCapabilities {
 /** What the workspace picker should offer (no redirects). */
 export async function getWorkspaceCapabilities(): Promise<WorkspaceCapabilities> {
   const [superadmin, projects, hasMainstream] = await Promise.all([
-    isSuperadmin(),
+    canUseSuperadminPowers(),
     getProjectsForViewer(),
     hasMainstreamWorkspaceForViewer(),
   ])

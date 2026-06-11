@@ -1,53 +1,20 @@
 import 'server-only'
 
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { auth } from '@clerk/nextjs/server'
 import { cache } from 'react'
 import {
-  appRoleFromPublicMetadata,
   appRoleFromSessionClaims,
-  parseAppRole,
   type AppRole,
 } from '@/lib/app-role'
-import { client } from '@/sanity/lib/client'
-
-function getPrimaryEmail(
-  user: Awaited<ReturnType<typeof currentUser>>,
-): string {
-  return (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
-}
-
-async function getStaffAppRoleByEmail(email: string): Promise<AppRole | null> {
-  if (!email) return null
-
-  const staff = await client.fetch<{ role?: string } | null>(
-    /* groq */ `*[_type == "staff" && lower(email) == $email && status == "active"][0]{ role }`,
-    { email },
-  )
-
-  return parseAppRole(staff?.role)
-}
+import { getViewerContext } from '@/lib/impersonation/viewer-context.server'
 
 /**
- * Role from Clerk public metadata (`appRole`), with a Sanity staff-role
- * fallback for newly signed-in users whose Clerk metadata has not been set yet.
+ * Effective application role for the current viewer (respects impersonation).
  * Use in Server Components and Route Handlers.
  */
 export const getAppRole = cache(async function getAppRole(): Promise<AppRole | null> {
-  const user = await currentUser()
-  if (!user) return null
-
-  const clerkRole = appRoleFromPublicMetadata(
-    user.publicMetadata as Record<string, unknown>,
-  )
-  if (clerkRole) return clerkRole
-
-  return getStaffAppRoleByEmail(getPrimaryEmail(user))
+  const ctx = await getViewerContext()
+  return ctx.effectiveAppRole
 })
 
 /**

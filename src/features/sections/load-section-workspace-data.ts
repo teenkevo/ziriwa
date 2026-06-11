@@ -1,7 +1,7 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
 import { client } from '@/sanity/lib/client'
+import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionContractBySection } from '@/sanity/lib/section-contracts/get-section-contract-by-section'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
@@ -50,19 +50,8 @@ type SectionLookup = {
   manager?: { _id: string; fullName?: string }
 }
 
-async function getViewerEmail() {
-  const user = await currentUser()
-  return (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
-}
-
 export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
-  const email = await getViewerEmail()
+  const email = await getEffectiveViewerEmail()
   if (!email) return []
 
   return client.fetch<SectionLookup[]>(

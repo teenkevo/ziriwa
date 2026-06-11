@@ -14,10 +14,10 @@ export function useCapabilities(): {
   isSignedIn: boolean
 } {
   const { role, isLoaded, isSignedIn } = useAppRole()
-  const { isSuperadmin } = useViewer()
+  const { isSuperadmin, isImpersonating } = useViewer()
   const capabilities = React.useMemo(
-    () => getCapabilitiesForRole(role, isSuperadmin),
-    [role, isSuperadmin],
+    () => getCapabilitiesForRole(role, isSuperadmin && !isImpersonating),
+    [role, isSuperadmin, isImpersonating],
   )
   return { capabilities, role, isLoaded, isSignedIn }
 }

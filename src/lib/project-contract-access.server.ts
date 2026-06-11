@@ -1,22 +1,12 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-import { isSuperadmin } from '@/lib/authz/guards.server'
+import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
+import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getProjectMembershipForViewer } from '@/lib/project-access.server'
 import { client } from '@/sanity/lib/client'
-
-function getViewerEmail(user: Awaited<ReturnType<typeof currentUser>>) {
-  return (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
-}
 
 export async function getProjectIdFromContract(
   contractId: string,
@@ -45,13 +35,12 @@ export async function resolveProjectManagerStaffRef(
 export async function canManageProjectContract(
   projectId: string,
 ): Promise<boolean> {
-  if (await isSuperadmin()) return true
+  if (await canUseSuperadminPowers()) return true
 
   const membership = await getProjectMembershipForViewer(projectId)
   if (membership?.role === 'project_manager') return true
 
-  const user = await currentUser()
-  const email = getViewerEmail(user)
+  const email = await getEffectiveViewerEmail()
   if (!email) return false
 
   return client.fetch<boolean>(

@@ -194,6 +194,11 @@ export function AuditLogContent() {
                         {row.authorEmail}
                       </div>
                     )}
+                    {row.impersonatorEmail ? (
+                      <div className='text-xs text-amber-700 dark:text-amber-300 truncate max-w-[180px]'>
+                        via {row.impersonatorName || row.impersonatorEmail}
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     <Badge variant='outline' className='font-mono text-[10px]'>

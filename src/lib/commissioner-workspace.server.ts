@@ -10,6 +10,7 @@ import {
   syncOrgDelegationStatuses,
 } from '@/lib/org-role-delegation.server'
 import type { OrgDelegationRecord } from '@/lib/org-role-delegation.server'
+import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { client } from '@/sanity/lib/client'
 
 export type CommissionerDepartment = {
@@ -50,14 +51,7 @@ async function getDepartmentById(
 }
 
 async function getCommissionerDepartmentByEmail(): Promise<CommissionerDepartment | null> {
-  const user = await import('@clerk/nextjs/server').then(m => m.currentUser())
-  const email = (
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress ??
-    ''
-  )
-    .trim()
-    .toLowerCase()
+  const email = await getEffectiveViewerEmail()
   if (!email) return null
 
   return client.fetch<CommissionerDepartment | null>(

@@ -1,8 +1,7 @@
 import 'server-only'
 
-import { currentUser } from '@clerk/nextjs/server'
 import { writeClient } from '@/sanity/lib/write-client'
-import { client } from '@/sanity/lib/client'
+import { getViewerContext } from '@/lib/impersonation/viewer-context.server'
 import type { AuditActor, RecordAuditInput } from '@/lib/audit-log/types'
 
 /** Max embedded entries per Sanity document before opening a new batch. */
@@ -28,22 +27,21 @@ function safeJson(value: unknown): string | undefined {
 }
 
 export async function resolveAuditActor(): Promise<AuditActor | null> {
-  const user = await currentUser()
-  const emailRaw =
-    user?.primaryEmailAddress?.emailAddress ??
-    user?.emailAddresses?.[0]?.emailAddress
-  const email = emailRaw?.trim().toLowerCase()
-  if (!email) return null
+  const ctx = await getViewerContext()
+  if (!ctx.effectiveEmail) return null
 
-  const name =
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ') || email
+  const actor: AuditActor = {
+    name: ctx.effectiveName,
+    email: ctx.effectiveEmail,
+    staffId: ctx.effectiveStaffId ?? undefined,
+  }
 
-  const staffId = await client.fetch<string | null>(
-    `*[_type == "staff" && lower(email) == $email && status == "active"][0]._id`,
-    { email },
-  )
+  if (ctx.isImpersonating) {
+    actor.impersonatorName = ctx.realName
+    actor.impersonatorEmail = ctx.realEmail
+  }
 
-  return { name, email, staffId: staffId ?? undefined }
+  return actor
 }
 
 export async function appendAuditLog(input: RecordAuditInput): Promise<void> {
@@ -58,6 +56,8 @@ export async function appendAuditLog(input: RecordAuditInput): Promise<void> {
     authorName: actor.name,
     authorEmail: actor.email,
     authorStaffId: actor.staffId,
+    impersonatorName: actor.impersonatorName,
+    impersonatorEmail: actor.impersonatorEmail,
     change: input.change,
     resourceType: input.resourceType,
     resourceId: input.resourceId,
