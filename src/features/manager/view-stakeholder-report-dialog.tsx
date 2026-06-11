@@ -11,7 +11,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { RICH_TEXT_TABLE_PROSE } from '@/components/ui/rich-text-editor'
 import type { StakeholderFileAsset } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import { cn } from '@/lib/utils'
 
 export { hasSubmittedEngagementReport } from '@/lib/stakeholder-engagement-report'
 
@@ -106,7 +108,10 @@ export function ViewStakeholderReportDialog({
           ) : null}
           <div className='rounded-md border bg-muted/20 p-4'>
             <div
-              className='prose prose-sm dark:prose-invert max-w-none [&_ol]:list-decimal [&_ul]:list-disc'
+              className={cn(
+                'prose prose-sm dark:prose-invert max-w-none [&_ol]:list-decimal [&_ul]:list-disc',
+                RICH_TEXT_TABLE_PROSE,
+              )}
               dangerouslySetInnerHTML={{ __html: reportHtml ?? '' }}
             />
           </div>

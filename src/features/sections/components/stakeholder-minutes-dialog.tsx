@@ -39,7 +39,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import {
+  RICH_TEXT_TABLE_PROSE,
+  RichTextEditor,
+} from '@/components/ui/rich-text-editor'
 import { cn } from '@/lib/utils'
 import { EditMinutesApprovalsDialog } from './edit-minutes-approvals-dialog'
 import type {
@@ -93,6 +96,9 @@ function downloadMinutesHtml(options: {
       body { font-family: Georgia, serif; max-width: 760px; margin: 40px auto; color: #111; line-height: 1.6; }
       h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
       .meta { color: #666; margin-bottom: 2rem; font-size: 0.95rem; }
+      table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+      th, td { border: 1px solid #ccc; padding: 0.5rem 0.75rem; text-align: left; }
+      th { background: #f5f5f5; }
     </style>
   </head>
   <body>
@@ -435,7 +441,10 @@ export function StakeholderMinutesDialog({
               <div className='rounded-md border bg-background p-4'>
                 {stripHtml(content) ? (
                   <div
-                    className='prose prose-sm dark:prose-invert max-w-none [&_ol]:list-decimal [&_ul]:list-disc'
+                    className={cn(
+                      'prose prose-sm dark:prose-invert max-w-none [&_ol]:list-decimal [&_ul]:list-disc',
+                      RICH_TEXT_TABLE_PROSE,
+                    )}
                     dangerouslySetInnerHTML={{ __html: content }}
                   />
                 ) : (
