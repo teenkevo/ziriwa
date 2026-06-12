@@ -112,6 +112,7 @@ const isPublicRoute = createRouteMatcher([
   '/auth/continue(.*)',
   '/__clerk(.*)',
   '/api/webhooks/clerk(.*)',
+  '/api/cron(.*)',
   '/unauthorized',
   '/studio(.*)',
 ])

@@ -6,10 +6,13 @@ import { usePathname } from 'next/navigation'
 import {
   CalendarClock,
   FolderKanban,
+  Loader2,
+  MailWarning,
   ScrollText,
   User,
   UserRoundSearch,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { ImpersonationDialog } from '@/components/impersonation-dialog'
 import {
@@ -30,11 +33,13 @@ const ADMIN_LINKS = [
 interface AppSidebarFooterClientProps {
   showAdmin: boolean
   showImpersonate?: boolean
+  showSprintEmailTest?: boolean
 }
 
 export function AppSidebarFooterClient({
   showAdmin,
   showImpersonate = false,
+  showSprintEmailTest = false,
 }: AppSidebarFooterClientProps) {
   const pathname = usePathname()
   const delegation = useDelegationSidebarOptional()
@@ -42,12 +47,71 @@ export function AppSidebarFooterClient({
   const isSwitching = navigation?.isSwitching ?? false
   const showDelegateButton = delegation?.canSelfServiceDelegate ?? false
   const [impersonateOpen, setImpersonateOpen] = React.useState(false)
+  const [isSendingSprintEmailTest, setIsSendingSprintEmailTest] =
+    React.useState(false)
 
-  if (!showDelegateButton && !showAdmin && !showImpersonate) return null
+  async function handleSprintEmailTest() {
+    setIsSendingSprintEmailTest(true)
+    try {
+      const res = await fetch('/api/email/sprint-missing-submissions-test', {
+        method: 'POST',
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string
+        message?: string
+        sent?: boolean
+        emailsSent?: number
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not send test email')
+      }
+
+      if (data.sent) {
+        toast.success(data.message || 'Sprint reminder email sent')
+      } else {
+        toast.message(data.message || 'No sprint reminder email was sent')
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Could not send test email',
+      )
+    } finally {
+      setIsSendingSprintEmailTest(false)
+    }
+  }
+
+  if (
+    !showSprintEmailTest &&
+    !showDelegateButton &&
+    !showAdmin &&
+    !showImpersonate
+  ) {
+    return null
+  }
 
   return (
     <>
       <SidebarFooter className='border-t border-sidebar-border'>
+        {showSprintEmailTest ? (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                type='button'
+                disabled={isSwitching || isSendingSprintEmailTest}
+                onClick={() => void handleSprintEmailTest()}
+                tooltip='Send at-risk sprint emails to you, supervisors, and officers'
+              >
+                {isSendingSprintEmailTest ? (
+                  <Loader2 className='animate-spin' />
+                ) : (
+                  <MailWarning />
+                )}
+                <span>Test sprint reminder emails</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        ) : null}
         {showDelegateButton ? (
           <SidebarMenu>
             <SidebarMenuItem>
