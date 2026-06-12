@@ -20,6 +20,14 @@ export function renderAtRiskBadge(): string {
   return `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; background: #fef2f2; color: #b91c1c; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap;">At risk</span>`
 }
 
+export function renderOnTrackBadge(): string {
+  return `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; background: #f0fdf4; color: #15803d; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap;">On track</span>`
+}
+
+export function renderRiskBadge(isAtRisk: boolean): string {
+  return isAtRisk ? renderAtRiskBadge() : renderOnTrackBadge()
+}
+
 export function renderCompactEmailTable<T>(options: {
   columns: EmailTableColumn<T>[]
   rows: T[]

@@ -22,16 +22,18 @@ export async function POST() {
     )
   }
 
-  const bundles =
-    await fetchSprintMissingSubmissionBundlesForManagerScope(viewerStaffId)
+  const bundles = await fetchSprintMissingSubmissionBundlesForManagerScope(
+    viewerStaffId,
+    undefined,
+    { includeAllAcceptedTasks: true },
+  )
 
   if (bundles.length === 0) {
     return NextResponse.json({
       ok: true,
       sent: false,
       emailsSent: 0,
-      message:
-        'No at-risk sprint activities without submissions in your sections.',
+      message: 'No active sprint activities in your sections.',
     })
   }
 

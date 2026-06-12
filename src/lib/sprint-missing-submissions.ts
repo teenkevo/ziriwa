@@ -25,6 +25,12 @@ export interface SprintMissingSubmissionRow {
   categoryLabel: string
   assigneeName: string
   taskStatusLabel: string
+  isAtRisk: boolean
+}
+
+export interface FetchSprintMissingSubmissionBundlesOptions {
+  /** When true, include all accepted tasks (test/preview). Default: at-risk only. */
+  includeAllAcceptedTasks?: boolean
 }
 
 export interface SprintMissingSubmissionsBundle {
@@ -73,8 +79,15 @@ function getActivityLabel(task: { description?: string }): string {
   return task.description?.trim() || 'Untitled activity'
 }
 
+function isTaskAtRisk(
+  task: NonNullable<SprintQueryRow['tasks']>[number],
+): boolean {
+  return task.status === 'accepted' && (task.submissionCount ?? 0) === 0
+}
+
 function sortRows(rows: SprintMissingSubmissionRow[]): SprintMissingSubmissionRow[] {
   return rows.sort((a, b) => {
+    if (a.isAtRisk !== b.isAtRisk) return a.isAtRisk ? -1 : 1
     const sectionCompare = a.sectionName.localeCompare(b.sectionName)
     if (sectionCompare !== 0) return sectionCompare
     return a.activityLabel.localeCompare(b.activityLabel)
@@ -103,7 +116,9 @@ function bundleKey(
 
 export async function fetchSprintMissingSubmissionBundles(
   today: string,
+  options: FetchSprintMissingSubmissionBundlesOptions = {},
 ): Promise<SprintMissingSubmissionsBundle[]> {
+  const { includeAllAcceptedTasks = false } = options
   const sprints = await client.fetch<SprintQueryRow[]>(
     /* groq */ `*[_type == "weeklySprint"
       && status in ["submitted", "reviewed"]
@@ -146,13 +161,15 @@ export async function fetchSprintMissingSubmissionBundles(
   for (const sprint of sprints ?? []) {
     if (!isSprintWeekStarted(sprint.weekStart)) continue
 
-    const atRiskTasks = (sprint.tasks ?? []).filter(
-      task =>
-        task.status === 'accepted' && (task.submissionCount ?? 0) === 0,
+    const acceptedTasks = (sprint.tasks ?? []).filter(
+      task => task.status === 'accepted',
     )
-    if (atRiskTasks.length === 0) continue
+    const tasksToInclude = includeAllAcceptedTasks
+      ? acceptedTasks
+      : acceptedTasks.filter(isTaskAtRisk)
+    if (tasksToInclude.length === 0) continue
 
-    for (const task of atRiskTasks) {
+    for (const task of tasksToInclude) {
       if (!sprint.managerId) continue
 
       const row: SprintMissingSubmissionRow = {
@@ -178,6 +195,7 @@ export async function fetchSprintMissingSubmissionBundles(
             sprint.weekStart,
           ),
         ),
+        isAtRisk: isTaskAtRisk(task),
       }
 
       if (sprint.managerId && sprint.managerEmail) {
@@ -257,8 +275,9 @@ export async function fetchSprintMissingSubmissionBundleForRecipient(
 export async function fetchSprintMissingSubmissionBundlesForManagerScope(
   managerId: string,
   today = new Date().toISOString().slice(0, 10),
+  options: FetchSprintMissingSubmissionBundlesOptions = {},
 ): Promise<SprintMissingSubmissionsBundle[]> {
-  const bundles = await fetchSprintMissingSubmissionBundles(today)
+  const bundles = await fetchSprintMissingSubmissionBundles(today, options)
 
   return bundles
     .map(bundle => ({

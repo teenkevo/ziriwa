@@ -100,7 +100,7 @@ export function AppSidebarFooterClient({
                 type='button'
                 disabled={isSwitching || isSendingSprintEmailTest}
                 onClick={() => void handleSprintEmailTest()}
-                tooltip='Send at-risk sprint emails to you, supervisors, and officers'
+                tooltip='Send sprint status emails (all tasks) to you, supervisors, and officers'
               >
                 {isSendingSprintEmailTest ? (
                   <Loader2 className='animate-spin' />

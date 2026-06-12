@@ -4,8 +4,8 @@ import { getAppBaseUrl } from '@/lib/app-url.server'
 import { paragraphHtml, renderEmailLayout } from '@/lib/email/templates/layout'
 import {
   cellText,
-  renderAtRiskBadge,
   renderCompactEmailTable,
+  renderRiskBadge,
 } from '@/lib/email/templates/table'
 import type { EmailTemplateDefinition } from '@/lib/email/types'
 import type {
@@ -27,27 +27,43 @@ const SPRINT_LINK_BY_ROLE: Record<SprintAtRiskRecipientRole, string> = {
 }
 
 function buildSummary(data: SprintMissingSubmissionsEmailData): string {
-  const count = data.rows.length
-  const countLabel = `${count} sprint ${count === 1 ? 'activity has' : 'activities have'}`
+  const total = data.rows.length
+  const atRiskCount = data.rows.filter(row => row.isAtRisk).length
+  const scope =
+    data.recipientRole === 'manager'
+      ? 'across your sections'
+      : data.recipientRole === 'supervisor'
+        ? 'in sprints you created'
+        : 'on activities assigned to you'
 
-  if (data.recipientRole === 'manager') {
-    return `Hi ${data.recipientName}, ${countLabel} no work submissions yet across your sections. These items are marked at risk until evidence is logged.`
+  if (atRiskCount === total) {
+    const countLabel = `${atRiskCount} sprint ${atRiskCount === 1 ? 'activity has' : 'activities have'}`
+    return `Hi ${data.recipientName}, ${countLabel} no work submissions yet ${scope}. These items are marked at risk until evidence is logged.`
   }
 
-  if (data.recipientRole === 'supervisor') {
-    return `Hi ${data.recipientName}, ${countLabel} no work submissions yet in sprints you created. These items are marked at risk until evidence is logged.`
+  if (atRiskCount === 0) {
+    const countLabel = `${total} sprint ${total === 1 ? 'activity' : 'activities'}`
+    return `Hi ${data.recipientName}, all ${countLabel} ${scope} have work submissions. None are currently at risk.`
   }
 
-  return `Hi ${data.recipientName}, ${countLabel} no work submissions yet on activities assigned to you. These items are marked at risk until evidence is logged.`
+  const atRiskLabel = `${atRiskCount} of ${total} sprint ${total === 1 ? 'activity' : 'activities'}`
+  return `Hi ${data.recipientName}, ${atRiskLabel} ${scope} ${atRiskCount === 1 ? 'has' : 'have'} no work submissions yet and ${atRiskCount === 1 ? 'is' : 'are'} marked at risk.`
 }
 
 export const sprintMissingSubmissionsEmailTemplate: EmailTemplateDefinition<SprintMissingSubmissionsEmailData> =
   {
     id: 'sprint-missing-submissions',
     render(data) {
-      const count = data.rows.length
-      const title = `Sprint activities at risk for ${data.weekLabel}`
-      const previewText = `${count} sprint ${count === 1 ? 'activity is' : 'activities are'} at risk with no work submissions`
+      const total = data.rows.length
+      const atRiskCount = data.rows.filter(row => row.isAtRisk).length
+      const title =
+        atRiskCount === total
+          ? `Sprint activities at risk for ${data.weekLabel}`
+          : `Sprint status for ${data.weekLabel}`
+      const previewText =
+        atRiskCount === total
+          ? `${atRiskCount} sprint ${atRiskCount === 1 ? 'activity is' : 'activities are'} at risk with no work submissions`
+          : `${atRiskCount} of ${total} sprint ${total === 1 ? 'activity is' : 'activities are'} at risk`
 
       const tableHtml = renderCompactEmailTable({
         columns: [
@@ -81,7 +97,7 @@ export const sprintMissingSubmissionsEmailTemplate: EmailTemplateDefinition<Spri
             key: 'risk',
             header: 'Risk',
             align: 'center',
-            render: () => renderAtRiskBadge(),
+            render: row => renderRiskBadge(row.isAtRisk),
           },
         ],
         rows: data.rows,
