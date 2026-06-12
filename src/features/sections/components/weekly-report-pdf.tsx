@@ -13,6 +13,10 @@ import {
 } from '@react-pdf/renderer'
 import { FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  getSprintTaskStatusLabel,
+  resolveSprintTaskStatus,
+} from '@/lib/sprint-task-status'
 import type {
   SprintTask,
   WeeklySprint,
@@ -29,14 +33,6 @@ type ReportRow = {
   initiative: string
   measurableActivity: string
   task: SprintTask
-}
-
-const TASK_STATUS_LABELS: Record<string, string> = {
-  to_do: 'To do',
-  in_progress: 'In progress',
-  delivered: 'Delivered',
-  in_review: 'In review',
-  done: 'Done',
 }
 
 const SUBMISSION_STATUS_LABELS: Record<string, string> = {
@@ -266,13 +262,8 @@ function formatDate(date?: string) {
   })
 }
 
-function formatTaskStatusLabel(task: SprintTask) {
-  if (task.taskStatus) {
-    return (
-      TASK_STATUS_LABELS[task.taskStatus] ?? task.taskStatus.replace(/_/g, ' ')
-    )
-  }
-  return '—'
+function formatTaskStatusLabel(task: SprintTask, weekStart: string) {
+  return getSprintTaskStatusLabel(resolveSprintTaskStatus(task, weekStart))
 }
 
 function formatSubmissionStatusLabel(status?: string) {
@@ -290,16 +281,18 @@ function formatSubmissionTimeRange(submission: WorkSubmission) {
 
 function TaskDoneBlock({
   task,
+  weekStart,
   isLast = true,
 }: {
   task: SprintTask
+  weekStart: string
   isLast?: boolean
 }) {
   return (
     <View style={isLast ? styles.taskBlockLast : styles.taskBlock}>
       <Text style={styles.taskDescription}>{task.description || '—'}</Text>
       <Text style={styles.taskMetaLine}>
-        Status: {formatTaskStatusLabel(task)}
+        Status: {formatTaskStatusLabel(task, weekStart)}
       </Text>
       {task.assigneeName ? (
         <Text style={styles.taskMetaLine}>
@@ -379,8 +372,9 @@ function WorkSubmissionsBlock({
 function buildRows(sprint: WeeklySprint): ReportRow[] {
   return (sprint.tasks ?? [])
     .filter(task => {
+      const workflowStatus = resolveSprintTaskStatus(task, sprint.weekStart)
       const hasDoneStatus =
-        task.taskStatus === 'delivered' || task.taskStatus === 'done'
+        workflowStatus === 'delivered' || workflowStatus === 'done'
       const hasSubmission = (task.workSubmissions ?? []).length > 0
       return task.status === 'accepted' || hasDoneStatus || hasSubmission
     })
@@ -526,6 +520,7 @@ export function WeeklyReportPage({
                           <View style={styles.groupedTaskCell}>
                             <TaskDoneBlock
                               task={row.task}
+                              weekStart={sprint.weekStart}
                               isLast={taskIndex === activity.rows.length - 1}
                             />
                           </View>

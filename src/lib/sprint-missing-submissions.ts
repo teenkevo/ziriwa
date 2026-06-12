@@ -1,7 +1,12 @@
 import 'server-only'
 
+import {
+  getSprintTaskStatusLabel,
+  resolveSprintTaskStatus,
+} from '@/lib/sprint-task-status'
 import { getSprintActivityCategoryLabel } from '@/lib/sprint-task-validation'
 import { isSprintWeekStarted } from '@/lib/sprint-week'
+import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { client } from '@/sanity/lib/client'
 
 export type SprintAtRiskRecipientRole = 'manager' | 'supervisor' | 'officer'
@@ -60,15 +65,8 @@ interface SprintQueryRow {
     assigneeName?: string
     taskStatus?: string
     submissionCount?: number
+    workSubmissions?: { status?: string }[]
   }[]
-}
-
-const TASK_STATUS_LABELS: Record<string, string> = {
-  to_do: 'To do',
-  in_progress: 'In progress',
-  delivered: 'Delivered',
-  in_review: 'In review',
-  done: 'Done',
 }
 
 function getActivityLabel(task: {
@@ -82,11 +80,6 @@ function getActivityLabel(task: {
     task.description?.trim() ||
     'Untitled activity'
   )
-}
-
-function getTaskStatusLabel(taskStatus?: string): string {
-  if (!taskStatus) return 'To do'
-  return TASK_STATUS_LABELS[taskStatus] ?? taskStatus
 }
 
 function sortRows(rows: SprintMissingSubmissionRow[]): SprintMissingSubmissionRow[] {
@@ -150,7 +143,8 @@ export async function fetchSprintMissingSubmissionBundles(
         "assigneeEmail": assignee->email,
         "assigneeName": coalesce(assignee->fullName, assignee->firstName + " " + assignee->lastName),
         taskStatus,
-        "submissionCount": count(coalesce(workSubmissions, []))
+        "submissionCount": count(coalesce(workSubmissions, [])),
+        workSubmissions[] { status }
       }
     }`,
     { today },
@@ -183,7 +177,16 @@ export async function fetchSprintMissingSubmissionBundles(
         activityLabel: getActivityLabel(task),
         categoryLabel: getSprintActivityCategoryLabel(task.activityCategory),
         assigneeName: task.assigneeName?.trim() || 'Unassigned',
-        taskStatusLabel: getTaskStatusLabel(task.taskStatus),
+        taskStatusLabel: getSprintTaskStatusLabel(
+          resolveSprintTaskStatus(
+            {
+              status: task.status as SprintTask['status'],
+              taskStatus: task.taskStatus as SprintTask['taskStatus'],
+              workSubmissions: task.workSubmissions as SprintTask['workSubmissions'],
+            },
+            sprint.weekStart,
+          ),
+        ),
       }
 
       if (sprint.managerId && sprint.managerEmail) {

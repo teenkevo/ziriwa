@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns'
 
+import { resolveSprintTaskStatus } from '@/lib/sprint-task-status'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 
 export type SprintVelocityWeek = {
@@ -37,7 +38,7 @@ function countSprintTasks(sprint: WeeklySprint) {
   let fulfilled = 0
   for (const task of tasks) {
     committed++
-    if (task.taskStatus === 'done') fulfilled++
+    if (resolveSprintTaskStatus(task, sprint.weekStart) === 'done') fulfilled++
   }
   return { committed, fulfilled }
 }

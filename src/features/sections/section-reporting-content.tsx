@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { resolveSprintTaskStatus } from '@/lib/sprint-task-status'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 
 type WeeklyReportDownloadButtonProps = {
@@ -49,8 +50,9 @@ function formatDate(date?: string) {
 function countReportableTasks(sprint?: WeeklySprint) {
   if (!sprint) return 0
   return (sprint.tasks ?? []).filter(task => {
+    const workflowStatus = resolveSprintTaskStatus(task, sprint.weekStart)
     const hasDoneStatus =
-      task.taskStatus === 'delivered' || task.taskStatus === 'done'
+      workflowStatus === 'delivered' || workflowStatus === 'done'
     const hasSubmission = (task.workSubmissions ?? []).length > 0
     return task.status === 'accepted' || hasDoneStatus || hasSubmission
   }).length

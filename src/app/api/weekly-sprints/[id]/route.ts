@@ -518,6 +518,7 @@ export async function PATCH(
             ...existing,
             newSubmission,
           ],
+          [`tasks[_key=="${taskKey}"].taskStatus`]: 'in_review',
         })
         .commit()
 
@@ -584,17 +585,15 @@ export async function PATCH(
       })
 
       const allApproved = updated.every(s => s.status === 'approved')
+      const hasPending = updated.some(s => (s.status ?? 'pending') === 'pending')
 
       const setFields: Record<string, unknown> = {
         [`tasks[_key=="${taskKey}"].workSubmissions`]: updated,
-      }
-      if (allApproved) {
-        const ws = doc.weekStart as string
-        setFields[`tasks[_key=="${taskKey}"].taskStatus`] = isSprintWeekStarted(
-          ws,
-        )
+        [`tasks[_key=="${taskKey}"].taskStatus`]: allApproved
           ? 'done'
-          : 'to_do'
+          : hasPending
+            ? 'in_review'
+            : 'in_progress',
       }
 
       await writeClient.patch(id).set(setFields).commit()
@@ -655,7 +654,10 @@ export async function PATCH(
 
       await writeClient
         .patch(id)
-        .set({ [`tasks[_key=="${taskKey}"].workSubmissions`]: updated })
+        .set({
+          [`tasks[_key=="${taskKey}"].workSubmissions`]: updated,
+          [`tasks[_key=="${taskKey}"].taskStatus`]: 'in_progress',
+        })
         .commit()
 
       const assigneeRefReject = (task.assignee as { _ref?: string } | undefined)
@@ -741,7 +743,10 @@ export async function PATCH(
 
       await writeClient
         .patch(id)
-        .set({ [`tasks[_key=="${taskKey}"].workSubmissions`]: updated })
+        .set({
+          [`tasks[_key=="${taskKey}"].workSubmissions`]: updated,
+          [`tasks[_key=="${taskKey}"].taskStatus`]: 'in_review',
+        })
         .commit()
 
       return NextResponse.json({ success: true })
@@ -1055,7 +1060,9 @@ export async function PATCH(
         }),
         status: 'accepted',
         reviewedAt: new Date().toISOString(),
-        taskStatus: 'to_do',
+        taskStatus: isSprintWeekStarted(doc.weekStart as string)
+          ? 'in_progress'
+          : 'to_do',
         priority: 'medium',
         assignee: { _type: 'reference', _ref: officerId },
       }

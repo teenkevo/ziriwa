@@ -18,6 +18,7 @@ import type {
   StakeholderEngagement,
   StakeholderEntry,
 } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import { resolveSprintTaskStatus } from '@/lib/sprint-task-status'
 import {
   getCurrentPeriodDueDate,
   getPeriodInfo,
@@ -436,7 +437,8 @@ export function computeSectionDashboardMetrics(input: {
 
     for (const task of sprint.tasks ?? []) {
       sprintTotal++
-      const tStatusKey = (task.taskStatus ?? 'to_do') as SprintTaskStatusKey
+      const workflowStatus = resolveSprintTaskStatus(task, sprint.weekStart)
+      const tStatusKey = workflowStatus as SprintTaskStatusKey
       if (tStatusKey in taskStatusBreakdown) taskStatusBreakdown[tStatusKey]++
 
       const cat = (task.activityCategory ?? 'uncategorized') as ActivityCategoryKey
@@ -444,9 +446,9 @@ export function computeSectionDashboardMetrics(input: {
       else activityCategoryBreakdown.uncategorized++
 
       if (task.status === 'accepted') sprintAccepted++
-      if (task.taskStatus === 'done') sprintDone++
+      if (workflowStatus === 'done') sprintDone++
 
-      if (task.taskStatus !== 'done') openSprintTasks++
+      if (workflowStatus !== 'done') openSprintTasks++
 
       if (sprint.status === 'submitted' && task.status === 'pending') {
         pendingReviewTasks.push({
@@ -454,7 +456,7 @@ export function computeSectionDashboardMetrics(input: {
           title: task.description,
           sprintWeekLabel: sprint.weekLabel,
           sprintId: sprint._id,
-          taskStatus: task.taskStatus,
+          taskStatus: workflowStatus,
           assigneeName: task.assigneeName,
         })
       }
@@ -465,7 +467,7 @@ export function computeSectionDashboardMetrics(input: {
           title: task.description,
           sprintWeekLabel: sprint.weekLabel,
           sprintId: sprint._id,
-          taskStatus: task.taskStatus,
+          taskStatus: workflowStatus,
           assigneeName: task.assigneeName,
         })
       }
@@ -478,10 +480,10 @@ export function computeSectionDashboardMetrics(input: {
           active: 0,
           doneThisMonth: 0,
         }
-        if (task.taskStatus !== 'done' && task.status === 'accepted') {
+        if (workflowStatus !== 'done' && task.status === 'accepted') {
           existing.active++
         }
-        if (task.taskStatus === 'done' && isThisMonth) {
+        if (workflowStatus === 'done' && isThisMonth) {
           existing.doneThisMonth++
         }
         if (task.assigneeName && !existing.fullName) {
@@ -513,7 +515,7 @@ export function computeSectionDashboardMetrics(input: {
       for (const task of sprint.tasks ?? []) {
         total++
         if (task.status === 'accepted') accepted++
-        if (task.taskStatus === 'done') done++
+        if (resolveSprintTaskStatus(task, sprint.weekStart) === 'done') done++
       }
       return {
         sprintId: sprint._id,

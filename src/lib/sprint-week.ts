@@ -1,5 +1,6 @@
 import { addDays, format, parseISO, startOfWeek } from 'date-fns'
 
+import { resolveSprintTaskStatus } from '@/lib/sprint-task-status'
 import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 
 /** Monday–Friday working week containing `today` (YYYY-MM-DD). */
@@ -32,16 +33,13 @@ export function isSprintWeekStarted(
   return now.getTime() >= getSprintWeekStartLocal(weekStart).getTime()
 }
 
-/**
- * For accepted tasks before the sprint week starts, workflow status is fixed to To do.
- */
+/** Resolved workflow status (accounts for sprint start and work submissions). */
 export function getEffectiveTaskStatus(
-  task: Pick<SprintTask, 'status' | 'taskStatus'>,
+  task: Pick<SprintTask, 'status' | 'taskStatus'> & {
+    workSubmissions?: SprintTask['workSubmissions']
+  },
   weekStart: string,
+  now?: Date,
 ): NonNullable<SprintTask['taskStatus']> {
-  const raw = task.taskStatus ?? 'to_do'
-  if (task.status === 'accepted' && !isSprintWeekStarted(weekStart)) {
-    return 'to_do'
-  }
-  return raw
+  return resolveSprintTaskStatus(task, weekStart, now)
 }

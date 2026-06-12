@@ -1,9 +1,11 @@
+import { resolveSprintTaskStatus } from '@/lib/sprint-task-status'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 
 export function countReportableSprintTasks(sprint: WeeklySprint): number {
   return (sprint.tasks ?? []).filter(task => {
+    const workflowStatus = resolveSprintTaskStatus(task, sprint.weekStart)
     const hasDoneStatus =
-      task.taskStatus === 'delivered' || task.taskStatus === 'done'
+      workflowStatus === 'delivered' || workflowStatus === 'done'
     const hasSubmission = (task.workSubmissions ?? []).length > 0
     return task.status === 'accepted' || hasDoneStatus || hasSubmission
   }).length
