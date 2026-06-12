@@ -63,11 +63,6 @@ export const sprintMissingSubmissionsEmailTemplate: EmailTemplateDefinition<Spri
               `<span style="font-weight: 600;">${cellText(row.activityLabel)}</span>`,
           },
           {
-            key: 'category',
-            header: 'Category',
-            render: row => cellText(row.categoryLabel || '—'),
-          },
-          {
             key: 'officer',
             header: 'Officer',
             render: row => cellText(row.assigneeName),

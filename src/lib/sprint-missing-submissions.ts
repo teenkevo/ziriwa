@@ -69,17 +69,8 @@ interface SprintQueryRow {
   }[]
 }
 
-function getActivityLabel(task: {
-  activityTitle?: string
-  contractTaskTitle?: string
-  description?: string
-}): string {
-  return (
-    task.activityTitle?.trim() ||
-    task.contractTaskTitle?.trim() ||
-    task.description?.trim() ||
-    'Untitled activity'
-  )
+function getActivityLabel(task: { description?: string }): string {
+  return task.description?.trim() || 'Untitled activity'
 }
 
 function sortRows(rows: SprintMissingSubmissionRow[]): SprintMissingSubmissionRow[] {
