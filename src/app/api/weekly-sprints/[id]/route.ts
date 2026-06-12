@@ -18,6 +18,9 @@ import {
   notifySprintWorkReview,
   notifySupervisorsPendingSubmission,
 } from '@/lib/notifications/emit-sprint-notifications'
+import { notifyOfficerWorkSubmissionOutcomeEmail } from '@/lib/email/notify-sprint-work-submission-outcome-email.server'
+import { notifySupervisorWorkSubmissionEmail } from '@/lib/email/notify-sprint-work-submission-email.server'
+import { getSprintTaskStatusLabel } from '@/lib/sprint-task-status'
 import { audit } from '@/lib/audit-log/events'
 import { isSectionInProject } from '@/lib/project-access.server'
 import {
@@ -534,6 +537,15 @@ export async function PATCH(
         )
       }
 
+      notifySupervisorWorkSubmissionEmail({
+        sprintId: id,
+        taskKey,
+        submissionText: description.trim(),
+        evidenceAssetId: outputFileId,
+        officerStaffId: access.viewerStaffId!,
+        submissionKey: String(newSubmission._key),
+      })
+
       return NextResponse.json({ success: true, key: newSubmission._key })
     }
 
@@ -587,13 +599,15 @@ export async function PATCH(
       const allApproved = updated.every(s => s.status === 'approved')
       const hasPending = updated.some(s => (s.status ?? 'pending') === 'pending')
 
+      const taskStatusAfterReview = allApproved
+        ? 'done'
+        : hasPending
+          ? 'in_review'
+          : 'in_progress'
+
       const setFields: Record<string, unknown> = {
         [`tasks[_key=="${taskKey}"].workSubmissions`]: updated,
-        [`tasks[_key=="${taskKey}"].taskStatus`]: allApproved
-          ? 'done'
-          : hasPending
-            ? 'in_review'
-            : 'in_progress',
+        [`tasks[_key=="${taskKey}"].taskStatus`]: taskStatusAfterReview,
       }
 
       await writeClient.patch(id).set(setFields).commit()
@@ -601,6 +615,17 @@ export async function PATCH(
         ?._ref
       if (assigneeRefApprove) {
         void notifySprintWorkReview(assigneeRefApprove, true, message, sectionId)
+        notifyOfficerWorkSubmissionOutcomeEmail({
+          sprintId: id,
+          taskKey,
+          submissionKey,
+          reviewOutcome: 'approved',
+          supervisorFeedback: message?.trim() || 'Approved',
+          taskStatusLabel: getSprintTaskStatusLabel(
+            taskStatusAfterReview as 'done' | 'in_review' | 'in_progress',
+          ),
+          reviewerStaffId: access.viewerStaffId,
+        })
       }
       return NextResponse.json({ success: true })
     }
@@ -664,6 +689,15 @@ export async function PATCH(
         ?._ref
       if (assigneeRefReject) {
         void notifySprintWorkReview(assigneeRefReject, false, message, sectionId)
+        notifyOfficerWorkSubmissionOutcomeEmail({
+          sprintId: id,
+          taskKey,
+          submissionKey,
+          reviewOutcome: 'rejected',
+          supervisorFeedback: message.trim(),
+          taskStatusLabel: getSprintTaskStatusLabel('in_progress'),
+          reviewerStaffId: access.viewerStaffId,
+        })
       }
       return NextResponse.json({ success: true })
     }
@@ -714,6 +748,11 @@ export async function PATCH(
 
       const submissions =
         (task.workSubmissions as Array<Record<string, unknown>>) || []
+      const existingSubmission = submissions.find(s => s._key === submissionKey)
+      const existingAssetRef = (
+        existingSubmission?.output as { asset?: { _ref?: string } } | undefined
+      )?.asset?._ref
+
       const updated = submissions.map(s => {
         if (s._key !== submissionKey) return s
         const thread = (s.reviewThread as Array<Record<string, unknown>>) || []
@@ -748,6 +787,23 @@ export async function PATCH(
           [`tasks[_key=="${taskKey}"].taskStatus`]: 'in_review',
         })
         .commit()
+
+      const evidenceAssetId = outputFileId ?? existingAssetRef
+      const submissionText =
+        message?.trim() ||
+        String(existingSubmission?.description ?? '').trim() ||
+        'Updated work submission'
+
+      if (evidenceAssetId && access.viewerStaffId) {
+        notifySupervisorWorkSubmissionEmail({
+          sprintId: id,
+          taskKey,
+          submissionText,
+          evidenceAssetId,
+          officerStaffId: access.viewerStaffId,
+          submissionKey,
+        })
+      }
 
       return NextResponse.json({ success: true })
     }

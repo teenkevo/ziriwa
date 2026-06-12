@@ -63,7 +63,9 @@ export function OfficerSwitcher({
 
   const selected = officerOptions.find(o => o._id === value)
   const displayLabel = selected
-    ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
+    ? compact
+      ? selected.fullName
+      : `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
   const handleCreateSuccess = (newStaff: { _id: string; fullName: string }) => {
@@ -90,8 +92,8 @@ export function OfficerSwitcher({
             aria-label='Select officer'
             disabled={disabled}
             className={cn(
-              'w-full justify-between',
-              compact && 'h-9 text-xs font-normal',
+              'w-full min-w-0 justify-between gap-1.5',
+              compact && 'h-9 max-w-[148px] text-xs font-normal',
             )}
           >
             <User
@@ -100,10 +102,12 @@ export function OfficerSwitcher({
                 compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
               )}
             />
-            {displayLabel}
+            <span className='min-w-0 flex-1 truncate text-left'>
+              {displayLabel}
+            </span>
             <ChevronsUpDown
               className={cn(
-                'ml-auto shrink-0 opacity-50',
+                'shrink-0 opacity-50',
                 compact ? 'h-3.5 w-3.5' : 'h-4 w-4',
               )}
             />

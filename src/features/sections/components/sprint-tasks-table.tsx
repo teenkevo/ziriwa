@@ -166,7 +166,10 @@ export function SprintTasksTable({
         cell: ({ row }) => {
           const locked = hasSubmissions(row.original)
           return (
-            <div onClick={e => e.stopPropagation()}>
+            <div
+              className='w-[148px] max-w-[148px]'
+              onClick={e => e.stopPropagation()}
+            >
               <OfficerSwitcher
                 officers={officers}
                 value={row.original.assignee ?? null}
@@ -178,6 +181,7 @@ export function SprintTasksTable({
                 disabled={isSaving || locked || !canSuperviseDetailedTasks}
                 placeholder='Select officer'
                 sectionId={sectionId}
+                compact
               />
             </div>
           )
@@ -207,15 +211,17 @@ export function SprintTasksTable({
                 ? 'secondary'
                 : 'outline'
           return (
-            <Badge
-              variant={variant as 'default' | 'secondary' | 'outline'}
-              className={cn(
-                'text-xs',
-                status === 'done' && 'bg-green-700 text-white border-none',
-              )}
-            >
-              {label}
-            </Badge>
+            <div className='w-[108px] max-w-[108px]'>
+              <Badge
+                variant={variant as 'default' | 'secondary' | 'outline'}
+                className={cn(
+                  'inline-flex whitespace-nowrap text-xs',
+                  status === 'done' && 'bg-green-700 text-white border-none',
+                )}
+              >
+                {label}
+              </Badge>
+            </div>
           )
         },
         filterFn: (row, id, value) =>
@@ -303,7 +309,11 @@ export function SprintTasksTable({
                 {headerGroup.headers.map((header, index) => (
                   <TableHead
                     key={header.id}
-                    className={index === 0 ? 'min-w-[280px] pl-4' : undefined}
+                    className={cn(
+                      index === 0 && 'min-w-[280px] pl-4',
+                      header.column.id === 'assignee' && 'w-[148px]',
+                      header.column.id === 'taskStatus' && 'w-[108px]',
+                    )}
                   >
                     {header.isPlaceholder
                       ? null
