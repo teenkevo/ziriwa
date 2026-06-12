@@ -189,21 +189,30 @@ const styles = StyleSheet.create({
     marginBottom: 3,
     textTransform: 'uppercase',
   },
+  submissionNarrative: {
+    fontSize: 8,
+    color: '#111827',
+    marginBottom: 2,
+    lineHeight: 0.8,
+  },
   submissionLine: {
     fontSize: 8,
     color: '#111827',
     marginBottom: 2,
+    lineHeight: 0.8,
   },
   submissionMuted: {
     fontSize: 8,
     color: '#6b7280',
     fontStyle: 'italic',
+    lineHeight: 0.8,
   },
   evidenceLink: {
     fontSize: 7,
     color: '#1d4ed8',
     textDecoration: 'underline',
     marginTop: 2,
+    lineHeight: 0.8,
   },
   headerRow: {
     backgroundColor: '#f3f4f6',
@@ -329,7 +338,7 @@ function WorkSubmissionsBlock({
             style={isLast ? styles.submissionBlockLast : styles.submissionBlock}
           >
             <Text style={styles.submissionHeading}>Submission {index + 1}</Text>
-            <Text style={styles.submissionLine}>
+            <Text style={styles.submissionNarrative}>
               {submission.description || 'Work submission'}
             </Text>
             <Text style={styles.submissionLine}>
