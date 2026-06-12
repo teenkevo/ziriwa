@@ -186,20 +186,27 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: 700,
     color: '#374151',
-    marginBottom: 3,
     textTransform: 'uppercase',
   },
   submissionNarrative: {
     fontSize: 8,
     color: '#111827',
-    marginBottom: 2,
-    lineHeight: 0.8,
+    marginBottom: 10,
+    lineHeight: 1.4,
   },
   submissionLine: {
     fontSize: 8,
     color: '#111827',
     marginBottom: 2,
-    lineHeight: 0.8,
+    lineHeight: 2,
+  },
+  submissionMetaLine: {
+    fontSize: 8,
+    color: '#374151',
+    marginBottom: 2,
+    lineHeight: 1.4,
+    fontWeight: 700,
+    textTransform: 'uppercase',
   },
   submissionMuted: {
     fontSize: 8,
@@ -337,33 +344,40 @@ function WorkSubmissionsBlock({
             key={submission._key}
             style={isLast ? styles.submissionBlockLast : styles.submissionBlock}
           >
-            <Text style={styles.submissionHeading}>Submission {index + 1}</Text>
+            {/* <Text style={styles.submissionHeading}>Submission {index + 1}</Text> */}
             <Text style={styles.submissionNarrative}>
               {submission.description || 'Work submission'}
             </Text>
             <Text style={styles.submissionLine}>
-              Status: {formatSubmissionStatusLabel(submission.status)}
+              <Text style={styles.submissionMetaLine}>Status:</Text>{' '}
+              {formatSubmissionStatusLabel(submission.status)}
             </Text>
             {submission.date ? (
               <Text style={styles.submissionLine}>
-                Date: {formatDate(submission.date)}
+                <Text style={styles.submissionMetaLine}>Date:</Text>{' '}
+                {formatDate(submission.date)}
               </Text>
             ) : null}
             {timeRange ? (
-              <Text style={styles.submissionLine}>Time: {timeRange}</Text>
+              <Text style={styles.submissionLine}>
+                <Text style={styles.submissionMetaLine}>Time:</Text> {timeRange}
+              </Text>
             ) : null}
             {submission.totalHours != null ? (
               <Text style={styles.submissionLine}>
-                Hours: {submission.totalHours}
+                <Text style={styles.submissionMetaLine}>Hours:</Text>{' '}
+                {submission.totalHours}
               </Text>
             ) : null}
             {asset?.originalFilename ? (
               <Text style={styles.submissionLine}>
-                Evidence: {asset.originalFilename}
+                <Text style={styles.submissionMetaLine}>Evidence:</Text>{' '}
+                {asset.originalFilename}
               </Text>
             ) : null}
             {asset?.url ? (
               <Link src={asset.url} style={styles.evidenceLink}>
+                <Text style={styles.submissionMetaLine}>Evidence URL:</Text>{' '}
                 {asset.url}
               </Link>
             ) : asset?.originalFilename ? (
