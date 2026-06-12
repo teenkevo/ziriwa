@@ -52,16 +52,32 @@ export function isSprintWeekActive(
   )
 }
 
+const FIFTEEN_MINUTES_MS = 15 * 60 * 1000
 const THIRTY_MINUTES_MS = 30 * 60 * 1000
 const SPRINT_END_GRACE_MS = 2 * 60 * 60 * 1000
 
+function getSprintRemainingMs(weekEnd: string, now: Date = new Date()): number {
+  return getSprintWeekEndLocal(weekEnd).getTime() - now.getTime()
+}
+
+/** Remaining time is in (15 minutes, 30 minutes]. */
 export function isSprint30MinutesRemaining(
   weekEnd: string,
   now: Date = new Date(),
 ): boolean {
-  const endMs = getSprintWeekEndLocal(weekEnd).getTime()
-  const remainingMs = endMs - now.getTime()
-  return remainingMs > 0 && remainingMs <= THIRTY_MINUTES_MS
+  const remainingMs = getSprintRemainingMs(weekEnd, now)
+  return (
+    remainingMs > FIFTEEN_MINUTES_MS && remainingMs <= THIRTY_MINUTES_MS
+  )
+}
+
+/** Remaining time is in (0, 15 minutes]. */
+export function isSprint15MinutesRemaining(
+  weekEnd: string,
+  now: Date = new Date(),
+): boolean {
+  const remainingMs = getSprintRemainingMs(weekEnd, now)
+  return remainingMs > 0 && remainingMs <= FIFTEEN_MINUTES_MS
 }
 
 export function isSprintJustEnded(

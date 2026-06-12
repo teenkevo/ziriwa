@@ -4,6 +4,8 @@ import { notificationEmailTemplate } from '@/lib/email/templates/notification'
 import type { NotificationEmailData } from '@/lib/email/templates/notification'
 import { sprintMissingSubmissionsEmailTemplate } from '@/lib/email/templates/sprint-missing-submissions'
 import type { SprintMissingSubmissionsEmailData } from '@/lib/email/templates/sprint-missing-submissions'
+import { sprint15MinutesRemainingEmailTemplate } from '@/lib/email/templates/sprint-15-minutes-remaining'
+import type { Sprint15MinutesRemainingEmailData } from '@/lib/email/templates/sprint-15-minutes-remaining'
 import { sprint30MinutesRemainingEmailTemplate } from '@/lib/email/templates/sprint-30-minutes-remaining'
 import type { Sprint30MinutesRemainingEmailData } from '@/lib/email/templates/sprint-30-minutes-remaining'
 import { sprintCompletedEmailTemplate } from '@/lib/email/templates/sprint-completed'
@@ -18,6 +20,7 @@ interface EmailTemplateMap {
   notification: EmailTemplateDefinition<NotificationEmailData>
   'sprint-missing-submissions': EmailTemplateDefinition<SprintMissingSubmissionsEmailData>
   'sprint-30-minutes-remaining': EmailTemplateDefinition<Sprint30MinutesRemainingEmailData>
+  'sprint-15-minutes-remaining': EmailTemplateDefinition<Sprint15MinutesRemainingEmailData>
   'sprint-completed': EmailTemplateDefinition<SprintCompletedEmailData>
   'sprint-work-submission-review': EmailTemplateDefinition<SprintWorkSubmissionReviewEmailData>
   'sprint-work-submission-outcome': EmailTemplateDefinition<SprintWorkSubmissionOutcomeEmailData>
@@ -27,6 +30,7 @@ export const emailTemplates = {
   notification: notificationEmailTemplate,
   'sprint-missing-submissions': sprintMissingSubmissionsEmailTemplate,
   'sprint-30-minutes-remaining': sprint30MinutesRemainingEmailTemplate,
+  'sprint-15-minutes-remaining': sprint15MinutesRemainingEmailTemplate,
   'sprint-completed': sprintCompletedEmailTemplate,
   'sprint-work-submission-review': sprintWorkSubmissionReviewEmailTemplate,
   'sprint-work-submission-outcome': sprintWorkSubmissionOutcomeEmailTemplate,

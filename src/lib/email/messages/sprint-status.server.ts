@@ -2,11 +2,17 @@ import 'server-only'
 
 import { queueTemplatedEmail } from '@/lib/email/queue-email.server'
 import { sendTemplatedEmail } from '@/lib/email/send-email.server'
+import type { Sprint15MinutesRemainingEmailData } from '@/lib/email/templates/sprint-15-minutes-remaining'
 import type { Sprint30MinutesRemainingEmailData } from '@/lib/email/templates/sprint-30-minutes-remaining'
 import type { SprintCompletedEmailData } from '@/lib/email/templates/sprint-completed'
 import type { EmailRecipient, SendEmailResult } from '@/lib/email/types'
 
 type Sprint30MinutesEmailInput = Sprint30MinutesRemainingEmailData & {
+  to: EmailRecipient
+  idempotencyKey?: string
+}
+
+type Sprint15MinutesEmailInput = Sprint15MinutesRemainingEmailData & {
   to: EmailRecipient
   idempotencyKey?: string
 }
@@ -44,6 +50,40 @@ export function sendSprint30MinutesRemainingEmail(
     data,
     tags: [
       { name: 'feature', value: 'sprint-30-minutes-remaining' },
+      { name: 'role', value: data.recipientRole },
+    ],
+    idempotencyKey,
+  })
+}
+
+export function queueSprint15MinutesRemainingEmail(
+  input: Sprint15MinutesEmailInput,
+): void {
+  const { to, idempotencyKey, ...data } = input
+
+  queueTemplatedEmail({
+    templateId: 'sprint-15-minutes-remaining',
+    to,
+    data,
+    tags: [
+      { name: 'feature', value: 'sprint-15-minutes-remaining' },
+      { name: 'role', value: data.recipientRole },
+    ],
+    idempotencyKey,
+  })
+}
+
+export function sendSprint15MinutesRemainingEmail(
+  input: Sprint15MinutesEmailInput,
+): Promise<SendEmailResult> {
+  const { to, idempotencyKey, ...data } = input
+
+  return sendTemplatedEmail({
+    templateId: 'sprint-15-minutes-remaining',
+    to,
+    data,
+    tags: [
+      { name: 'feature', value: 'sprint-15-minutes-remaining' },
       { name: 'role', value: data.recipientRole },
     ],
     idempotencyKey,
