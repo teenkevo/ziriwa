@@ -108,7 +108,7 @@ export function SectionReportingContent({
           <div className='grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end'>
             <div className='space-y-2'>
               <Select
-                value={selectedSprintId}
+                value={selectedSprintId || sortedSprints[0]._id}
                 onValueChange={setSelectedSprintId}
               >
                 <SelectTrigger>
@@ -125,6 +125,7 @@ export function SectionReportingContent({
             </div>
             {selectedSprint ? (
               <WeeklyReportDownloadButton
+                key={selectedSprint._id}
                 sectionName={sectionName}
                 sprint={selectedSprint}
               />

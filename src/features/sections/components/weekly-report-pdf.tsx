@@ -5,13 +5,13 @@ import {
   Document,
   Link,
   Page,
-  PDFDownloadLink,
   StyleSheet,
   Text,
   View,
   pdf,
 } from '@react-pdf/renderer'
-import { FileText, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   getSprintTaskStatusLabel,
@@ -301,6 +301,24 @@ function formatSubmissionStatusLabel(status?: string) {
   return SUBMISSION_STATUS_LABELS[status] ?? status
 }
 
+function isValidPdfLinkUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 function SubmissionStatusText({ status }: { status?: string }) {
   const resolvedStatus = status ?? 'pending'
   const label = formatSubmissionStatusLabel(resolvedStatus)
@@ -403,7 +421,7 @@ function WorkSubmissionsBlock({
             {asset?.originalFilename ? (
               <Text style={styles.submissionLine}>
                 <Text style={styles.submissionMetaLine}>Evidence:</Text>{' '}
-                {asset.url ? (
+                {asset.url && isValidPdfLinkUrl(asset.url) ? (
                   <Link src={asset.url} style={styles.evidenceLink}>
                     {asset.originalFilename}
                   </Link>
@@ -675,38 +693,58 @@ type WeeklyReportDownloadButtonProps = {
   sprint: WeeklySprint
 }
 
+export function weeklyReportFileName(sectionName: string, weekLabel: string) {
+  return `${slugify(sectionName)}-${slugify(weekLabel)}-weekly-report.pdf`
+}
+
+export async function generateWeeklyReportBlob(props: WeeklyReportPdfProps) {
+  return pdf(<WeeklyReportPdf {...props} />).toBlob()
+}
+
 export function WeeklyReportDownloadButton({
   sectionName,
   sprint,
 }: WeeklyReportDownloadButtonProps) {
-  const fileName = `${slugify(sectionName)}-${slugify(sprint.weekLabel)}-weekly-report.pdf`
+  const [isGenerating, setIsGenerating] = React.useState(false)
+  const fileName = weeklyReportFileName(sectionName, sprint.weekLabel)
+
+  async function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    if (isGenerating) return
+
+    setIsGenerating(true)
+    try {
+      const blob = await generateWeeklyReportBlob({ sectionName, sprint })
+      downloadBlob(blob, fileName)
+    } catch (error) {
+      console.error('Failed to generate weekly report', error)
+      toast.error('Could not generate the weekly report. Please try again.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   return (
-    <PDFDownloadLink
-      document={<WeeklyReportPdf sectionName={sectionName} sprint={sprint} />}
-      fileName={fileName}
+    <Button
+      type='button'
+      variant='secondary'
+      disabled={isGenerating}
+      className='border-primary'
+      onClick={handleClick}
     >
-      {({ loading }) => (
-        <Button
-          variant='secondary'
-          disabled={loading}
-          className='border-primary'
-        >
-          {loading ? (
-            <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-          ) : (
-            <Image
-              src='/folder-icon2.png'
-              alt='icon-pdf'
-              width={2}
-              height={2}
-              className='mr-1 h-5 w-5'
-            />
-          )}
-          {loading ? 'Preparing Report…' : 'Generate Report'}
-        </Button>
+      {isGenerating ? (
+        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+      ) : (
+        <Image
+          src='/folder-icon2.png'
+          alt='icon-pdf'
+          width={20}
+          height={20}
+          className='mr-1 h-5 w-5'
+        />
       )}
-    </PDFDownloadLink>
+      {isGenerating ? 'Preparing Report…' : 'Generate Report'}
+    </Button>
   )
 }
 
