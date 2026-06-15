@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { RichTextContent } from '@/components/ui/rich-text-content'
 import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
@@ -49,6 +51,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import {
   Collapsible,
   CollapsibleContent,
@@ -86,11 +94,13 @@ import {
   buildSprintTaskWriteFields,
   isEmergencySprintCategory,
   isSprintDraftTaskComplete,
+  getSprintActivityCategoryLabel,
   getSprintActivityCategoryOptions,
   isProjectSprintScope,
   sprintDraftNeedsContractInitiatives,
   sprintTaskRequiresContractLinks,
 } from '@/lib/sprint-task-validation'
+import { getRichTextPlainText } from '@/lib/rich-text'
 
 export type {
   InitiativeWithActivities,
@@ -233,8 +243,8 @@ const weeklySprintSubTabTriggerClassName =
   'inline-flex items-center rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-muted-foreground shadow-none transition-colors -mb-px data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
 
 type DraftTask = {
-  /** Preserved when editing an existing sprint task */
-  _key?: string
+  /** Stable key for accordion state and new draft rows */
+  _key: string
   description: string
   activityCategory: string
   initiativeKey: string
@@ -242,9 +252,13 @@ type DraftTask = {
   contractTaskKey: string
 }
 
+function createDraftTaskKey(): string {
+  return `draft-${crypto.randomUUID()}`
+}
+
 function sprintTaskToDraft(t: SprintTask): DraftTask {
   return {
-    _key: t._key,
+    _key: t._key || createDraftTaskKey(),
     description: t.description ?? '',
     activityCategory: t.activityCategory ?? '',
     initiativeKey: t.initiativeKey ?? '',
@@ -253,12 +267,123 @@ function sprintTaskToDraft(t: SprintTask): DraftTask {
   }
 }
 
-const emptyDraftTask: DraftTask = {
-  description: '',
-  activityCategory: '',
-  initiativeKey: '',
-  activityKey: '',
-  contractTaskKey: '',
+function createEmptyDraftTask(): DraftTask {
+  return {
+    _key: createDraftTaskKey(),
+    description: '',
+    activityCategory: '',
+    initiativeKey: '',
+    activityKey: '',
+    contractTaskKey: '',
+  }
+}
+
+type CreateSprintSnapshot = {
+  selectedWeekIdx: string
+  tasks: Array<{
+    _key: string
+    description: string
+    activityCategory: string
+    initiativeKey: string
+    activityKey: string
+    contractTaskKey: string
+  }>
+}
+
+function snapshotCreateSprintForm(
+  selectedWeekIdx: string,
+  tasks: DraftTask[],
+): CreateSprintSnapshot {
+  return {
+    selectedWeekIdx,
+    tasks: tasks.map(task => ({
+      _key: task._key,
+      description: task.description,
+      activityCategory: task.activityCategory,
+      initiativeKey: task.initiativeKey,
+      activityKey: task.activityKey,
+      contractTaskKey: task.contractTaskKey,
+    })),
+  }
+}
+
+function isCreateSprintSnapshotEqual(
+  a: CreateSprintSnapshot,
+  b: CreateSprintSnapshot,
+): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+interface SprintTaskAccordionSummaryProps {
+  task: DraftTask
+  index: number
+  initiatives: InitiativeWithActivities[]
+  isOpen: boolean
+  actions: React.ReactNode
+}
+
+function SprintTaskAccordionSummary({
+  task,
+  index,
+  initiatives,
+  isOpen,
+  actions,
+}: SprintTaskAccordionSummaryProps) {
+  const description = getRichTextPlainText(task.description)
+  const title = description || `Task ${index + 1}`
+  const categoryLabel = getSprintActivityCategoryLabel(task.activityCategory)
+  const initiative = initiatives.find(item => item.key === task.initiativeKey)
+  const showMeta = !isOpen && (categoryLabel || initiative?.title)
+
+  return (
+    <div className='w-full text-left'>
+      <div className='flex w-full items-center justify-between gap-3'>
+        <span className='min-w-0 truncate text-sm font-medium leading-snug'>
+          {title}
+        </span>
+        <div className='flex shrink-0 items-center gap-0.5'>{actions}</div>
+      </div>
+      {showMeta ? (
+        <div className='mt-1.5 flex flex-wrap items-center gap-2'>
+          {categoryLabel ? (
+            <Badge variant='secondary' className='text-xs font-normal'>
+              {categoryLabel}
+            </Badge>
+          ) : null}
+          {initiative?.title ? (
+            <span className='max-w-full truncate text-xs text-muted-foreground'>
+              {initiative.title}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function SprintTaskDescriptionEditor({
+  value,
+  onChange,
+  disabled = false,
+  minHeight = '140px',
+}: {
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean
+  minHeight?: string
+}) {
+  return (
+    <div className={disabled ? 'pointer-events-none opacity-50' : undefined}>
+      <RichTextEditor
+        value={value}
+        onChange={onChange}
+        placeholder='Describe the task...'
+        minHeight={minHeight}
+        enableMentions={false}
+        className='text-xs'
+      />
+    </div>
+  )
 }
 
 function draftTaskLinkOptions(
@@ -535,8 +660,15 @@ export function WeeklySprintContent({
   )
   const [isSavingSprint, setIsSavingSprint] = React.useState(false)
   const [draftTasks, setDraftTasks] = React.useState<DraftTask[]>([
-    { ...emptyDraftTask },
+    createEmptyDraftTask(),
   ])
+  const [openCreateTaskAccordion, setOpenCreateTaskAccordion] =
+    React.useState('')
+  const [discardCreateSprintOpen, setDiscardCreateSprintOpen] =
+    React.useState(false)
+  const createSprintSnapshotRef = React.useRef<CreateSprintSnapshot | null>(
+    null,
+  )
 
   const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false)
   const [reviewingSprintId, setReviewingSprintId] = React.useState('')
@@ -581,9 +713,9 @@ export function WeeklySprintContent({
     React.useState('')
   const [extraTaskSupervisorStaffId, setExtraTaskSupervisorStaffId] =
     React.useState('')
-  const [extraTaskDraft, setExtraTaskDraft] = React.useState<DraftTask>({
-    ...emptyDraftTask,
-  })
+  const [extraTaskDraft, setExtraTaskDraft] = React.useState<DraftTask>(
+    createEmptyDraftTask,
+  )
   const [isSavingExtraTask, setIsSavingExtraTask] = React.useState(false)
 
   const reviseInitiatives = React.useMemo(() => {
@@ -676,10 +808,29 @@ export function WeeklySprintContent({
     setSprintTab,
   ])
 
-  const addTask = () => setDraftTasks(prev => [...prev, { ...emptyDraftTask }])
+  const addTask = () => {
+    const nextTask = createEmptyDraftTask()
+    setDraftTasks(prev => [...prev, nextTask])
+    setOpenCreateTaskAccordion(nextTask._key)
+  }
 
-  const removeTask = (index: number) =>
-    setDraftTasks(prev => prev.filter((_, i) => i !== index))
+  const removeTask = (index: number) => {
+    if (draftTasks.length === 1) {
+      const replacement = createEmptyDraftTask()
+      setDraftTasks([replacement])
+      setOpenCreateTaskAccordion(replacement._key)
+      return
+    }
+
+    const removedKey = draftTasks[index]?._key
+    const next = draftTasks.filter((_, i) => i !== index)
+    setDraftTasks(next)
+
+    if (removedKey && openCreateTaskAccordion === removedKey) {
+      const nextOpenIndex = Math.min(index, next.length - 1)
+      setOpenCreateTaskAccordion(next[nextOpenIndex]?._key ?? '')
+    }
+  }
 
   const updateTaskField = (
     index: number,
@@ -710,22 +861,68 @@ export function WeeklySprintContent({
     )
 
   const openNewSprintDialog = () => {
+    const firstTask = createEmptyDraftTask()
+    const weekIdx = firstAvailableWeekIdx
+    createSprintSnapshotRef.current = snapshotCreateSprintForm(weekIdx, [
+      firstTask,
+    ])
     setEditingSprintId(null)
-    setDraftTasks([{ ...emptyDraftTask }])
-    setSelectedWeekIdx(firstAvailableWeekIdx)
+    setDraftTasks([firstTask])
+    setOpenCreateTaskAccordion(firstTask._key)
+    setSelectedWeekIdx(weekIdx)
+    setDiscardCreateSprintOpen(false)
     setCreateOpen(true)
   }
 
   const openEditDraftSprint = (sprint: WeeklySprint) => {
     setEditingSprintId(sprint._id)
     const mapped = (sprint.tasks ?? []).map(sprintTaskToDraft)
-    setDraftTasks(mapped.length > 0 ? mapped : [{ ...emptyDraftTask }])
+    const nextTasks = mapped.length > 0 ? mapped : [createEmptyDraftTask()]
     const idx = fyWeeks.findIndex(
       w => w.start === sprint.weekStart && w.end === sprint.weekEnd,
     )
-    setSelectedWeekIdx(idx >= 0 ? String(idx) : '0')
+    const weekIdx = idx >= 0 ? String(idx) : '0'
+    createSprintSnapshotRef.current = snapshotCreateSprintForm(
+      weekIdx,
+      nextTasks,
+    )
+    setDraftTasks(nextTasks)
+    setOpenCreateTaskAccordion(nextTasks[0]._key)
+    setSelectedWeekIdx(weekIdx)
+    setDiscardCreateSprintOpen(false)
     setCreateOpen(true)
   }
+
+  const isCreateSprintDirty = React.useMemo(() => {
+    if (!createOpen || !createSprintSnapshotRef.current) return false
+    return !isCreateSprintSnapshotEqual(
+      snapshotCreateSprintForm(selectedWeekIdx, draftTasks),
+      createSprintSnapshotRef.current,
+    )
+  }, [createOpen, selectedWeekIdx, draftTasks])
+
+  const resetCreateSprintDialog = React.useCallback(() => {
+    setEditingSprintId(null)
+    setDraftTasks([createEmptyDraftTask()])
+    setOpenCreateTaskAccordion('')
+    setSelectedWeekIdx('0')
+    createSprintSnapshotRef.current = null
+  }, [])
+
+  const closeCreateSprintDialog = React.useCallback(() => {
+    setDiscardCreateSprintOpen(false)
+    setCreateOpen(false)
+    resetCreateSprintDialog()
+  }, [resetCreateSprintDialog])
+
+  const requestCloseCreateSprint = React.useCallback(() => {
+    if (isSavingSprint) return
+    if (isCreateSprintDirty) {
+      setDiscardCreateSprintOpen(true)
+      return
+    }
+    closeCreateSprintDialog()
+  }, [closeCreateSprintDialog, isCreateSprintDirty, isSavingSprint])
 
   const handleSaveSprint = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -791,10 +988,7 @@ export function WeeklySprintContent({
         }
       }
 
-      setDraftTasks([{ ...emptyDraftTask }])
-      setSelectedWeekIdx('0')
-      setEditingSprintId(null)
-      setCreateOpen(false)
+      closeCreateSprintDialog()
       router.refresh()
     } catch (err) {
       console.error(err)
@@ -927,7 +1121,7 @@ export function WeeklySprintContent({
       if (editingSprintId === sprintToDelete._id) {
         setEditingSprintId(null)
         setCreateOpen(false)
-        setDraftTasks([{ ...emptyDraftTask }])
+        setDraftTasks([createEmptyDraftTask()])
       }
       setSprintToDelete(null)
       router.refresh()
@@ -1213,7 +1407,7 @@ export function WeeklySprintContent({
 
   const openExtraTaskDialog = (sprintId?: string) => {
     setExtraTaskMode('officer-extra')
-    setExtraTaskDraft({ ...emptyDraftTask })
+    setExtraTaskDraft(createEmptyDraftTask())
     setExtraTaskSprintId(sprintId ?? currentWeekNonDraftSprints[0]?._id ?? '')
     setExtraTaskSprintSectionId('')
     setExtraTaskSupervisorStaffId('')
@@ -1222,7 +1416,7 @@ export function WeeklySprintContent({
 
   const openPlanTaskDialog = (sprint: WeeklySprint) => {
     setExtraTaskMode('supervisor-plan')
-    setExtraTaskDraft({ ...emptyDraftTask })
+    setExtraTaskDraft(createEmptyDraftTask())
     setExtraTaskSprintId(sprint._id)
     setExtraTaskSprintSectionId(sprint.sectionId ?? sectionId)
     setExtraTaskSupervisorStaffId(sprint.supervisor?._id ?? '')
@@ -1287,7 +1481,7 @@ export function WeeklySprintContent({
         )
       }
       setExtraTaskOpen(false)
-      setExtraTaskDraft({ ...emptyDraftTask })
+      setExtraTaskDraft(createEmptyDraftTask())
       setExtraTaskSprintId('')
       setExtraTaskSprintSectionId('')
       setExtraTaskSupervisorStaffId('')
@@ -1573,37 +1767,83 @@ export function WeeklySprintContent({
       <Dialog
         open={createOpen}
         onOpenChange={open => {
-          setCreateOpen(open)
-          if (!open) {
-            setEditingSprintId(null)
-            setDraftTasks([{ ...emptyDraftTask }])
-            setSelectedWeekIdx('0')
+          if (open) {
+            setCreateOpen(true)
+            return
           }
+          requestCloseCreateSprint()
         }}
       >
-        <DialogContent disableClose={isSavingSprint} layout='scrollable'>
+        <DialogContent
+          disableClose={isSavingSprint}
+          className={cn(
+            'flex flex-col gap-0 overflow-hidden rounded-xl p-0',
+            '!fixed !inset-3 !bottom-3 !left-3 !right-3 !top-3',
+            '!h-auto !max-h-none !w-auto !max-w-none',
+            '!translate-x-0 !translate-y-0',
+            'sm:!inset-4',
+            '[&>button.absolute]:hidden',
+          )}
+        >
           <form
             onSubmit={e => {
               e.stopPropagation()
               handleSaveSprint(e)
             }}
-            className={SPRINT_TASK_DIALOG_FORM_CLASS}
+            className='flex min-h-0 flex-1 flex-col overflow-hidden'
           >
-            <DialogHeader className='shrink-0 pr-8'>
-              <DialogTitle>
-                {editingSprintId ? 'Edit draft sprint' : 'New Weekly Sprint'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingSprintId
-                  ? isProjectSprint
-                    ? 'Update the week and tasks for this draft. Mark as ready when complete.'
-                    : 'Update the week and tasks for this draft. Submit when ready for review.'
-                  : 'Create a sprint plan for a week in the current financial year.'}
-              </DialogDescription>
-            </DialogHeader>
-            <div className={SPRINT_TASK_DIALOG_BODY_CLASS}>
-              <div className='space-y-2'>
-                <Label required>Week</Label>
+            <div className='flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-6'>
+              <div className='min-w-0'>
+                <DialogTitle className='truncate text-left text-base sm:text-lg'>
+                  {editingSprintId ? 'Edit draft sprint' : 'New Weekly Sprint'}
+                </DialogTitle>
+                <DialogDescription className='text-left'>
+                  {editingSprintId
+                    ? isProjectSprint
+                      ? 'Update the week and tasks for this draft. Mark as ready when complete.'
+                      : 'Update the week and tasks for this draft. Submit when ready for review.'
+                    : 'Create a sprint plan for a week in the current financial year.'}
+                </DialogDescription>
+              </div>
+              <div className='flex shrink-0 items-center gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={requestCloseCreateSprint}
+                  disabled={isSavingSprint}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type='submit'
+                  size='sm'
+                  disabled={
+                    isSavingSprint ||
+                    validDraftTasks.length === 0 ||
+                    (createSprintNeedsContractInitiatives &&
+                      initiatives.length === 0)
+                  }
+                >
+                  {isSavingSprint ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Saving...
+                    </>
+                  ) : editingSprintId ? (
+                    'Save changes'
+                  ) : (
+                    'Create Sprint'
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className='flex flex-wrap items-end justify-between gap-3 border-b bg-muted/30 px-4 py-3 sm:px-6'>
+              <div className='min-w-[220px] flex-1 space-y-1.5 max-w-md'>
+                <Label required className='text-xs'>
+                  Week
+                </Label>
                 <Select
                   value={selectedWeekIdx}
                   onValueChange={setSelectedWeekIdx}
@@ -1633,85 +1873,120 @@ export function WeeklySprintContent({
                   </SelectContent>
                 </Select>
               </div>
+              <Badge variant='secondary' className='rounded-full px-3 py-1'>
+                {draftTasks.length} task{draftTasks.length === 1 ? '' : 's'}
+              </Badge>
+            </div>
+
+            <div className='min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6'>
               <div className='space-y-3'>
                 <Label required>Tasks</Label>
-                {draftTasks.map((task, i) => {
-                  return (
-                    <div
-                      key={task._key ?? `new-${i}`}
-                      className='space-y-2 rounded-md border p-3'
-                    >
-                      <div className='flex items-center gap-2'>
-                        <span className='text-xs font-medium'>
-                          Task {i + 1}
-                        </span>
-                        {draftTasks.length > 1 && (
-                          <Button
-                            type='button'
-                            variant='ghost'
-                            size='sm'
-                            className='ml-auto h-6 w-6 p-0'
-                            onClick={() => removeTask(i)}
-                          >
-                            <Trash2 className='h-3 w-3' />
-                          </Button>
-                        )}
-                      </div>
-                      <Label className='text-xs ' required>
-                        Description
-                      </Label>
-                      <div className='m-0.5'>
-                        <Textarea
-                          autoFocus={i === 0 && !editingSprintId}
-                          className='text-xs'
-                          placeholder='Describe the task...'
-                          value={task.description}
-                          onChange={e =>
-                            updateTaskField(i, 'description', e.target.value)
-                          }
-                          rows={2}
-                          disabled={isSavingSprint}
-                        />
-                      </div>
-                      <div className='w-[100%] overflow-hidden space-y-1 p-1'>
-                        <Label className='text-xs' required>
-                          Activity category
-                        </Label>
-                        <Select
-                          value={task.activityCategory || undefined}
-                          onValueChange={v =>
-                            updateTaskField(i, 'activityCategory', v)
-                          }
-                          disabled={isSavingSprint}
-                        >
-                          <SelectTrigger className='w-[100%] text-xs overflow-hidden'>
-                            <SelectValue placeholder='Select activity category' />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {activityCategoryOptions.map(c => (
-                              <SelectItem
-                                key={c.value}
-                                value={c.value}
-                                className='text-xs'
-                              >
-                                {c.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <SprintTaskContractLinkFields
-                        contractPhrase={contractPhrase}
-                        task={task}
-                        initiatives={initiatives}
-                        disabled={isSavingSprint}
-                        onFieldChange={(field, value) =>
-                          updateTaskField(i, field, value)
-                        }
-                      />
-                    </div>
-                  )
-                })}
+                <Accordion
+                  type='single'
+                  collapsible
+                  value={openCreateTaskAccordion}
+                  onValueChange={setOpenCreateTaskAccordion}
+                  className='w-full rounded-lg border'
+                >
+                  {draftTasks.map((task, i) => {
+                    const isOpen = openCreateTaskAccordion === task._key
+
+                    return (
+                      <AccordionItem
+                        key={task._key}
+                        value={task._key}
+                        className='border-b px-4 last:border-b-0'
+                      >
+                        <AccordionTrigger className='w-full items-stretch py-3 hover:no-underline'>
+                          <SprintTaskAccordionSummary
+                            task={task}
+                            index={i}
+                            initiatives={initiatives}
+                            isOpen={isOpen}
+                            actions={
+                              <>
+                                <ChevronDown
+                                  className={cn(
+                                    'h-4 w-4 text-muted-foreground transition-transform duration-200',
+                                    isOpen && 'rotate-180',
+                                  )}
+                                />
+                                <Button
+                                  type='button'
+                                  variant='ghost'
+                                  size='icon'
+                                  className='h-8 w-8 text-destructive hover:text-destructive'
+                                  onMouseDown={event => event.stopPropagation()}
+                                  onClick={event => {
+                                    event.preventDefault()
+                                    event.stopPropagation()
+                                    removeTask(i)
+                                  }}
+                                  disabled={isSavingSprint}
+                                  aria-label={`Remove task ${i + 1}`}
+                                >
+                                  <Trash2 className='h-4 w-4' />
+                                </Button>
+                              </>
+                            }
+                          />
+                        </AccordionTrigger>
+
+                        <AccordionContent className='space-y-3 px-0.5 pb-4'>
+                          <div className='space-y-2'>
+                            <Label className='text-xs' required>
+                              Description
+                            </Label>
+                            <SprintTaskDescriptionEditor
+                              value={task.description}
+                              onChange={value =>
+                                updateTaskField(i, 'description', value)
+                              }
+                              disabled={isSavingSprint}
+                              minHeight='180px'
+                            />
+                          </div>
+                          <div className='w-full space-y-1 overflow-hidden p-0.5'>
+                            <Label className='text-xs' required>
+                              Activity category
+                            </Label>
+                            <Select
+                              value={task.activityCategory || undefined}
+                              onValueChange={v =>
+                                updateTaskField(i, 'activityCategory', v)
+                              }
+                              disabled={isSavingSprint}
+                            >
+                              <SelectTrigger className='w-full overflow-hidden text-xs'>
+                                <SelectValue placeholder='Select activity category' />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {activityCategoryOptions.map(c => (
+                                  <SelectItem
+                                    key={c.value}
+                                    value={c.value}
+                                    className='text-xs'
+                                  >
+                                    {c.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <SprintTaskContractLinkFields
+                            contractPhrase={contractPhrase}
+                            task={task}
+                            initiatives={initiatives}
+                            disabled={isSavingSprint}
+                            onFieldChange={(field, value) =>
+                              updateTaskField(i, field, value)
+                            }
+                          />
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })}
+                </Accordion>
                 <Button
                   type='button'
                   variant='outline'
@@ -1724,46 +1999,40 @@ export function WeeklySprintContent({
                 </Button>
               </div>
             </div>
-            <DialogFooter className='mt-0 shrink-0 border-t bg-background pt-4'>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() => setCreateOpen(false)}
-                disabled={isSavingSprint}
-              >
-                Cancel
-              </Button>
-              <Button
-                type='submit'
-                disabled={
-                  isSavingSprint ||
-                  validDraftTasks.length === 0 ||
-                  (createSprintNeedsContractInitiatives &&
-                    initiatives.length === 0)
-                }
-              >
-                {isSavingSprint ? (
-                  <>
-                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                    Saving...
-                  </>
-                ) : editingSprintId ? (
-                  'Save changes'
-                ) : (
-                  'Create Sprint'
-                )}
-              </Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={discardCreateSprintOpen}
+        onOpenChange={setDiscardCreateSprintOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes to this sprint plan. If you leave now,
+              your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              onClick={closeCreateSprintDialog}
+            >
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={extraTaskOpen}
         onOpenChange={open => {
           setExtraTaskOpen(open)
           if (!open) {
-            setExtraTaskDraft({ ...emptyDraftTask })
+            setExtraTaskDraft(createEmptyDraftTask())
             setExtraTaskSprintId('')
             setExtraTaskSprintSectionId('')
             setExtraTaskSupervisorStaffId('')
@@ -1815,16 +2084,11 @@ export function WeeklySprintContent({
                 Description
               </Label>
               <div className='m-0.5'>
-                <Textarea
-                  autoFocus={true}
-                  className='text-xs'
-                  placeholder='Describe the task...'
+                <SprintTaskDescriptionEditor
                   value={extraTaskDraft.description}
-                  onChange={e =>
-                    setExtraTaskField('description', e.target.value)
-                  }
-                  rows={3}
+                  onChange={value => setExtraTaskField('description', value)}
                   disabled={isSavingExtraTask}
+                  minHeight='180px'
                 />
               </div>
               {extraTaskMode === 'supervisor-plan' ? (
@@ -1918,8 +2182,19 @@ export function WeeklySprintContent({
                   : 'Request Revisions')}
               {reviewAction === 'withdraw_revision' && 'Withdraw revision request'}
             </DialogTitle>
-            <DialogDescription>{reviewingTask?.description}</DialogDescription>
+            <DialogDescription>
+              Review this sprint task before deciding.
+            </DialogDescription>
           </DialogHeader>
+          {reviewingTask ? (
+            <div className='rounded-md border bg-muted/20 p-3'>
+              <RichTextContent
+                html={reviewingTask.description}
+                className='text-sm'
+                emptyText='No description provided.'
+              />
+            </div>
+          ) : null}
           <div className='space-y-4 py-2'>
             {reviewAction === 'revisions_requested' && (
               <div className='space-y-2'>
@@ -2033,15 +2308,11 @@ export function WeeklySprintContent({
                   Description
                 </Label>
                 <div className='m-0.5'>
-                  <Textarea
-                    className='text-xs'
-                    placeholder='Describe the task...'
+                  <SprintTaskDescriptionEditor
                     value={reviseTaskDraft.description}
-                    onChange={e =>
-                      setReviseField('description', e.target.value)
-                    }
-                    rows={3}
+                    onChange={value => setReviseField('description', value)}
                     disabled={isSavingRevise}
+                    minHeight='180px'
                   />
                 </div>
                 <div className='w-[100%] overflow-hidden space-y-1 p-1'>
@@ -2581,9 +2852,11 @@ function SprintCard({
                         >
                           {config.label}
                         </Badge>
-                        <span className='block text-sm'>
-                          {task.description}
-                        </span>
+                        <RichTextContent
+                          html={task.description}
+                          className='text-sm'
+                          emptyText='No description provided.'
+                        />
                       </div>
 
                       <SprintTaskContractLinkRows

@@ -13,6 +13,7 @@ import { FileDown, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 
 import { Button } from '@/components/ui/button'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import { getSprintActivityCategoryLabel } from '@/lib/sprint-task-validation'
 import type {
   SprintTask,
@@ -288,7 +289,9 @@ function SprintTaskPlanBlock({
         <Text style={styles.taskMetaLineLabel}>Plan status:</Text>{' '}
         {PLAN_STATUS_LABELS[task.status] ?? task.status}
       </Text>
-      <Text style={styles.taskDescription}>{task.description || '—'}</Text>
+      <Text style={styles.taskDescription}>
+        {getRichTextPlainText(task.description, '—')}
+      </Text>
       {categoryLabel ? (
         <Text style={styles.taskMetaLine}>
           <Text style={styles.taskMetaLineLabel}>Category:</Text>{' '}

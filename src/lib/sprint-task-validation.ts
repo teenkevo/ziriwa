@@ -1,4 +1,5 @@
 import type { WorkspaceScopeKind } from '@/lib/project-workspace-copy'
+import { hasRichTextContent } from '@/lib/rich-text'
 
 export const MAINSTREAM_SPRINT_ACTIVITY_CATEGORIES = [
   'normal_flow',
@@ -154,7 +155,7 @@ export function isSprintDraftTaskComplete(
   },
   options?: { activityHasDetailedTasks?: boolean },
 ): boolean {
-  if (!t.description?.trim() || !t.activityCategory) return false
+  if (!hasRichTextContent(t.description) || !t.activityCategory) return false
   if (isEmergencySprintCategory(t.activityCategory)) return true
   if (!t.initiativeKey?.trim() || !t.activityKey?.trim()) return false
   if (options?.activityHasDetailedTasks && !t.contractTaskKey?.trim()) {
@@ -187,7 +188,7 @@ export function validateSprintTaskPayload(
     isProjectSection?: boolean
   },
 ): string | null {
-  if (!t.description || typeof t.description !== 'string' || !t.description.trim()) {
+  if (!hasRichTextContent(t.description)) {
     return 'Each task must have a description'
   }
   const categoryValid =

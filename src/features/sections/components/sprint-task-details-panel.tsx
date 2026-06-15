@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { RichTextContent } from '@/components/ui/rich-text-content'
 import {
   Accordion,
   AccordionContent,
@@ -188,7 +189,11 @@ export function SprintTaskDetailsPanel({
   return (
     <div className='w-full space-y-6 p-4'>
       <div>
-        <p className='text-lg font-bold mt-1'>{task.description}</p>
+        <RichTextContent
+          html={task.description}
+          className='text-lg font-bold mt-1 [&_p]:font-bold'
+          emptyText='No description provided.'
+        />
       </div>
 
       {task.activityCategory && (

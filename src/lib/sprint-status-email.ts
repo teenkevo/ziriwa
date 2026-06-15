@@ -5,6 +5,7 @@ import {
   resolveSprintTaskStatus,
   type SprintTaskWorkflowStatus,
 } from '@/lib/sprint-task-status'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import { isSprintWeekStarted } from '@/lib/sprint-week'
 import type { SprintAtRiskRecipientRole } from '@/lib/sprint-missing-submissions'
 import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
@@ -83,7 +84,7 @@ function buildStatusRow(
   const submissionCount = task.submissionCount ?? 0
 
   return {
-    taskDescription: task.description?.trim() || 'Untitled activity',
+    taskDescription: getRichTextPlainText(task.description, 'Untitled activity'),
     assigneeName: task.assigneeName?.trim() || 'Unassigned',
     statusLabel: getSprintTaskStatusLabel(workflowStatus),
     evidenceLabel:

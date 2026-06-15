@@ -46,6 +46,7 @@ import { DataTableFacetedFilter } from '@/components/data-table/data-table-facet
 import { OfficerSwitcher, type Officer } from './officer-switcher'
 import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getEffectiveTaskStatus } from '@/lib/sprint-week'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import { cn } from '@/lib/utils'
 
 const PRIORITIES = [
@@ -116,7 +117,7 @@ export function SprintTasksTable({
         cell: ({ row }) => (
           <div className='min-w-[220px]'>
             <span className='block break-words'>
-              {row.original.description || '—'}
+              {getRichTextPlainText(row.original.description, '—')}
             </span>
           </div>
         ),

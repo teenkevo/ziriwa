@@ -22,6 +22,7 @@ import { notifyManagerSprintPlanSubmittedEmail } from '@/lib/email/notify-manage
 import { notifyOfficerWorkSubmissionOutcomeEmail } from '@/lib/email/notify-sprint-work-submission-outcome-email.server'
 import { notifySupervisorSprintPlanReviewEmail } from '@/lib/email/notify-supervisor-sprint-plan-review-email.server'
 import { notifySupervisorWorkSubmissionEmail } from '@/lib/email/notify-sprint-work-submission-email.server'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import { getSprintTaskStatusLabel } from '@/lib/sprint-task-status'
 import { audit } from '@/lib/audit-log/events'
 import { isSectionInProject } from '@/lib/project-access.server'
@@ -316,7 +317,12 @@ export async function PATCH(
           }`,
           { id },
         )
-        const taskDesc = String(tasks[taskIndex]?.description ?? 'Sprint task')
+        const taskDesc = getRichTextPlainText(
+          typeof tasks[taskIndex]?.description === 'string'
+            ? tasks[taskIndex]?.description
+            : undefined,
+          'Sprint task',
+        )
         void notifyManagerSprintTaskReview({
           sectionId,
           sectionSlug: sprintMeta?.sectionSlug,
@@ -434,7 +440,10 @@ export async function PATCH(
 
       await writeClient.patch(id).set(setFields).commit()
 
-      const desc = String(task.description ?? 'Sprint task')
+      const desc = getRichTextPlainText(
+        typeof task.description === 'string' ? task.description : undefined,
+        'Sprint task',
+      )
       if (updates.assignee && typeof updates.assignee === 'string') {
         void notifySprintTaskAssigned(updates.assignee, desc, sectionId)
       }

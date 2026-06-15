@@ -19,6 +19,7 @@ import type {
   StakeholderEntry,
 } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 import { resolveSprintTaskStatus } from '@/lib/sprint-task-status'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import {
   getCurrentPeriodDueDate,
   getPeriodInfo,
@@ -453,7 +454,7 @@ export function computeSectionDashboardMetrics(input: {
       if (sprint.status === 'submitted' && task.status === 'pending') {
         pendingReviewTasks.push({
           _key: task._key,
-          title: task.description,
+          title: getRichTextPlainText(task.description, 'Untitled activity'),
           sprintWeekLabel: sprint.weekLabel,
           sprintId: sprint._id,
           taskStatus: workflowStatus,
@@ -464,7 +465,7 @@ export function computeSectionDashboardMetrics(input: {
       if (task.status === 'revisions_requested') {
         revisionRequestedTasks.push({
           _key: task._key,
-          title: task.description,
+          title: getRichTextPlainText(task.description, 'Untitled activity'),
           sprintWeekLabel: sprint.weekLabel,
           sprintId: sprint._id,
           taskStatus: workflowStatus,

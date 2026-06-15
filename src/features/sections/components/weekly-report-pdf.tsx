@@ -17,6 +17,7 @@ import {
   getSprintTaskStatusLabel,
   resolveSprintTaskStatus,
 } from '@/lib/sprint-task-status'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import type {
   SprintTask,
   WeeklySprint,
@@ -367,7 +368,9 @@ function TaskDoneBlock({
 }) {
   return (
     <View style={isLast ? styles.taskBlockLast : styles.taskBlock}>
-      <Text style={styles.taskDescription}>{task.description || '—'}</Text>
+      <Text style={styles.taskDescription}>
+        {getRichTextPlainText(task.description, '—')}
+      </Text>
 
       {task.assigneeName ? (
         <Text style={styles.taskMetaLine}>

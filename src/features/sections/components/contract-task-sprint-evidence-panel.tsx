@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { Download, Eye, ExternalLink } from 'lucide-react'
 
+import { RichTextContent } from '@/components/ui/rich-text-content'
 import { Badge } from '@/components/ui/badge'
 import {
   Accordion,
@@ -192,9 +193,11 @@ export function ContractTaskSprintEvidencePanel({
                 </span>
               </AccordionTrigger>
               <AccordionContent className='space-y-3 pb-3'>
-                <p className='text-xs text-muted-foreground'>
-                  {cycle.sprintTaskDescription}
-                </p>
+                <RichTextContent
+                  html={cycle.sprintTaskDescription}
+                  className='text-xs text-muted-foreground'
+                  emptyText='No description provided.'
+                />
                 {cycle.workSubmissions.map(sub => (
                   <ReadOnlySubmissionCard key={sub._key} submission={sub} />
                 ))}

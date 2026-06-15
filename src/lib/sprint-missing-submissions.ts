@@ -4,6 +4,7 @@ import {
   getSprintTaskStatusLabel,
   resolveSprintTaskStatus,
 } from '@/lib/sprint-task-status'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import { getSprintActivityCategoryLabel } from '@/lib/sprint-task-validation'
 import { isSprintWeekStarted } from '@/lib/sprint-week'
 import type { SprintTask } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
@@ -76,7 +77,7 @@ interface SprintQueryRow {
 }
 
 function getActivityLabel(task: { description?: string }): string {
-  return task.description?.trim() || 'Untitled activity'
+  return getRichTextPlainText(task.description, 'Untitled activity')
 }
 
 function isTaskAtRisk(

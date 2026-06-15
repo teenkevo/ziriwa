@@ -2,6 +2,7 @@ import 'server-only'
 
 import { queueSprintPlanSubmittedEmail } from '@/lib/email/messages/sprint-plan-submitted.server'
 import type { SprintPlanSubmittedTaskRow } from '@/lib/email/templates/sprint-plan-submitted'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import { getSprintActivityCategoryLabel } from '@/lib/sprint-task-validation'
 import { client } from '@/sanity/lib/client'
 
@@ -64,7 +65,7 @@ async function loadAndQueueManagerSprintPlanSubmittedEmail(
 
   const tasks = sprintMeta?.tasks ?? []
   const rows: SprintPlanSubmittedTaskRow[] = tasks.map(task => ({
-    description: task.description?.trim() || 'Sprint task',
+    description: getRichTextPlainText(task.description, 'Sprint task'),
     categoryLabel:
       getSprintActivityCategoryLabel(task.activityCategory) || '—',
     initiativeTitle: task.initiativeTitle?.trim() || '—',
