@@ -43,7 +43,7 @@ export function AssistantCommissionerBoardActionsContent({
 
         <CommissionerBoardActionsTable
           data={actions}
-          emptyLabel='No board actions assigned to your division.'
+          emptyDescription='No board actions are assigned to your division right now.'
           basePath='/assistant-commissioner/board-actions'
           readOnly
         />

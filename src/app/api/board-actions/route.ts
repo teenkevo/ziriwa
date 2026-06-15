@@ -3,6 +3,7 @@ import { currentUser } from '@clerk/nextjs/server'
 
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { isSuperadmin } from '@/lib/authz/guards.server'
+import { notifyOrgWorkItemCascadeEmail } from '@/lib/org-work-item/notify-org-work-item-email.server'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 
@@ -103,6 +104,14 @@ export async function POST(req: NextRequest) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
+
+    if (trimmedDivisionId) {
+      notifyOrgWorkItemCascadeEmail({
+        docType: 'boardAction',
+        itemId: created._id,
+        cascadeRole: 'commissioner',
+      })
+    }
 
     return NextResponse.json({ id: created._id }, { status: 201 })
   } catch (error) {

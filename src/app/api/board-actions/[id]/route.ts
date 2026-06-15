@@ -8,6 +8,8 @@ import {
   getBoardActionDepartmentId,
   isDivisionInDepartment,
 } from '@/lib/board-actions-commissioner.server'
+import { handleOrgWorkItemWorkflowAction } from '@/lib/org-work-item/handlers.server'
+import { notifyOrgWorkItemCascadeEmail } from '@/lib/org-work-item/notify-org-work-item-email.server'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 
@@ -104,7 +106,14 @@ async function delegateBoardAction(
       status: 'delegated_to_section',
       updatedAt: new Date().toISOString(),
     })
+    .unset(['supervisor', 'assignee', 'response', 'responseSubmittedAt', 'rejectionFeedback'])
     .commit()
+
+  notifyOrgWorkItemCascadeEmail({
+    docType: 'boardAction',
+    itemId: id,
+    cascadeRole: 'assistant_commissioner',
+  })
 
   return NextResponse.json({ ok: true })
 }
@@ -113,6 +122,12 @@ const BOARD_ACTION_STATUSES = [
   'at_commissioner',
   'assigned_to_division',
   'delegated_to_section',
+  'assigned_to_supervisor',
+  'assigned_to_officer',
+  'pending_supervisor_approval',
+  'pending_manager_approval',
+  'pending_ac_approval',
+  'pending_commissioner_approval',
   'completed',
 ] as const
 
@@ -242,12 +257,25 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = (await req.json()) as {
+      action?: string
       sectionId?: string
+      supervisorId?: string
+      assigneeId?: string
+      response?: string
+      feedback?: string
       title?: string
       description?: string
       dueDate?: string
       divisionId?: string | null
       status?: string
+    }
+
+    if (body.action) {
+      return handleOrgWorkItemWorkflowAction({
+        docType: 'boardAction',
+        id,
+        body,
+      })
     }
 
     if (typeof body.sectionId === 'string' && body.sectionId.trim()) {

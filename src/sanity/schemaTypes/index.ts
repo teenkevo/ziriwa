@@ -40,6 +40,7 @@ import {
   auditLogBatch,
   auditLogEntry,
   boardAction,
+  auditQuery,
 } from './platform'
 
 export const schema: { types: SchemaTypeDefinition[] } = {
@@ -49,6 +50,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     auditLogBatch,
     appNotification,
     boardAction,
+    auditQuery,
     // Org structure
     department,
     division,

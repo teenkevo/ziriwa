@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { canManageAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
+import { orgWorkItemCanApprove } from '@/lib/org-work-item/workflow'
 import { client } from '@/sanity/lib/client'
 
 import type { BoardActionDetailPageData } from './load-board-action-detail'
@@ -76,6 +77,8 @@ export async function loadAssistantCommissionerBoardActionDetail(
     sectionOptions: sectionOptions ?? [],
     canManage: false,
     canDelegate: !action.sectionId,
+    canApprove: orgWorkItemCanApprove(action.status, 'assistant_commissioner'),
+    canReject: orgWorkItemCanApprove(action.status, 'assistant_commissioner'),
     workspace: {
       roleLabel: 'Assistant Commissioner',
       dashboardHref: '/assistant-commissioner/dashboard',

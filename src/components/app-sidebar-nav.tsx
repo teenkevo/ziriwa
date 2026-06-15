@@ -15,6 +15,7 @@ import {
   Handshake,
   Landmark,
   LayoutDashboard,
+  Search,
   ShieldCheck,
   Users,
   Zap,
@@ -276,6 +277,34 @@ export function AppSidebarNav({
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === `${officerBasePath}/board-actions` ||
+                    pathname.startsWith(`${officerBasePath}/board-actions/`)
+                  }
+                >
+                  <Link href={`${officerBasePath}/board-actions`}>
+                    <ClipboardList />
+                    <span>Board Actions</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === `${officerBasePath}/audit-queries` ||
+                    pathname.startsWith(`${officerBasePath}/audit-queries/`)
+                  }
+                >
+                  <Link href={`${officerBasePath}/audit-queries`}>
+                    <Search />
+                    <span>Audit Queries</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               {!officerSprintsSplit ? (
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -431,6 +460,22 @@ export function AppSidebarNav({
                 <SidebarMenuButton
                   asChild
                   isActive={
+                    pathname === '/assistant-commissioner/audit-queries' ||
+                    pathname.startsWith(
+                      '/assistant-commissioner/audit-queries/',
+                    )
+                  }
+                >
+                  <Link href='/assistant-commissioner/audit-queries'>
+                    <Search />
+                    <span>Audit Queries</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
                     pathname ===
                       '/assistant-commissioner/stakeholder-engagements' ||
                     pathname.startsWith(
@@ -535,6 +580,20 @@ export function AppSidebarNav({
                   <Link href='/commissioner/board-actions'>
                     <ClipboardList />
                     <span>Board Actions</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === '/commissioner/audit-queries' ||
+                    pathname.startsWith('/commissioner/audit-queries/')
+                  }
+                >
+                  <Link href='/commissioner/audit-queries'>
+                    <Search />
+                    <span>Audit Queries</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

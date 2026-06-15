@@ -6,7 +6,6 @@ import { format, parseISO } from 'date-fns'
 import {
   AlertTriangle,
   CalendarX,
-  CheckCircle2,
   ClipboardList,
   RefreshCcw,
   ListChecks,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { AllClearState } from '@/components/all-clear-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -403,38 +403,6 @@ function StakeholderLateTable({
   )
 }
 
-function AllClearState({ compact = false }: { compact?: boolean }) {
-  return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 text-center',
-        compact ? 'px-4 py-8' : 'px-6 py-12',
-      )}
-    >
-      <CheckCircle2
-        className={cn(
-          'text-emerald-600 dark:text-emerald-500',
-          compact ? 'h-8 w-8' : 'h-10 w-10',
-        )}
-        aria-hidden
-      />
-      <p
-        className={cn(
-          'mt-3 font-medium text-foreground',
-          compact ? 'text-sm' : 'text-base',
-        )}
-      >
-        All good
-      </p>
-      <p className='mt-1 max-w-sm text-xs text-muted-foreground'>
-        {compact
-          ? 'Nothing needs attention in this category.'
-          : 'Nothing is overdue or blocked right now.'}
-      </p>
-    </div>
-  )
-}
-
 function PriorityCard({
   row,
   onNavigateToTab,
@@ -713,7 +681,10 @@ export function OverduePanel({
             {totalAtRisk === 0 ? (
               <AllClearState />
             ) : selectedCount === 0 ? (
-              <AllClearState compact />
+              <AllClearState
+                compact
+                description='Nothing needs attention in this category.'
+              />
             ) : isEngagements ? (
               <StakeholderLateTable
                 items={visibleEngagements}

@@ -146,16 +146,16 @@ export function StakeholderEngagementContent({
       <div>
         <p className='text-muted-foreground mb-4 text-sm'>
           No stakeholder engagement matrix for {scopeName} in {currentFY}.
-          Create one to start adding stakeholders for this {scopeUnit}.
+          Onboard the matrix to start adding stakeholders for this {scopeUnit}.
         </p>
         <Button onClick={handleCreateEngagement} disabled={isCreating}>
           {isCreating ? (
             <>
               <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-              Creating...
+              Onboarding...
             </>
           ) : (
-            'Create Stakeholder Engagement'
+            'Onboard Stakeholder Matrix'
           )}
         </Button>
       </div>

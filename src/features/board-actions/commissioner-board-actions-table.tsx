@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { AllClearState } from '@/components/all-clear-state'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
@@ -153,14 +154,14 @@ function buildColumns({
 
 export function CommissionerBoardActionsTable({
   data,
-  emptyLabel = 'No board actions yet.',
+  emptyDescription = 'You have no board actions right now.',
   onDelete,
   onBulkDelete,
   basePath = '/commissioner/board-actions',
   readOnly = false,
 }: {
   data: CommissionerBoardActionRow[]
-  emptyLabel?: string
+  emptyDescription?: string
   onDelete?: (row: CommissionerBoardActionRow) => void
   onBulkDelete?: (ids: string[]) => void
   basePath?: string
@@ -189,6 +190,10 @@ export function CommissionerBoardActionsTable({
 
   const selectedIds = table.getSelectedRowModel().rows.map(r => r.original._id)
   const selectedCount = selectedIds.length
+
+  if (data.length === 0) {
+    return <AllClearState description={emptyDescription} />
+  }
 
   return (
     <div className='space-y-4'>
@@ -223,32 +228,21 @@ export function CommissionerBoardActionsTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map(row => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                >
-                  {row.getVisibleCells().map(cell => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className='h-24 text-center text-muted-foreground'
-                >
-                  {emptyLabel}
-                </TableCell>
+            {table.getRowModel().rows.map(row => (
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() && 'selected'}
+              >
+                {row.getVisibleCells().map(cell => (
+                  <TableCell key={cell.id}>
+                    {flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext(),
+                    )}
+                  </TableCell>
+                ))}
               </TableRow>
-            )}
+            ))}
           </TableBody>
         </Table>
       </div>

@@ -36,9 +36,9 @@ type ReportRow = {
 }
 
 const SUBMISSION_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending review',
-  approved: 'Approved',
-  rejected: 'Rejected',
+  pending: 'Pending review by supervisor',
+  approved: 'Approved by Supervisor',
+  rejected: 'Rejected by Supervisor',
 }
 
 type ActivityReportGroup = {
@@ -166,14 +166,16 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: 700,
     lineHeight: 1.5,
+    marginBottom: 10,
   },
   taskMetaLine: {
     fontSize: 8,
     color: '#374151',
-    lineHeight: 1.5,
+    marginBottom: 1,
+    lineHeight: 1.4,
   },
   submissionBlock: {
-    marginBottom: 8,
+    marginBottom: 6,
     paddingBottom: 8,
     borderBottom: '1 solid #e5e7eb',
   },
@@ -192,21 +194,16 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: '#111827',
     marginBottom: 10,
-    lineHeight: 1.4,
+    lineHeight: 1.8,
   },
   submissionLine: {
     fontSize: 8,
     color: '#111827',
-    marginBottom: 2,
-    lineHeight: 2,
+    marginBottom: 1,
+    lineHeight: 1.8,
   },
   submissionMetaLine: {
-    fontSize: 8,
-    color: '#374151',
-    marginBottom: 2,
-    lineHeight: 1.4,
     fontWeight: 700,
-    textTransform: 'uppercase',
   },
   submissionMuted: {
     fontSize: 8,
@@ -215,11 +212,22 @@ const styles = StyleSheet.create({
     lineHeight: 0.8,
   },
   evidenceLink: {
-    fontSize: 7,
+    fontSize: 8,
     color: '#1d4ed8',
     textDecoration: 'underline',
-    marginTop: 2,
-    lineHeight: 0.8,
+    lineHeight: 2,
+  },
+  submissionStatusPending: {
+    color: '#c2410c',
+    fontWeight: 700,
+  },
+  submissionStatusApproved: {
+    color: '#047857',
+    fontWeight: 700,
+  },
+  submissionStatusRejected: {
+    color: '#b91c1c',
+    fontWeight: 700,
   },
   headerRow: {
     backgroundColor: '#f3f4f6',
@@ -246,6 +254,12 @@ const styles = StyleSheet.create({
   },
   taskCell: {
     width: '30%',
+  },
+  taskMetaLineLabel: {
+    fontSize: 8,
+    fontWeight: 700,
+    lineHeight: 1.5,
+    color: '#374151',
   },
   evidenceCell: {
     width: '25%',
@@ -287,12 +301,41 @@ function formatSubmissionStatusLabel(status?: string) {
   return SUBMISSION_STATUS_LABELS[status] ?? status
 }
 
-function formatSubmissionTimeRange(submission: WorkSubmission) {
-  if (!submission.startTime && !submission.endTime) return null
-  if (submission.startTime && submission.endTime) {
-    return `${submission.startTime} – ${submission.endTime}`
+function SubmissionStatusText({ status }: { status?: string }) {
+  const resolvedStatus = status ?? 'pending'
+  const label = formatSubmissionStatusLabel(resolvedStatus)
+  const colorStyle =
+    resolvedStatus === 'approved'
+      ? styles.submissionStatusApproved
+      : resolvedStatus === 'rejected'
+        ? styles.submissionStatusRejected
+        : styles.submissionStatusPending
+
+  return <Text style={colorStyle}>{label}</Text>
+}
+
+function formatSubmittedAt(submission: WorkSubmission): string | null {
+  if (submission.submittedAt) {
+    const parsed = new Date(submission.submittedAt)
+    if (!Number.isNaN(parsed.getTime())) {
+      const date = parsed.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+      const time = parsed.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+      return `${date} ${time}`
+    }
   }
-  return submission.startTime ?? submission.endTime ?? null
+
+  if (!submission.date) return null
+
+  const date = formatDate(submission.date)
+  const time = submission.startTime ?? submission.endTime
+  return time ? `${date} ${time}` : date
 }
 
 function TaskDoneBlock({
@@ -307,12 +350,11 @@ function TaskDoneBlock({
   return (
     <View style={isLast ? styles.taskBlockLast : styles.taskBlock}>
       <Text style={styles.taskDescription}>{task.description || '—'}</Text>
-      <Text style={styles.taskMetaLine}>
-        Status: {formatTaskStatusLabel(task, weekStart)}
-      </Text>
+
       {task.assigneeName ? (
         <Text style={styles.taskMetaLine}>
-          Assigned to: {task.assigneeName}
+          <Text style={styles.taskMetaLineLabel}>Assigned to:</Text>{' '}
+          {task.assigneeName}
         </Text>
       ) : null}
     </View>
@@ -336,7 +378,7 @@ function WorkSubmissionsBlock({
     <View>
       {submissions.map((submission, index) => {
         const asset = submission.output?.asset
-        const timeRange = formatSubmissionTimeRange(submission)
+        const submittedAt = formatSubmittedAt(submission)
         const isLast = index === submissions.length - 1
 
         return (
@@ -344,45 +386,30 @@ function WorkSubmissionsBlock({
             key={submission._key}
             style={isLast ? styles.submissionBlockLast : styles.submissionBlock}
           >
-            {/* <Text style={styles.submissionHeading}>Submission {index + 1}</Text> */}
+            <Text style={styles.submissionHeading}>Submission {index + 1}</Text>
             <Text style={styles.submissionNarrative}>
               {submission.description || 'Work submission'}
             </Text>
             <Text style={styles.submissionLine}>
               <Text style={styles.submissionMetaLine}>Status:</Text>{' '}
-              {formatSubmissionStatusLabel(submission.status)}
+              <SubmissionStatusText status={submission.status} />
             </Text>
-            {submission.date ? (
+            {submittedAt ? (
               <Text style={styles.submissionLine}>
-                <Text style={styles.submissionMetaLine}>Date:</Text>{' '}
-                {formatDate(submission.date)}
-              </Text>
-            ) : null}
-            {timeRange ? (
-              <Text style={styles.submissionLine}>
-                <Text style={styles.submissionMetaLine}>Time:</Text> {timeRange}
-              </Text>
-            ) : null}
-            {submission.totalHours != null ? (
-              <Text style={styles.submissionLine}>
-                <Text style={styles.submissionMetaLine}>Hours:</Text>{' '}
-                {submission.totalHours}
+                <Text style={styles.submissionMetaLine}>Submitted At:</Text>{' '}
+                {submittedAt}
               </Text>
             ) : null}
             {asset?.originalFilename ? (
               <Text style={styles.submissionLine}>
                 <Text style={styles.submissionMetaLine}>Evidence:</Text>{' '}
-                {asset.originalFilename}
-              </Text>
-            ) : null}
-            {asset?.url ? (
-              <Link src={asset.url} style={styles.evidenceLink}>
-                <Text style={styles.submissionMetaLine}>Evidence URL:</Text>{' '}
-                {asset.url}
-              </Link>
-            ) : asset?.originalFilename ? (
-              <Text style={styles.submissionMuted}>
-                Evidence URL unavailable
+                {asset.url ? (
+                  <Link src={asset.url} style={styles.evidenceLink}>
+                    {asset.originalFilename}
+                  </Link>
+                ) : (
+                  asset.originalFilename
+                )}
               </Text>
             ) : null}
           </View>

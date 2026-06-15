@@ -607,7 +607,7 @@ export function ManagerWorkspaceContent({
               projectId={usesProjectStakeholderMatrix ? projectId : undefined}
               scopeName={stakeholderScopeName}
               scopeUnit={usesProjectStakeholderMatrix ? 'project' : 'section'}
-              canBootstrapEngagement={scopeLabels.kind === 'project'}
+              canBootstrapEngagement={scopeLabels.kind !== 'workstream'}
               engagement={stakeholderEngagement}
               staffOptions={staffOptions}
               viewerStaffId={viewerStaffId}

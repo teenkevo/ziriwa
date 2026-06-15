@@ -46,7 +46,7 @@ const STUDIO_GROUPS = {
   platform: {
     title: 'Platform',
     icon: ActivityIcon,
-    types: ['auditLogEntry', 'auditLogBatch', 'appNotification', 'boardAction'],
+    types: ['auditLogEntry', 'auditLogBatch', 'appNotification', 'boardAction', 'auditQuery'],
   },
 } as const
 

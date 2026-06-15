@@ -38,6 +38,9 @@ export type BoardActionDetailPageData = {
   sectionOptions?: { _id: string; name: string; divisionId: string }[]
   canManage: boolean
   canDelegate?: boolean
+  canApprove?: boolean
+  canReject?: boolean
+  apiPath?: string
   workspace?: BoardActionWorkspace
 }
 

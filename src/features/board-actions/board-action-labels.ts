@@ -1,11 +1,9 @@
 export const COMMISSIONER_LEVEL_DIVISION = '__commissioner__'
 
+import { orgWorkItemStatusLabel } from '@/lib/org-work-item/workflow'
+
 export function workflowStatusLabel(status?: string) {
-  if (status === 'at_commissioner') return 'At commissioner'
-  if (status === 'assigned_to_division') return 'Assigned to division'
-  if (status === 'delegated_to_section') return 'Delegated to section'
-  if (status === 'completed') return 'Completed'
-  return 'Open'
+  return orgWorkItemStatusLabel(status)
 }
 
 export function responsibilityCenterLabel(row: {

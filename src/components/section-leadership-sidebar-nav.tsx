@@ -7,8 +7,10 @@ import {
   FilePen,
   FileText,
   Handshake,
+  ClipboardList,
   LayoutDashboard,
   Layers,
+  Search,
   ShieldCheck,
   Users,
   Zap,
@@ -124,6 +126,34 @@ export function SectionLeadershipSidebarNav({
                 <Link href={`${basePath}/stakeholders`}>
                   <Handshake />
                   <span>Stakeholders</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={
+                  pathname === `${basePath}/board-actions` ||
+                  pathname.startsWith(`${basePath}/board-actions/`)
+                }
+              >
+                <Link href={`${basePath}/board-actions`}>
+                  <ClipboardList />
+                  <span>Board Actions</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={
+                  pathname === `${basePath}/audit-queries` ||
+                  pathname.startsWith(`${basePath}/audit-queries/`)
+                }
+              >
+                <Link href={`${basePath}/audit-queries`}>
+                  <Search />
+                  <span>Audit Queries</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

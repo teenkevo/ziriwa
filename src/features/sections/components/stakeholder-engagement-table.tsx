@@ -275,9 +275,8 @@ export function StakeholderEngagementTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete stakeholder?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteIndex !== null && stakeholders.length === 1
-                ? 'This will remove the stakeholder, delete all associated reports, minutes, action points, and files, and remove the engagement matrix for this period. This cannot be undone.'
-                : 'This will remove the stakeholder and delete all associated reports, minutes, action points, and files. This cannot be undone.'}
+              This will remove the stakeholder and delete all associated
+              reports, minutes, action points, and files. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

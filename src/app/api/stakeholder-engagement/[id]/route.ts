@@ -490,16 +490,11 @@ export async function PATCH(
         )
       }
 
-      const filtered = stakeholders.filter((_, i) => i !== stakeholderIndex)
-
-      if (filtered.length === 0) {
-        await purgeStakeholderEngagement(writeClient, id)
-        return NextResponse.json({ ok: true, engagementDeleted: true })
-      }
-
       await purgeStakeholderEntryAssets(writeClient, entry)
+
+      const filtered = stakeholders.filter((_, i) => i !== stakeholderIndex)
       await writeClient.patch(id).set({ stakeholders: filtered }).commit()
-      return NextResponse.json({ ok: true, engagementDeleted: false })
+      return NextResponse.json({ ok: true })
     }
 
     return NextResponse.json({ error: 'Unknown op' }, { status: 400 })

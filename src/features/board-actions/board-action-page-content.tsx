@@ -50,16 +50,19 @@ import {
   COMMISSIONER_LEVEL_DIVISION,
   divisionIdForApi,
   divisionIdFromAction,
-  workflowStatusLabel,
 } from './board-action-labels'
+import {
+  ORG_WORK_ITEM_WORKFLOW_STEPS,
+  orgWorkItemStatusLabel,
+  orgWorkItemWorkflowStepIndex,
+} from '@/lib/org-work-item/workflow'
 import type { BoardActionDetailPageData } from './load-board-action-detail'
 
-const WORKFLOW_STEPS = [
-  { key: 'at_commissioner', label: 'Commissioner' },
-  { key: 'assigned_to_division', label: 'Division' },
-  { key: 'delegated_to_section', label: 'Section' },
-  { key: 'completed', label: 'Completed' },
-] as const
+const WORKFLOW_STEPS = ORG_WORK_ITEM_WORKFLOW_STEPS
+
+function workflowStatusLabel(status?: string) {
+  return orgWorkItemStatusLabel(status)
+}
 
 function formatDateTime(value?: string) {
   if (!value) return '—'
@@ -89,8 +92,7 @@ function isOverdue(dueDate?: string, status?: string) {
 }
 
 function workflowStepIndex(status?: string) {
-  const idx = WORKFLOW_STEPS.findIndex(s => s.key === status)
-  return idx >= 0 ? idx : 0
+  return orgWorkItemWorkflowStepIndex(status)
 }
 
 function reopenStatus(action: { sectionId?: string; divisionId?: string }) {
@@ -106,7 +108,24 @@ export function BoardActionPageContent({
   canManage,
   canDelegate = false,
   workspace,
-}: BoardActionDetailPageData) {
+  apiPath = '/api/board-actions',
+  supervisorOptions = [],
+  officerOptions = [],
+  canCascadeToSupervisor = false,
+  canCascadeToOfficer = false,
+  canSubmitResponse = false,
+  canApprove = false,
+  canReject = false,
+}: BoardActionDetailPageData & {
+  apiPath?: string
+  supervisorOptions?: { _id: string; name: string }[]
+  officerOptions?: { _id: string; name: string }[]
+  canCascadeToSupervisor?: boolean
+  canCascadeToOfficer?: boolean
+  canSubmitResponse?: boolean
+  canApprove?: boolean
+  canReject?: boolean
+}) {
   const router = useRouter()
   const resolvedWorkspace = workspace ?? {
     roleLabel: 'Commissioner',
@@ -133,6 +152,14 @@ export function BoardActionPageContent({
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [delegateSectionId, setDelegateSectionId] = React.useState('')
   const [isDelegating, setIsDelegating] = React.useState(false)
+  const [cascadeSupervisorId, setCascadeSupervisorId] = React.useState('')
+  const [cascadeOfficerId, setCascadeOfficerId] = React.useState('')
+  const [responseText, setResponseText] = React.useState(
+    (action as { response?: string }).response ?? '',
+  )
+  const [rejectFeedback, setRejectFeedback] = React.useState('')
+  const [showReject, setShowReject] = React.useState(false)
+  const [isWorkflowBusy, setIsWorkflowBusy] = React.useState(false)
 
   React.useEffect(() => {
     setTitle(action.title)
@@ -162,7 +189,7 @@ export function BoardActionPageContent({
 
   const patchAction = React.useCallback(
     async (body: Record<string, unknown>) => {
-      const res = await fetch(`/api/board-actions/${action._id}`, {
+      const res = await fetch(`${apiPath}/${action._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -173,8 +200,22 @@ export function BoardActionPageContent({
       }
       router.refresh()
     },
-    [action._id, router],
+    [action._id, apiPath, router],
   )
+
+  const runWorkflow = async (body: Record<string, unknown>, success: string) => {
+    setIsWorkflowBusy(true)
+    try {
+      await patchAction(body)
+      toast.success(success)
+      setShowReject(false)
+      setRejectFeedback('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed')
+    } finally {
+      setIsWorkflowBusy(false)
+    }
+  }
 
   const saveTitle = async () => {
     const trimmed = title.trim()
@@ -273,7 +314,7 @@ export function BoardActionPageContent({
     if (!delegateSectionId) return
     setIsDelegating(true)
     try {
-      const res = await fetch(`/api/board-actions/${action._id}`, {
+      const res = await fetch(`${apiPath}/${action._id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sectionId: delegateSectionId }),
@@ -296,7 +337,7 @@ export function BoardActionPageContent({
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      const res = await fetch(`/api/board-actions/${action._id}`, {
+      const res = await fetch(`${apiPath}/${action._id}`, {
         method: 'DELETE',
       })
       if (!res.ok) {
@@ -685,6 +726,202 @@ export function BoardActionPageContent({
               })}
             </ol>
           </div>
+        )}
+
+        {(canCascadeToSupervisor ||
+          canCascadeToOfficer ||
+          canSubmitResponse ||
+          canApprove ||
+          canReject) && (
+          <Card className='max-w-3xl'>
+            <CardHeader className='pb-2'>
+              <CardTitle className='text-base'>Actions</CardTitle>
+            </CardHeader>
+            <CardContent className='space-y-4'>
+              {canCascadeToSupervisor && supervisorOptions.length > 0 ? (
+                <div className='flex flex-col gap-2 sm:flex-row sm:items-end'>
+                  <div className='min-w-[12rem] flex-1 space-y-1'>
+                    <Label className='text-xs'>Cascade to supervisor</Label>
+                    <Select
+                      value={cascadeSupervisorId || undefined}
+                      onValueChange={setCascadeSupervisorId}
+                      disabled={isWorkflowBusy}
+                    >
+                      <SelectTrigger className='h-9'>
+                        <SelectValue placeholder='Select supervisor' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {supervisorOptions.map(s => (
+                          <SelectItem key={s._id} value={s._id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    size='sm'
+                    disabled={!cascadeSupervisorId || isWorkflowBusy}
+                    onClick={() =>
+                      void runWorkflow(
+                        {
+                          action: 'cascade',
+                          supervisorId: cascadeSupervisorId,
+                        },
+                        'Cascaded to supervisor',
+                      )
+                    }
+                  >
+                    Cascade
+                  </Button>
+                </div>
+              ) : null}
+
+              {canCascadeToOfficer && officerOptions.length > 0 ? (
+                <div className='flex flex-col gap-2 sm:flex-row sm:items-end'>
+                  <div className='min-w-[12rem] flex-1 space-y-1'>
+                    <Label className='text-xs'>Cascade to officer</Label>
+                    <Select
+                      value={cascadeOfficerId || undefined}
+                      onValueChange={setCascadeOfficerId}
+                      disabled={isWorkflowBusy}
+                    >
+                      <SelectTrigger className='h-9'>
+                        <SelectValue placeholder='Select officer' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {officerOptions.map(o => (
+                          <SelectItem key={o._id} value={o._id}>
+                            {o.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    size='sm'
+                    disabled={!cascadeOfficerId || isWorkflowBusy}
+                    onClick={() =>
+                      void runWorkflow(
+                        {
+                          action: 'cascade',
+                          assigneeId: cascadeOfficerId,
+                        },
+                        'Cascaded to officer',
+                      )
+                    }
+                  >
+                    Cascade
+                  </Button>
+                </div>
+              ) : null}
+
+              {canSubmitResponse ? (
+                <div className='space-y-2'>
+                  <Label className='text-xs'>Your response</Label>
+                  <textarea
+                    className='flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                    value={responseText}
+                    onChange={e => setResponseText(e.target.value)}
+                    disabled={isWorkflowBusy}
+                    placeholder='Describe how this item was addressed…'
+                  />
+                  <Button
+                    size='sm'
+                    disabled={!responseText.trim() || isWorkflowBusy}
+                    onClick={() =>
+                      void runWorkflow(
+                        { action: 'submit_response', response: responseText },
+                        'Response submitted for approval',
+                      )
+                    }
+                  >
+                    Submit for approval
+                  </Button>
+                </div>
+              ) : null}
+
+              {(action as { response?: string }).response ? (
+                <div className='rounded-md border bg-muted/30 p-3 text-sm'>
+                  <p className='text-xs font-medium text-muted-foreground mb-1'>
+                    Officer response
+                  </p>
+                  <p className='whitespace-pre-wrap'>
+                    {(action as { response?: string }).response}
+                  </p>
+                </div>
+              ) : null}
+
+              {(action as { rejectionFeedback?: string }).rejectionFeedback ? (
+                <div className='rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm'>
+                  <p className='text-xs font-medium text-destructive mb-1'>
+                    Rejection feedback
+                  </p>
+                  <p className='whitespace-pre-wrap'>
+                    {(action as { rejectionFeedback?: string }).rejectionFeedback}
+                  </p>
+                </div>
+              ) : null}
+
+              {canApprove ? (
+                <div className='flex flex-wrap gap-2'>
+                  <Button
+                    size='sm'
+                    disabled={isWorkflowBusy}
+                    onClick={() =>
+                      void runWorkflow({ action: 'approve' }, 'Approved')
+                    }
+                  >
+                    Approve
+                  </Button>
+                  {canReject ? (
+                    <Button
+                      size='sm'
+                      variant='outline'
+                      disabled={isWorkflowBusy}
+                      onClick={() => setShowReject(true)}
+                    >
+                      Reject
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {showReject ? (
+                <div className='space-y-2 border-t pt-4'>
+                  <Label className='text-xs'>Rejection feedback</Label>
+                  <textarea
+                    className='flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                    value={rejectFeedback}
+                    onChange={e => setRejectFeedback(e.target.value)}
+                    disabled={isWorkflowBusy}
+                  />
+                  <div className='flex gap-2'>
+                    <Button
+                      size='sm'
+                      variant='destructive'
+                      disabled={!rejectFeedback.trim() || isWorkflowBusy}
+                      onClick={() =>
+                        void runWorkflow(
+                          { action: 'reject', feedback: rejectFeedback },
+                          'Rejected — sent back to officer',
+                        )
+                      }
+                    >
+                      Confirm reject
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant='ghost'
+                      onClick={() => setShowReject(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
         )}
 
         <Card className='max-w-3xl'>

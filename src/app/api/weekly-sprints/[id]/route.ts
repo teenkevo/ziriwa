@@ -18,7 +18,9 @@ import {
   notifySprintWorkReview,
   notifySupervisorsPendingSubmission,
 } from '@/lib/notifications/emit-sprint-notifications'
+import { notifyManagerSprintPlanSubmittedEmail } from '@/lib/email/notify-manager-sprint-plan-submitted-email.server'
 import { notifyOfficerWorkSubmissionOutcomeEmail } from '@/lib/email/notify-sprint-work-submission-outcome-email.server'
+import { notifySupervisorSprintPlanReviewEmail } from '@/lib/email/notify-supervisor-sprint-plan-review-email.server'
 import { notifySupervisorWorkSubmissionEmail } from '@/lib/email/notify-sprint-work-submission-email.server'
 import { getSprintTaskStatusLabel } from '@/lib/sprint-task-status'
 import { audit } from '@/lib/audit-log/events'
@@ -114,6 +116,7 @@ export async function PATCH(
           submitMeta?.weekLabel ?? 'Weekly sprint',
           sectionId,
         )
+        notifyManagerSprintPlanSubmittedEmail({ sprintId: id })
       }
       return NextResponse.json({ success: true })
     }
@@ -328,6 +331,19 @@ export async function PATCH(
             reviewStatus === 'revisions_requested'
               ? revisionReason?.trim()
               : undefined,
+        })
+        notifySupervisorSprintPlanReviewEmail({
+          sprintId: id,
+          taskKey,
+          reviewStatus: reviewStatus as
+            | 'accepted'
+            | 'rejected'
+            | 'revisions_requested',
+          revisionReason:
+            reviewStatus === 'revisions_requested'
+              ? revisionReason?.trim()
+              : undefined,
+          managerStaffId: access.viewerStaffId,
         })
         if (allReviewed) {
           void notifySprintPlanReviewComplete({
@@ -938,6 +954,14 @@ export async function PATCH(
       }
 
       await patch.commit()
+
+      if (!isProjectSection) {
+        notifyManagerSprintPlanSubmittedEmail({
+          sprintId: id,
+          isResubmission: true,
+        })
+      }
+
       return NextResponse.json({ success: true })
     }
 

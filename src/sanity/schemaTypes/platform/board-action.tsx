@@ -32,6 +32,21 @@ export const boardAction = defineType({
           { title: 'At Commissioner', value: 'at_commissioner' },
           { title: 'Assigned to Division', value: 'assigned_to_division' },
           { title: 'Delegated to Section', value: 'delegated_to_section' },
+          { title: 'Assigned to Supervisor', value: 'assigned_to_supervisor' },
+          { title: 'Assigned to Officer', value: 'assigned_to_officer' },
+          {
+            title: 'Pending Supervisor Approval',
+            value: 'pending_supervisor_approval',
+          },
+          {
+            title: 'Pending Manager Approval',
+            value: 'pending_manager_approval',
+          },
+          { title: 'Pending AC Approval', value: 'pending_ac_approval' },
+          {
+            title: 'Pending Commissioner Approval',
+            value: 'pending_commissioner_approval',
+          },
           { title: 'Completed', value: 'completed' },
         ],
       },
@@ -58,6 +73,35 @@ export const boardAction = defineType({
       to: [{ type: 'section' }],
     }),
     defineField({
+      name: 'supervisor',
+      title: 'Assigned Supervisor',
+      type: 'reference',
+      to: [{ type: 'staff' }],
+    }),
+    defineField({
+      name: 'assignee',
+      title: 'Assigned Officer',
+      type: 'reference',
+      to: [{ type: 'staff' }],
+    }),
+    defineField({
+      name: 'response',
+      title: 'Officer Response',
+      type: 'text',
+      rows: 4,
+    }),
+    defineField({
+      name: 'responseSubmittedAt',
+      title: 'Response Submitted At',
+      type: 'datetime',
+    }),
+    defineField({
+      name: 'rejectionFeedback',
+      title: 'Rejection Feedback',
+      type: 'text',
+      rows: 3,
+    }),
+    defineField({
       name: 'createdBy',
       title: 'Created By',
       type: 'reference',
@@ -66,6 +110,18 @@ export const boardAction = defineType({
     defineField({
       name: 'delegatedBy',
       title: 'Delegated By (AC)',
+      type: 'reference',
+      to: [{ type: 'staff' }],
+    }),
+    defineField({
+      name: 'cascadedByManager',
+      title: 'Cascaded By (Manager)',
+      type: 'reference',
+      to: [{ type: 'staff' }],
+    }),
+    defineField({
+      name: 'cascadedBySupervisor',
+      title: 'Cascaded By (Supervisor)',
       type: 'reference',
       to: [{ type: 'staff' }],
     }),
