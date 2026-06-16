@@ -27,13 +27,14 @@ import {
   sectionDelegation,
   staffTransferRequest,
 } from './delegation'
-import { sprintTask, weeklySprint, workSubmission } from './sprints'
+import { sprintTask, weeklySprint, workSubmission, workSubmissionStakeholderLink } from './sprints'
 import {
   stakeholderActionPoint,
   stakeholderEngagement,
   stakeholderEntry,
   stakeholderMinutes,
   stakeholderMinutesApproval,
+  stakeholderWorkSubmissionLink,
 } from './stakeholders'
 import {
   appNotification,
@@ -79,10 +80,12 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     stakeholderActionPoint,
     stakeholderMinutesApproval,
     stakeholderMinutes,
+    stakeholderWorkSubmissionLink,
     stakeholderEntry,
     stakeholderEngagement,
     // Sprints & work
     sprintTask,
+    workSubmissionStakeholderLink,
     workSubmission,
     weeklySprint,
   ],

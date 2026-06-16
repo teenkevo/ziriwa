@@ -720,6 +720,7 @@ export function SectionPageContent({
                   engagement={stakeholderEngagement}
                   staffOptions={staffOptions}
                   viewerStaffId={viewerStaffId}
+                  sprints={scopedSprints}
                   initiatives={flattenInitiatives(
                     activeContract as SectionContract | null,
                   )}
@@ -741,6 +742,7 @@ export function SectionPageContent({
               onSprintTabChange={setSprintSubTab}
               panelPortalNode={panelPortalNode}
               viewerStaffId={viewerStaffId}
+              stakeholderEngagement={stakeholderEngagement}
               sectionAccess={sectionAccess}
             />
           </TabsContent>

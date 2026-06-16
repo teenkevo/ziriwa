@@ -33,6 +33,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { StakeholderEntry } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import {
+  buildStakeholderWorkSubmissionOptions,
+  linkedWorkSubmissionToOptionValue,
+  parseWorkSubmissionOptionValue,
+} from '@/lib/stakeholder-work-submission-options'
+import { StakeholderLinkOptionLabel } from './stakeholder-link-option-label'
 
 const STAKEHOLDER_OPTIONS = [
   { value: 'regulatory_body', label: 'Regulatory body' },
@@ -97,6 +104,8 @@ interface AddStakeholderDialogProps {
   engagementId: string
   staffOptions: StaffOption[]
   initiatives: InitiativeOption[]
+  sprints?: WeeklySprint[]
+  stakeholders?: StakeholderEntry[]
   nextSn: number
   editingEntry?: StakeholderEntry | null
   editingIndex?: number
@@ -111,6 +120,7 @@ const emptyForm = {
   emailAddress: '',
   address: '',
   initiativeCode: '',
+  linkedWorkSubmission: '',
   objectiveOfEngagement: '',
   power: '',
   interest: '',
@@ -130,6 +140,8 @@ export function AddStakeholderDialog({
   engagementId,
   staffOptions,
   initiatives,
+  sprints = [],
+  stakeholders = [],
   nextSn,
   editingEntry,
   editingIndex,
@@ -139,6 +151,10 @@ export function AddStakeholderDialog({
   const [step, setStep] = React.useState(1)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [form, setForm] = React.useState(emptyForm)
+  const workSubmissionOptions = React.useMemo(
+    () => buildStakeholderWorkSubmissionOptions(sprints, stakeholders),
+    [sprints, stakeholders],
+  )
 
   const isEditing = !!editingEntry && typeof editingIndex === 'number'
 
@@ -154,6 +170,9 @@ export function AddStakeholderDialog({
           emailAddress: editingEntry.emailAddress ?? '',
           address: editingEntry.address ?? '',
           initiativeCode: editingEntry.initiativeCode ?? '',
+          linkedWorkSubmission: linkedWorkSubmissionToOptionValue(
+            editingEntry.linkedWorkSubmission,
+          ),
           objectiveOfEngagement: editingEntry.objectiveOfEngagement ?? '',
           power: editingEntry.power ?? '',
           interest: editingEntry.interest ?? '',
@@ -232,6 +251,14 @@ export function AddStakeholderDialog({
               ? Number(form.totalCost)
               : undefined,
         uraDelegation: form.uraDelegation || undefined,
+      }
+      const parsedLink = form.linkedWorkSubmission
+        ? parseWorkSubmissionOptionValue(form.linkedWorkSubmission)
+        : null
+      if (parsedLink) {
+        payload.linkedWorkSubmission = parsedLink
+      } else if (isEditing) {
+        payload.clearLinkedWorkSubmission = true
       }
       if (isEditing) {
         payload.stakeholderIndex = editingIndex
@@ -471,6 +498,40 @@ export function AddStakeholderDialog({
                     </p>
                   </div>
                 )}
+                {workSubmissionOptions.length > 0 ? (
+                  <div className='space-y-2'>
+                    <Label>Linked sprint work submission (optional)</Label>
+                    <Select
+                      value={form.linkedWorkSubmission || '__none__'}
+                      onValueChange={v =>
+                        update(
+                          'linkedWorkSubmission',
+                          v === '__none__' ? '' : v,
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder='None' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='__none__'>None</SelectItem>
+                        {workSubmissionOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <StakeholderLinkOptionLabel
+                              dateLabel={option.dateLabel}
+                              stakeholderLabel={option.stakeholderLabel}
+                              workstreamPrefix={option.workstreamPrefix}
+                            />
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className='text-xs text-muted-foreground'>
+                      Link to evidence from a stakeholder engagement sprint
+                      task.
+                    </p>
+                  </div>
+                ) : null}
                 <div className='space-y-2'>
                   <Label htmlFor='objectiveOfEngagement'>
                     Objective of the engagement

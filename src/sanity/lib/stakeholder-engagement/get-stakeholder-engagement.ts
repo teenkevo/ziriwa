@@ -34,6 +34,13 @@ export type StakeholderMinutes = {
   approvals?: StakeholderMinutesApproval[]
 }
 
+export type StakeholderWorkSubmissionLink = {
+  sprintId?: string
+  taskKey?: string
+  submissionKey?: string
+  sprint?: { _id: string; weekLabel?: string; weekStart?: string }
+}
+
 export type StakeholderEntry = {
   _key: string
   sn?: number
@@ -45,6 +52,7 @@ export type StakeholderEntry = {
   address?: string
   objectiveOfEngagement?: string
   initiativeCode?: string
+  linkedWorkSubmission?: StakeholderWorkSubmissionLink
   power?: 'H' | 'M' | 'L'
   interest?: 'H' | 'M' | 'L'
   priority?: 'H' | 'M' | 'L'
@@ -85,6 +93,12 @@ const STAKEHOLDER_ENGAGEMENT_PROJECTION = `
     address,
     objectiveOfEngagement,
     initiativeCode,
+    linkedWorkSubmission {
+      "sprintId": sprint._ref,
+      taskKey,
+      submissionKey,
+      "sprint": sprint->{ _id, weekLabel, weekStart },
+    },
     power,
     interest,
     priority,

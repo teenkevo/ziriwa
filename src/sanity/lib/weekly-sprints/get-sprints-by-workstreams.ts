@@ -30,7 +30,11 @@ export async function getSprintsByWorkstreamIds(
           _key, date, startTime, endTime, totalHours, description,
           output { asset->{ _id, url, originalFilename, size, mimeType } },
           revenueAssessed, status, submittedAt,
-          reviewThread[] { _key, role, action, message, createdAt }
+          reviewThread[] { _key, role, action, message, createdAt },
+          linkedStakeholder {
+            "engagementId": engagement._ref,
+            stakeholderKey,
+          },
         }
       },
     }

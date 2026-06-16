@@ -89,6 +89,13 @@ export const stakeholderEntry = defineType({
       description:
         'Optional. Link to an initiative from the section or project contract. Some engagements may be out of scope.',
     }),
+    defineField({
+      name: 'linkedWorkSubmission',
+      title: 'Linked Sprint Work Submission',
+      type: 'stakeholderWorkSubmissionLink',
+      description:
+        'Optional. Link this engagement to evidence submitted for a stakeholder engagement sprint task.',
+    }),
     // Objective
     defineField({
       name: 'objectiveOfEngagement',

@@ -582,6 +582,7 @@ export function ManagerWorkspaceContent({
           officers={officers}
           panelPortalNode={panelPortalNode}
           viewerStaffId={viewerStaffId}
+          stakeholderEngagement={stakeholderEngagement}
           sectionAccess={sectionAccess}
           workspaceScope={scopeLabels.kind}
           presentation='single-view'
@@ -611,6 +612,7 @@ export function ManagerWorkspaceContent({
               engagement={stakeholderEngagement}
               staffOptions={staffOptions}
               viewerStaffId={viewerStaffId}
+              sprints={sprints}
               initiatives={flattenInitiatives(
                 (isProjectWorkstreamWorkspace
                   ? sectionContract

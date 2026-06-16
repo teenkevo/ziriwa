@@ -26,6 +26,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { FileUpload } from '@/components/ui/file-upload'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -37,6 +38,9 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { RichTextContent } from '@/components/ui/rich-text-content'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import { hasRichTextContent } from '@/lib/rich-text'
+import { cn } from '@/lib/utils'
 import {
   Accordion,
   AccordionContent,
@@ -47,8 +51,15 @@ import { OfficerSwitcher, type Officer } from './officer-switcher'
 import { SprintWeekTimer } from './sprint-week-timer'
 import type { AcceptedSprintTask } from './sprint-tasks-table'
 import type { WorkSubmission } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 import { getEffectiveTaskStatus, isSprintWeekStarted } from '@/lib/sprint-week'
 import { getSprintActivityCategoryLabel } from '@/lib/sprint-task-validation'
+import {
+  buildStakeholderEntryOptions,
+  parseStakeholderEntryOptionValue,
+  resolveLinkedStakeholderLabel,
+} from '@/lib/stakeholder-entry-options'
+import { StakeholderLinkOptionLabel } from './stakeholder-link-option-label'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -94,6 +105,8 @@ interface SprintTaskDetailsPanelProps {
       description: string
       outputFile: File
       revenueAssessed?: number
+      stakeholderEngagementId?: string
+      stakeholderKey?: string
     },
   ) => Promise<void>
   onApproveSubmission: (
@@ -118,6 +131,7 @@ interface SprintTaskDetailsPanelProps {
   isSaving: boolean
   canSuperviseDetailedTasks?: boolean
   canSubmitTaskWork?: boolean
+  stakeholderEngagement?: StakeholderEngagement | null
 }
 
 export function SprintTaskDetailsPanel({
@@ -132,18 +146,24 @@ export function SprintTaskDetailsPanel({
   onRejectSubmission,
   onRespondToSubmissionRejection,
   isSaving,
+  stakeholderEngagement = null,
 }: SprintTaskDetailsPanelProps) {
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
   const [newDescription, setNewDescription] = React.useState('')
   const [newOutputFile, setNewOutputFile] = React.useState<File | null>(null)
   const [newRevenue, setNewRevenue] = React.useState('')
+  const [newLinkedStakeholder, setNewLinkedStakeholder] = React.useState('')
   const [isAdding, setIsAdding] = React.useState(false)
-  const outputFileRef = React.useRef<HTMLInputElement>(null)
+  const stakeholderEntryOptions = React.useMemo(
+    () => buildStakeholderEntryOptions(stakeholderEngagement),
+    [stakeholderEngagement],
+  )
 
   const resetAddForm = () => {
     setNewDescription('')
     setNewOutputFile(null)
     setNewRevenue('')
+    setNewLinkedStakeholder('')
   }
 
   const hasSubmissions = (task?.workSubmissions ?? []).length > 0
@@ -165,17 +185,22 @@ export function SprintTaskDetailsPanel({
   const isCompliance = task.activityCategory === 'compliance'
 
   const handleAddSubmission = async () => {
-    if (!newDescription.trim()) return
+    if (!hasRichTextContent(newDescription)) return
     if (!newOutputFile) {
       toast.error('Output file is required')
       return
     }
     setIsAdding(true)
     try {
+      const parsedStakeholder = newLinkedStakeholder
+        ? parseStakeholderEntryOptionValue(newLinkedStakeholder)
+        : null
       await onAddWorkSubmission(task.sprintId, task._key, {
-        description: newDescription.trim(),
+        description: newDescription,
         outputFile: newOutputFile,
         revenueAssessed: newRevenue ? parseFloat(newRevenue) : undefined,
+        stakeholderEngagementId: parsedStakeholder?.engagementId,
+        stakeholderKey: parsedStakeholder?.stakeholderKey,
       })
       resetAddForm()
       setAddDialogOpen(false)
@@ -351,59 +376,93 @@ export function SprintTaskDetailsPanel({
                     Submit Output
                   </Button>
                 </DialogTrigger>
-                <DialogContent className='max-w-md'>
-                  <DialogHeader>
-                    <DialogTitle>Submit Output</DialogTitle>
-                    <DialogDescription>
-                      Time is tracked automatically from the sprint start
-                      (Monday 10 AM).
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className='space-y-4 py-2'>
-                    <div>
-                      <Label className='text-xs' required>
-                        Description of Work Done
-                      </Label>
-                      <textarea
-                        value={newDescription}
-                        onChange={e => setNewDescription(e.target.value)}
-                        disabled={isAdding}
-                        rows={3}
-                        className='mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50'
-                        placeholder='Describe what was accomplished...'
-                      />
+                <DialogContent
+                  disableClose={isAdding}
+                  className={cn(
+                    'flex flex-col gap-0 overflow-hidden rounded-xl p-0',
+                    '!fixed !inset-3 !bottom-3 !left-3 !right-3 !top-3',
+                    '!h-auto !max-h-none !w-auto !max-w-none',
+                    '!translate-x-0 !translate-y-0',
+                    'sm:!inset-4',
+                    '[&>button.absolute]:hidden',
+                  )}
+                >
+                  <div className='flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-6'>
+                    <div className='min-w-0'>
+                      <DialogTitle className='truncate text-left text-base sm:text-lg'>
+                        Submit Output
+                      </DialogTitle>
+                      <DialogDescription className='text-left'>
+                        Time is tracked automatically from the sprint start
+                        (Monday 10 AM).
+                      </DialogDescription>
                     </div>
-                    <div>
-                      <Label className='text-xs' required>
-                        Output (Evidence File)
-                      </Label>
-                      <input
-                        ref={outputFileRef}
-                        type='file'
-                        className='hidden'
-                        accept='application/pdf,.pdf'
-                        onChange={e => {
-                          const f = e.target.files?.[0]
-                          if (f) setNewOutputFile(f)
-                          e.target.value = ''
-                        }}
-                      />
+                    <div className='flex shrink-0 items-center gap-2'>
                       <Button
                         type='button'
                         variant='outline'
                         size='sm'
-                        className='mt-1 w-full justify-start'
-                        onClick={() => outputFileRef.current?.click()}
+                        onClick={() => {
+                          resetAddForm()
+                          setAddDialogOpen(false)
+                        }}
                         disabled={isAdding}
                       >
-                        <Paperclip className='h-4 w-4 mr-1.5' />
-                        {newOutputFile
-                          ? newOutputFile.name
-                          : 'Attach PDF output'}
+                        Cancel
+                      </Button>
+                      <Button
+                        type='button'
+                        size='sm'
+                        onClick={handleAddSubmission}
+                        disabled={
+                          isAdding ||
+                          !hasRichTextContent(newDescription) ||
+                          !newOutputFile
+                        }
+                      >
+                        {isAdding ? (
+                          <Loader2 className='h-4 w-4 animate-spin' />
+                        ) : (
+                          'Submit'
+                        )}
                       </Button>
                     </div>
-                    {isCompliance && (
-                      <div>
+                  </div>
+
+                  <div className='min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-4 sm:px-6'>
+                    <div className='space-y-2'>
+                      <Label className='text-xs' required>
+                        Description of Work Done
+                      </Label>
+                      <RichTextEditor
+                        value={newDescription}
+                        onChange={setNewDescription}
+                        placeholder='Describe what was accomplished...'
+                        minHeight='180px'
+                        className='min-h-[160px]'
+                      />
+                    </div>
+
+                    <div className='space-y-2'>
+                      <Label className='text-xs' required>
+                        Output (Evidence File)
+                      </Label>
+                      <FileUpload
+                        accept='application/pdf,.pdf'
+                        maxSizeMb={10}
+                        files={newOutputFile ? [newOutputFile] : []}
+                        onFilesChange={files =>
+                          setNewOutputFile(files[0] ?? null)
+                        }
+                        disabled={isAdding}
+                        isUploading={isAdding}
+                        dropzoneTitle='Drag & drop your PDF output here'
+                        dropzoneHint='Upload a PDF file up to 10MB'
+                      />
+                    </div>
+
+                    {isCompliance ? (
+                      <div className='space-y-2'>
                         <Label className='text-xs'>Revenue Assessed</Label>
                         <Input
                           type='number'
@@ -412,36 +471,46 @@ export function SprintTaskDetailsPanel({
                           value={newRevenue}
                           onChange={e => setNewRevenue(e.target.value)}
                           disabled={isAdding}
-                          className='mt-1'
                           placeholder='0.00'
                         />
                       </div>
-                    )}
+                    ) : null}
+
+                    {stakeholderEntryOptions.length > 0 ? (
+                      <div className='space-y-2'>
+                        <Label className='text-xs'>
+                          Linked stakeholder engagement (optional)
+                        </Label>
+                        <Select
+                          value={newLinkedStakeholder || '__none__'}
+                          onValueChange={value =>
+                            setNewLinkedStakeholder(
+                              value === '__none__' ? '' : value,
+                            )
+                          }
+                          disabled={isAdding}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder='Select stakeholder' />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='__none__'>None</SelectItem>
+                            {stakeholderEntryOptions.map(option => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                <StakeholderLinkOptionLabel
+                                  dateLabel={option.dateLabel}
+                                  stakeholderLabel={option.stakeholderLabel}
+                                />
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
                   </div>
-                  <DialogFooter>
-                    <Button
-                      variant='outline'
-                      onClick={() => {
-                        resetAddForm()
-                        setAddDialogOpen(false)
-                      }}
-                      disabled={isAdding}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleAddSubmission}
-                      disabled={
-                        isAdding || !newDescription.trim() || !newOutputFile
-                      }
-                    >
-                      {isAdding ? (
-                        <Loader2 className='h-4 w-4 animate-spin' />
-                      ) : (
-                        'Submit'
-                      )}
-                    </Button>
-                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             )}
@@ -466,6 +535,7 @@ export function SprintTaskDetailsPanel({
                   weekEnd={task.weekEnd}
                   sprintStarted={sprintStarted}
                   isCompliance={isCompliance}
+                  stakeholderEngagement={stakeholderEngagement}
                   canSupervise={canSuperviseDetailedTasks}
                   canRespond={canSubmitTaskWork}
                   onApprove={onApproveSubmission}
@@ -490,6 +560,7 @@ function WorkSubmissionCard({
   weekEnd,
   sprintStarted,
   isCompliance,
+  stakeholderEngagement = null,
   onApprove,
   onReject,
   onRespond,
@@ -504,6 +575,7 @@ function WorkSubmissionCard({
   weekEnd: string
   sprintStarted: boolean
   isCompliance: boolean
+  stakeholderEngagement?: StakeholderEngagement | null
   canSupervise?: boolean
   canRespond?: boolean
   onApprove: (
@@ -565,6 +637,10 @@ function WorkSubmissionCard({
   const isRejected = submission.status === 'rejected'
   const isApproved = submission.status === 'approved'
   const outputAsset = submission.output?.asset
+  const linkedStakeholderLabel = resolveLinkedStakeholderLabel(
+    submission.linkedStakeholder,
+    stakeholderEngagement,
+  )
 
   return (
     <div className='rounded-md border bg-muted/20'>
@@ -577,7 +653,17 @@ function WorkSubmissionCard({
           </span>
         </div>
 
-        <p className='text-sm'>{submission.description}</p>
+        <RichTextContent
+          html={submission.description}
+          className='text-sm'
+          emptyText='No description provided.'
+        />
+
+        {linkedStakeholderLabel ? (
+          <p className='text-xs text-muted-foreground'>
+            Linked stakeholder: {linkedStakeholderLabel}
+          </p>
+        ) : null}
 
         {isCompliance && submission.revenueAssessed != null && (
           <p className='text-xs text-muted-foreground'>

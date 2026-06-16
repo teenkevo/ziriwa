@@ -45,6 +45,27 @@ function buildStakeholderDoc(payload: Record<string, unknown>) {
     doc.objectiveOfEngagement = payload.objectiveOfEngagement.trim()
   if (typeof payload.initiativeCode === 'string')
     doc.initiativeCode = payload.initiativeCode.trim() || undefined
+  if (payload.clearLinkedWorkSubmission === true) {
+    doc.linkedWorkSubmission = null
+  } else if (
+    payload.linkedWorkSubmission &&
+    typeof payload.linkedWorkSubmission === 'object'
+  ) {
+    const link = payload.linkedWorkSubmission as Record<string, unknown>
+    const sprintId =
+      typeof link.sprintId === 'string' ? link.sprintId.trim() : ''
+    const taskKey = typeof link.taskKey === 'string' ? link.taskKey.trim() : ''
+    const submissionKey =
+      typeof link.submissionKey === 'string' ? link.submissionKey.trim() : ''
+    if (sprintId && taskKey && submissionKey) {
+      doc.linkedWorkSubmission = {
+        _type: 'stakeholderWorkSubmissionLink',
+        sprint: { _type: 'reference', _ref: sprintId },
+        taskKey,
+        submissionKey,
+      }
+    }
+  }
   if (POWER_VALUES.includes(payload.power as (typeof POWER_VALUES)[number])) doc.power = payload.power
   if (POWER_VALUES.includes(payload.interest as (typeof POWER_VALUES)[number]))
     doc.interest = payload.interest
@@ -137,13 +158,22 @@ export async function PATCH(
       const doc = buildStakeholderDoc({ ...fields, name: fields.name ?? '' })
       delete (doc as Record<string, unknown>)._key
       const setPayload: Record<string, unknown> = {}
+      const unsetPaths: string[] = []
       for (const [key, value] of Object.entries(doc)) {
-        if (key !== '_type' && value !== undefined) {
+        if (key === '_type') continue
+        if (key === 'linkedWorkSubmission' && value === null) {
+          unsetPaths.push(`stakeholders[${stakeholderIndex}].linkedWorkSubmission`)
+          continue
+        }
+        if (value !== undefined) {
           setPayload[`stakeholders[${stakeholderIndex}].${key}`] = value
         }
       }
       if (Object.keys(setPayload).length > 0) {
         await writeClient.patch(id).set(setPayload).commit()
+      }
+      if (unsetPaths.length > 0) {
+        await writeClient.patch(id).unset(unsetPaths).commit()
       }
       return NextResponse.json({ ok: true })
     }

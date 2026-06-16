@@ -35,6 +35,10 @@ import {
   getSectionIdFromWeeklySprint,
   sectionAccessDenied,
 } from '@/lib/section-access.server'
+import {
+  linkStakeholderEntryToWorkSubmission,
+  resolveStakeholderIndexForSectionLink,
+} from '@/lib/stakeholder-work-submission-link.server'
 
 export async function PATCH(
   req: NextRequest,
@@ -455,7 +459,14 @@ export async function PATCH(
     }
 
     if (action === 'add-work-submission') {
-      const { taskKey, description, outputFileId, revenueAssessed } = body
+      const {
+        taskKey,
+        description,
+        outputFileId,
+        revenueAssessed,
+        stakeholderEngagementId,
+        stakeholderKey,
+      } = body
       if (!taskKey || !description?.trim() || !outputFileId) {
         return NextResponse.json(
           { error: 'taskKey, description, and outputFileId are required' },
@@ -481,6 +492,24 @@ export async function PATCH(
         return sectionAccessDenied(
           'Only the assigned officer can submit work for this task',
         )
+      }
+
+      const hasStakeholderLink = Boolean(stakeholderEngagementId || stakeholderKey)
+      if (hasStakeholderLink) {
+        if (
+          typeof stakeholderEngagementId !== 'string' ||
+          typeof stakeholderKey !== 'string' ||
+          !stakeholderEngagementId.trim() ||
+          !stakeholderKey.trim()
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                'stakeholderEngagementId and stakeholderKey are required when linking a stakeholder',
+            },
+            { status: 400 },
+          )
+        }
       }
 
       const now = new Date()
@@ -509,8 +538,9 @@ export async function PATCH(
 
       const existing =
         (task.workSubmissions as Array<Record<string, unknown>>) || []
+      const submissionKey = crypto.randomUUID()
       const newSubmission: Record<string, unknown> = {
-        _key: crypto.randomUUID(),
+        _key: submissionKey,
         _type: 'workSubmission',
         date: now.toISOString().slice(0, 10),
         startTime: '10:00',
@@ -539,6 +569,35 @@ export async function PATCH(
         newSubmission.revenueAssessed = revenueAssessed
       }
 
+      let stakeholderIndex: number | null = null
+      if (hasStakeholderLink && sectionId) {
+        try {
+          stakeholderIndex = await resolveStakeholderIndexForSectionLink({
+            engagementId: stakeholderEngagementId.trim(),
+            stakeholderKey: stakeholderKey.trim(),
+            sectionId,
+          })
+          newSubmission.linkedStakeholder = {
+            _type: 'workSubmissionStakeholderLink',
+            engagement: {
+              _type: 'reference',
+              _ref: stakeholderEngagementId.trim(),
+            },
+            stakeholderKey: stakeholderKey.trim(),
+          }
+        } catch (error) {
+          return NextResponse.json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Invalid stakeholder link',
+            },
+            { status: 400 },
+          )
+        }
+      }
+
       await writeClient
         .patch(id)
         .set({
@@ -549,6 +608,19 @@ export async function PATCH(
           [`tasks[_key=="${taskKey}"].taskStatus`]: 'in_review',
         })
         .commit()
+
+      if (
+        stakeholderIndex !== null &&
+        typeof stakeholderEngagementId === 'string'
+      ) {
+        await linkStakeholderEntryToWorkSubmission({
+          engagementId: stakeholderEngagementId.trim(),
+          stakeholderIndex,
+          sprintId: id,
+          taskKey,
+          submissionKey,
+        })
+      }
 
       if (sectionId && access.viewerStaffId) {
         const officer = await writeClient.fetch<{ fullName?: string } | null>(

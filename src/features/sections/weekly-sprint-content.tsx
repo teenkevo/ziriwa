@@ -80,6 +80,7 @@ import type {
   WeeklySprint,
   SprintTask,
 } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import {
@@ -146,6 +147,7 @@ interface WeeklySprintContentProps {
   panelPortalNode?: HTMLDivElement | null
   /** Sanity staff id for signed-in user — filters accepted tasks for officers. */
   viewerStaffId?: string
+  stakeholderEngagement?: StakeholderEngagement | null
   sectionAccess: SectionAccess
   workspaceScope?: WorkspaceScopeKind
   presentation?: 'tabs' | 'single-view'
@@ -635,6 +637,7 @@ export function WeeklySprintContent({
   onSprintTabChange,
   panelPortalNode,
   viewerStaffId,
+  stakeholderEngagement = null,
   sectionAccess,
   workspaceScope = 'mainstream',
   presentation = 'tabs',
@@ -1288,6 +1291,8 @@ export function WeeklySprintContent({
       description: string
       outputFile: File
       revenueAssessed?: number
+      stakeholderEngagementId?: string
+      stakeholderKey?: string
     },
   ) => {
     const formData = new FormData()
@@ -1308,6 +1313,8 @@ export function WeeklySprintContent({
         description: submission.description,
         outputFileId,
         revenueAssessed: submission.revenueAssessed,
+        stakeholderEngagementId: submission.stakeholderEngagementId,
+        stakeholderKey: submission.stakeholderKey,
       }),
     })
     if (!res.ok) throw new Error('Failed to add work submission')
@@ -1530,6 +1537,7 @@ export function WeeklySprintContent({
       onRejectSubmission={handleRejectSubmission}
       onRespondToSubmissionRejection={handleRespondToSubmissionRejection}
       isSaving={isSavingTask}
+      stakeholderEngagement={stakeholderEngagement}
     />
   )
 
@@ -1558,17 +1566,17 @@ export function WeeklySprintContent({
             tasks={tasks}
             officers={officers}
             sectionId={sectionId}
-            contractPhrase={contractPhrase}
             showWorkstreamBadge={isProjectSprint}
             selectedTaskKey={selectedTaskKey}
             onSelectTask={setSelectedTaskKey}
             onUpdateTask={handleUpdateTask}
             isSaving={isSavingTask}
-            canAddExtraTask={
-              sectionAccess.canSuperviseDetailedTasks && initiatives.length > 0
+            canAddPlanTask={
+              canSupervisorManageSprint(sprint, sectionAccess) &&
+              initiatives.length > 0
             }
+            onAddPlanTask={openPlanTaskDialog}
             canSuperviseDetailedTasks={sectionAccess.canSuperviseDetailedTasks}
-            onAddExtraTask={id => openExtraTaskDialog(id)}
           />
         ))
       )}
@@ -2436,22 +2444,20 @@ function AcceptedSprintTasksCard({
   tasks,
   officers,
   sectionId,
-  contractPhrase,
   showWorkstreamBadge = false,
   selectedTaskKey,
   onSelectTask,
   onUpdateTask,
   isSaving,
-  canAddExtraTask,
+  canAddPlanTask = false,
+  onAddPlanTask,
   canSuperviseDetailedTasks,
-  onAddExtraTask,
 }: {
   sprint: WeeklySprint
   sectionName: string
   tasks: AcceptedSprintTask[]
   officers: Officer[]
   sectionId: string
-  contractPhrase: string
   showWorkstreamBadge?: boolean
   selectedTaskKey: string | null
   onSelectTask: (key: string | null) => void
@@ -2461,9 +2467,9 @@ function AcceptedSprintTasksCard({
     updates: Record<string, unknown>,
   ) => void
   isSaving: boolean
-  canAddExtraTask: boolean
+  canAddPlanTask?: boolean
+  onAddPlanTask?: (sprint: WeeklySprint) => void
   canSuperviseDetailedTasks: boolean
-  onAddExtraTask: (sprintId: string) => void
 }) {
   const weekStartDate = parseYMDLocal(sprint.weekStart)
   const weekEndDate = parseYMDLocal(sprint.weekEnd)
@@ -2511,6 +2517,27 @@ function AcceptedSprintTasksCard({
     }
   }, [sprintNotStarted, sprintOngoing, pendingCount, weekStartDate, now])
 
+  const showAddPlanTask =
+    isCurrentWeek &&
+    canAddPlanTask &&
+    Boolean(onAddPlanTask) &&
+    (sprint.status === 'submitted' || sprint.status === 'reviewed')
+
+  const addPlanTaskButton = showAddPlanTask ? (
+    <Button
+      type='button'
+      variant='outline'
+      size='sm'
+      className='h-8'
+      onClick={() => onAddPlanTask?.(sprint)}
+      disabled={isSaving}
+      title={`Add a task to ${sprint.weekLabel}`}
+    >
+      <Plus className='mr-2 h-4 w-4' />
+      Add extra task
+    </Button>
+  ) : null
+
   return (
     <Card>
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -2539,26 +2566,14 @@ function AcceptedSprintTasksCard({
               >
                 {statusBadge.label}
               </Badge>
-              {isCurrentWeek && canSuperviseDetailedTasks && (
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  className='h-8'
-                  onClick={() => onAddExtraTask(sprint._id)}
-                  disabled={isSaving || !canAddExtraTask}
-                  title={
-                    !canAddExtraTask
-                      ? `Add initiatives and measurable activities to ${contractPhrase} first`
-                      : undefined
-                  }
-                >
-                  <Plus className='h-4 w-4 mr-2' />
-                  Add extra task
-                </Button>
-              )}
+              {addPlanTaskButton ? (
+                <div className='lg:hidden'>{addPlanTaskButton}</div>
+              ) : null}
             </div>
             <div className='flex shrink-0 items-center gap-2'>
+              {addPlanTaskButton ? (
+                <div className='hidden lg:block'>{addPlanTaskButton}</div>
+              ) : null}
               <SprintTasksDownloadButton
                 sectionName={sectionName}
                 sprint={sprint}

@@ -9,6 +9,11 @@ export type WorkSubmissionReviewEntry = {
   createdAt?: string
 }
 
+export type WorkSubmissionStakeholderLink = {
+  engagementId?: string
+  stakeholderKey?: string
+}
+
 export type WorkSubmission = {
   _key: string
   date?: string
@@ -29,6 +34,7 @@ export type WorkSubmission = {
   status?: 'pending' | 'approved' | 'rejected'
   submittedAt?: string
   reviewThread?: WorkSubmissionReviewEntry[]
+  linkedStakeholder?: WorkSubmissionStakeholderLink
 }
 
 export type SprintTask = {
@@ -94,7 +100,11 @@ export async function getSprintsBySection(
           _key, date, startTime, endTime, totalHours, description,
           output { asset->{ _id, url, originalFilename, size, mimeType } },
           revenueAssessed, status, submittedAt,
-          reviewThread[] { _key, role, action, message, createdAt }
+          reviewThread[] { _key, role, action, message, createdAt },
+          linkedStakeholder {
+            "engagementId": engagement._ref,
+            stakeholderKey,
+          },
         }
       },
     }

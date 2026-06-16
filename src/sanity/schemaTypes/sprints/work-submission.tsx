@@ -98,6 +98,13 @@ export const workSubmission = defineType({
         },
       ],
     }),
+    defineField({
+      name: 'linkedStakeholder',
+      title: 'Linked Stakeholder',
+      type: 'workSubmissionStakeholderLink',
+      description:
+        'Optional. Links this output to a stakeholder in the engagement matrix.',
+    }),
   ],
   preview: {
     select: {

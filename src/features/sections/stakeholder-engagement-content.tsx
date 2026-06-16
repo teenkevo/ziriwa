@@ -17,6 +17,7 @@ import type {
   StakeholderEngagement,
   StakeholderEntry,
 } from '@/sanity/lib/stakeholder-engagement/get-stakeholder-engagement'
+import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 
 type StaffOption = { _id: string; fullName?: string; staffId?: string }
 type InitiativeOption = { code: string; title: string }
@@ -33,6 +34,7 @@ interface StakeholderEngagementContentProps {
   engagement: StakeholderEngagement | null
   staffOptions: StaffOption[]
   initiatives?: InitiativeOption[]
+  sprints?: WeeklySprint[]
   viewerStaffId?: string
 }
 
@@ -45,6 +47,7 @@ export function StakeholderEngagementContent({
   engagement,
   staffOptions,
   initiatives = [],
+  sprints = [],
   viewerStaffId,
 }: StakeholderEngagementContentProps) {
   const router = useRouter()
@@ -234,6 +237,8 @@ export function StakeholderEngagementContent({
         engagementId={engagement._id}
         staffOptions={staffOptions}
         initiatives={initiatives}
+        sprints={sprints}
+        stakeholders={stakeholders}
         nextSn={stakeholders.length + 1}
         editingEntry={editingEntry}
         editingIndex={editingIndex ?? undefined}
