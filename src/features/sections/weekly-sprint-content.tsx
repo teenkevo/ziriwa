@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import { Badge } from '@/components/ui/badge'
+import { AllClearState } from '@/components/all-clear-state'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -232,17 +233,103 @@ const STATUS_CONFIG: Record<
   {
     label: string
     variant: 'default' | 'secondary' | 'destructive' | 'outline'
+    className: string
   }
 > = {
-  pending: { label: 'Pending Review', variant: 'secondary' },
-  accepted: { label: 'Accepted', variant: 'default' },
-  rejected: { label: 'Rejected', variant: 'destructive' },
-  revisions_requested: { label: 'Revisions Requested', variant: 'outline' },
+  pending: {
+    label: 'Pending Review',
+    variant: 'secondary',
+    className:
+      'text-orange-500 bg-orange-500/10 border-orange-500/50 hover:bg-orange-500/20',
+  },
+  accepted: {
+    label: 'Accepted',
+    variant: 'default',
+    className: 'bg-green-700 text-white border-green-700 hover:bg-green-700/90',
+  },
+  rejected: {
+    label: 'Rejected',
+    variant: 'destructive',
+    className:
+      'text-destructive bg-destructive/10 border-destructive/50 hover:bg-destructive/20',
+  },
+  revisions_requested: {
+    label: 'Revisions Requested',
+    variant: 'outline',
+    className:
+      'text-orange-500 bg-orange-500/10 border-orange-500/50 hover:bg-orange-500/20',
+  },
 }
 
-/** Ready / In Review / Drafts — active tab uses primary bottom border */
 const weeklySprintSubTabTriggerClassName =
   'inline-flex items-center rounded-none border-b-2 border-transparent bg-transparent px-3 py-2 text-muted-foreground shadow-none transition-colors -mb-px data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none'
+
+const sprintReviewTaskTabTriggerClassName = cn(
+  weeklySprintSubTabTriggerClassName,
+  'text-xs',
+)
+
+type SprintReviewTaskTab = 'accepted' | 'in-review' | 'rejected'
+
+function getSprintReviewTaskTabCounts(tasks: SprintTask[]) {
+  return {
+    accepted: tasks.filter(task => task.status === 'accepted').length,
+    inReview: tasks.filter(
+      task =>
+        task.status === 'pending' || task.status === 'revisions_requested',
+    ).length,
+    rejected: tasks.filter(task => task.status === 'rejected').length,
+  }
+}
+
+function filterSprintReviewTasks(
+  tasks: SprintTask[],
+  tab: SprintReviewTaskTab,
+): SprintTask[] {
+  switch (tab) {
+    case 'accepted':
+      return tasks.filter(task => task.status === 'accepted')
+    case 'rejected':
+      return tasks.filter(task => task.status === 'rejected')
+    case 'in-review':
+      return tasks.filter(
+        task =>
+          task.status === 'pending' || task.status === 'revisions_requested',
+      )
+  }
+}
+
+const SPRINT_REVIEW_TASK_TABS: {
+  value: SprintReviewTaskTab
+  label: string
+}[] = [
+  { value: 'accepted', label: 'Accepted' },
+  { value: 'in-review', label: 'In review' },
+  { value: 'rejected', label: 'Rejected' },
+]
+
+function getReviewTabAllClearCopy(tab: SprintReviewTaskTab): {
+  title: string
+  description: string
+} {
+  switch (tab) {
+    case 'accepted':
+      return {
+        title: 'All clear',
+        description: 'No accepted tasks in this sprint yet.',
+      }
+    case 'rejected':
+      return {
+        title: 'All clear',
+        description: 'No rejected tasks in this sprint.',
+      }
+    case 'in-review':
+      return {
+        title: 'All clear',
+        description: 'No tasks awaiting review.',
+      }
+  }
+}
 
 type DraftTask = {
   /** Stable key for accordion state and new draft rows */
@@ -2688,6 +2775,24 @@ function SprintCard({
         },
       }[sprint.status]
 
+  const isInReviewSprint =
+    sprint.status === 'submitted' || sprint.status === 'reviewed'
+
+  const reviewTaskCounts = React.useMemo(
+    () => getSprintReviewTaskTabCounts(tasks),
+    [tasks],
+  )
+
+  const [reviewTaskTab, setReviewTaskTab] =
+    React.useState<SprintReviewTaskTab>('in-review')
+
+  const visibleTasks = React.useMemo(() => {
+    if (!isInReviewSprint) return tasks
+    return filterSprintReviewTasks(tasks, reviewTaskTab)
+  }, [isInReviewSprint, reviewTaskTab, tasks])
+
+  const reviewTabAllClearCopy = getReviewTabAllClearCopy(reviewTaskTab)
+
   return (
     <Card>
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -2820,11 +2925,51 @@ function SprintCard({
         </CardHeader>
         <CollapsibleContent>
           <CardContent className='pt-6'>
+            {isInReviewSprint ? (
+              <Tabs
+                value={reviewTaskTab}
+                onValueChange={value =>
+                  setReviewTaskTab(value as SprintReviewTaskTab)
+                }
+                className='space-y-4'
+              >
+                <TabsList className='inline-flex h-auto w-full flex-wrap items-stretch justify-start gap-1 rounded-none border-b border-border bg-transparent p-0'>
+                  {SPRINT_REVIEW_TASK_TABS.map(tab => {
+                    const count =
+                      tab.value === 'accepted'
+                        ? reviewTaskCounts.accepted
+                        : tab.value === 'rejected'
+                          ? reviewTaskCounts.rejected
+                          : reviewTaskCounts.inReview
+
+                    return (
+                      <TabsTrigger
+                        key={tab.value}
+                        value={tab.value}
+                        className={sprintReviewTaskTabTriggerClassName}
+                      >
+                        {tab.label}
+                        {count > 0 ? (
+                          <Badge
+                            variant='secondary'
+                            className='ml-1.5 text-[10px] px-1.5 py-0'
+                          >
+                            {count}
+                          </Badge>
+                        ) : null}
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+              </Tabs>
+            ) : null}
             <div className='space-y-6'>
-              {tasks.map((task, i) => {
+              {visibleTasks.map((task, i) => {
                 const config = STATUS_CONFIG[task.status] ?? {
                   label: task.status ?? 'Unknown',
                   variant: 'secondary' as const,
+                  className:
+                    'text-orange-500 bg-orange-500/10 border-orange-500/50 hover:bg-orange-500/20',
                 }
                 const canReview =
                   canManagerReviewPlan &&
@@ -2860,9 +3005,7 @@ function SprintCard({
                           variant={config.variant}
                           className={cn(
                             'w-fit text-[10px] px-1.5 py-0',
-                            config.variant === 'destructive'
-                              ? 'text-destructive bg-destructive/10 border-destructive/50 hover:bg-destructive/20'
-                              : 'text-orange-500 bg-orange-500/10 border-orange-500/50 hover:bg-orange-500/20',
+                            config.className,
                           )}
                         >
                           {config.label}
@@ -2983,11 +3126,19 @@ function SprintCard({
                   </div>
                 )
               })}
-              {tasks.length === 0 && (
-                <p className='text-sm text-muted-foreground py-2'>
-                  No tasks in this sprint.
-                </p>
-              )}
+              {visibleTasks.length === 0 ? (
+                isInReviewSprint ? (
+                  <AllClearState
+                    compact
+                    title={reviewTabAllClearCopy.title}
+                    description={reviewTabAllClearCopy.description}
+                  />
+                ) : (
+                  <p className='text-sm text-muted-foreground py-2'>
+                    No tasks in this sprint.
+                  </p>
+                )
+              ) : null}
             </div>
           </CardContent>
         </CollapsibleContent>
