@@ -33,3 +33,43 @@ export function getWorkspaceBasePathForAccess(
   if (access.isSectionSupervisor && !access.isSectionManager) return '/supervisor'
   return '/manager'
 }
+
+/** Manager dashboard: section manager or project / deputy project manager. */
+export function isManagerDashboardBasePath(basePath: string): boolean {
+  return (
+    basePath === '/manager' ||
+    basePath.endsWith('/project-manager') ||
+    basePath.endsWith('/deputy-project-manager')
+  )
+}
+
+/** Supervisor dashboard: section supervisor or workstream lead. */
+export function isSupervisorDashboardBasePath(basePath: string): boolean {
+  return basePath === '/supervisor' || basePath.endsWith('/workstream-lead')
+}
+
+export function buildSprintReviseHref(
+  workspaceBasePath: WorkspaceBasePath,
+  sprintId: string,
+  taskKey: string,
+): string {
+  const params = new URLSearchParams({
+    tab: 'to-review',
+    reviseSprint: sprintId,
+    reviseTask: taskKey,
+  })
+  return `${workspaceBasePath}/sprints?${params.toString()}`
+}
+
+export function buildSectionSprintReviseHref(
+  sectionPathname: string,
+  sprintId: string,
+  taskKey: string,
+): string {
+  const params = new URLSearchParams({
+    tab: 'weekly-sprint',
+    reviseSprint: sprintId,
+    reviseTask: taskKey,
+  })
+  return `${sectionPathname}?${params.toString()}`
+}

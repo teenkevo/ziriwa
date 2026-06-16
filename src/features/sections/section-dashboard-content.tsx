@@ -267,7 +267,7 @@ export function SectionDashboardContent({
         lateEngagements={metrics.lateEngagements}
         sectionSlug={sectionSlug}
         onNavigateToTab={onNavigateToTab}
-        workspaceScope={workspaceScope}
+        workspaceBasePath={workspaceBasePath}
       />
 
       <ContractSummary metrics={metrics} />

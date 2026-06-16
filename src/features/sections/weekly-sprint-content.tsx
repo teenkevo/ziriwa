@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import {
   Loader2,
   Plus,
@@ -76,6 +76,7 @@ import {
   type AcceptedSprintTask,
 } from './components/sprint-tasks-table'
 import { SprintTaskDetailsPanel } from './components/sprint-task-details-panel'
+import { SprintTaskContractLinkRows } from '@/features/sections/components/sprint-task-contract-link-rows'
 import type { Officer } from './components/officer-switcher'
 import type {
   WeeklySprint,
@@ -673,47 +674,6 @@ function SprintTaskContractLinkFields({
   )
 }
 
-function SprintTaskContractLinkRows({
-  initiativeTitle,
-  activityTitle,
-  contractTaskTitle,
-}: {
-  initiativeTitle?: string
-  activityTitle?: string
-  contractTaskTitle?: string
-}) {
-  if (!initiativeTitle && !activityTitle && !contractTaskTitle) return null
-
-  return (
-    <div className='mt-6 space-y-6 font-light bg-muted dark:bg-muted/30 rounded-md p-4'>
-      {initiativeTitle ? (
-        <div>
-          <p className='text-[10px] font-medium text-muted-foreground'>
-            Related initiative
-          </p>
-          <p className='text-xs'>{initiativeTitle}</p>
-        </div>
-      ) : null}
-      {activityTitle ? (
-        <div>
-          <p className='text-[10px] font-medium text-muted-foreground'>
-            Related measurable activity
-          </p>
-          <p className='text-xs leading-relaxed'>{activityTitle}</p>
-        </div>
-      ) : null}
-      {contractTaskTitle ? (
-        <div>
-          <p className='text-[10px] font-medium text-muted-foreground'>
-            Related detailed task
-          </p>
-          <p className='text-xs'>{contractTaskTitle}</p>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 export function WeeklySprintContent({
   sectionId,
   sectionName,
@@ -731,6 +691,8 @@ export function WeeklySprintContent({
   singleView = 'ready',
 }: WeeklySprintContentProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const scopeLabels = scopeLabelsFromKind(workspaceScope)
   const isProjectSprint = isProjectSprintScope(workspaceScope)
   const activityCategoryOptions =
@@ -1096,6 +1058,33 @@ export function WeeklySprintContent({
     setReviseManagerFeedback(task.revisionReason?.trim() ?? '')
     setReviseOpen(true)
   }
+
+  const reviseFromUrlHandledRef = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    const sprintId = searchParams.get('reviseSprint')
+    const taskKey = searchParams.get('reviseTask')
+    if (!sprintId || !taskKey) return
+
+    const dedupeKey = `${sprintId}:${taskKey}`
+    if (reviseFromUrlHandledRef.current === dedupeKey) return
+
+    const sprint = sprints.find(s => s._id === sprintId)
+    const task = sprint?.tasks?.find(t => t._key === taskKey)
+    if (!sprint || !task || task.status !== 'revisions_requested') return
+
+    reviseFromUrlHandledRef.current = dedupeKey
+    if (presentation !== 'single-view') {
+      setSprintTab('in-review')
+    }
+    openReviseDialog(sprint, task)
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('reviseSprint')
+    params.delete('reviseTask')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }, [sprints, searchParams, presentation, pathname, router, sectionId])
 
   const setReviseField = (field: keyof DraftTask, value: string) => {
     setReviseTaskDraft(prev => {

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import {
   AlertTriangle,
@@ -27,14 +28,20 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-import type { WorkspaceScopeKind } from '@/lib/project-workspace-copy'
 import type {
   AtRiskActivity,
   AtRiskPeriodDeliverable,
   AtRiskSprintTask,
   LateEngagement,
 } from '@/lib/section-dashboard-metrics'
-import { isProjectSprintScope } from '@/lib/sprint-task-validation'
+import {
+  isManagerDashboardBasePath,
+  isSupervisorDashboardBasePath,
+  buildSprintReviseHref,
+  buildSectionSprintReviseHref,
+  type WorkspaceBasePath,
+} from '@/lib/workspace-paths'
+import { SprintRevisionTaskCard } from '@/features/sections/components/dashboard/sprint-revision-task-card'
 
 interface OverduePanelProps {
   overdueActivities: AtRiskActivity[]
@@ -48,7 +55,7 @@ interface OverduePanelProps {
   onNavigateToTab?: (
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
-  workspaceScope?: WorkspaceScopeKind
+  workspaceBasePath?: WorkspaceBasePath
 }
 
 type AttentionTab = 'contract' | 'stakeholder-engagements' | 'weekly-sprint'
@@ -60,7 +67,18 @@ type CategoryId =
   | 'revision'
   | 'engagements'
 
-const PROJECT_HIDDEN_CATEGORIES = new Set<CategoryId>(['review', 'revision'])
+function isCategoryVisibleForDashboard(
+  categoryId: CategoryId,
+  workspaceBasePath: WorkspaceBasePath,
+): boolean {
+  if (categoryId === 'review') {
+    return isManagerDashboardBasePath(workspaceBasePath)
+  }
+  if (categoryId === 'revision') {
+    return isSupervisorDashboardBasePath(workspaceBasePath)
+  }
+  return true
+}
 
 type AttentionRow = {
   key: string
@@ -98,7 +116,7 @@ const CATEGORIES: {
   },
   {
     id: 'activities',
-    label: 'Overdue detailed tasks',
+    label: 'Overdue sprint tasks',
     icon: CalendarX,
     countKey: 'overdueActivities',
   },
@@ -116,7 +134,7 @@ const CATEGORIES: {
   },
   {
     id: 'revision',
-    label: 'Tasks needing revision',
+    label: 'Sprint tasks needing revision',
     icon: RefreshCcw,
     countKey: 'revisionRequestedTasks',
   },
@@ -163,7 +181,6 @@ function buildAttentionRows(
   overdueActivities: AtRiskActivity[],
   overduePeriodDeliverables: AtRiskPeriodDeliverable[],
   pendingReviewTasks: AtRiskSprintTask[],
-  revisionRequestedTasks: AtRiskSprintTask[],
   sectionSlug?: string,
 ): AttentionRow[] {
   const rows: AttentionRow[] = []
@@ -237,21 +254,6 @@ function buildAttentionRows(
     })
   }
 
-  for (const item of revisionRequestedTasks) {
-    rows.push({
-      key: `rr-${item.sprintId}-${item._key}`,
-      categoryId: 'revision',
-      tab: 'weekly-sprint',
-      title: item.title,
-      initials: initialsFromLabel(item.title),
-      dateLine: item.sprintWeekLabel ?? 'Sprint task',
-      statusPill: 'Needs revision',
-      statusVariant: 'secondary',
-      context: item.assigneeName ?? undefined,
-      showAvatar: false,
-    })
-  }
-
   return rows
 }
 
@@ -267,18 +269,21 @@ function defaultCategoryId(
   return categories[0]?.id ?? 'activities'
 }
 
-function categoriesForScope(scope: WorkspaceScopeKind = 'mainstream') {
-  if (!isProjectSprintScope(scope)) return CATEGORIES
-  return CATEGORIES.filter(cat => !PROJECT_HIDDEN_CATEGORIES.has(cat.id))
+function categoriesForDashboard(workspaceBasePath: WorkspaceBasePath) {
+  return CATEGORIES.filter(cat =>
+    isCategoryVisibleForDashboard(cat.id, workspaceBasePath),
+  )
 }
 
-function categoryPriorityForScope(scope: WorkspaceScopeKind = 'mainstream') {
-  if (!isProjectSprintScope(scope)) return CATEGORY_PRIORITY
-  return CATEGORY_PRIORITY.filter(id => !PROJECT_HIDDEN_CATEGORIES.has(id))
+function categoryPriorityForDashboard(workspaceBasePath: WorkspaceBasePath) {
+  return CATEGORY_PRIORITY.filter(id =>
+    isCategoryVisibleForDashboard(id, workspaceBasePath),
+  )
 }
 
-const MAX_CARDS = 8
-const MAX_ENGAGEMENT_ROWS = 12
+/** Max height for the scrollable top-priority detail pane. */
+const TOP_PRIORITY_MAX_HEIGHT =
+  'max-h-[min(32rem,60vh)] lg:max-h-[min(36rem,65vh)]'
 
 const HML_LABEL: Record<'H' | 'M' | 'L', string> = {
   H: 'High',
@@ -307,11 +312,9 @@ function formatEngagementMode(mode?: string): string {
 
 function StakeholderLateTable({
   items,
-  overflow,
   onNavigateToTab,
 }: {
   items: LateEngagement[]
-  overflow: number
   onNavigateToTab?: (
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
@@ -394,11 +397,6 @@ function StakeholderLateTable({
           </TableBody>
         </Table>
       </div>
-      {overflow > 0 ? (
-        <p className='text-xs text-muted-foreground'>
-          +{overflow} more in this category
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -491,15 +489,27 @@ export function OverduePanel({
   lateEngagements,
   sectionSlug,
   onNavigateToTab,
-  workspaceScope = 'mainstream',
+  workspaceBasePath = '/manager',
 }: OverduePanelProps) {
+  const pathname = usePathname()
+
+  const buildReviseTaskHref = React.useCallback(
+    (sprintId: string, taskKey: string) => {
+      if (pathname.startsWith('/sections/')) {
+        return buildSectionSprintReviseHref(pathname, sprintId, taskKey)
+      }
+      return buildSprintReviseHref(workspaceBasePath, sprintId, taskKey)
+    },
+    [pathname, workspaceBasePath],
+  )
+
   const visibleCategories = React.useMemo(
-    () => categoriesForScope(workspaceScope),
-    [workspaceScope],
+    () => categoriesForDashboard(workspaceBasePath),
+    [workspaceBasePath],
   )
   const visibleCategoryPriority = React.useMemo(
-    () => categoryPriorityForScope(workspaceScope),
-    [workspaceScope],
+    () => categoryPriorityForDashboard(workspaceBasePath),
+    [workspaceBasePath],
   )
 
   const counts = {
@@ -520,18 +530,17 @@ export function OverduePanel({
       overdueActivities,
       overduePeriodDeliverables,
       pendingReviewTasks,
-      revisionRequestedTasks,
       sectionSlug,
     )
-    if (!isProjectSprintScope(workspaceScope)) return rows
-    return rows.filter(row => !PROJECT_HIDDEN_CATEGORIES.has(row.categoryId))
+    return rows.filter(row =>
+      isCategoryVisibleForDashboard(row.categoryId, workspaceBasePath),
+    )
   }, [
     overdueActivities,
     overduePeriodDeliverables,
     pendingReviewTasks,
-    revisionRequestedTasks,
     sectionSlug,
-    workspaceScope,
+    workspaceBasePath,
   ])
 
   const [selectedCategoryId, setSelectedCategoryId] =
@@ -569,24 +578,17 @@ export function OverduePanel({
     visibleCategories.find(c => c.id === selectedCategoryId) ??
     visibleCategories[0]
   const selectedLabel = selectedCategory?.label ?? ''
-  const selectedCount = selectedCategory
-    ? counts[selectedCategory.countKey]
-    : 0
+  const selectedCount = selectedCategory ? counts[selectedCategory.countKey] : 0
 
   const filteredRows = attentionRows.filter(
     r => r.categoryId === selectedCategoryId,
   )
   const isEngagements = selectedCategoryId === 'engagements'
-  const visibleEngagements = isEngagements
-    ? lateEngagements.slice(0, MAX_ENGAGEMENT_ROWS)
-    : []
-  const engagementOverflow = isEngagements
-    ? Math.max(0, lateEngagements.length - visibleEngagements.length)
-    : 0
-  const visibleCards = isEngagements ? [] : filteredRows.slice(0, MAX_CARDS)
-  const overflow = isEngagements
-    ? engagementOverflow
-    : filteredRows.length - visibleCards.length
+  const isRevisionTasks = selectedCategoryId === 'revision'
+  const visibleEngagements = isEngagements ? lateEngagements : []
+  const visibleRevisionTasks = isRevisionTasks ? revisionRequestedTasks : []
+  const visibleCards =
+    isEngagements || isRevisionTasks ? [] : filteredRows
 
   return (
     <Card>
@@ -622,8 +624,8 @@ export function OverduePanel({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className='flex flex-col gap-6 lg:flex-row lg:gap-0'>
+      <CardContent className='min-h-0'>
+        <div className='flex min-h-0 flex-col gap-6 lg:flex-row lg:gap-0'>
           <nav
             aria-label='At-risk categories'
             className='flex shrink-0 flex-col gap-0.5 border-b border-border pb-4 lg:w-96 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5'
@@ -664,8 +666,8 @@ export function OverduePanel({
             })}
           </nav>
 
-          <div className='min-w-0 flex-1 space-y-3 lg:pl-6'>
-            <div>
+          <div className='flex min-h-0 min-w-0 flex-1 flex-col lg:pl-6'>
+            <div className='shrink-0'>
               <h3 className='text-base font-semibold tracking-tight'>
                 {totalAtRisk === 0 ? 'Status' : 'Top priority'}
               </h3>
@@ -678,33 +680,45 @@ export function OverduePanel({
               </p>
             </div>
 
-            {totalAtRisk === 0 ? (
-              <AllClearState />
-            ) : selectedCount === 0 ? (
-              <AllClearState
-                compact
-                description='Nothing needs attention in this category.'
-              />
-            ) : isEngagements ? (
-              <StakeholderLateTable
-                items={visibleEngagements}
-                overflow={engagementOverflow}
-                onNavigateToTab={onNavigateToTab}
-              />
-            ) : (
-              <ul className='space-y-3'>
-                {visibleCards.map(row => (
-                  <li key={row.key}>
-                    <PriorityCard row={row} onNavigateToTab={onNavigateToTab} />
-                  </li>
-                ))}
-                {overflow > 0 ? (
-                  <li className='text-xs text-muted-foreground'>
-                    +{overflow} more in this category
-                  </li>
-                ) : null}
-              </ul>
-            )}
+            <div
+              className={cn(
+                'mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1',
+                selectedCount > 0 && TOP_PRIORITY_MAX_HEIGHT,
+              )}
+            >
+              {totalAtRisk === 0 ? (
+                <AllClearState />
+              ) : selectedCount === 0 ? (
+                <AllClearState
+                  compact
+                  description='Nothing needs attention in this category.'
+                />
+              ) : isEngagements ? (
+                <StakeholderLateTable
+                  items={visibleEngagements}
+                  onNavigateToTab={onNavigateToTab}
+                />
+              ) : isRevisionTasks ? (
+                <ul className='space-y-6'>
+                  {visibleRevisionTasks.map(task => (
+                    <li key={`${task.sprintId}-${task._key}`}>
+                      <SprintRevisionTaskCard
+                        task={task}
+                        reviseHref={buildReviseTaskHref(task.sprintId, task._key)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className='space-y-3'>
+                  {visibleCards.map(row => (
+                    <li key={row.key}>
+                      <PriorityCard row={row} onNavigateToTab={onNavigateToTab} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

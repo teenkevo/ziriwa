@@ -88,10 +88,37 @@ export type AtRiskPeriodDeliverable = {
 export type AtRiskSprintTask = {
   _key: string
   title: string
+  description?: string
   sprintWeekLabel?: string
   sprintId: string
+  sprintStatus?: WeeklySprint['status']
   taskStatus?: SprintTask['taskStatus']
   assigneeName?: string | null
+  initiativeTitle?: string
+  activityTitle?: string
+  contractTaskTitle?: string
+  revisionReason?: string
+}
+
+function toAtRiskSprintTask(
+  sprint: WeeklySprint,
+  task: SprintTask,
+  workflowStatus: ReturnType<typeof resolveSprintTaskStatus>,
+): AtRiskSprintTask {
+  return {
+    _key: task._key,
+    title: getRichTextPlainText(task.description, 'Untitled activity'),
+    description: task.description,
+    sprintWeekLabel: sprint.weekLabel,
+    sprintId: sprint._id,
+    sprintStatus: sprint.status,
+    taskStatus: workflowStatus,
+    assigneeName: task.assigneeName,
+    initiativeTitle: task.initiativeTitle,
+    activityTitle: task.activityTitle,
+    contractTaskTitle: task.contractTaskTitle,
+    revisionReason: task.revisionReason,
+  }
 }
 
 export type LateEngagement = {
@@ -452,25 +479,11 @@ export function computeSectionDashboardMetrics(input: {
       if (workflowStatus !== 'done') openSprintTasks++
 
       if (sprint.status === 'submitted' && task.status === 'pending') {
-        pendingReviewTasks.push({
-          _key: task._key,
-          title: getRichTextPlainText(task.description, 'Untitled activity'),
-          sprintWeekLabel: sprint.weekLabel,
-          sprintId: sprint._id,
-          taskStatus: workflowStatus,
-          assigneeName: task.assigneeName,
-        })
+        pendingReviewTasks.push(toAtRiskSprintTask(sprint, task, workflowStatus))
       }
 
       if (task.status === 'revisions_requested') {
-        revisionRequestedTasks.push({
-          _key: task._key,
-          title: getRichTextPlainText(task.description, 'Untitled activity'),
-          sprintWeekLabel: sprint.weekLabel,
-          sprintId: sprint._id,
-          taskStatus: workflowStatus,
-          assigneeName: task.assigneeName,
-        })
+        revisionRequestedTasks.push(toAtRiskSprintTask(sprint, task, workflowStatus))
       }
 
       // Officer load aggregation: only count assigned tasks
