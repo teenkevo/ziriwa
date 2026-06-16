@@ -42,6 +42,7 @@ import {
   type WorkspaceBasePath,
 } from '@/lib/workspace-paths'
 import { SprintRevisionTaskCard } from '@/features/sections/components/dashboard/sprint-revision-task-card'
+import { PendingReviewTasksSection } from '@/features/sections/components/dashboard/pending-review-tasks-section'
 
 interface OverduePanelProps {
   overdueActivities: AtRiskActivity[]
@@ -180,7 +181,6 @@ function daysOverdueLabel(n: number): string {
 function buildAttentionRows(
   overdueActivities: AtRiskActivity[],
   overduePeriodDeliverables: AtRiskPeriodDeliverable[],
-  pendingReviewTasks: AtRiskSprintTask[],
   sectionSlug?: string,
 ): AttentionRow[] {
   const rows: AttentionRow[] = []
@@ -236,21 +236,6 @@ function buildAttentionRows(
       statusPill: daysOverdueLabel(item.daysOverdue),
       statusVariant: 'destructive',
       context: item.activityTitle,
-    })
-  }
-
-  for (const item of pendingReviewTasks) {
-    rows.push({
-      key: `pr-${item.sprintId}-${item._key}`,
-      categoryId: 'review',
-      tab: 'weekly-sprint',
-      title: item.title,
-      initials: initialsFromLabel(item.title),
-      dateLine: item.sprintWeekLabel ?? 'Sprint task',
-      statusPill: 'Awaiting review',
-      statusVariant: 'secondary',
-      context: item.assigneeName ?? undefined,
-      showAvatar: false,
     })
   }
 
@@ -529,7 +514,6 @@ export function OverduePanel({
     const rows = buildAttentionRows(
       overdueActivities,
       overduePeriodDeliverables,
-      pendingReviewTasks,
       sectionSlug,
     )
     return rows.filter(row =>
@@ -538,7 +522,6 @@ export function OverduePanel({
   }, [
     overdueActivities,
     overduePeriodDeliverables,
-    pendingReviewTasks,
     sectionSlug,
     workspaceBasePath,
   ])
@@ -585,10 +568,12 @@ export function OverduePanel({
   )
   const isEngagements = selectedCategoryId === 'engagements'
   const isRevisionTasks = selectedCategoryId === 'revision'
+  const isPendingReviewTasks = selectedCategoryId === 'review'
   const visibleEngagements = isEngagements ? lateEngagements : []
   const visibleRevisionTasks = isRevisionTasks ? revisionRequestedTasks : []
+  const visiblePendingReviewTasks = isPendingReviewTasks ? pendingReviewTasks : []
   const visibleCards =
-    isEngagements || isRevisionTasks ? [] : filteredRows
+    isEngagements || isRevisionTasks || isPendingReviewTasks ? [] : filteredRows
 
   return (
     <Card>
@@ -709,6 +694,8 @@ export function OverduePanel({
                     </li>
                   ))}
                 </ul>
+              ) : isPendingReviewTasks ? (
+                <PendingReviewTasksSection tasks={visiblePendingReviewTasks} />
               ) : (
                 <ul className='space-y-3'>
                   {visibleCards.map(row => (
