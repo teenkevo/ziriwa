@@ -7,6 +7,13 @@ import { impersonationCookieClearOptions } from '@/lib/impersonation/cookie-opti
 import { IMPERSONATION_COOKIE_NAME } from '@/lib/impersonation/constants'
 import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
 import { client } from '@/sanity/lib/client'
+import { isMaintenanceModeEnabled } from '@/lib/maintenance-mode'
+
+const isMaintenanceBypassRoute = createRouteMatcher([
+  '/maintenance',
+  '/api/webhooks/clerk(.*)',
+  '/api/cron(.*)',
+])
 
 function clearImpersonationCookieOnResponse(response: NextResponse) {
   const options = impersonationCookieClearOptions()
@@ -114,12 +121,26 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks/clerk(.*)',
   '/api/cron(.*)',
   '/unauthorized',
+  '/maintenance',
   '/studio(.*)',
 ])
 
 export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth()
   const { pathname } = request.nextUrl
+
+  if (isMaintenanceModeEnabled() && !isMaintenanceBypassRoute(request)) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'Service temporarily unavailable', maintenance: true },
+        { status: 503 },
+      )
+    }
+
+    if (pathname !== '/maintenance') {
+      return NextResponse.redirect(new URL('/maintenance', request.url))
+    }
+  }
 
   // Post-sign-in boot (loader + workspace routing).
   if (userId && pathname === '/') {
