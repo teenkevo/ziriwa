@@ -31,7 +31,7 @@ const STUDIO_GROUPS = {
   delegation: {
     title: 'Delegation & transfers',
     icon: TransferIcon,
-    types: ['sectionDelegation', 'orgRoleDelegation', 'staffTransferRequest'],
+    types: ['sectionDelegation', 'orgRoleDelegation'],
   },
   stakeholders: {
     title: 'Stakeholders',

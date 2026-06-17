@@ -207,24 +207,6 @@ export const audit = {
         newValue: detail,
       }),
   },
-  staffTransferRequest: {
-    created: (id: string, label: string, detail?: unknown) =>
-      emit('CREATED', 'staffTransferRequest', {
-        resourceId: id,
-        resourceLabel: label,
-        message: 'Staff transfer request submitted',
-        actionKey: 'staff-transfer.create',
-        newValue: detail,
-      }),
-    decided: (id: string, label: string, decision: string, detail?: unknown) =>
-      emit(decision === 'approved' ? 'APPROVED' : 'REJECTED', 'staffTransferRequest', {
-        resourceId: id,
-        resourceLabel: label,
-        message: `Transfer request ${decision}`,
-        actionKey: 'staff-transfer.decide',
-        newValue: detail,
-      }),
-  },
   impersonation: {
     started: (
       staffId: string,

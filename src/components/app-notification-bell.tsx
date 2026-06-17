@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { isVirtualNotificationId } from '@/lib/notifications/virtual-notification'
 import type { AppNotificationRow } from '@/lib/notifications/types'
 import { cn } from '@/lib/utils'
+import { useBackgroundRefresh } from '@/hooks/use-background-refresh'
 
 export function AppNotificationBell() {
   const router = useRouter()
@@ -41,11 +42,7 @@ export function AppNotificationBell() {
     }
   }, [])
 
-  React.useEffect(() => {
-    load()
-    const interval = setInterval(load, 60_000)
-    return () => clearInterval(interval)
-  }, [load])
+  const { refresh } = useBackgroundRefresh(load)
 
   async function markAllRead() {
     const res = await fetch('/api/notifications/read-all', { method: 'POST' })
@@ -75,7 +72,7 @@ export function AppNotificationBell() {
   }
 
   return (
-    <DropdownMenu onOpenChange={open => open && load()}>
+    <DropdownMenu onOpenChange={open => open && refresh()}>
       <DropdownMenuTrigger asChild>
         <Button variant='ghost' size='icon' className='relative h-9 w-9'>
           <Bell className='h-4 w-4' />

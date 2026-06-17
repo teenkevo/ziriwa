@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { format } from 'date-fns'
-import { MoreVertical, Pencil, UserMinus, UserCog } from 'lucide-react'
+import { MoreVertical, Pencil, UserMinus } from 'lucide-react'
 import {
   flexRender,
   getCoreRowModel,
@@ -49,7 +49,6 @@ interface SectionStaffTableProps {
   rows: SectionStaffTableRow[]
   canManage: boolean
   onEdit: (row: SectionStaffTableRow) => void
-  onTransfer: (row: SectionStaffTableRow) => void
   onRefresh: () => void
 }
 
@@ -57,7 +56,6 @@ export function SectionStaffTable({
   rows,
   canManage,
   onEdit,
-  onTransfer,
   onRefresh,
 }: SectionStaffTableProps) {
   const [globalFilter, setGlobalFilter] = React.useState('')
@@ -183,10 +181,6 @@ export function SectionStaffTable({
                   <Pencil className='mr-2 h-4 w-4' />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onTransfer(r)}>
-                  <UserCog className='mr-2 h-4 w-4' />
-                  Request transfer
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className='text-destructive focus:text-destructive'
@@ -202,7 +196,7 @@ export function SectionStaffTable({
         },
       },
     ],
-    [canManage, disablingId, onEdit, onTransfer],
+    [canManage, disablingId, onEdit],
   )
 
   const table = useReactTable({

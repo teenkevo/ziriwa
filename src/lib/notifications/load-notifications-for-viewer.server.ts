@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { unstable_cache } from 'next/cache'
+
 import { client } from '@/sanity/lib/client'
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
@@ -13,15 +15,12 @@ import {
 import type { AppNotificationRow, NotificationType } from '@/lib/notifications/types'
 import { getProjectWorkspaceContext } from '@/lib/workspace-mode.server'
 
-export async function loadNotificationsForViewer(): Promise<{
+async function loadNotificationsForViewerUncached(
+  email: string,
+): Promise<{
   notifications: AppNotificationRow[]
   unreadCount: number
 }> {
-  const email = await getEffectiveViewerEmail()
-  if (!email) {
-    return { notifications: [], unreadCount: 0 }
-  }
-
   const staff = await client.fetch<{ _id: string; role?: string } | null>(
     `*[_type == "staff" && lower(email) == $email && status == "active"][0]{
       _id,
@@ -95,4 +94,26 @@ export async function loadNotificationsForViewer(): Promise<{
   const unreadCount = filtered.filter(n => !n.readAt).length
 
   return { notifications: filtered, unreadCount }
+}
+
+const getCachedNotificationsForViewer = unstable_cache(
+  async (email: string, workspaceKey: string) =>
+    loadNotificationsForViewerUncached(email),
+  ['notifications-for-viewer'],
+  { revalidate: 90 },
+)
+
+export async function loadNotificationsForViewer(): Promise<{
+  notifications: AppNotificationRow[]
+  unreadCount: number
+}> {
+  const email = await getEffectiveViewerEmail()
+  if (!email) {
+    return { notifications: [], unreadCount: 0 }
+  }
+
+  const { mode, projectId } = await getProjectWorkspaceContext()
+  const workspaceKey = `${mode}:${projectId ?? ''}`
+
+  return getCachedNotificationsForViewer(email, workspaceKey)
 }

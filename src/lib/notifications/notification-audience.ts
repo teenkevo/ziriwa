@@ -11,12 +11,10 @@ const OFFICER_TYPES: NotificationType[] = [
   'contract_deliverable_rejected',
   'contract_inputs_approved',
   'contract_inputs_rejected',
-  'transfer_approved',
-  'transfer_rejected',
   'delegation_started',
 ]
 
-/** Supervisors also see team submissions and transfer approvals at their step. */
+/** Supervisors also see team submissions at their step. */
 const SUPERVISOR_TYPES: NotificationType[] = [
   ...OFFICER_TYPES,
   'sprint_submission_pending',
@@ -26,7 +24,6 @@ const SUPERVISOR_TYPES: NotificationType[] = [
   'sprint_task_manager_rejected',
   'sprint_task_manager_revisions_requested',
   'sprint_plan_review_complete',
-  'transfer_pending_approval',
 ]
 
 /** Managers inherit supervisor visibility plus sprint review signals. */

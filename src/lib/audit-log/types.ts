@@ -9,7 +9,6 @@ export const AUDIT_RESOURCE_TYPES = {
   stakeholderEngagement: 'Stakeholders',
   staff: 'Staff',
   sectionDelegation: 'Delegation',
-  staffTransferRequest: 'Transfer Request',
   appNotification: 'Notification',
   impersonation: 'Impersonation',
 } as const

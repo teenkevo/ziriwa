@@ -19,7 +19,6 @@ import {
   type SectionStaffTableRow,
 } from '@/features/sections/components/section-staff-table'
 import { EditSectionStaffDialog } from '@/features/sections/components/edit-section-staff-dialog'
-import { TransferStaffDialog } from '@/features/sections/components/transfer-staff-dialog'
 import { DelegationAuditTable } from '@/features/sections/components/delegation-audit-table'
 import { CreateStaffDialog } from '@/features/dashboard/components/create-staff-dialog'
 import { CreateProjectMemberDialog } from '@/features/projects/components/create-project-member-dialog'
@@ -116,8 +115,6 @@ export function SectionStaffContent({
   const [editStaff, setEditStaff] = React.useState<SectionStaffTableRow | null>(
     null,
   )
-  const [transferStaff, setTransferStaff] =
-    React.useState<SectionStaffTableRow | null>(null)
 
   React.useEffect(() => {
     setRows(buildTableRows(roster))
@@ -162,7 +159,6 @@ export function SectionStaffContent({
             rows={rows}
             canManage={canManageTableActions}
             onEdit={setEditStaff}
-            onTransfer={setTransferStaff}
             onRefresh={refresh}
           />
 
@@ -219,14 +215,6 @@ export function SectionStaffContent({
         open={editStaff !== null}
         onOpenChange={o => !o && setEditStaff(null)}
         staff={editStaff}
-        onSuccess={refresh}
-      />
-
-      <TransferStaffDialog
-        open={transferStaff !== null}
-        onOpenChange={o => !o && setTransferStaff(null)}
-        sectionId={sectionId}
-        staff={transferStaff}
         onSuccess={refresh}
       />
     </div>

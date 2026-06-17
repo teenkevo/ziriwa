@@ -15,9 +15,6 @@ export type NotificationType =
   | 'contract_inputs_approved'
   | 'contract_inputs_rejected'
   | 'delegation_started'
-  | 'transfer_pending_approval'
-  | 'transfer_approved'
-  | 'transfer_rejected'
 
 export type NotificationWorkspaceScope = 'mainstream' | 'projects'
 

@@ -25,7 +25,6 @@ import {
 import {
   orgRoleDelegation,
   sectionDelegation,
-  staffTransferRequest,
 } from './delegation'
 import { sprintTask, weeklySprint, workSubmission, workSubmissionStakeholderLink } from './sprints'
 import {
@@ -59,10 +58,9 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     project,
     projectMember,
     section,
-    // Delegation & transfers
+    // Delegation
     sectionDelegation,
     orgRoleDelegation,
-    staffTransferRequest,
     // Performance contracts (documents + nested objects)
   sectionContract,
   projectContract,

@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/breadcrumb'
 import { ModeToggle } from '@/components/modeToggle'
 import { AppNotificationBell } from '@/components/app-notification-bell'
-import { TransferApprovalInbox } from '@/components/transfer-approval-inbox'
 import { GlobalSearch } from '@/components/global-search'
 import { UserNav } from '@/features/dashboard/components/user-nav'
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
@@ -118,7 +117,6 @@ export function AppTopBar({
           <Button variant='ghost' size='sm' className='hidden sm:inline-flex' asChild>
             <Link href='/workspace'>Switch workspace</Link>
           </Button>
-          <TransferApprovalInbox />
           <AppNotificationBell />
         </SignedIn>
         <ModeToggle />
