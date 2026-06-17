@@ -10,14 +10,6 @@ import {
 import { getSprintWeekStartLocal, isSprintWeekStarted } from '@/lib/sprint-week'
 import { assertAuth } from '@/lib/authz/guards.server'
 import { canSubmitDetailedTaskWork } from '@/lib/section-access'
-import {
-  notifyManagerSprintTaskReview,
-  notifySprintPlanReviewComplete,
-  notifySprintPriorityChanged,
-  notifySprintTaskAssigned,
-  notifySprintWorkReview,
-  notifySupervisorsPendingSubmission,
-} from '@/lib/notifications/emit-sprint-notifications'
 import { notifyManagerSprintPlanSubmittedEmail } from '@/lib/email/notify-manager-sprint-plan-submitted-email.server'
 import { notifyOfficerWorkSubmissionOutcomeEmail } from '@/lib/email/notify-sprint-work-submission-outcome-email.server'
 import { notifySupervisorSprintPlanReviewEmail } from '@/lib/email/notify-supervisor-sprint-plan-review-email.server'
@@ -327,21 +319,6 @@ export async function PATCH(
             : undefined,
           'Sprint task',
         )
-        void notifyManagerSprintTaskReview({
-          sectionId,
-          sectionSlug: sprintMeta?.sectionSlug,
-          weekLabel: sprintMeta?.weekLabel,
-          taskDescription: taskDesc,
-          reviewStatus: reviewStatus as
-            | 'accepted'
-            | 'rejected'
-            | 'revisions_requested',
-          sprintSupervisorId: sprintMeta?.supervisorId,
-          revisionReason:
-            reviewStatus === 'revisions_requested'
-              ? revisionReason?.trim()
-              : undefined,
-        })
         notifySupervisorSprintPlanReviewEmail({
           sprintId: id,
           taskKey,
@@ -355,14 +332,6 @@ export async function PATCH(
               : undefined,
           managerStaffId: access.viewerStaffId,
         })
-        if (allReviewed) {
-          void notifySprintPlanReviewComplete({
-            sectionId,
-            sectionSlug: sprintMeta?.sectionSlug,
-            weekLabel: sprintMeta?.weekLabel ?? 'Sprint',
-            sprintSupervisorId: sprintMeta?.supervisorId,
-          })
-        }
         audit.weeklySprint.reviewed(
           id,
           sprintMeta?.weekLabel ?? 'Weekly sprint',
@@ -400,8 +369,6 @@ export async function PATCH(
       if (!task) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
       }
-
-      const assigneeRef = (task.assignee as { _ref?: string } | undefined)?._ref
 
       if (updates.taskStatus !== undefined) {
         if (!access.canSuperviseDetailedTasks) {
@@ -443,17 +410,6 @@ export async function PATCH(
       }
 
       await writeClient.patch(id).set(setFields).commit()
-
-      const desc = getRichTextPlainText(
-        typeof task.description === 'string' ? task.description : undefined,
-        'Sprint task',
-      )
-      if (updates.assignee && typeof updates.assignee === 'string') {
-        void notifySprintTaskAssigned(updates.assignee, desc, sectionId)
-      }
-      if (updates.priority !== undefined && assigneeRef) {
-        void notifySprintPriorityChanged(assigneeRef, desc, sectionId)
-      }
 
       return NextResponse.json({ success: true })
     }
@@ -622,18 +578,6 @@ export async function PATCH(
         })
       }
 
-      if (sectionId && access.viewerStaffId) {
-        const officer = await writeClient.fetch<{ fullName?: string } | null>(
-          `*[_id == $staffId][0]{ "fullName": coalesce(fullName, firstName + " " + lastName) }`,
-          { staffId: access.viewerStaffId },
-        )
-        void notifySupervisorsPendingSubmission(
-          sectionId,
-          officer?.fullName ?? 'Officer',
-          description.trim(),
-        )
-      }
-
       notifySupervisorWorkSubmissionEmail({
         sprintId: id,
         taskKey,
@@ -711,7 +655,6 @@ export async function PATCH(
       const assigneeRefApprove = (task.assignee as { _ref?: string } | undefined)
         ?._ref
       if (assigneeRefApprove) {
-        void notifySprintWorkReview(assigneeRefApprove, true, message, sectionId)
         notifyOfficerWorkSubmissionOutcomeEmail({
           sprintId: id,
           taskKey,
@@ -785,7 +728,6 @@ export async function PATCH(
       const assigneeRefReject = (task.assignee as { _ref?: string } | undefined)
         ?._ref
       if (assigneeRefReject) {
-        void notifySprintWorkReview(assigneeRefReject, false, message, sectionId)
         notifyOfficerWorkSubmissionOutcomeEmail({
           sprintId: id,
           taskKey,

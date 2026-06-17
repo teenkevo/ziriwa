@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 import { assertActivityTasksUpdateAllowed } from '@/lib/section-contract-task-auth'
 import type { SectionAccess } from '@/lib/section-access'
 import { audit } from '@/lib/audit-log/events'
-import { emitContractTaskReviewNotifications } from '@/lib/notifications/emit-contract-notifications'
 import type { ActivityPageContractType } from '@/sanity/lib/contracts/get-contract-for-activity'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
@@ -369,21 +368,6 @@ export async function patchContractActivityTasks(
     .filter(Boolean)
 
   await writeClient.patch(contractId).set({ [path]: normalizedTasks }).commit()
-
-  const sectionMeta = await client.fetch<{ slug?: string } | null>(
-    /* groq */ `*[_id == $id][0]{ "slug": section->slug.current }`,
-    { id: contractId },
-  )
-
-  void emitContractTaskReviewNotifications({
-    beforeTasks: currentTasks as Parameters<
-      typeof emitContractTaskReviewNotifications
-    >[0]['beforeTasks'],
-    afterTasks: normalizedTasks as Parameters<
-      typeof emitContractTaskReviewNotifications
-    >[0]['afterTasks'],
-    sectionSlug: sectionMeta?.slug,
-  })
 
   audit.sectionContract.updated(
     contractId,

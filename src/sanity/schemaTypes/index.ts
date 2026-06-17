@@ -36,7 +36,6 @@ import {
   stakeholderWorkSubmissionLink,
 } from './stakeholders'
 import {
-  appNotification,
   auditLogBatch,
   auditLogEntry,
   boardAction,
@@ -48,7 +47,6 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     // Platform
     auditLogEntry,
     auditLogBatch,
-    appNotification,
     boardAction,
     auditQuery,
     // Org structure

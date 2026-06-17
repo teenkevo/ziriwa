@@ -22,7 +22,6 @@ import {
   projectDelegationDenied,
 } from '@/lib/project-delegation.server'
 import { syncDelegationStatuses } from '@/lib/section-delegation.server'
-import { createNotification } from '@/lib/notifications/create-notification'
 import { audit } from '@/lib/audit-log/events'
 
 export async function POST(req: NextRequest) {
@@ -213,20 +212,6 @@ export async function POST(req: NextRequest) {
     })
 
     await syncDelegationStatuses(sectionId)
-
-    const fromName = await writeClient.fetch<string | null>(
-      `*[_id == $id][0].fullName`,
-      { id: fromStaffId },
-    )
-
-    await createNotification({
-      recipientStaffId: toStaffId,
-      type: 'delegation_started',
-      title: `Acting ${actingRole} from ${startDate} to ${endDate}`,
-      body: `You are covering for ${fromName ?? 'a colleague'} while keeping your ${toStaff.role} duties.`,
-      href: `/workspace`,
-      metadata: { delegationId: doc._id, sectionId },
-    })
 
     audit.sectionDelegation.created(
       doc._id,
