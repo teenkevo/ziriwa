@@ -42,7 +42,7 @@ export const workSubmission = defineType({
       name: 'output',
       title: 'Output (Evidence)',
       type: 'file',
-      description: 'PDF file of the realized output',
+      description: 'Evidence file (PDF, Office, images, CSV, TXT, or ZIP)',
     }),
     defineField({
       name: 'revenueAssessed',

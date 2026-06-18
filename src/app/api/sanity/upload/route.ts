@@ -1,23 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
+import {
+  getWorkSubmissionFileError,
+  WORK_SUBMISSION_UPLOAD_PURPOSE,
+} from '@/lib/work-submission-file-policy'
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
+    const purpose = formData.get('purpose')
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    if (file.type !== 'application/pdf') {
+    if (purpose === WORK_SUBMISSION_UPLOAD_PURPOSE) {
+      const workSubmissionError = getWorkSubmissionFileError(file)
+      if (workSubmissionError) {
+        return NextResponse.json({ error: workSubmissionError }, { status: 400 })
+      }
+    } else if (file.type !== 'application/pdf') {
       return NextResponse.json(
         { error: 'Only PDF files are accepted for deliverables' },
         { status: 400 },
       )
     }
 
-    const asset = await writeClient.assets.upload('file', file as any, {
+    const asset = await writeClient.assets.upload('file', file as Blob, {
       filename: file.name,
     })
 
@@ -25,9 +35,11 @@ export async function POST(req: NextRequest) {
       {
         id: asset._id,
         url: asset.url,
-        originalFilename: (asset as { originalFilename?: string }).originalFilename ?? file.name,
+        originalFilename:
+          (asset as { originalFilename?: string }).originalFilename ?? file.name,
         size: (asset as { size?: number }).size,
-        mimeType: (asset as { mimeType?: string }).mimeType ?? 'application/pdf',
+        mimeType:
+          (asset as { mimeType?: string }).mimeType ?? file.type ?? undefined,
       },
       { status: 201 },
     )

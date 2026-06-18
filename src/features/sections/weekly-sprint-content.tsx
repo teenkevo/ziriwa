@@ -91,6 +91,7 @@ import {
   type SectionAccess,
 } from '@/lib/section-access'
 import { useIsLg } from '@/hooks/use-is-lg'
+import { WORK_SUBMISSION_UPLOAD_PURPOSE, getWorkSubmissionFileError } from '@/lib/work-submission-file-policy'
 import { toast } from 'sonner'
 import { getEffectiveTaskStatus } from '@/lib/sprint-week'
 import {
@@ -1371,8 +1372,13 @@ export function WeeklySprintContent({
       stakeholderKey?: string
     },
   ) => {
+    const fileError = getWorkSubmissionFileError(submission.outputFile)
+    if (fileError) {
+      throw new Error(fileError)
+    }
     const formData = new FormData()
     formData.append('file', submission.outputFile)
+    formData.append('purpose', WORK_SUBMISSION_UPLOAD_PURPOSE)
     const uploadRes = await fetch('/api/sanity/upload', {
       method: 'POST',
       body: formData,
@@ -1462,8 +1468,13 @@ export function WeeklySprintContent({
   ) => {
     let outputFileId: string | undefined
     if (outputFile) {
+      const fileError = getWorkSubmissionFileError(outputFile)
+      if (fileError) {
+        throw new Error(fileError)
+      }
       const formData = new FormData()
       formData.append('file', outputFile)
+      formData.append('purpose', WORK_SUBMISSION_UPLOAD_PURPOSE)
       const uploadRes = await fetch('/api/sanity/upload', {
         method: 'POST',
         body: formData,

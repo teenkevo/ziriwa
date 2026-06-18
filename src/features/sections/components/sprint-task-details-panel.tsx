@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import Image from 'next/image'
 import { format } from 'date-fns'
 import {
   ChevronDown,
@@ -27,6 +26,12 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { FileUpload } from '@/components/ui/file-upload'
+import {
+  getWorkSubmissionFileError,
+  WORK_SUBMISSION_FILE_ACCEPT,
+  WORK_SUBMISSION_MAX_BYTES,
+} from '@/lib/work-submission-file-policy'
+import { EvidenceFileIcon } from '@/features/sections/components/evidence-file-icon'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -448,16 +453,26 @@ export function SprintTaskDetailsPanel({
                         Output (Evidence File)
                       </Label>
                       <FileUpload
-                        accept='application/pdf,.pdf'
-                        maxSizeMb={10}
+                        accept={WORK_SUBMISSION_FILE_ACCEPT}
+                        maxSizeMb={WORK_SUBMISSION_MAX_BYTES / (1024 * 1024)}
                         files={newOutputFile ? [newOutputFile] : []}
-                        onFilesChange={files =>
-                          setNewOutputFile(files[0] ?? null)
-                        }
+                        onFilesChange={files => {
+                          const file = files[0]
+                          if (!file) {
+                            setNewOutputFile(null)
+                            return
+                          }
+                          const error = getWorkSubmissionFileError(file)
+                          if (error) {
+                            toast.error(error)
+                            return
+                          }
+                          setNewOutputFile(file)
+                        }}
                         disabled={isAdding}
                         isUploading={isAdding}
-                        dropzoneTitle='Drag & drop your PDF output here'
-                        dropzoneHint='Upload a PDF file up to 10MB'
+                        dropzoneTitle='Drag & drop your evidence file here'
+                        dropzoneHint='PDF, Office, images, CSV, TXT, or ZIP up to 10MB'
                       />
                     </div>
 
@@ -673,16 +688,13 @@ function WorkSubmissionCard({
 
         {outputAsset?.url && (
           <div className='flex items-center gap-3 p-2 rounded-md border bg-muted/30'>
-            <Image
-              src='/pdf.png'
-              alt='PDF'
-              width={28}
-              height={28}
-              className='shrink-0 rounded'
+            <EvidenceFileIcon
+              mimeType={outputAsset.mimeType}
+              originalFilename={outputAsset.originalFilename}
             />
             <div className='flex-1 min-w-0'>
               <p className='text-xs font-medium truncate'>
-                {outputAsset.originalFilename ?? 'output.pdf'}
+                {outputAsset.originalFilename ?? 'Evidence file'}
               </p>
             </div>
             <div className='flex items-center gap-1 shrink-0'>
@@ -899,10 +911,17 @@ function WorkSubmissionCard({
                       ref={respondFileRef}
                       type='file'
                       className='hidden'
-                      accept='application/pdf,.pdf'
+                      accept={WORK_SUBMISSION_FILE_ACCEPT}
                       onChange={e => {
                         const f = e.target.files?.[0]
-                        if (f) setRespondFile(f)
+                        if (f) {
+                          const error = getWorkSubmissionFileError(f)
+                          if (error) {
+                            toast.error(error)
+                            return
+                          }
+                          setRespondFile(f)
+                        }
                         e.target.value = ''
                       }}
                     />
@@ -915,7 +934,7 @@ function WorkSubmissionCard({
                       disabled={waitRespond}
                     >
                       <Paperclip className='h-4 w-4 mr-1.5' />
-                      {respondFile ? respondFile.name : 'Attach PDF'}
+                      {respondFile ? respondFile.name : 'Attach file'}
                     </Button>
                   </div>
                   <div>

@@ -1,11 +1,11 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { Download, Eye, ExternalLink } from 'lucide-react'
 
 import { RichTextContent } from '@/components/ui/rich-text-content'
+import { EvidenceFileIcon } from '@/features/sections/components/evidence-file-icon'
 import { Badge } from '@/components/ui/badge'
 import {
   Accordion,
@@ -75,15 +75,12 @@ function ReadOnlySubmissionCard({
       ) : null}
       {outputAsset?.url ? (
         <div className='flex items-center gap-3 rounded-md border bg-muted/30 p-2'>
-          <Image
-            src='/pdf.png'
-            alt='PDF'
-            width={28}
-            height={28}
-            className='shrink-0 rounded'
+          <EvidenceFileIcon
+            mimeType={outputAsset.mimeType}
+            originalFilename={outputAsset.originalFilename}
           />
           <p className='min-w-0 flex-1 truncate text-xs font-medium'>
-            {outputAsset.originalFilename ?? 'output.pdf'}
+            {outputAsset.originalFilename ?? 'Evidence file'}
           </p>
           <div className='flex shrink-0 items-center gap-1'>
             <Button
