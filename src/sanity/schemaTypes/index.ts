@@ -41,6 +41,13 @@ import {
   boardAction,
   auditQuery,
 } from './platform'
+import {
+  assessment,
+  assessmentAttempt,
+  assessmentAttemptAnswer,
+  assessmentQuestion,
+  assessmentQuestionOption,
+} from './assessments'
 
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
@@ -84,5 +91,11 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     workSubmissionStakeholderLink,
     workSubmission,
     weeklySprint,
+    // Assessments
+    assessmentQuestionOption,
+    assessmentQuestion,
+    assessmentAttemptAnswer,
+    assessment,
+    assessmentAttempt,
   ],
 }

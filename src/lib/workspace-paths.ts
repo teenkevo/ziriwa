@@ -20,6 +20,7 @@ export function getWorkspacePaths(basePath: WorkspaceBasePath) {
     stakeholders: `${basePath}/stakeholders`,
     staff: `${basePath}/staff`,
     reporting: `${basePath}/reporting`,
+    assessments: `${basePath}/assessments`,
   } as const
 }
 

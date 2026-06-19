@@ -8,6 +8,7 @@ import {
   FileText,
   Handshake,
   ClipboardList,
+  GraduationCap,
   LayoutDashboard,
   Layers,
   Search,
@@ -154,6 +155,20 @@ export function SectionLeadershipSidebarNav({
                 <Link href={`${basePath}/audit-queries`}>
                   <Search />
                   <span>Audit Queries</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={
+                  pathname === `${basePath}/assessments` ||
+                  pathname.startsWith(`${basePath}/assessments/`)
+                }
+              >
+                <Link href={`${basePath}/assessments`}>
+                  <GraduationCap />
+                  <span>Assessments</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

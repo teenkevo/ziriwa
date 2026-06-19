@@ -22,10 +22,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           />
         ),
         error: (
-          <XCircle
-            className='size-4 shrink-0 text-destructive'
-            aria-hidden
-          />
+          <XCircle className='size-4 shrink-0 text-destructive' aria-hidden />
         ),
       }}
       toastOptions={{
@@ -40,7 +37,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           success:
             'group-[.toaster]:border-green-600/35 dark:group-[.toaster]:border-green-500/40',
           error:
-            'group-[.toaster]:border-destructive/60 group-[.toaster]:bg-destructive/5',
+            'group-[.toaster]:border-destructive/60 group-[.toaster]:bg-destructive',
         },
       }}
       {...props}

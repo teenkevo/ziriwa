@@ -12,6 +12,7 @@ import {
   FileBarChart,
   FilePen,
   FileText,
+  GraduationCap,
   Handshake,
   Landmark,
   LayoutDashboard,
@@ -302,6 +303,20 @@ export function AppSidebarNav({
                   <Link href={`${officerBasePath}/audit-queries`}>
                     <Search />
                     <span>Audit Queries</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={
+                    pathname === `${officerBasePath}/assessments` ||
+                    pathname.startsWith(`${officerBasePath}/assessments/`)
+                  }
+                >
+                  <Link href={`${officerBasePath}/assessments`}>
+                    <GraduationCap />
+                    <span>Assessments</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
