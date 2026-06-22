@@ -16,31 +16,42 @@ export function ScrollMouseIndicator({ visible }: ScrollMouseIndicatorProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 8 }}
           transition={{ duration: 0.25 }}
-          className='pointer-events-none absolute right-4 top-1/2 z-10 flex -translate-y-1/2 flex-col items-center gap-2 text-muted-foreground sm:right-6'
-          aria-hidden
         >
-          <div className='relative h-10 w-6 rounded-full border-2 border-current'>
+          <div
+            className='pointer-events-none absolute right-4 top-1/2 z-10 flex -translate-y-1/2 flex-col items-center gap-2 text-muted-foreground sm:right-6'
+            aria-hidden
+          >
+            <div className='relative h-10 w-6 rounded-full border-2 border-current'>
+              <div className='absolute left-1/2 top-2 h-2 w-1 -translate-x-1/2 overflow-hidden rounded-full'>
+                <motion.div
+                  animate={{ y: [0, 8, 0], opacity: [1, 0.25, 1] }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '9999px',
+                    backgroundColor: 'currentColor',
+                  }}
+                />
+              </div>
+            </div>
             <motion.div
-              className='absolute left-1/2 top-2 h-2 w-1 -translate-x-1/2 rounded-full bg-current'
-              animate={{ y: [0, 8, 0], opacity: [1, 0.25, 1] }}
+              animate={{ opacity: [0.45, 1, 0.45] }}
               transition={{
                 duration: 1.5,
                 repeat: Infinity,
                 ease: 'easeInOut',
               }}
-            />
+            >
+              <span className='text-[10px] font-medium uppercase tracking-wider'>
+                Scroll
+              </span>
+            </motion.div>
           </div>
-          <motion.span
-            className='text-[10px] font-medium uppercase tracking-wider'
-            animate={{ opacity: [0.45, 1, 0.45] }}
-            transition={{
-              duration: 1.5,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-          >
-            Scroll
-          </motion.span>
         </motion.div>
       ) : null}
     </AnimatePresence>
