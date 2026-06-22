@@ -12,6 +12,7 @@ const ASSESSMENT_PROJECTION = /* groq */ `{
   startsAt,
   dueDate,
   timeLimitMinutes,
+  resultsReleasedAt,
   "sectionId": section._ref,
   "sectionName": section->name,
   "createdByName": coalesce(createdBy->fullName, createdBy->firstName + " " + createdBy->lastName),

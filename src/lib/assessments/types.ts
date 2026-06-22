@@ -10,7 +10,7 @@ export type AssessmentStatus = 'draft' | 'published' | 'archived'
 
 export type AssessmentAttemptStatus = 'in_progress' | 'submitted'
 
-export type AssessmentSubmissionReason = 'manual' | 'timeout'
+export type AssessmentSubmissionReason = 'manual' | 'timeout' | 'abandoned'
 
 export interface AssessmentQuestionOption {
   _key?: string
@@ -43,6 +43,7 @@ export interface AssessmentRecord {
   startsAt?: string
   dueDate?: string
   timeLimitMinutes?: number
+  resultsReleasedAt?: string
   createdByName?: string
   questionCount?: number
   attemptCount?: number
@@ -84,4 +85,26 @@ export interface AssessmentListRow {
   myScore?: number
   myMaxScore?: number
   myPercentScore?: number
+  /** Officer list: server-evaluated whether the scheduled start time has passed. */
+  canStart?: boolean
+  /** Officer list: whether the manager has released results. */
+  resultsReleased?: boolean
+}
+
+export type AssessmentOfficerSubmissionStatus =
+  | 'not_started'
+  | 'in_progress'
+  | 'submitted'
+
+export interface AssessmentOfficerSubmissionRow {
+  officerId: string
+  officerName: string
+  status: AssessmentOfficerSubmissionStatus
+  attemptId?: string
+  score?: number
+  maxScore?: number
+  percentScore?: number
+  submittedAt?: string
+  startedAt?: string
+  submissionReason?: AssessmentSubmissionReason
 }

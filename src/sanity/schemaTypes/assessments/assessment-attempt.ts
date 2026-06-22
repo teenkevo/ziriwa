@@ -90,6 +90,7 @@ export const assessmentAttempt = defineType({
         list: [
           { title: 'Manual', value: 'manual' },
           { title: 'Timeout', value: 'timeout' },
+          { title: 'Abandoned', value: 'abandoned' },
         ],
       },
     }),

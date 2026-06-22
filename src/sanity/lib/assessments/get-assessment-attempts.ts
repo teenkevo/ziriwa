@@ -33,6 +33,16 @@ export async function getAttemptsForAssessment(
   )
 }
 
+export async function getAllAttemptsForAssessment(
+  assessmentId: string,
+): Promise<AssessmentAttemptRecord[]> {
+  return client.fetch<AssessmentAttemptRecord[]>(
+    /* groq */ `*[_type == "assessmentAttempt" && assessment._ref == $assessmentId]
+      | order(coalesce(submittedAt, startedAt, _createdAt) desc) ${ATTEMPT_PROJECTION}`,
+    { assessmentId },
+  )
+}
+
 export async function getSubmittedAttemptForOfficer(
   assessmentId: string,
   officerId: string,

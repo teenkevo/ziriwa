@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { format, parseISO } from 'date-fns'
 import {
   ChevronLeft,
   ChevronRight,
@@ -19,22 +18,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { WorkspaceRouteLoading } from '@/components/workspace-route-loading'
 import { useWorkspaceRouteNavigationOptional } from '@/contexts/workspace-route-navigation-context'
@@ -49,10 +33,13 @@ import {
   useScrollHintActive,
 } from '@/features/assessments/components/scroll-mouse-indicator'
 import { PublishAssessmentDialog } from '@/features/assessments/components/publish-assessment-dialog'
+import { AssessmentOfficerSubmissionsSheet } from '@/features/assessments/components/assessment-officer-submissions-sheet'
 import { assessmentStatusLabel } from '@/lib/assessments/scoring'
+import { areAssessmentResultsReleased } from '@/lib/assessments/results-release'
 import { cn } from '@/lib/utils'
 import type {
   AssessmentAttemptRecord,
+  AssessmentOfficerSubmissionRow,
   AssessmentQuestion,
   AssessmentRecord,
 } from '@/lib/assessments/types'
@@ -65,6 +52,7 @@ interface AssessmentManageContentProps {
   dashboardHref: string
   assessment: AssessmentRecord
   attempts: AssessmentAttemptRecord[]
+  officerSubmissions: AssessmentOfficerSubmissionRow[]
   canManage: boolean
 }
 
@@ -74,6 +62,7 @@ export function AssessmentManageContent({
   dashboardHref,
   assessment,
   attempts,
+  officerSubmissions,
   canManage,
 }: AssessmentManageContentProps) {
   const router = useRouter()
@@ -99,6 +88,15 @@ export function AssessmentManageContent({
     totalQuestions > 0 ? ((currentIndex + 1) / totalQuestions) * 100 : 0
   const isFirst = currentIndex === 0
   const isLast = currentIndex === totalQuestions - 1
+  const resultsReleased = areAssessmentResultsReleased(assessment)
+  const canReleaseResults =
+    canManage &&
+    assessment.status === 'published' &&
+    attempts.length > 0 &&
+    !resultsReleased
+  const submittedCount = officerSubmissions.filter(
+    row => row.status === 'submitted',
+  ).length
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const { canScrollDown, updateScrollHint } = useScrollHintActive(
     scrollRef,
@@ -278,6 +276,35 @@ export function AssessmentManageContent({
     }
   }
 
+  async function handleReleaseResults() {
+    if (
+      !window.confirm(
+        'Release results to officers? They will be able to view their scores and feedback.',
+      )
+    ) {
+      return
+    }
+    setIsSaving(true)
+    try {
+      const res = await fetch(`/api/assessments/${assessment._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'releaseResults' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Failed to release results')
+      toast.success('Results released to officers')
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to release results',
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   function navigateToList() {
     setIsLeaving(true)
     if (navigation) {
@@ -354,8 +381,22 @@ export function AssessmentManageContent({
                       onClick={() => setSubmissionsOpen(true)}
                     >
                       <Users className='mr-1.5 h-4 w-4' />
-                      Submissions ({attempts.length})
+                      Submissions ({submittedCount}/{officerSubmissions.length})
                     </Button>
+                    {canReleaseResults ? (
+                      <Button
+                        type='button'
+                        size='sm'
+                        onClick={() => void handleReleaseResults()}
+                        disabled={isSaving}
+                      >
+                        Release results
+                      </Button>
+                    ) : resultsReleased && assessment.status === 'published' ? (
+                      <Badge variant='outline' className='h-8 px-2.5'>
+                        Results released
+                      </Badge>
+                    ) : null}
                     {canManage ? (
                       <>
                         {assessment.status === 'draft' ? (
@@ -508,49 +549,16 @@ export function AssessmentManageContent({
         </DialogContent>
       </Dialog>
 
-      <Sheet open={submissionsOpen} onOpenChange={setSubmissionsOpen}>
-        <SheetContent className='w-full sm:max-w-lg'>
-          <SheetHeader>
-            <SheetTitle>Officer submissions</SheetTitle>
-            <SheetDescription>
-              Scores for {assessment.title}
-            </SheetDescription>
-          </SheetHeader>
-          <div className='mt-6'>
-            {attempts.length === 0 ? (
-              <p className='text-sm text-muted-foreground'>No submissions yet.</p>
-            ) : (
-              <div className='rounded-md border'>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Officer</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Submitted</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {attempts.map(attempt => (
-                      <TableRow key={attempt._id}>
-                        <TableCell>{attempt.officerName ?? '—'}</TableCell>
-                        <TableCell>
-                          {attempt.score ?? 0}/{attempt.maxScore ?? 0} (
-                          {attempt.percentScore ?? 0}%)
-                        </TableCell>
-                        <TableCell>
-                          {attempt.submittedAt
-                            ? format(parseISO(attempt.submittedAt), 'PPp')
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      <AssessmentOfficerSubmissionsSheet
+        open={submissionsOpen}
+        onOpenChange={setSubmissionsOpen}
+        assessmentTitle={assessment.title}
+        rows={officerSubmissions}
+        resultsReleased={resultsReleased}
+        canReleaseResults={canReleaseResults}
+        isReleasing={isSaving}
+        onReleaseResults={() => void handleReleaseResults()}
+      />
 
       <PublishAssessmentDialog
         assessmentId={assessment._id}

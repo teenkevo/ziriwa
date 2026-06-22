@@ -21,6 +21,8 @@ export async function ManagerAssessmentsPage({
       dashboardHref='/manager/dashboard'
       items={data.items}
       canManage={data.canManage}
+      sectionOfficerCount={data.sectionOfficerCount}
+      canViewSubmissions={data.canManage || data.canViewResults}
     />
   )
 }

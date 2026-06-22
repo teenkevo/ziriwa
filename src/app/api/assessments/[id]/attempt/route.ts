@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import {
+  abandonAssessmentAttempt,
   assertAssessmentStartable,
   buildInProgressAttemptPayload,
   buildQuestionResults,
@@ -12,6 +13,11 @@ import {
   canTakeAssessments,
   getAssessmentAccessForSection,
 } from '@/lib/assessments/access.server'
+import {
+  areAssessmentResultsReleased,
+  maskAttemptScoresForOfficer,
+  maskOfficerSubmissionResponse,
+} from '@/lib/assessments/results-release'
 import { scoreAssessmentAttempt } from '@/lib/assessments/scoring'
 import type {
   AssessmentAttemptAnswer,
@@ -27,7 +33,9 @@ import {
 import { writeClient } from '@/sanity/lib/write-client'
 
 function parseSubmissionReason(value: unknown): AssessmentSubmissionReason {
-  return value === 'timeout' ? 'timeout' : 'manual'
+  if (value === 'timeout') return 'timeout'
+  if (value === 'abandoned') return 'abandoned'
+  return 'manual'
 }
 
 export async function GET(
@@ -55,11 +63,20 @@ export async function GET(
       assessment,
       viewerStaffId,
     )
+    const resultsReleased = areAssessmentResultsReleased(assessment)
 
     return NextResponse.json({
-      attempt: submittedAttempt ?? activeAttempt,
-      submittedAttempt,
+      attempt:
+        maskAttemptScoresForOfficer(
+          submittedAttempt ?? activeAttempt,
+          resultsReleased,
+        ) ?? undefined,
+      submittedAttempt: maskAttemptScoresForOfficer(
+        submittedAttempt,
+        resultsReleased,
+      ),
       activeAttempt,
+      resultsReleased,
     })
   } catch (error) {
     console.error('Error loading assessment attempt', error)
@@ -173,6 +190,29 @@ export async function POST(
     const hasTimeLimit = (assessment.timeLimitMinutes ?? 0) > 0
     const activeAttempt = await getInProgressAttemptForOfficer(id, viewerStaffId)
 
+    if (submissionReason === 'abandoned') {
+      if (!activeAttempt) {
+        return NextResponse.json(
+          { error: 'No active attempt to abandon' },
+          { status: 400 },
+        )
+      }
+
+      const result = await abandonAssessmentAttempt({
+        attemptId: activeAttempt._id,
+        assessment,
+        answers,
+      })
+
+      return NextResponse.json(
+        maskOfficerSubmissionResponse(
+          result,
+          areAssessmentResultsReleased(assessment),
+        ),
+        { status: 200 },
+      )
+    }
+
     if (hasTimeLimit) {
       if (!activeAttempt) {
         return NextResponse.json(
@@ -196,7 +236,13 @@ export async function POST(
         submissionReason,
       })
 
-      return NextResponse.json(result, { status: 200 })
+      return NextResponse.json(
+        maskOfficerSubmissionResponse(
+          result,
+          areAssessmentResultsReleased(assessment),
+        ),
+        { status: 200 },
+      )
     }
 
     if (activeAttempt) {
@@ -215,7 +261,13 @@ export async function POST(
         submissionReason: 'manual',
       })
 
-      return NextResponse.json(result, { status: 200 })
+      return NextResponse.json(
+        maskOfficerSubmissionResponse(
+          result,
+          areAssessmentResultsReleased(assessment),
+        ),
+        { status: 200 },
+      )
     }
 
     const sanitizedAnswers = sanitizeAttemptAnswers(questions, answers)
@@ -240,14 +292,18 @@ export async function POST(
     })
 
     return NextResponse.json(
-      {
-        id: result._id,
-        score: scoring.score,
-        maxScore: scoring.maxScore,
-        percentScore: scoring.percentScore,
-        questionResults,
-        submissionReason: 'manual',
-      },
+      maskOfficerSubmissionResponse(
+        {
+          id: result._id,
+          score: scoring.score,
+          maxScore: scoring.maxScore,
+          percentScore: scoring.percentScore,
+          questionResults,
+          submissionReason: 'manual',
+          submittedAt: new Date().toISOString(),
+        },
+        areAssessmentResultsReleased(assessment),
+      ),
       { status: 201 },
     )
   } catch (error) {

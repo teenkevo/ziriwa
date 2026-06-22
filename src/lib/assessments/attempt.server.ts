@@ -105,7 +105,7 @@ interface FinalizeAttemptInput {
   attemptId: string
   assessment: AssessmentRecord
   answers: AssessmentAttemptAnswer[]
-  submissionReason: 'manual' | 'timeout'
+  submissionReason: 'manual' | 'timeout' | 'abandoned'
 }
 
 export async function finalizeAssessmentAttempt({
@@ -145,6 +145,44 @@ export async function finalizeAssessmentAttempt({
     submittedAt,
     submissionReason,
     questionResults,
+  }
+}
+
+export async function abandonAssessmentAttempt({
+  attemptId,
+  assessment,
+  answers,
+}: {
+  attemptId: string
+  assessment: AssessmentRecord
+  answers: AssessmentAttemptAnswer[]
+}) {
+  const questions = assessment.questions ?? []
+  const completeAnswers = buildAnswersForAllQuestions(questions, answers)
+  const sanitizedAnswers = sanitizeAttemptAnswers(questions, completeAnswers)
+  const maxScore = questions.length
+  const submittedAt = new Date().toISOString()
+
+  await writeClient
+    .patch(attemptId)
+    .set({
+      answers: sanitizedAnswers,
+      score: 0,
+      maxScore,
+      percentScore: 0,
+      submittedAt,
+      status: 'submitted',
+      submissionReason: 'abandoned',
+    })
+    .commit()
+
+  return {
+    id: attemptId,
+    score: 0,
+    maxScore,
+    percentScore: 0,
+    submittedAt,
+    submissionReason: 'abandoned' as const,
   }
 }
 

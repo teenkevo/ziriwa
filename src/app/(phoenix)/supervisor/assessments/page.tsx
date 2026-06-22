@@ -21,6 +21,8 @@ export default async function SupervisorAssessmentsPage({
       dashboardHref='/supervisor/dashboard'
       items={data.items}
       canManage={false}
+      sectionOfficerCount={data.sectionOfficerCount}
+      canViewSubmissions={data.canViewResults}
     />
   )
 }

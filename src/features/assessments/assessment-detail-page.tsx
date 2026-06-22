@@ -10,6 +10,12 @@ import {
   canViewAssessmentResults,
   getAssessmentAccessForSection,
 } from '@/lib/assessments/access.server'
+import { isAssessmentStartOpen } from '@/lib/assessments/time-limit'
+import {
+  areAssessmentResultsReleased,
+  maskAttemptScoresForOfficer,
+} from '@/lib/assessments/results-release'
+import { buildAssessmentOfficerSubmissionRoster } from '@/lib/assessments/officer-submissions.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getAssessmentById } from '@/sanity/lib/assessments/get-assessments-by-section'
 import {
@@ -51,13 +57,28 @@ export async function AssessmentDetailPage({
 
     const existingAttempt = attemptState.submittedAttempt
     const activeAttempt = attemptState.activeAttempt
+    const resultsReleased = areAssessmentResultsReleased(assessment)
+
+    const hasExistingSession = Boolean(existingAttempt || activeAttempt)
+    if (!hasExistingSession && !isAssessmentStartOpen(assessment.startsAt)) {
+      notFound()
+    }
+
+    const officerAttempt = maskAttemptScoresForOfficer(
+      existingAttempt,
+      resultsReleased,
+    )
 
     const officerAssessment = {
       ...assessment,
       questions: (assessment.questions ?? []).map(question => ({
         ...question,
-        correctAnswers: existingAttempt ? question.correctAnswers : undefined,
-        explanation: existingAttempt ? question.explanation : undefined,
+        correctAnswers:
+          officerAttempt && resultsReleased
+            ? question.correctAnswers
+            : undefined,
+        explanation:
+          officerAttempt && resultsReleased ? question.explanation : undefined,
       })),
     }
 
@@ -65,8 +86,9 @@ export async function AssessmentDetailPage({
       <AssessmentTakeContent
         basePath={basePath}
         assessment={officerAssessment}
-        existingAttempt={existingAttempt}
+        existingAttempt={officerAttempt}
         activeAttempt={activeAttempt}
+        resultsReleased={resultsReleased}
       />
     )
   }
@@ -74,6 +96,13 @@ export async function AssessmentDetailPage({
   const attempts =
     canManage || canViewResults
       ? await getAttemptsForAssessment(assessmentId)
+      : []
+  const officerSubmissions =
+    canManage || canViewResults
+      ? await buildAssessmentOfficerSubmissionRoster(
+          assessment.sectionId,
+          assessmentId,
+        )
       : []
 
   return (
@@ -83,6 +112,7 @@ export async function AssessmentDetailPage({
       dashboardHref={dashboardHref}
       assessment={assessment}
       attempts={attempts}
+      officerSubmissions={officerSubmissions}
       canManage={canManage}
     />
   )

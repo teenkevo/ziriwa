@@ -77,6 +77,14 @@ export const assessment = defineType({
         'Required. Per-attempt time limit once an officer starts.',
       validation: Rule => Rule.min(1).integer(),
     }),
+    defineField({
+      name: 'resultsReleasedAt',
+      title: 'Results released at',
+      type: 'datetime',
+      description:
+        'When set, officers can view their scores and question feedback.',
+      readOnly: true,
+    }),
   ],
   preview: {
     select: {

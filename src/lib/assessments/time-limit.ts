@@ -31,6 +31,14 @@ export function isBeforeStartsAt(startsAt?: string, now = Date.now()): boolean {
   return now < Date.parse(startsAt)
 }
 
+export function isAssessmentStartOpen(
+  startsAt?: string,
+  now = Date.now(),
+): boolean {
+  if (!startsAt) return false
+  return !isBeforeStartsAt(startsAt, now)
+}
+
 export function getMsUntil(iso?: string, now = Date.now()): number {
   if (!iso) return 0
   return Math.max(0, Date.parse(iso) - now)

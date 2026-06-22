@@ -94,6 +94,7 @@ interface AssessmentTakeContentProps {
   assessment: AssessmentRecord
   existingAttempt: AssessmentAttemptRecord | null
   activeAttempt?: AssessmentAttemptRecord | null
+  resultsReleased: boolean
 }
 
 export function AssessmentTakeContent({
@@ -101,6 +102,7 @@ export function AssessmentTakeContent({
   assessment,
   existingAttempt,
   activeAttempt: initialActiveAttempt = null,
+  resultsReleased,
 }: AssessmentTakeContentProps) {
   const router = useRouter()
   const navigation = useWorkspaceRouteNavigationOptional()
@@ -114,6 +116,7 @@ export function AssessmentTakeContent({
   const [activeAttempt, setActiveAttempt] =
     React.useState<AssessmentAttemptRecord | null>(initialActiveAttempt)
   const [confirmCloseOpen, setConfirmCloseOpen] = React.useState(false)
+  const [assessmentOpen, setAssessmentOpen] = React.useState(true)
   const [isLeaving, setIsLeaving] = React.useState(false)
   const [reviewQuestions, setReviewQuestions] = React.useState(
     assessment.questions ?? [],
@@ -125,13 +128,16 @@ export function AssessmentTakeContent({
   const { hasStarted: hasAssignmentStarted } = useAssessmentStartCountdown(
     assessment.startsAt,
   )
-  const showResults = Boolean(submittedAttempt)
+  const hasSubmitted = Boolean(submittedAttempt)
+  const showReview = hasSubmitted && resultsReleased
+  const showSubmittedPending = hasSubmitted && !resultsReleased
   const showStartsAtGate =
-    !showResults && Boolean(assessment.startsAt) && !hasAssignmentStarted
+    !hasSubmitted && Boolean(assessment.startsAt) && !hasAssignmentStarted
   const showPreStart =
-    !showResults && !showStartsAtGate && hasTimeLimit && !activeAttempt
+    !hasSubmitted && !showStartsAtGate && hasTimeLimit && !activeAttempt
   const isSessionReady =
-    showResults ||
+    showReview ||
+    showSubmittedPending ||
     (!showStartsAtGate && (!hasTimeLimit || Boolean(activeAttempt)))
   const totalQuestions = questions.length
   const currentQuestion = questions[currentIndex]
@@ -185,16 +191,51 @@ export function AssessmentTakeContent({
   }
 
   function requestClose() {
-    if (showResults) {
+    if (showReview || showSubmittedPending) {
+      handleClose()
+      return
+    }
+    if (!activeAttempt) {
       handleClose()
       return
     }
     setConfirmCloseOpen(true)
   }
 
-  function confirmLeaveAssessment() {
+  async function confirmAbandonAssessment() {
     setConfirmCloseOpen(false)
-    navigateToAssessmentsList()
+    setAssessmentOpen(false)
+    setIsLeaving(true)
+    setIsSaving(true)
+    setActiveAttempt(null)
+
+    try {
+      const res = await fetch(`/api/assessments/${assessment._id}/attempt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answers: questions.map(question => ({
+            questionKey: question._key,
+            selectedAnswers: answers[question._key] ?? [],
+          })),
+          submissionReason: 'abandoned',
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Failed to abandon assessment')
+
+      toast.success('Assessment abandoned. You received a score of 0.')
+      router.refresh()
+      navigateToAssessmentsList()
+    } catch (error) {
+      console.error(error)
+      setAssessmentOpen(true)
+      setIsLeaving(false)
+      setIsSaving(false)
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to abandon assessment',
+      )
+    }
   }
 
   async function handleStartTimedAssessment() {
@@ -238,24 +279,24 @@ export function AssessmentTakeContent({
     (options?: { timedOut?: boolean }) => Promise<void>
   >(async () => {})
   const isSavingRef = React.useRef(isSaving)
-  const showResultsRef = React.useRef(showResults)
+  const hasSubmittedRef = React.useRef(hasSubmitted)
   isSavingRef.current = isSaving
-  showResultsRef.current = showResults
+  hasSubmittedRef.current = hasSubmitted
 
   const handleTimerExpire = React.useCallback(() => {
-    if (isSavingRef.current || showResultsRef.current) return
+    if (isSavingRef.current || hasSubmittedRef.current) return
     void handleSubmitRef.current({ timedOut: true })
   }, [])
 
   useAssessmentTimer({
     expiresAt: activeAttempt?.expiresAt,
     enabled:
-      Boolean(activeAttempt?.expiresAt) && isSessionReady && !showResults,
+      Boolean(activeAttempt?.expiresAt) && isSessionReady && !hasSubmitted,
     onExpire: handleTimerExpire,
   })
 
   React.useEffect(() => {
-    if (!activeAttempt || showResults || isSaving || !hasTimeLimit) return
+    if (!activeAttempt || hasSubmitted || isSaving || !hasTimeLimit) return
 
     const timeout = window.setTimeout(() => {
       void fetch(`/api/assessments/${assessment._id}/attempt`, {
@@ -278,7 +319,7 @@ export function AssessmentTakeContent({
     hasTimeLimit,
     isSaving,
     questions,
-    showResults,
+    hasSubmitted,
   ])
 
   function setSingleAnswer(questionKey: string, value: string) {
@@ -310,7 +351,7 @@ export function AssessmentTakeContent({
   }
 
   function goNext() {
-    if (!showResults && !currentQuestionAnswered()) {
+    if (!showReview && !currentQuestionAnswered()) {
       toast.error('Select an answer to continue')
       return
     }
@@ -352,7 +393,7 @@ export function AssessmentTakeContent({
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? 'Submission failed')
 
-      if (Array.isArray(data.questionResults)) {
+      if (resultsReleased && Array.isArray(data.questionResults)) {
         const resultsByKey = new Map(
           (data.questionResults as AssessmentQuestionResult[]).map(result => [
             result.questionKey,
@@ -379,9 +420,9 @@ export function AssessmentTakeContent({
           questionKey: question._key,
           selectedAnswers: answers[question._key] ?? [],
         })),
-        score: data.score,
-        maxScore: data.maxScore,
-        percentScore: data.percentScore,
+        score: resultsReleased ? data.score : undefined,
+        maxScore: resultsReleased ? data.maxScore : undefined,
+        percentScore: resultsReleased ? data.percentScore : undefined,
         submittedAt: data.submittedAt ?? new Date().toISOString(),
         submissionReason: data.submissionReason,
       })
@@ -389,7 +430,11 @@ export function AssessmentTakeContent({
       setSlideDirection(-1)
       setCurrentIndex(0)
       toast.success(
-        timedOut ? 'Time is up — your assessment was submitted' : 'Assessment submitted',
+        timedOut
+          ? 'Time is up — your assessment was submitted'
+          : resultsReleased
+            ? 'Assessment submitted'
+            : 'Assessment submitted. Your manager will release results when ready.',
       )
       router.refresh()
     } catch (error) {
@@ -404,7 +449,12 @@ export function AssessmentTakeContent({
 
   return (
     <>
-      <Dialog open onOpenChange={open => !open && !isSaving && requestClose()}>
+      <Dialog
+        open={assessmentOpen}
+        onOpenChange={open => {
+          if (!open && !isSaving && !isStarting && !isLeaving) requestClose()
+        }}
+      >
         <DialogContent
           disableClose={isSaving || isStarting}
           className={FULLSCREEN_DIALOG_CLASS}
@@ -435,6 +485,21 @@ export function AssessmentTakeContent({
                 onClick={handleClose}
               >
                 Back
+              </Button>
+            </div>
+          ) : showSubmittedPending ? (
+            <div className='flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center'>
+              <div className='max-w-lg space-y-3'>
+                <DialogTitle className='text-2xl font-semibold'>
+                  Assessment submitted
+                </DialogTitle>
+                <p className='text-sm text-muted-foreground'>
+                  Your answers have been recorded and marked. Your manager will
+                  release results when they are ready for you to review.
+                </p>
+              </div>
+              <Button type='button' onClick={handleClose}>
+                Back to assessments
               </Button>
             </div>
           ) : showPreStart ? (
@@ -498,7 +563,7 @@ export function AssessmentTakeContent({
                     {assessment.title}
                   </DialogTitle>
                   <div className='flex shrink-0 items-center gap-2'>
-                    {activeAttempt?.expiresAt && !showResults ? (
+                    {activeAttempt?.expiresAt && !hasSubmitted ? (
                       <AssessmentTimer expiresAt={activeAttempt.expiresAt} />
                     ) : null}
                     <Button
@@ -508,13 +573,13 @@ export function AssessmentTakeContent({
                       onClick={requestClose}
                       disabled={isSaving}
                     >
-                      {showResults ? 'Close' : 'Cancel'}
+                      {showReview || showSubmittedPending ? 'Close' : 'Cancel'}
                     </Button>
                   </div>
                 </div>
 
                 <div className='space-y-2'>
-                  {showResults && submittedAttempt ? (
+                  {showReview && submittedAttempt ? (
                     <p className='text-sm font-medium'>
                       Score: {submittedAttempt.score ?? 0}/
                       {submittedAttempt.maxScore ?? 0} (
@@ -548,9 +613,9 @@ export function AssessmentTakeContent({
                         questionNumber={currentIndex + 1}
                         question={currentQuestion}
                         selectedAnswers={answers[currentQuestion._key] ?? []}
-                        showResults={showResults}
+                        showResults={showReview}
                         isQuestionCorrect={
-                          showResults
+                          showReview
                             ? isQuestionAnswerCorrect(
                                 currentQuestion,
                                 answers[currentQuestion._key] ?? [],
@@ -586,7 +651,7 @@ export function AssessmentTakeContent({
                   Back
                 </Button>
 
-                {!showResults && isLast ? (
+                {!showReview && isLast ? (
                   <Button
                     type='button'
                     size='sm'
@@ -623,27 +688,30 @@ export function AssessmentTakeContent({
           setConfirmCloseOpen(open)
         }}
       >
-        <AlertDialogContent disableClose={isLeaving}>
+        <AlertDialogContent disableClose={isLeaving || isSaving}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Leave assessment?</AlertDialogTitle>
+            <AlertDialogTitle>Abandon assessment?</AlertDialogTitle>
             <AlertDialogDescription>
-              Your progress will not be saved. You will need to start the
-              assessment again.
+              If you abandon and give up, your attempt will be submitted with a
+              score of 0. You cannot retake this assessment.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isLeaving}>
+            <AlertDialogCancel disabled={isLeaving || isSaving}>
               Keep taking assessment
             </AlertDialogCancel>
             <AlertDialogAction
               className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              disabled={isLeaving}
-              onClick={confirmLeaveAssessment}
+              disabled={isLeaving || isSaving}
+              onClick={event => {
+                event.preventDefault()
+                void confirmAbandonAssessment()
+              }}
             >
-              {isLeaving ? (
+              {isLeaving || isSaving ? (
                 <Loader2 className='h-4 w-4 animate-spin' />
               ) : (
-                'Leave assessment'
+                'Abandon and give up'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

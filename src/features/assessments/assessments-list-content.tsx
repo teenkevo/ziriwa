@@ -23,7 +23,11 @@ import {
   useAssessmentStartCountdown,
 } from '@/features/assessments/components/assessment-start-countdown'
 import { SetAssessmentStartTimeDialog } from '@/features/assessments/components/set-assessment-start-time-dialog'
-import type { AssessmentListRow } from '@/lib/assessments/types'
+import { AssessmentOfficerSubmissionsSheet } from '@/features/assessments/components/assessment-officer-submissions-sheet'
+import type {
+  AssessmentListRow,
+  AssessmentOfficerSubmissionRow,
+} from '@/lib/assessments/types'
 import { assessmentStatusLabel } from '@/lib/assessments/scoring'
 import { formatTimeLimitMinutes } from '@/lib/assessments/time-limit'
 
@@ -35,6 +39,8 @@ interface AssessmentsListContentProps {
   dashboardHref: string
   items: AssessmentListRow[]
   canManage: boolean
+  sectionOfficerCount?: number
+  canViewSubmissions?: boolean
 }
 
 export function AssessmentsListContent({
@@ -45,6 +51,8 @@ export function AssessmentsListContent({
   dashboardHref,
   items,
   canManage,
+  sectionOfficerCount = 0,
+  canViewSubmissions = false,
 }: AssessmentsListContentProps) {
   const [timeLimitDialog, setTimeLimitDialog] = React.useState<{
     assessmentId: string
@@ -56,6 +64,41 @@ export function AssessmentsListContent({
     assessmentTitle: string
     currentStartsAt?: string
   } | null>(null)
+  const [submissionsSheet, setSubmissionsSheet] = React.useState<{
+    assessmentId: string
+    assessmentTitle: string
+    rows: AssessmentOfficerSubmissionRow[]
+    resultsReleased: boolean
+  } | null>(null)
+  const [isLoadingSubmissions, setIsLoadingSubmissions] = React.useState(false)
+
+  async function openSubmissionsSheet(item: AssessmentListRow) {
+    setSubmissionsSheet({
+      assessmentId: item._id,
+      assessmentTitle: item.title,
+      rows: [],
+      resultsReleased: false,
+    })
+    setIsLoadingSubmissions(true)
+    try {
+      const res = await fetch(`/api/assessments/${item._id}`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Failed to load submissions')
+      setSubmissionsSheet({
+        assessmentId: item._id,
+        assessmentTitle: item.title,
+        rows: Array.isArray(data.officerSubmissions)
+          ? data.officerSubmissions
+          : [],
+        resultsReleased: Boolean(data.assessment?.resultsReleasedAt),
+      })
+    } catch (error) {
+      console.error(error)
+      setSubmissionsSheet(null)
+    } finally {
+      setIsLoadingSubmissions(false)
+    }
+  }
 
   useRegisterPageBreadcrumbs(
     React.useMemo(
@@ -129,12 +172,31 @@ export function AssessmentsListContent({
                   ) : null}
                   <TableCell>{item.questionCount}</TableCell>
                   {role !== 'officer' ? (
-                    <TableCell>{item.attemptCount}</TableCell>
+                    <TableCell>
+                      <div className='flex flex-wrap items-center gap-2'>
+                        <span className='text-sm'>
+                          {item.attemptCount}/{sectionOfficerCount}
+                        </span>
+                        {canViewSubmissions ? (
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='sm'
+                            className='h-7 px-2 text-xs'
+                            onClick={() => void openSubmissionsSheet(item)}
+                          >
+                            View marks
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TableCell>
                   ) : null}
                   {role === 'officer' ? (
                     <TableCell>
                       {item.myAttemptId
-                        ? `${item.myScore ?? 0}/${item.myMaxScore ?? 0} (${item.myPercentScore ?? 0}%)`
+                        ? item.resultsReleased
+                          ? `${item.myScore ?? 0}/${item.myMaxScore ?? 0} (${item.myPercentScore ?? 0}%)`
+                          : 'Submitted'
                         : item.myInProgressAttemptId
                           ? 'In progress'
                           : 'Not started'}
@@ -208,11 +270,13 @@ export function AssessmentsListContent({
                     ) : null}
                   </TableCell>
                   <TableCell>
-                    <AssessmentOpenButton
-                      item={item}
-                      role={role}
-                      basePath={basePath}
-                    />
+                    <div className='flex flex-wrap justify-end gap-2'>
+                      <AssessmentOpenButton
+                        item={item}
+                        role={role}
+                        basePath={basePath}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -243,6 +307,18 @@ export function AssessmentsListContent({
           }}
         />
       ) : null}
+      {submissionsSheet ? (
+        <AssessmentOfficerSubmissionsSheet
+          open
+          onOpenChange={open => {
+            if (!open) setSubmissionsSheet(null)
+          }}
+          assessmentTitle={submissionsSheet.assessmentTitle}
+          rows={submissionsSheet.rows}
+          resultsReleased={submissionsSheet.resultsReleased}
+          isLoading={isLoadingSubmissions}
+        />
+      ) : null}
     </div>
   )
 }
@@ -256,21 +332,33 @@ function AssessmentOpenButton({
   role: 'manager' | 'supervisor' | 'officer'
   basePath: string
 }) {
-  const { hasStarted } = useAssessmentStartCountdown(item.startsAt)
-  const isWaitingToOpen =
-    role === 'officer' &&
-    !item.myAttemptId &&
-    !item.myInProgressAttemptId &&
-    Boolean(item.startsAt) &&
-    !hasStarted
+  const { hasStarted: hasStartTimeElapsed } = useAssessmentStartCountdown(
+    item.startsAt,
+  )
+  const isOfficer = role === 'officer'
+  const hasSubmitted = Boolean(item.myAttemptId)
+  const hasInProgress = Boolean(item.myInProgressAttemptId)
+  const isStartReady = item.canStart === true || hasStartTimeElapsed
 
-  const label = item.myInProgressAttemptId
+  const label = hasInProgress
     ? 'Resume'
-    : isWaitingToOpen
-      ? 'View'
-      : role === 'officer' && !item.myAttemptId
-        ? 'Start'
-        : 'Open'
+    : isOfficer && !hasSubmitted
+      ? 'Start'
+      : 'Open'
+
+  const isStartDisabled =
+    isOfficer &&
+    !hasSubmitted &&
+    !hasInProgress &&
+    !isStartReady
+
+  if (isStartDisabled) {
+    return (
+      <Button type='button' variant='default' size='sm' disabled>
+        {label}
+      </Button>
+    )
+  }
 
   return (
     <Button type='button' variant='default' size='sm' asChild>

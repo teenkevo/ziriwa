@@ -12,6 +12,8 @@ import {
   formatPublishBlockersMessage,
   getAssessmentPublishBlockers,
 } from '@/lib/assessments/publish-requirements'
+import { areAssessmentResultsReleased } from '@/lib/assessments/results-release'
+import { buildAssessmentOfficerSubmissionRoster } from '@/lib/assessments/officer-submissions.server'
 import { getAssessmentById } from '@/sanity/lib/assessments/get-assessments-by-section'
 import { getAttemptsForAssessment } from '@/sanity/lib/assessments/get-assessment-attempts'
 import { writeClient } from '@/sanity/lib/write-client'
@@ -74,10 +76,15 @@ export async function GET(
       canManage || canViewResults
         ? await getAttemptsForAssessment(id)
         : []
+    const officerSubmissions =
+      canManage || canViewResults
+        ? await buildAssessmentOfficerSubmissionRoster(assessment.sectionId, id)
+        : []
 
     return NextResponse.json({
       assessment: payload,
       attempts,
+      officerSubmissions,
       permissions: { canManage, canTake, canViewResults },
     })
   } catch (error) {
@@ -169,6 +176,21 @@ export async function PATCH(
     if (body.action === 'unpublish') {
       setPatch.status = 'draft'
       setPatch.publishedAt = undefined
+    }
+    if (body.action === 'releaseResults') {
+      if (assessment.status !== 'published') {
+        return NextResponse.json(
+          { error: 'Only published assessments can release results' },
+          { status: 400 },
+        )
+      }
+      if (areAssessmentResultsReleased(assessment)) {
+        return NextResponse.json(
+          { error: 'Results have already been released' },
+          { status: 400 },
+        )
+      }
+      setPatch.resultsReleasedAt = new Date().toISOString()
     }
 
     if (Object.keys(setPatch).length === 0 && unsetFields.length === 0) {

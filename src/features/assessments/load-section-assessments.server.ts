@@ -17,6 +17,9 @@ import {
   getSubmittedAttemptForOfficer,
 } from '@/sanity/lib/assessments/get-assessment-attempts'
 import { getManagedSectionsForViewer } from '@/features/sections/load-section-workspace-data'
+import { areAssessmentResultsReleased } from '@/lib/assessments/results-release'
+import { isAssessmentStartOpen } from '@/lib/assessments/time-limit'
+import { getOfficersBySection } from '@/sanity/lib/staff/get-staff-by-section'
 
 export type AssessmentWorkspaceRole = 'manager' | 'supervisor' | 'officer'
 
@@ -25,6 +28,7 @@ export async function loadSectionAssessmentsList(input: {
 }): Promise<{
   sectionId: string
   sectionName: string
+  sectionOfficerCount: number
   items: AssessmentListRow[]
   canManage: boolean
   canTake: boolean
@@ -58,6 +62,8 @@ export async function loadSectionAssessmentsList(input: {
   const attemptCounts = await getAssessmentAttemptCounts(
     assessments.map(assessment => assessment._id),
   )
+  const sectionOfficers = await getOfficersBySection(section._id)
+  const sectionOfficerCount = sectionOfficers.length
 
   const viewerStaffId = await getViewerStaffId()
   const items: AssessmentListRow[] = []
@@ -90,6 +96,8 @@ export async function loadSectionAssessmentsList(input: {
       }
     }
 
+    const resultsReleased = areAssessmentResultsReleased(assessment)
+
     items.push({
       _id: assessment._id,
       title: assessment.title,
@@ -102,15 +110,22 @@ export async function loadSectionAssessmentsList(input: {
       attemptCount: attemptCounts[assessment._id] ?? 0,
       myAttemptId,
       myInProgressAttemptId,
-      myScore,
-      myMaxScore,
-      myPercentScore,
+      myScore: resultsReleased ? myScore : undefined,
+      myMaxScore: resultsReleased ? myMaxScore : undefined,
+      myPercentScore: resultsReleased ? myPercentScore : undefined,
+      canStart:
+        input.role === 'officer'
+          ? isAssessmentStartOpen(assessment.startsAt)
+          : undefined,
+      resultsReleased:
+        input.role === 'officer' ? resultsReleased : undefined,
     })
   }
 
   return {
     sectionId: section._id,
     sectionName: section.name,
+    sectionOfficerCount,
     items,
     canManage,
     canTake,
