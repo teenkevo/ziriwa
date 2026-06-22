@@ -9,6 +9,7 @@ const ASSESSMENT_PROJECTION = /* groq */ `{
   description,
   status,
   publishedAt,
+  startsAt,
   dueDate,
   timeLimitMinutes,
   "sectionId": section._ref,

@@ -96,6 +96,7 @@ export async function loadSectionAssessmentsList(input: {
       status: assessment.status,
       questionCount: assessment.questionCount ?? assessment.questions?.length ?? 0,
       publishedAt: assessment.publishedAt,
+      startsAt: assessment.startsAt,
       dueDate: assessment.dueDate,
       timeLimitMinutes: assessment.timeLimitMinutes,
       attemptCount: attemptCounts[assessment._id] ?? 0,

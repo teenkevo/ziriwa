@@ -8,6 +8,7 @@ import {
   ASSESSMENT_SUBMIT_GRACE_MS,
   computeExpiresAt,
   isAttemptExpired,
+  isBeforeStartsAt,
   isPastDueDate,
 } from '@/lib/assessments/time-limit'
 import type {
@@ -62,8 +63,26 @@ export function assertAssessmentAvailable(assessment: AssessmentRecord) {
   if (!assessment.sectionId || assessment.status !== 'published') {
     return { error: 'Assessment not found', status: 404 as const }
   }
+  if (!assessment.startsAt) {
+    return { error: 'Assessment not found', status: 404 as const }
+  }
+  if (!assessment.timeLimitMinutes || assessment.timeLimitMinutes <= 0) {
+    return { error: 'Assessment not found', status: 404 as const }
+  }
   if (isPastDueDate(assessment.dueDate)) {
     return { error: 'This assessment is past its due date', status: 403 as const }
+  }
+  return null
+}
+
+export function assertAssessmentStartable(assessment: AssessmentRecord) {
+  const availabilityError = assertAssessmentAvailable(assessment)
+  if (availabilityError) return availabilityError
+  if (isBeforeStartsAt(assessment.startsAt)) {
+    return {
+      error: 'This assessment has not started yet',
+      status: 403 as const,
+    }
   }
   return null
 }

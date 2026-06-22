@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { DateTimePicker } from '@/components/ui/datetime-picker'
 import {
   Dialog,
   DialogContent,
@@ -14,45 +15,38 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { parseTimeLimitMinutes } from '@/lib/assessments/time-limit'
-import { isAssessmentTimeLimitValid } from '@/lib/assessments/publish-requirements'
+import { isAssessmentStartsAtValid } from '@/lib/assessments/publish-requirements'
 
-interface SetAssessmentTimeLimitDialogProps {
+interface SetAssessmentStartTimeDialogProps {
   assessmentId: string
   assessmentTitle: string
-  currentMinutes?: number
+  currentStartsAt?: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function SetAssessmentTimeLimitDialog({
+export function SetAssessmentStartTimeDialog({
   assessmentId,
   assessmentTitle,
-  currentMinutes,
+  currentStartsAt,
   open,
   onOpenChange,
-}: SetAssessmentTimeLimitDialogProps) {
+}: SetAssessmentStartTimeDialogProps) {
   const router = useRouter()
-  const [minutes, setMinutes] = React.useState('')
+  const [startsAt, setStartsAt] = React.useState<string | undefined>()
   const [isSaving, setIsSaving] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
-    setMinutes(
-      currentMinutes != null && currentMinutes > 0
-        ? String(currentMinutes)
-        : '',
-    )
-  }, [open, currentMinutes])
+    setStartsAt(currentStartsAt)
+  }, [open, currentStartsAt])
 
-  const canSave = isAssessmentTimeLimitValid(minutes)
+  const canSave = isAssessmentStartsAtValid(startsAt)
 
   async function handleSave() {
-    const timeLimitMinutes = parseTimeLimitMinutes(minutes)
-    if (!timeLimitMinutes) {
-      toast.error('Enter a time limit of at least 1 minute')
+    if (!startsAt) {
+      toast.error('Select a start date and time')
       return
     }
 
@@ -61,18 +55,18 @@ export function SetAssessmentTimeLimitDialog({
       const res = await fetch(`/api/assessments/${assessmentId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timeLimitMinutes }),
+        body: JSON.stringify({ startsAt }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error ?? 'Failed to update time limit')
+      if (!res.ok) throw new Error(data.error ?? 'Failed to update start time')
 
-      toast.success('Time limit updated')
+      toast.success('Start time updated')
       onOpenChange(false)
       router.refresh()
     } catch (error) {
       console.error(error)
       toast.error(
-        error instanceof Error ? error.message : 'Failed to update time limit',
+        error instanceof Error ? error.message : 'Failed to update start time',
       )
     } finally {
       setIsSaving(false)
@@ -84,28 +78,23 @@ export function SetAssessmentTimeLimitDialog({
       <DialogContent className='max-w-sm'>
         <DialogHeader>
           <DialogTitle>
-            {currentMinutes ? 'Edit time limit' : 'Set time limit'}
+            {currentStartsAt ? 'Edit start time' : 'Set start time'}
           </DialogTitle>
           <DialogDescription>
-            Officers will have this long to complete once they start. The timer
-            cannot be paused.
+            Officers cannot start the assessment until the set time.
           </DialogDescription>
         </DialogHeader>
 
         <div className='space-y-2 py-2'>
-          <Label htmlFor='time-limit-minutes' required>
-            Time limit (minutes)
+          <Label htmlFor='assessment-starts-at' required>
+            Start date and time
           </Label>
-          <Input
-            id='time-limit-minutes'
-            type='number'
-            min={1}
-            step={1}
-            value={minutes}
-            onChange={event => setMinutes(event.target.value)}
-            placeholder='e.g. 30'
+          <DateTimePicker
+            id='assessment-starts-at'
+            value={startsAt}
+            onChange={setStartsAt}
+            placeholder='Select start date and time'
             disabled={isSaving}
-            required
           />
         </div>
 

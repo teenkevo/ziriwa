@@ -40,6 +40,7 @@ export interface AssessmentRecord {
   sectionName?: string
   questions?: AssessmentQuestion[]
   publishedAt?: string
+  startsAt?: string
   dueDate?: string
   timeLimitMinutes?: number
   createdByName?: string
@@ -74,6 +75,7 @@ export interface AssessmentListRow {
   status?: AssessmentStatus
   questionCount: number
   publishedAt?: string
+  startsAt?: string
   dueDate?: string
   timeLimitMinutes?: number
   attemptCount: number

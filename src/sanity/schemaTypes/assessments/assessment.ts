@@ -58,6 +58,13 @@ export const assessment = defineType({
       type: 'datetime',
     }),
     defineField({
+      name: 'startsAt',
+      title: 'Starts at',
+      type: 'datetime',
+      description:
+        'Required. Officers can see the assessment before this time, but cannot start until it arrives.',
+    }),
+    defineField({
       name: 'dueDate',
       title: 'Due date',
       type: 'date',
@@ -67,7 +74,7 @@ export const assessment = defineType({
       title: 'Time limit (minutes)',
       type: 'number',
       description:
-        'Optional per-attempt time limit once an officer starts the assessment.',
+        'Required. Per-attempt time limit once an officer starts.',
       validation: Rule => Rule.min(1).integer(),
     }),
   ],

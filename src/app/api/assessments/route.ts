@@ -5,7 +5,13 @@ import {
   getAssessmentAccessForSection,
 } from '@/lib/assessments/access.server'
 import type { AssessmentQuestion } from '@/lib/assessments/types'
-import { parseTimeLimitMinutes } from '@/lib/assessments/time-limit'
+import { parseStartsAt, parseTimeLimitMinutes } from '@/lib/assessments/time-limit'
+import {
+  formatPublishBlockersMessage,
+  formatScheduleBlockersMessage,
+  getAssessmentPublishBlockers,
+  getAssessmentScheduleBlockers,
+} from '@/lib/assessments/publish-requirements'
 import { getAssessmentsBySection } from '@/sanity/lib/assessments/get-assessments-by-section'
 import { writeClient } from '@/sanity/lib/write-client'
 
@@ -61,6 +67,7 @@ export async function POST(req: NextRequest) {
       typeof body.description === 'string' ? body.description.trim() : ''
     const dueDate =
       typeof body.dueDate === 'string' ? body.dueDate.trim() : undefined
+    const startsAt = parseStartsAt(body.startsAt)
     const timeLimitMinutes = parseTimeLimitMinutes(body.timeLimitMinutes)
     const publish = body.publish === true
     const questions = Array.isArray(body.questions)
@@ -80,6 +87,31 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const scheduleBlockers = getAssessmentScheduleBlockers({
+      startsAt,
+      timeLimitMinutes,
+    })
+    if (scheduleBlockers.length > 0) {
+      return NextResponse.json(
+        { error: formatScheduleBlockersMessage(scheduleBlockers) },
+        { status: 400 },
+      )
+    }
+
+    if (publish) {
+      const publishBlockers = getAssessmentPublishBlockers({
+        startsAt,
+        timeLimitMinutes,
+        questions,
+      })
+      if (publishBlockers.length > 0) {
+        return NextResponse.json(
+          { error: formatPublishBlockersMessage(publishBlockers) },
+          { status: 400 },
+        )
+      }
+    }
+
     const { access, viewerStaffId } = await getAssessmentAccessForSection(sectionId)
     if (!canManageAssessments(access)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -96,6 +128,7 @@ export async function POST(req: NextRequest) {
         ? { _type: 'reference', _ref: viewerStaffId }
         : undefined,
       publishedAt: publish ? new Date().toISOString() : undefined,
+      startsAt,
       dueDate: dueDate || undefined,
       timeLimitMinutes,
     })

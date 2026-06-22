@@ -7,7 +7,11 @@ import {
   getAssessmentAccessForSection,
 } from '@/lib/assessments/access.server'
 import type { AssessmentQuestion } from '@/lib/assessments/types'
-import { parseTimeLimitMinutes } from '@/lib/assessments/time-limit'
+import { parseStartsAt, parseTimeLimitMinutes } from '@/lib/assessments/time-limit'
+import {
+  formatPublishBlockersMessage,
+  getAssessmentPublishBlockers,
+} from '@/lib/assessments/publish-requirements'
 import { getAssessmentById } from '@/sanity/lib/assessments/get-assessments-by-section'
 import { getAttemptsForAssessment } from '@/sanity/lib/assessments/get-assessment-attempts'
 import { writeClient } from '@/sanity/lib/write-client'
@@ -99,40 +103,87 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const patch: Record<string, unknown> = {}
+    const setPatch: Record<string, unknown> = {}
+    const unsetFields: string[] = []
 
     if (typeof body.title === 'string' && body.title.trim()) {
-      patch.title = body.title.trim()
+      setPatch.title = body.title.trim()
     }
     if (typeof body.description === 'string') {
-      patch.description = body.description.trim() || undefined
+      setPatch.description = body.description.trim() || undefined
     }
     if (typeof body.dueDate === 'string') {
-      patch.dueDate = body.dueDate.trim() || undefined
+      setPatch.dueDate = body.dueDate.trim() || undefined
+    }
+    if (body.startsAt !== undefined) {
+      const parsed = parseStartsAt(body.startsAt)
+      if (parsed) {
+        setPatch.startsAt = parsed
+      } else {
+        return NextResponse.json(
+          { error: 'Start date and time is required' },
+          { status: 400 },
+        )
+      }
     }
     if (body.timeLimitMinutes !== undefined) {
-      patch.timeLimitMinutes = parseTimeLimitMinutes(body.timeLimitMinutes)
+      const parsed = parseTimeLimitMinutes(body.timeLimitMinutes)
+      if (parsed) {
+        setPatch.timeLimitMinutes = parsed
+      } else {
+        return NextResponse.json(
+          { error: 'Time limit is required' },
+          { status: 400 },
+        )
+      }
     }
     if (Array.isArray(body.questions)) {
-      patch.questions = sanitizeQuestions(body.questions as AssessmentQuestion[])
+      setPatch.questions = sanitizeQuestions(body.questions as AssessmentQuestion[])
     }
     if (body.action === 'publish') {
-      patch.status = 'published'
-      patch.publishedAt = new Date().toISOString()
+      const publishBlockers = getAssessmentPublishBlockers({
+        startsAt:
+          typeof setPatch.startsAt === 'string'
+            ? setPatch.startsAt
+            : assessment.startsAt,
+        timeLimitMinutes:
+          typeof setPatch.timeLimitMinutes === 'number'
+            ? setPatch.timeLimitMinutes
+            : assessment.timeLimitMinutes,
+        questions: Array.isArray(setPatch.questions)
+          ? setPatch.questions
+          : assessment.questions,
+      })
+      if (publishBlockers.length > 0) {
+        return NextResponse.json(
+          { error: formatPublishBlockersMessage(publishBlockers) },
+          { status: 400 },
+        )
+      }
+      setPatch.status = 'published'
+      setPatch.publishedAt = new Date().toISOString()
     }
     if (body.action === 'archive') {
-      patch.status = 'archived'
+      setPatch.status = 'archived'
     }
     if (body.action === 'unpublish') {
-      patch.status = 'draft'
-      patch.publishedAt = undefined
+      setPatch.status = 'draft'
+      setPatch.publishedAt = undefined
     }
 
-    if (Object.keys(patch).length === 0) {
+    if (Object.keys(setPatch).length === 0 && unsetFields.length === 0) {
       return NextResponse.json({ error: 'No changes provided' }, { status: 400 })
     }
 
-    await writeClient.patch(id).set(patch).commit()
+    let mutation = writeClient.patch(id)
+    if (Object.keys(setPatch).length > 0) {
+      mutation = mutation.set(setPatch)
+    }
+    if (unsetFields.length > 0) {
+      mutation = mutation.unset(unsetFields)
+    }
+
+    await mutation.commit()
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('Error updating assessment', error)

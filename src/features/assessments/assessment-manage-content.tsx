@@ -48,6 +48,7 @@ import {
   ScrollMouseIndicator,
   useScrollHintActive,
 } from '@/features/assessments/components/scroll-mouse-indicator'
+import { PublishAssessmentDialog } from '@/features/assessments/components/publish-assessment-dialog'
 import { assessmentStatusLabel } from '@/lib/assessments/scoring'
 import { cn } from '@/lib/utils'
 import type {
@@ -85,6 +86,11 @@ export function AssessmentManageContent({
   const [isSaving, setIsSaving] = React.useState(false)
   const [isLeaving, setIsLeaving] = React.useState(false)
   const [submissionsOpen, setSubmissionsOpen] = React.useState(false)
+  const [publishOpen, setPublishOpen] = React.useState(false)
+  const [publishQuestions, setPublishQuestions] = React.useState<
+    AssessmentQuestion[]
+  >([])
+  const [isPublishing, setIsPublishing] = React.useState(false)
   const [isDirty, setIsDirty] = React.useState(false)
 
   const totalQuestions = questions.length
@@ -212,6 +218,20 @@ export function AssessmentManageContent({
     return sanitized
   }
 
+  function handleOpenPublishDialog() {
+    const sanitized = validateQuestions()
+    if (!sanitized) return
+    setPublishQuestions(sanitized)
+    setPublishOpen(true)
+  }
+
+  function handlePublished() {
+    setPublishOpen(false)
+    setIsDirty(false)
+    toast.success('Assessment published')
+    navigateToList()
+  }
+
   async function patchAssessment(body: Record<string, unknown>) {
     setIsSaving(true)
     try {
@@ -289,9 +309,18 @@ export function AssessmentManageContent({
 
   return (
     <>
-      <Dialog open onOpenChange={open => !open && !isSaving && handleClose()}>
+      <Dialog
+        open
+        onOpenChange={open =>
+          !open &&
+          !isSaving &&
+          !isPublishing &&
+          !publishOpen &&
+          handleClose()
+        }
+      >
         <DialogContent
-          disableClose={isSaving}
+          disableClose={isSaving || isPublishing}
           className={ASSESSMENT_FULLSCREEN_DIALOG_CLASS}
         >
           {!currentQuestion ? (
@@ -333,8 +362,8 @@ export function AssessmentManageContent({
                           <Button
                             type='button'
                             size='sm'
-                            onClick={() => patchAssessment({ action: 'publish' })}
-                            disabled={isSaving}
+                            onClick={handleOpenPublishDialog}
+                            disabled={isSaving || isPublishing}
                           >
                             Publish
                           </Button>
@@ -522,6 +551,18 @@ export function AssessmentManageContent({
           </div>
         </SheetContent>
       </Sheet>
+
+      <PublishAssessmentDialog
+        assessmentId={assessment._id}
+        assessmentTitle={assessment.title}
+        questions={publishQuestions}
+        initialStartsAt={assessment.startsAt}
+        initialTimeLimitMinutes={assessment.timeLimitMinutes}
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        onPublished={handlePublished}
+        onPublishingChange={setIsPublishing}
+      />
 
       {isLeaving ? (
         <div

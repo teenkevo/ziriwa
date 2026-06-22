@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import {
-  assertAssessmentAvailable,
+  assertAssessmentStartable,
   buildInProgressAttemptPayload,
   buildQuestionResults,
   canSubmitAttempt,
@@ -135,7 +135,7 @@ export async function POST(
 
     const assessment = await getAssessmentById(id)
     const availabilityError = assessment
-      ? assertAssessmentAvailable(assessment)
+      ? assertAssessmentStartable(assessment)
       : { error: 'Assessment not found', status: 404 as const }
     if (!assessment || availabilityError) {
       return NextResponse.json(

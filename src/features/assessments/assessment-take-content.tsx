@@ -39,12 +39,17 @@ import {
 } from '@/features/assessments/components/scroll-mouse-indicator'
 import { AssessmentAnswerOptionsPreview } from '@/features/assessments/components/assessment-answer-options-preview'
 import {
+  AssessmentStartCountdown,
+  useAssessmentStartCountdown,
+} from '@/features/assessments/components/assessment-start-countdown'
+import {
   AssessmentTimer,
   useAssessmentTimer,
 } from '@/features/assessments/components/assessment-timer'
 import { isQuestionAnswerCorrect } from '@/lib/assessments/scoring'
 import {
   formatTimeLimitMinutes,
+  isBeforeStartsAt,
   isPastDueDate,
 } from '@/lib/assessments/time-limit'
 import type {
@@ -117,9 +122,17 @@ export function AssessmentTakeContent({
   const questions = reviewQuestions
   const hasTimeLimit = (assessment.timeLimitMinutes ?? 0) > 0
   const isPastDue = isPastDueDate(assessment.dueDate)
+  const { hasStarted: hasAssignmentStarted } = useAssessmentStartCountdown(
+    assessment.startsAt,
+  )
   const showResults = Boolean(submittedAttempt)
-  const isSessionReady = showResults || !hasTimeLimit || Boolean(activeAttempt)
-  const showPreStart = !showResults && hasTimeLimit && !activeAttempt
+  const showStartsAtGate =
+    !showResults && Boolean(assessment.startsAt) && !hasAssignmentStarted
+  const showPreStart =
+    !showResults && !showStartsAtGate && hasTimeLimit && !activeAttempt
+  const isSessionReady =
+    showResults ||
+    (!showStartsAtGate && (!hasTimeLimit || Boolean(activeAttempt)))
   const totalQuestions = questions.length
   const currentQuestion = questions[currentIndex]
   const progress =
@@ -187,6 +200,10 @@ export function AssessmentTakeContent({
   async function handleStartTimedAssessment() {
     if (isPastDue) {
       toast.error('This assessment is past its due date')
+      return
+    }
+    if (isBeforeStartsAt(assessment.startsAt)) {
+      toast.error('This assessment has not started yet')
       return
     }
 
@@ -392,7 +409,35 @@ export function AssessmentTakeContent({
           disableClose={isSaving || isStarting}
           className={FULLSCREEN_DIALOG_CLASS}
         >
-          {showPreStart ? (
+          {showStartsAtGate ? (
+            <div className='flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center'>
+              <div className='max-w-lg space-y-3'>
+                <DialogTitle className='text-2xl font-semibold'>
+                  {assessment.title}
+                </DialogTitle>
+                {assessment.description ? (
+                  <p className='text-sm text-muted-foreground'>
+                    {assessment.description}
+                  </p>
+                ) : null}
+                <p className='text-sm text-muted-foreground'>
+                  This assessment opens soon. You can start once the countdown
+                  reaches zero.
+                </p>
+              </div>
+              <AssessmentStartCountdown
+                startsAt={assessment.startsAt!}
+                showOpensAt
+              />
+              <Button
+                type='button'
+                variant='outline'
+                onClick={handleClose}
+              >
+                Back
+              </Button>
+            </div>
+          ) : showPreStart ? (
             <div className='flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center'>
               <div className='max-w-lg space-y-3'>
                 <DialogTitle className='text-2xl font-semibold'>

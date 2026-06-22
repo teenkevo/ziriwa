@@ -7,6 +7,8 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from 'luc
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
+import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -14,6 +16,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import { Progress } from '@/components/ui/progress'
 import type { AssessmentQuestion } from '@/lib/assessments/types'
+import { parseTimeLimitMinutes } from '@/lib/assessments/time-limit'
+import {
+  areAssessmentQuestionsValid,
+  formatScheduleBlockersMessage,
+  getAssessmentScheduleBlockers,
+  isAssessmentScheduleComplete,
+} from '@/lib/assessments/publish-requirements'
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
 
@@ -47,6 +56,7 @@ export function CreateAssessmentContent({
   const [title, setTitle] = React.useState('')
   const [description, setDescription] = React.useState('')
   const [dueDate, setDueDate] = React.useState('')
+  const [startsAt, setStartsAt] = React.useState<string | undefined>()
   const [timeLimitMinutes, setTimeLimitMinutes] = React.useState('')
   const [publish, setPublish] = React.useState(false)
   const [questions, setQuestions] = React.useState<AssessmentQuestion[]>([
@@ -161,6 +171,17 @@ export function CreateAssessmentContent({
     return sanitized
   }
 
+  const canSubmit = React.useMemo(
+    () =>
+      title.trim().length > 0 &&
+      isAssessmentScheduleComplete({
+        startsAt,
+        timeLimitMinutes,
+      }) &&
+      areAssessmentQuestionsValid(questions),
+    [title, startsAt, timeLimitMinutes, questions],
+  )
+
   async function handleSubmit() {
     if (!title.trim()) {
       toast.error('Title is required')
@@ -169,6 +190,16 @@ export function CreateAssessmentContent({
 
     const sanitizedQuestions = validateQuestions()
     if (!sanitizedQuestions) return
+
+    const parsedTimeLimit = parseTimeLimitMinutes(timeLimitMinutes)
+    const scheduleBlockers = getAssessmentScheduleBlockers({
+      startsAt,
+      timeLimitMinutes: parsedTimeLimit,
+    })
+    if (scheduleBlockers.length > 0) {
+      toast.error(formatScheduleBlockersMessage(scheduleBlockers))
+      return
+    }
 
     setIsSaving(true)
     try {
@@ -180,9 +211,8 @@ export function CreateAssessmentContent({
           title: title.trim(),
           description: description.trim() || undefined,
           dueDate: dueDate || undefined,
-          timeLimitMinutes: timeLimitMinutes
-            ? Number(timeLimitMinutes)
-            : undefined,
+          startsAt,
+          timeLimitMinutes: parsedTimeLimit,
           publish,
           questions: sanitizedQuestions,
         }),
@@ -220,7 +250,7 @@ export function CreateAssessmentContent({
           <Button type='button' variant='outline' asChild disabled={isSaving}>
             <Link href={basePath}>Cancel</Link>
           </Button>
-          <Button type='button' onClick={handleSubmit} disabled={isSaving}>
+          <Button type='button' onClick={handleSubmit} disabled={isSaving || !canSubmit}>
             {isSaving ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
             Create assessment
           </Button>
@@ -252,17 +282,35 @@ export function CreateAssessmentContent({
                 />
               </div>
               <div className='space-y-2'>
+                <Label htmlFor='create-starts-at' required>
+                  Start date and time
+                </Label>
+                <DateTimePicker
+                  id='create-starts-at'
+                  value={startsAt}
+                  onChange={setStartsAt}
+                  placeholder='Select start date and time'
+                  disabled={isSaving}
+                />
+                <p className='text-xs text-muted-foreground'>
+                  Officers can see the assessment before this time, but cannot
+                  begin until then.
+                </p>
+              </div>
+              <div className='space-y-2'>
                 <Label htmlFor='create-due-date'>Due date</Label>
-                <Input
+                <DatePicker
                   id='create-due-date'
-                  type='date'
                   value={dueDate}
-                  onChange={event => setDueDate(event.target.value)}
+                  onChange={setDueDate}
+                  placeholder='Select due date'
                   disabled={isSaving}
                 />
               </div>
               <div className='space-y-2'>
-                <Label htmlFor='create-time-limit'>Time limit (minutes)</Label>
+                <Label htmlFor='create-time-limit' required>
+                  Time limit (minutes)
+                </Label>
                 <Input
                   id='create-time-limit'
                   type='number'
@@ -272,16 +320,19 @@ export function CreateAssessmentContent({
                   onChange={event => setTimeLimitMinutes(event.target.value)}
                   placeholder='e.g. 30'
                   disabled={isSaving}
+                  required
                 />
                 <p className='text-xs text-muted-foreground'>
-                  Optional. Officers get this long per attempt once they start.
+                  Officers get this long per attempt once they start.
                 </p>
               </div>
               <div className='flex items-center justify-between rounded-md border p-3'>
                 <div>
                   <p className='text-sm font-medium'>Publish immediately</p>
                   <p className='text-xs text-muted-foreground'>
-                    Officers can take it right away.
+                    {publish
+                      ? 'Publish as soon as the assessment is created.'
+                      : 'Save as draft for now.'}
                   </p>
                 </div>
                 <Switch

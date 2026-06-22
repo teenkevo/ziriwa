@@ -18,6 +18,11 @@ import {
 import { WorkspaceRouteLink } from '@/components/workspace-route-link'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import { SetAssessmentTimeLimitDialog } from '@/features/assessments/components/set-assessment-time-limit-dialog'
+import {
+  AssessmentListStartStatus,
+  useAssessmentStartCountdown,
+} from '@/features/assessments/components/assessment-start-countdown'
+import { SetAssessmentStartTimeDialog } from '@/features/assessments/components/set-assessment-start-time-dialog'
 import type { AssessmentListRow } from '@/lib/assessments/types'
 import { assessmentStatusLabel } from '@/lib/assessments/scoring'
 import { formatTimeLimitMinutes } from '@/lib/assessments/time-limit'
@@ -45,6 +50,11 @@ export function AssessmentsListContent({
     assessmentId: string
     assessmentTitle: string
     currentMinutes?: number
+  } | null>(null)
+  const [startTimeDialog, setStartTimeDialog] = React.useState<{
+    assessmentId: string
+    assessmentTitle: string
+    currentStartsAt?: string
   } | null>(null)
 
   useRegisterPageBreadcrumbs(
@@ -101,6 +111,7 @@ export function AssessmentsListContent({
                 <TableHead>Questions</TableHead>
                 {role !== 'officer' ? <TableHead>Submissions</TableHead> : null}
                 {role === 'officer' ? <TableHead>Your result</TableHead> : null}
+                <TableHead>Starts</TableHead>
                 <TableHead>Time limit</TableHead>
                 <TableHead className='w-[100px]' />
               </TableRow>
@@ -129,6 +140,33 @@ export function AssessmentsListContent({
                           : 'Not started'}
                     </TableCell>
                   ) : null}
+                  <TableCell>
+                    {canManage ? (
+                      <div className='flex flex-wrap items-center gap-2'>
+                        <AssessmentListStartStatus
+                          startsAt={item.startsAt}
+                          compact={Boolean(item.startsAt)}
+                        />
+                        <Button
+                          type='button'
+                          variant={item.startsAt ? 'ghost' : 'outline'}
+                          size='sm'
+                          className={item.startsAt ? 'h-7 px-2 text-xs' : undefined}
+                          onClick={() =>
+                            setStartTimeDialog({
+                              assessmentId: item._id,
+                              assessmentTitle: item.title,
+                              currentStartsAt: item.startsAt,
+                            })
+                          }
+                        >
+                          {item.startsAt ? 'Edit' : 'Set start time'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <AssessmentListStartStatus startsAt={item.startsAt} />
+                    )}
+                  </TableCell>
                   <TableCell>
                     {item.timeLimitMinutes ? (
                       <div className='flex flex-wrap items-center gap-2'>
@@ -167,20 +205,14 @@ export function AssessmentsListContent({
                       >
                         Set time limit
                       </Button>
-                    ) : (
-                      '—'
-                    )}
+                    ) : null}
                   </TableCell>
                   <TableCell>
-                    <Button type='button' variant='default' size='sm' asChild>
-                      <WorkspaceRouteLink href={`${basePath}/${item._id}`}>
-                        {item.myInProgressAttemptId
-                          ? 'Resume'
-                          : role === 'officer' && !item.myAttemptId
-                            ? 'Start'
-                            : 'Open'}
-                      </WorkspaceRouteLink>
-                    </Button>
+                    <AssessmentOpenButton
+                      item={item}
+                      role={role}
+                      basePath={basePath}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -200,6 +232,49 @@ export function AssessmentsListContent({
           }}
         />
       ) : null}
+      {startTimeDialog ? (
+        <SetAssessmentStartTimeDialog
+          assessmentId={startTimeDialog.assessmentId}
+          assessmentTitle={startTimeDialog.assessmentTitle}
+          currentStartsAt={startTimeDialog.currentStartsAt}
+          open
+          onOpenChange={open => {
+            if (!open) setStartTimeDialog(null)
+          }}
+        />
+      ) : null}
     </div>
+  )
+}
+
+function AssessmentOpenButton({
+  item,
+  role,
+  basePath,
+}: {
+  item: AssessmentListRow
+  role: 'manager' | 'supervisor' | 'officer'
+  basePath: string
+}) {
+  const { hasStarted } = useAssessmentStartCountdown(item.startsAt)
+  const isWaitingToOpen =
+    role === 'officer' &&
+    !item.myAttemptId &&
+    !item.myInProgressAttemptId &&
+    Boolean(item.startsAt) &&
+    !hasStarted
+
+  const label = item.myInProgressAttemptId
+    ? 'Resume'
+    : isWaitingToOpen
+      ? 'View'
+      : role === 'officer' && !item.myAttemptId
+        ? 'Start'
+        : 'Open'
+
+  return (
+    <Button type='button' variant='default' size='sm' asChild>
+      <WorkspaceRouteLink href={`${basePath}/${item._id}`}>{label}</WorkspaceRouteLink>
+    </Button>
   )
 }

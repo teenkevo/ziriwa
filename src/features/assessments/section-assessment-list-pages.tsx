@@ -16,7 +16,7 @@ export async function ManagerAssessmentsPage({
     <AssessmentsListContent
       role='manager'
       title='Assessments'
-      subtitle='Create and publish assessments for your staff'
+      subtitle='Set a start time and time limit, then publish assessments for your staff'
       basePath='/manager/assessments'
       dashboardHref='/manager/dashboard'
       items={data.items}
