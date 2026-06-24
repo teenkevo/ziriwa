@@ -24,5 +24,5 @@ export function getLlmConfig(): LlmRuntimeConfig {
 }
 
 export function llmUnavailableMessage() {
-  return 'AI rewrite is not configured. Set OPENAI_API_KEY on the server to enable it.'
+  return 'AI is not configured. Set OPENAI_API_KEY on the server to enable it.'
 }

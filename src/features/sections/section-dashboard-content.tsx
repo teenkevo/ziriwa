@@ -32,10 +32,13 @@ import { scopeSprintsForViewer } from '@/lib/sprint-workspace-scope'
 import type { WorkspaceScopeKind } from '@/lib/project-workspace-copy'
 import {
   getWorkspacePaths,
+  isManagerDashboardBasePath,
   type WorkspaceBasePath,
 } from '@/lib/workspace-paths'
+import { SectionAskAiSheet } from '@/features/sections/components/section-ask-ai-sheet'
 
 interface SectionDashboardContentProps {
+  sectionId?: string
   sectionName: string
   /** Used for overdue detailed task links to activity pages. */
   sectionSlug?: string
@@ -58,6 +61,7 @@ interface SectionDashboardContentProps {
 }
 
 export function SectionDashboardContent({
+  sectionId,
   sectionName,
   sectionSlug,
   contract,
@@ -243,13 +247,25 @@ export function SectionDashboardContent({
     />
   )
 
+  const showAskAi =
+    Boolean(sectionId) &&
+    isManagerDashboardBasePath(workspaceBasePath) &&
+    (sectionAccess?.isSectionManager || sectionAccess?.isGlobalAdmin)
+
   return (
     <div className='space-y-4'>
-      <div className='flex flex-wrap items-center gap-x-6 gap-y-2 text-sm'>
+      <div className='flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-sm'>
         <div className='inline-flex items-center gap-2'>
           <FileText className='h-4 w-4 text-muted-foreground' />
           <span className='font-medium'>{metrics.fyLabel ?? '—'}</span>
         </div>
+        {showAskAi && sectionId ? (
+          <SectionAskAiSheet
+            sectionId={sectionId}
+            sectionName={sectionName}
+            workContext={sectionAccess?.workContext}
+          />
+        ) : null}
       </div>
 
       <div className='grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4'>

@@ -150,6 +150,16 @@ export function assertSectionStaffManageAllowed(
   return null
 }
 
+export function assertSectionAskAiAllowed(
+  access: SectionAccess,
+): NextResponse | null {
+  if (access.isGlobalAdmin) return null
+  if (!access.isSectionManager) {
+    return sectionAccessDenied('Only section managers can use Ask AI')
+  }
+  return null
+}
+
 export async function getSectionIdFromContract(
   contractId: string,
 ): Promise<string | null> {

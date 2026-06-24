@@ -244,6 +244,7 @@ export function ManagerWorkspaceContent({
     if (view === 'dashboard') {
       return (
         <SectionDashboardContent
+          sectionId={section._id}
           sectionName={section.name}
           sectionSlug={section.slug?.current}
           contract={activeContract as SectionContract | null}

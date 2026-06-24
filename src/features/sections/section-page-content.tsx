@@ -457,6 +457,7 @@ export function SectionPageContent({
           </TabsList>
           <TabsContent value='dashboard' className='space-y-4'>
             <SectionDashboardContent
+              sectionId={section._id}
               sectionName={section.name}
               sectionSlug={section.slug?.current}
               contract={activeContract as SectionContract | null}
