@@ -49,6 +49,7 @@ interface AssessmentOfficerSubmissionsSheetProps {
   canReleaseResults?: boolean
   isReleasing?: boolean
   onReleaseResults?: () => void
+  onViewAttempt?: (row: AssessmentOfficerSubmissionRow) => void
   isLoading?: boolean
 }
 
@@ -61,13 +62,14 @@ export function AssessmentOfficerSubmissionsSheet({
   canReleaseResults = false,
   isReleasing = false,
   onReleaseResults,
+  onViewAttempt,
   isLoading = false,
 }: AssessmentOfficerSubmissionsSheetProps) {
   const submittedCount = rows.filter(row => row.status === 'submitted').length
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className='flex w-full flex-col sm:max-w-2xl'>
+      <SheetContent className='flex w-full flex-col sm:max-w-3xl'>
         <SheetHeader>
           <SheetTitle>Officer submissions</SheetTitle>
           <SheetDescription>
@@ -112,6 +114,7 @@ export function AssessmentOfficerSubmissionsSheet({
                     <TableHead>Status</TableHead>
                     <TableHead>Score</TableHead>
                     <TableHead>Submitted</TableHead>
+                    {onViewAttempt ? <TableHead className='w-28' /> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -137,6 +140,23 @@ export function AssessmentOfficerSubmissionsSheet({
                               ? `Started ${format(parseISO(row.startedAt), 'PPp')}`
                               : '—'}
                         </TableCell>
+                        {onViewAttempt ? (
+                          <TableCell>
+                            {row.status === 'submitted' && row.attemptId ? (
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                className='h-7 px-2 text-xs'
+                                onClick={() => onViewAttempt(row)}
+                              >
+                                View results
+                              </Button>
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     )
                   })}

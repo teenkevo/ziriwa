@@ -118,7 +118,9 @@ export async function loadSectionAssessmentsList(input: {
           ? isAssessmentStartOpen(assessment.startsAt)
           : undefined,
       resultsReleased:
-        input.role === 'officer' ? resultsReleased : undefined,
+        input.role === 'officer' || input.role === 'manager' || input.role === 'supervisor'
+          ? resultsReleased
+          : undefined,
     })
   }
 

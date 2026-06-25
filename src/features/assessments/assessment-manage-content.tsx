@@ -34,6 +34,10 @@ import {
 } from '@/features/assessments/components/scroll-mouse-indicator'
 import { PublishAssessmentDialog } from '@/features/assessments/components/publish-assessment-dialog'
 import { AssessmentOfficerSubmissionsSheet } from '@/features/assessments/components/assessment-officer-submissions-sheet'
+import {
+  AssessmentOfficerAttemptReviewDialog,
+  type AssessmentOfficerAttemptReviewTarget,
+} from '@/features/assessments/components/assessment-officer-attempt-review-dialog'
 import { assessmentStatusLabel } from '@/lib/assessments/scoring'
 import { areAssessmentResultsReleased } from '@/lib/assessments/results-release'
 import { cn } from '@/lib/utils'
@@ -75,6 +79,8 @@ export function AssessmentManageContent({
   const [isSaving, setIsSaving] = React.useState(false)
   const [isLeaving, setIsLeaving] = React.useState(false)
   const [submissionsOpen, setSubmissionsOpen] = React.useState(false)
+  const [attemptReviewTarget, setAttemptReviewTarget] =
+    React.useState<AssessmentOfficerAttemptReviewTarget | null>(null)
   const [publishOpen, setPublishOpen] = React.useState(false)
   const [publishQuestions, setPublishQuestions] = React.useState<
     AssessmentQuestion[]
@@ -89,14 +95,14 @@ export function AssessmentManageContent({
   const isFirst = currentIndex === 0
   const isLast = currentIndex === totalQuestions - 1
   const resultsReleased = areAssessmentResultsReleased(assessment)
-  const canReleaseResults =
-    canManage &&
-    assessment.status === 'published' &&
-    attempts.length > 0 &&
-    !resultsReleased
   const submittedCount = officerSubmissions.filter(
     row => row.status === 'submitted',
   ).length
+  const canReleaseResults =
+    canManage &&
+    assessment.status === 'published' &&
+    submittedCount > 0 &&
+    !resultsReleased
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const { canScrollDown, updateScrollHint } = useScrollHintActive(
     scrollRef,
@@ -279,7 +285,7 @@ export function AssessmentManageContent({
   async function handleReleaseResults() {
     if (
       !window.confirm(
-        'Release results to officers? They will be able to view their scores and feedback.',
+        'Release results to officers? They will be able to view their scores, area breakdown, and feedback.',
       )
     ) {
       return
@@ -558,6 +564,25 @@ export function AssessmentManageContent({
         canReleaseResults={canReleaseResults}
         isReleasing={isSaving}
         onReleaseResults={() => void handleReleaseResults()}
+        onViewAttempt={row => {
+          if (!row.attemptId) return
+          setAttemptReviewTarget({
+            assessmentId: assessment._id,
+            attemptId: row.attemptId,
+            officerName: row.officerName,
+          })
+        }}
+      />
+
+      <AssessmentOfficerAttemptReviewDialog
+        target={attemptReviewTarget}
+        onOpenChange={open => {
+          if (!open) setAttemptReviewTarget(null)
+        }}
+        preloadedAssessment={{
+          title: assessment.title,
+          questions: assessment.questions,
+        }}
       />
 
       <PublishAssessmentDialog

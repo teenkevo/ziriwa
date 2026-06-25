@@ -3,6 +3,8 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { FileSpreadsheet, Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 import { AllClearState } from '@/components/all-clear-state'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +26,10 @@ import {
 } from '@/features/assessments/components/assessment-start-countdown'
 import { SetAssessmentStartTimeDialog } from '@/features/assessments/components/set-assessment-start-time-dialog'
 import { AssessmentOfficerSubmissionsSheet } from '@/features/assessments/components/assessment-officer-submissions-sheet'
+import {
+  AssessmentOfficerAttemptReviewDialog,
+  type AssessmentOfficerAttemptReviewTarget,
+} from '@/features/assessments/components/assessment-officer-attempt-review-dialog'
 import type {
   AssessmentListRow,
   AssessmentOfficerSubmissionRow,
@@ -54,6 +60,7 @@ export function AssessmentsListContent({
   sectionOfficerCount = 0,
   canViewSubmissions = false,
 }: AssessmentsListContentProps) {
+  const router = useRouter()
   const [timeLimitDialog, setTimeLimitDialog] = React.useState<{
     assessmentId: string
     assessmentTitle: string
@@ -67,17 +74,67 @@ export function AssessmentsListContent({
   const [submissionsSheet, setSubmissionsSheet] = React.useState<{
     assessmentId: string
     assessmentTitle: string
+    assessmentStatus?: AssessmentListRow['status']
+    attemptCount: number
     rows: AssessmentOfficerSubmissionRow[]
     resultsReleased: boolean
   } | null>(null)
   const [isLoadingSubmissions, setIsLoadingSubmissions] = React.useState(false)
+  const [isReleasingResults, setIsReleasingResults] = React.useState(false)
+  const [attemptReviewTarget, setAttemptReviewTarget] =
+    React.useState<AssessmentOfficerAttemptReviewTarget | null>(null)
+
+  async function handleReleaseResults(assessmentId: string) {
+    if (
+      !window.confirm(
+        'Release results to officers? They will be able to view their scores, area breakdown, and feedback.',
+      )
+    ) {
+      return
+    }
+
+    setIsReleasingResults(true)
+    try {
+      const res = await fetch(`/api/assessments/${assessmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'releaseResults' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Failed to release results')
+
+      toast.success('Results released to officers')
+      setSubmissionsSheet(current =>
+        current ? { ...current, resultsReleased: true } : current,
+      )
+      router.refresh()
+    } catch (error) {
+      console.error(error)
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to release results',
+      )
+    } finally {
+      setIsReleasingResults(false)
+    }
+  }
+
+  function canReleaseResultsForItem(item: AssessmentListRow) {
+    return (
+      canManage &&
+      item.status === 'published' &&
+      item.attemptCount > 0 &&
+      !item.resultsReleased
+    )
+  }
 
   async function openSubmissionsSheet(item: AssessmentListRow) {
     setSubmissionsSheet({
       assessmentId: item._id,
       assessmentTitle: item.title,
+      assessmentStatus: item.status,
+      attemptCount: item.attemptCount,
       rows: [],
-      resultsReleased: false,
+      resultsReleased: Boolean(item.resultsReleased),
     })
     setIsLoadingSubmissions(true)
     try {
@@ -87,6 +144,8 @@ export function AssessmentsListContent({
       setSubmissionsSheet({
         assessmentId: item._id,
         assessmentTitle: item.title,
+        assessmentStatus: item.status,
+        attemptCount: item.attemptCount,
         rows: Array.isArray(data.officerSubmissions)
           ? data.officerSubmissions
           : [],
@@ -187,6 +246,21 @@ export function AssessmentsListContent({
                           >
                             View marks
                           </Button>
+                        ) : null}
+                        {canReleaseResultsForItem(item) ? (
+                          <Button
+                            type='button'
+                            size='sm'
+                            className='h-7 px-2 text-xs'
+                            disabled={isReleasingResults}
+                            onClick={() => void handleReleaseResults(item._id)}
+                          >
+                            Release results
+                          </Button>
+                        ) : canManage && item.resultsReleased ? (
+                          <Badge variant='outline' className='h-7 px-2 text-xs'>
+                            Results released
+                          </Badge>
                         ) : null}
                       </div>
                     </TableCell>
@@ -316,9 +390,34 @@ export function AssessmentsListContent({
           assessmentTitle={submissionsSheet.assessmentTitle}
           rows={submissionsSheet.rows}
           resultsReleased={submissionsSheet.resultsReleased}
+          canReleaseResults={
+            canManage &&
+            submissionsSheet.assessmentStatus === 'published' &&
+            submissionsSheet.attemptCount > 0 &&
+            !submissionsSheet.resultsReleased
+          }
+          isReleasing={isReleasingResults}
+          onReleaseResults={() =>
+            void handleReleaseResults(submissionsSheet.assessmentId)
+          }
+          onViewAttempt={row => {
+            if (!row.attemptId || !submissionsSheet) return
+            setAttemptReviewTarget({
+              assessmentId: submissionsSheet.assessmentId,
+              attemptId: row.attemptId,
+              officerName: row.officerName,
+            })
+          }}
           isLoading={isLoadingSubmissions}
         />
       ) : null}
+
+      <AssessmentOfficerAttemptReviewDialog
+        target={attemptReviewTarget}
+        onOpenChange={open => {
+          if (!open) setAttemptReviewTarget(null)
+        }}
+      />
     </div>
   )
 }

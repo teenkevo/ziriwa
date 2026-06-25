@@ -6,15 +6,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronLeft,
   ChevronRight,
-  CheckCircle2,
   Loader2,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -26,18 +22,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Separator } from '@/components/ui/separator'
 import { WorkspaceRouteLoading } from '@/components/workspace-route-loading'
 import { useWorkspaceRouteNavigationOptional } from '@/contexts/workspace-route-navigation-context'
-import { cn } from '@/lib/utils'
 import {
   ScrollMouseIndicator,
   useScrollHintActive,
 } from '@/features/assessments/components/scroll-mouse-indicator'
-import { AssessmentAnswerOptionsPreview } from '@/features/assessments/components/assessment-answer-options-preview'
+import { AssessmentAttemptReviewView } from '@/features/assessments/components/assessment-attempt-review-view'
+import { AssessmentQuestionReviewStep } from '@/features/assessments/components/assessment-question-review-step'
+import {
+  ASSESSMENT_FULLSCREEN_DIALOG_CLASS,
+  assessmentQuestionSlideVariants,
+} from '@/features/assessments/assessment-fullscreen-layout'
 import {
   AssessmentStartCountdown,
   useAssessmentStartCountdown,
@@ -46,7 +43,6 @@ import {
   AssessmentTimer,
   useAssessmentTimer,
 } from '@/features/assessments/components/assessment-timer'
-import { isQuestionAnswerCorrect } from '@/lib/assessments/scoring'
 import {
   formatTimeLimitMinutes,
   isBeforeStartsAt,
@@ -58,35 +54,11 @@ import type {
   AssessmentRecord,
 } from '@/lib/assessments/types'
 
-const FULLSCREEN_DIALOG_CLASS = cn(
-  'flex flex-col gap-0 overflow-hidden rounded-xl p-0',
-  '!fixed !inset-3 !bottom-3 !left-3 !right-3 !top-3',
-  '!h-auto !max-h-none !w-auto !max-w-none',
-  '!translate-x-0 !translate-y-0',
-  'sm:!inset-4',
-  '[&>button.absolute]:hidden',
-)
-
 interface AssessmentQuestionResult {
   questionKey: string
   isCorrect: boolean
   correctAnswers?: string[]
   explanation?: string
-}
-
-const questionSlideVariants = {
-  enter: (direction: number) => ({
-    x: direction > 0 ? 40 : -40,
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
-  exit: (direction: number) => ({
-    x: direction > 0 ? -40 : 40,
-    opacity: 0,
-  }),
 }
 
 interface AssessmentTakeContentProps {
@@ -457,7 +429,7 @@ export function AssessmentTakeContent({
       >
         <DialogContent
           disableClose={isSaving || isStarting}
-          className={FULLSCREEN_DIALOG_CLASS}
+          className={ASSESSMENT_FULLSCREEN_DIALOG_CLASS}
         >
           {showStartsAtGate ? (
             <div className='flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center'>
@@ -549,6 +521,13 @@ export function AssessmentTakeContent({
                 </Button>
               </div>
             </div>
+          ) : showReview && submittedAttempt ? (
+            <AssessmentAttemptReviewView
+              assessmentTitle={assessment.title}
+              questions={questions}
+              attempt={submittedAttempt}
+              onClose={handleClose}
+            />
           ) : !currentQuestion ? (
             <div className='flex flex-1 items-center justify-center p-6'>
               <p className='text-sm text-muted-foreground'>
@@ -573,19 +552,12 @@ export function AssessmentTakeContent({
                       onClick={requestClose}
                       disabled={isSaving}
                     >
-                      {showReview || showSubmittedPending ? 'Close' : 'Cancel'}
+                      Cancel
                     </Button>
                   </div>
                 </div>
 
                 <div className='space-y-2'>
-                  {showReview && submittedAttempt ? (
-                    <p className='text-sm font-medium'>
-                      Score: {submittedAttempt.score ?? 0}/
-                      {submittedAttempt.maxScore ?? 0} (
-                      {submittedAttempt.percentScore ?? 0}%)
-                    </p>
-                  ) : null}
                   <p className='text-xs text-muted-foreground'>
                     Question {currentIndex + 1} of {totalQuestions}
                   </p>
@@ -603,25 +575,17 @@ export function AssessmentTakeContent({
                     <motion.div
                       key={currentQuestion._key}
                       custom={slideDirection}
-                      variants={questionSlideVariants}
+                      variants={assessmentQuestionSlideVariants}
                       initial='enter'
                       animate='center'
                       exit='exit'
                       transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
                     >
-                      <QuestionStep
+                      <AssessmentQuestionReviewStep
                         questionNumber={currentIndex + 1}
                         question={currentQuestion}
                         selectedAnswers={answers[currentQuestion._key] ?? []}
-                        showResults={showReview}
-                        isQuestionCorrect={
-                          showReview
-                            ? isQuestionAnswerCorrect(
-                                currentQuestion,
-                                answers[currentQuestion._key] ?? [],
-                              )
-                            : undefined
-                        }
+                        showResults={false}
                         onSingleChange={value =>
                           setSingleAnswer(currentQuestion._key, value)
                         }
@@ -651,7 +615,17 @@ export function AssessmentTakeContent({
                   Back
                 </Button>
 
-                {!showReview && isLast ? (
+                {!isLast ? (
+                  <Button
+                    type='button'
+                    size='sm'
+                    onClick={goNext}
+                    disabled={isSaving}
+                  >
+                    Next
+                    <ChevronRight className='ml-1 h-4 w-4' />
+                  </Button>
+                ) : (
                   <Button
                     type='button'
                     size='sm'
@@ -664,17 +638,7 @@ export function AssessmentTakeContent({
                       'Submit'
                     )}
                   </Button>
-                ) : !isLast ? (
-                  <Button
-                    type='button'
-                    size='sm'
-                    onClick={goNext}
-                    disabled={isSaving}
-                  >
-                    Next
-                    <ChevronRight className='ml-1 h-4 w-4' />
-                  </Button>
-                ) : null}
+                )}
               </footer>
             </>
           )}
@@ -732,218 +696,3 @@ export function AssessmentTakeContent({
   )
 }
 
-function ResultsSummary({
-  passedQuestions,
-  failedQuestions,
-  currentIndex,
-  onSelectQuestion,
-}: {
-  passedQuestions: Array<{ index: number }>
-  failedQuestions: Array<{ index: number }>
-  currentIndex: number
-  onSelectQuestion: (index: number) => void
-}) {
-  return (
-    <div className='space-y-2 text-xs'>
-      <div className='flex flex-wrap items-center gap-1.5'>
-        <span className='inline-flex items-center gap-1 font-medium text-emerald-700'>
-          <CheckCircle2 className='h-3.5 w-3.5' aria-hidden='true' />
-          Passed ({passedQuestions.length})
-        </span>
-        {passedQuestions.map(outcome => (
-          <button
-            key={outcome.index}
-            type='button'
-            onClick={() => onSelectQuestion(outcome.index)}
-            className={cn(
-              'rounded-md border px-2 py-0.5 font-medium transition-colors',
-              outcome.index === currentIndex
-                ? 'border-emerald-600 bg-emerald-600 text-white'
-                : 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100',
-            )}
-          >
-            Q{outcome.index + 1}
-          </button>
-        ))}
-        {passedQuestions.length === 0 ? (
-          <span className='text-muted-foreground'>None</span>
-        ) : null}
-      </div>
-
-      <div className='flex flex-wrap items-center gap-1.5'>
-        <span className='inline-flex items-center gap-1 font-medium text-destructive'>
-          <XCircle className='h-3.5 w-3.5' aria-hidden='true' />
-          Failed ({failedQuestions.length})
-        </span>
-        {failedQuestions.map(outcome => (
-          <button
-            key={outcome.index}
-            type='button'
-            onClick={() => onSelectQuestion(outcome.index)}
-            className={cn(
-              'rounded-md border px-2 py-0.5 font-medium transition-colors',
-              outcome.index === currentIndex
-                ? 'border-destructive bg-destructive text-destructive-foreground'
-                : 'border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15',
-            )}
-          >
-            Q{outcome.index + 1}
-          </button>
-        ))}
-        {failedQuestions.length === 0 ? (
-          <span className='text-muted-foreground'>None</span>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-function QuestionStep({
-  questionNumber,
-  question,
-  selectedAnswers,
-  showResults,
-  isQuestionCorrect,
-  onSingleChange,
-  onMultipleChange,
-}: {
-  questionNumber: number
-  question: AssessmentQuestion
-  selectedAnswers: string[]
-  showResults: boolean
-  isQuestionCorrect?: boolean
-  onSingleChange: (value: string) => void
-  onMultipleChange: (value: string, checked: boolean) => void
-}) {
-  const isMultiple = question.questionType === 'multiple_choice'
-  const correctAnswers = question.correctAnswers ?? []
-
-  function optionClassName(optionLabel: string, isSelected: boolean) {
-    if (!showResults) {
-      return cn(isSelected && 'border-primary bg-muted/40')
-    }
-
-    const isCorrectOption = correctAnswers.includes(optionLabel)
-    const isWrongSelection = isSelected && !isCorrectOption
-
-    return cn(
-      isCorrectOption &&
-        'border-emerald-500 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-50',
-      isWrongSelection &&
-        'border-destructive bg-destructive/10 text-destructive',
-    )
-  }
-
-  const answerOptions = !isMultiple ? (
-    <RadioGroup
-      value={selectedAnswers[0] ?? ''}
-      onValueChange={onSingleChange}
-      disabled={showResults}
-      className='space-y-3'
-    >
-      {(question.options ?? []).map(option => {
-        const isSelected = selectedAnswers[0] === option.label
-        return (
-          <div
-            key={option._key ?? option.label}
-            className={cn(
-              'flex items-start gap-3 rounded-md border p-3',
-              !showResults &&
-                'has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-muted/40',
-              optionClassName(option.label, isSelected),
-            )}
-          >
-            <RadioGroupItem
-              value={option.label}
-              id={`${question._key}-${option.label}`}
-              className='mt-0.5'
-            />
-            <Label
-              htmlFor={`${question._key}-${option.label}`}
-              className='cursor-pointer text-sm font-normal leading-relaxed'
-            >
-              <span className='font-medium'>{option.label}.</span> {option.text}
-            </Label>
-          </div>
-        )
-      })}
-    </RadioGroup>
-  ) : (
-    <div className='space-y-3'>
-      {(question.options ?? []).map(option => {
-        const checked = selectedAnswers.includes(option.label)
-        return (
-          <div
-            key={option._key ?? option.label}
-            className={cn(
-              'flex items-start gap-3 rounded-md border p-3',
-              optionClassName(option.label, checked),
-            )}
-          >
-            <Checkbox
-              id={`${question._key}-${option.label}`}
-              checked={checked}
-              onCheckedChange={value =>
-                onMultipleChange(option.label, value === true)
-              }
-              disabled={showResults}
-              className='mt-0.5'
-            />
-            <Label
-              htmlFor={`${question._key}-${option.label}`}
-              className='cursor-pointer text-sm font-normal leading-relaxed'
-            >
-              <span className='font-medium'>{option.label}.</span> {option.text}
-            </Label>
-          </div>
-        )
-      })}
-    </div>
-  )
-
-  return (
-    <div className='mx-auto flex w-full max-w-6xl flex-col gap-6 md:min-h-[min(420px,55vh)] md:flex-row md:items-stretch md:gap-0'>
-      <div className='flex min-w-0 flex-1 flex-col gap-3 md:pr-6'>
-        <div className='flex flex-wrap items-center gap-2'>
-          <p className='text-sm font-medium uppercase tracking-wide text-muted-foreground md:text-2xl'>
-            Question {questionNumber}
-          </p>
-          {showResults && isQuestionCorrect != null ? (
-            <Badge
-              variant='outline'
-              className={cn(
-                'gap-1',
-                isQuestionCorrect
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-                  : 'border-destructive bg-destructive/10 text-destructive',
-              )}
-            >
-              {isQuestionCorrect ? (
-                <CheckCircle2 className='h-3 w-3' aria-hidden='true' />
-              ) : (
-                <XCircle className='h-3 w-3' aria-hidden='true' />
-              )}
-              {isQuestionCorrect ? 'Passed' : 'Failed'}
-            </Badge>
-          ) : null}
-        </div>
-        <p className='text-sm leading-relaxed whitespace-pre-wrap'>
-          {question.body}
-        </p>
-        {showResults && question.explanation ? (
-          <p className='rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground'>
-            <span className='font-medium text-foreground'>Explanation: </span>
-            {question.explanation}
-          </p>
-        ) : null}
-      </div>
-
-      <Separator className='md:hidden' />
-      <Separator orientation='vertical' className='hidden md:block' />
-
-      <div className='flex min-w-0 flex-1 flex-col md:pl-6'>
-        {answerOptions}
-      </div>
-    </div>
-  )
-}
