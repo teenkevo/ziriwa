@@ -6,8 +6,10 @@ import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
 import { OnboardDivisionContractDialog } from '@/features/sections/components/onboard-division-contract-dialog'
+import { ContractOnboardEmptyState } from '@/features/sections/components/contract-onboard-empty-state'
 import type { AssistantCommissionerContractPageData } from './load-assistant-commissioner-contract'
 
 export function AssistantCommissionerContractContent({
@@ -22,9 +24,10 @@ export function AssistantCommissionerContractContent({
   const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
   const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
+  const { active: activeFY } = useFinancialYear()
 
   const divisionName = division.fullName || division.acronym || division.name
-  const currentFY = divisionContract?.financialYearLabel ?? 'current FY'
+  const currentFY = divisionContract?.financialYearLabel ?? activeFY.label
   const assistantCommissionerRefId =
     assistantCommissioner?._id ?? assistantCommissionerStaffIdForOnboarding ?? ''
   const hasAssistantCommissionerRef = Boolean(assistantCommissionerRefId)
@@ -119,30 +122,19 @@ export function AssistantCommissionerContractContent({
                   }
                   onSuccess={() => setOnboardOpen(false)}
                 />
-                <div className='flex items-center gap-2 text-muted-foreground'>
-                  <FileText className='h-5 w-5' />
-                  <span>No contract for {currentFY}</span>
-                </div>
-                <p className='text-sm'>
-                  Onboard a division contract to add SSMARTA objectives,
-                  initiatives, and measurable activities.
-                </p>
-                {canManageContract && hasAssistantCommissionerRef ? (
-                  <Button onClick={() => setOnboardOpen(true)}>
-                    Onboard contract
-                  </Button>
-                ) : canManageContract && !hasAssistantCommissionerRef ? (
-                  <p className='text-sm text-muted-foreground'>
-                    Your account could not be linked to an assistant commissioner
-                    staff record for this division. Update the division&apos;s
-                    assistant commissioner in Sanity or ensure your staff profile
-                    uses the same email and role.
-                  </p>
-                ) : (
-                  <p className='text-sm text-muted-foreground'>
-                    You do not have permission to onboard this contract.
-                  </p>
-                )}
+                <ContractOnboardEmptyState
+                  financialYearLabel={currentFY}
+                  description='Onboard a division contract to add SSMARTA objectives, initiatives, and measurable activities.'
+                  canOnboard={
+                    canManageContract && hasAssistantCommissionerRef
+                  }
+                  onOnboard={() => setOnboardOpen(true)}
+                  missingAssigneeMessage={
+                    canManageContract && !hasAssistantCommissionerRef
+                      ? "Your account could not be linked to an assistant commissioner staff record for this division. Update the division's assistant commissioner in Sanity or ensure your staff profile uses the same email and role."
+                      : undefined
+                  }
+                />
               </div>
             )}
           </CardContent>

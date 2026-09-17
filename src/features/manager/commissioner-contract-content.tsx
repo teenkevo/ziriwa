@@ -5,8 +5,10 @@ import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
 import { OnboardDepartmentContractDialog } from '@/features/sections/components/onboard-department-contract-dialog'
+import { ContractOnboardEmptyState } from '@/features/sections/components/contract-onboard-empty-state'
 import type { CommissionerContractPageData } from './load-commissioner-contract'
 
 export function CommissionerContractContent({
@@ -21,10 +23,11 @@ export function CommissionerContractContent({
   const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
   const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
+  const { active: activeFY } = useFinancialYear()
 
   const departmentName =
     department.fullName || department.acronym || department.name
-  const currentFY = departmentContract?.financialYearLabel ?? 'current FY'
+  const currentFY = departmentContract?.financialYearLabel ?? activeFY.label
   const commissionerRefId =
     commissioner?._id ?? commissionerStaffIdForOnboarding ?? ''
   const hasCommissionerRef = Boolean(commissionerRefId)
@@ -105,30 +108,17 @@ export function CommissionerContractContent({
                   }
                   onSuccess={() => setOnboardOpen(false)}
                 />
-                <div className='flex items-center gap-2 text-muted-foreground'>
-                  <FileText className='h-5 w-5' />
-                  <span>No contract for {currentFY}</span>
-                </div>
-                <p className='text-sm'>
-                  Onboard a department contract to add SSMARTA objectives,
-                  initiatives, and measurable activities.
-                </p>
-                {canManageContract && hasCommissionerRef ? (
-                  <Button onClick={() => setOnboardOpen(true)}>
-                    Onboard contract
-                  </Button>
-                ) : canManageContract && !hasCommissionerRef ? (
-                  <p className='text-sm text-muted-foreground'>
-                    Your account could not be linked to a commissioner staff record
-                    for this department. Update the department&apos;s commissioner
-                    in Sanity or ensure your staff profile uses the same email and
-                    role.
-                  </p>
-                ) : (
-                  <p className='text-sm text-muted-foreground'>
-                    You do not have permission to onboard this contract.
-                  </p>
-                )}
+                <ContractOnboardEmptyState
+                  financialYearLabel={currentFY}
+                  description='Onboard a department contract to add SSMARTA objectives, initiatives, and measurable activities.'
+                  canOnboard={canManageContract && hasCommissionerRef}
+                  onOnboard={() => setOnboardOpen(true)}
+                  missingAssigneeMessage={
+                    canManageContract && !hasCommissionerRef
+                      ? "Your account could not be linked to a commissioner staff record for this department. Update the department's commissioner in Sanity or ensure your staff profile uses the same email and role."
+                      : undefined
+                  }
+                />
               </div>
             )}
           </CardContent>

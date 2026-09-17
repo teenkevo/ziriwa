@@ -12,7 +12,6 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { ModeToggle } from '@/components/modeToggle'
-import { FinancialYearSwitcher } from '@/components/financial-year-switcher'
 import { GlobalSearch } from '@/components/global-search'
 import { SwitchWorkspaceButton } from '@/components/switch-workspace-button'
 import { UserNav } from '@/features/dashboard/components/user-nav'
@@ -115,7 +114,6 @@ export function AppTopBar({
       </div>
       <div className='flex shrink-0 items-center gap-2'>
         <SignedIn>
-          <FinancialYearSwitcher />
           <SwitchWorkspaceButton className='hidden sm:inline-flex' />
         </SignedIn>
         <ModeToggle />

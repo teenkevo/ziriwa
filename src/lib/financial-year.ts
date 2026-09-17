@@ -63,19 +63,37 @@ export function isFinancialYearLabel(
   return parseFinancialYearLabel(label) !== null
 }
 
+/** True when an ISO date (YYYY-MM-DD) falls within the FY inclusive range. */
+export function isDateInFinancialYear(
+  date: string | null | undefined,
+  fy: Pick<FinancialYear, 'startDate' | 'endDate'>,
+): boolean {
+  if (!date) return false
+  return date >= fy.startDate && date <= fy.endDate
+}
+
 /**
- * Selectable FYs for the switcher: past years through the calendar current year.
- * Defaults to 5 years of history (including current).
+ * Selectable FYs for the switcher: from FY-2025/2026 through the calendar
+ * current year (newest first). Older years are not offered.
  */
+export const EARLIEST_SELECTABLE_FY_START_YEAR = 2025
+
 export function listSelectableFinancialYears(options?: {
-  pastCount?: number
   referenceDate?: Date
 }): FinancialYear[] {
-  const pastCount = options?.pastCount ?? 4
   const current = getFinancialYearForDate(options?.referenceDate ?? new Date())
+  const latestStart = Math.max(
+    current.startYear,
+    EARLIEST_SELECTABLE_FY_START_YEAR,
+  )
+
   const years: FinancialYear[] = []
-  for (let i = 0; i <= pastCount; i++) {
-    years.push(buildFinancialYear(current.startYear - i))
+  for (
+    let startYear = latestStart;
+    startYear >= EARLIEST_SELECTABLE_FY_START_YEAR;
+    startYear--
+  ) {
+    years.push(buildFinancialYear(startYear))
   }
   return years
 }

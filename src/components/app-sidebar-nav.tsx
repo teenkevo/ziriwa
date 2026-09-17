@@ -44,6 +44,7 @@ import {
 import { cn } from '@/lib/utils'
 import { ProjectAdminSidebarNav } from '@/components/project-admin-sidebar-nav'
 import { SectionLeadershipSidebarNav } from '@/components/section-leadership-sidebar-nav'
+import { SidebarContractGatedItem } from '@/components/sidebar-contract-gated-item'
 import { SprintTabSidebarLink } from '@/components/sprint-tab-sidebar-link'
 import { buildSprintTabHref } from '@/lib/sprint-tab-href'
 import type { SprintNavCounts } from '@/lib/sprint-nav-counts'
@@ -93,6 +94,7 @@ export function AppSidebarNav({
   staffNavLabel,
   sprintsNavMode,
   workspaceBasePath,
+  contractUnlocked = true,
 }: {
   departmentsTree: SidebarDepartmentWithDivisions[]
   workspaceBasePath?: string
@@ -112,6 +114,8 @@ export function AppSidebarNav({
   showWorkstreamsNav?: boolean
   useProjectMembersNav?: boolean
   staffNavLabel?: string
+  /** When false, only Dashboard and Contract stay clickable. */
+  contractUnlocked?: boolean
   /** PM/DPM: ready-only. Workstream member: split Ready/Drafts. Section officer: single link. */
   sprintsNavMode?: 'split' | 'ready-only' | 'single'
 }) {
@@ -264,90 +268,72 @@ export function AppSidebarNav({
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === `${officerBasePath}/stakeholders` ||
-                    pathname.startsWith(`${officerBasePath}/stakeholders/`)
-                  }
-                >
-                  <Link href={`${officerBasePath}/stakeholders`}>
-                    <Handshake />
-                    <span>Stakeholders</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === `${officerBasePath}/board-actions` ||
-                    pathname.startsWith(`${officerBasePath}/board-actions/`)
-                  }
-                >
-                  <Link href={`${officerBasePath}/board-actions`}>
-                    <ClipboardList />
-                    <span>Board Actions</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === `${officerBasePath}/audit-queries` ||
-                    pathname.startsWith(`${officerBasePath}/audit-queries/`)
-                  }
-                >
-                  <Link href={`${officerBasePath}/audit-queries`}>
-                    <Search />
-                    <span>Audit Queries</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === `${officerBasePath}/assessments` ||
-                    pathname.startsWith(`${officerBasePath}/assessments/`)
-                  }
-                >
-                  <Link href={`${officerBasePath}/assessments`}>
-                    <GraduationCap />
-                    <span>Assessments</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href={`${officerBasePath}/stakeholders`}
+                isActive={
+                  pathname === `${officerBasePath}/stakeholders` ||
+                  pathname.startsWith(`${officerBasePath}/stakeholders/`)
+                }
+              >
+                <Handshake />
+                <span>Stakeholders</span>
+              </SidebarContractGatedItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href={`${officerBasePath}/board-actions`}
+                isActive={
+                  pathname === `${officerBasePath}/board-actions` ||
+                  pathname.startsWith(`${officerBasePath}/board-actions/`)
+                }
+              >
+                <ClipboardList />
+                <span>Board Actions</span>
+              </SidebarContractGatedItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href={`${officerBasePath}/audit-queries`}
+                isActive={
+                  pathname === `${officerBasePath}/audit-queries` ||
+                  pathname.startsWith(`${officerBasePath}/audit-queries/`)
+                }
+              >
+                <Search />
+                <span>Audit Queries</span>
+              </SidebarContractGatedItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href={`${officerBasePath}/assessments`}
+                isActive={
+                  pathname === `${officerBasePath}/assessments` ||
+                  pathname.startsWith(`${officerBasePath}/assessments/`)
+                }
+              >
+                <GraduationCap />
+                <span>Assessments</span>
+              </SidebarContractGatedItem>
               {!officerSprintsSplit ? (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isOfficerSprintsRoute}
-                  >
-                    <Link href={`${officerBasePath}/sprints`}>
-                      <Zap />
-                      <span>Sprints</span>
-                    </Link>
-                  </SidebarMenuButton>
-                  <SprintSidebarCountBadge count={sprintCounts.ready} />
-                </SidebarMenuItem>
-              ) : null}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === `${officerBasePath}/reporting` ||
-                    pathname.startsWith(`${officerBasePath}/reporting/`)
-                  }
+                <SidebarContractGatedItem
+                  unlocked={contractUnlocked}
+                  href={`${officerBasePath}/sprints`}
+                  isActive={isOfficerSprintsRoute}
+                  badge={<SprintSidebarCountBadge count={sprintCounts.ready} />}
                 >
-                  <Link href={`${officerBasePath}/reporting`}>
-                    <FileBarChart />
-                    <span>Reporting</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                  <Zap />
+                  <span>Sprints</span>
+                </SidebarContractGatedItem>
+              ) : null}
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href={`${officerBasePath}/reporting`}
+                isActive={
+                  pathname === `${officerBasePath}/reporting` ||
+                  pathname.startsWith(`${officerBasePath}/reporting/`)
+                }
+              >
+                <FileBarChart />
+                <span>Reporting</span>
+              </SidebarContractGatedItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -356,46 +342,73 @@ export function AppSidebarNav({
             <SidebarGroupLabel>Sprints</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      isOfficerSprintsRoute && officerSprintTab === 'ready'
-                    }
-                  >
-                    <SprintTabSidebarLink
-                      href={buildSprintTabHref(
-                        officerBasePath,
-                        'ready',
-                        searchParams,
-                      )}
+                {contractUnlocked ? (
+                  <>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={
+                          isOfficerSprintsRoute && officerSprintTab === 'ready'
+                        }
+                      >
+                        <SprintTabSidebarLink
+                          href={buildSprintTabHref(
+                            officerBasePath,
+                            'ready',
+                            searchParams,
+                          )}
+                        >
+                          <Zap />
+                          <span>Ready</span>
+                        </SprintTabSidebarLink>
+                      </SidebarMenuButton>
+                      <SprintSidebarCountBadge count={sprintCounts.ready} />
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={
+                          isOfficerSprintsRoute && officerSprintTab === 'drafts'
+                        }
+                      >
+                        <SprintTabSidebarLink
+                          href={buildSprintTabHref(
+                            officerBasePath,
+                            'drafts',
+                            searchParams,
+                          )}
+                        >
+                          <FilePen />
+                          <span>Drafts</span>
+                        </SprintTabSidebarLink>
+                      </SidebarMenuButton>
+                      <SprintSidebarCountBadge count={sprintCounts.drafts} />
+                    </SidebarMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <SidebarContractGatedItem
+                      unlocked={false}
+                      href={`${officerBasePath}/sprints`}
+                      badge={
+                        <SprintSidebarCountBadge count={sprintCounts.ready} />
+                      }
                     >
                       <Zap />
                       <span>Ready</span>
-                    </SprintTabSidebarLink>
-                  </SidebarMenuButton>
-                  <SprintSidebarCountBadge count={sprintCounts.ready} />
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      isOfficerSprintsRoute && officerSprintTab === 'drafts'
-                    }
-                  >
-                    <SprintTabSidebarLink
-                      href={buildSprintTabHref(
-                        officerBasePath,
-                        'drafts',
-                        searchParams,
-                      )}
+                    </SidebarContractGatedItem>
+                    <SidebarContractGatedItem
+                      unlocked={false}
+                      href={`${officerBasePath}/sprints`}
+                      badge={
+                        <SprintSidebarCountBadge count={sprintCounts.drafts} />
+                      }
                     >
                       <FilePen />
                       <span>Drafts</span>
-                    </SprintTabSidebarLink>
-                  </SidebarMenuButton>
-                  <SprintSidebarCountBadge count={sprintCounts.drafts} />
-                </SidebarMenuItem>
+                    </SidebarContractGatedItem>
+                  </>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -412,6 +425,7 @@ export function AppSidebarNav({
         sprintTab={sectionLeadershipSprintTab}
         sprintsReviewLabel={managerSprintsReviewLabel}
         sprintCounts={sprintCounts}
+        contractUnlocked={contractUnlocked}
         sprintsNavMode={leadershipSprintsNavMode}
         hideSprintReviewTab={hideSprintReviewTab}
         showWorkstreamsNav={showWorkstreamsNav}
@@ -429,6 +443,7 @@ export function AppSidebarNav({
         sprintTab={sectionLeadershipSprintTab}
         sprintsReviewLabel={managerSprintsReviewLabel}
         sprintCounts={sprintCounts}
+        contractUnlocked={contractUnlocked}
         hideSprintReviewTab={hideSprintReviewTab}
         staffNavLabel={staffNavLabel}
       />
@@ -459,51 +474,56 @@ export function AppSidebarNav({
                 <SidebarMenuButton
                   asChild
                   isActive={
-                    pathname === '/assistant-commissioner/board-actions' ||
-                    pathname.startsWith(
-                      '/assistant-commissioner/board-actions/',
-                    )
+                    pathname === '/assistant-commissioner/contract' ||
+                    pathname.startsWith('/assistant-commissioner/contract/')
                   }
                 >
-                  <Link href='/assistant-commissioner/board-actions'>
-                    <ClipboardList />
-                    <span>Board Actions</span>
+                  <Link href='/assistant-commissioner/contract'>
+                    <FileText />
+                    <span>Contract</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/assistant-commissioner/audit-queries' ||
-                    pathname.startsWith(
-                      '/assistant-commissioner/audit-queries/',
-                    )
-                  }
-                >
-                  <Link href='/assistant-commissioner/audit-queries'>
-                    <Search />
-                    <span>Audit Queries</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname ===
-                      '/assistant-commissioner/stakeholder-engagements' ||
-                    pathname.startsWith(
-                      '/assistant-commissioner/stakeholder-engagements/',
-                    )
-                  }
-                >
-                  <Link href='/assistant-commissioner/stakeholder-engagements'>
-                    <Handshake />
-                    <span>Stakeholder engagements</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href='/assistant-commissioner/board-actions'
+                isActive={
+                  pathname === '/assistant-commissioner/board-actions' ||
+                  pathname.startsWith(
+                    '/assistant-commissioner/board-actions/',
+                  )
+                }
+              >
+                <ClipboardList />
+                <span>Board Actions</span>
+              </SidebarContractGatedItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href='/assistant-commissioner/audit-queries'
+                isActive={
+                  pathname === '/assistant-commissioner/audit-queries' ||
+                  pathname.startsWith(
+                    '/assistant-commissioner/audit-queries/',
+                  )
+                }
+              >
+                <Search />
+                <span>Audit Queries</span>
+              </SidebarContractGatedItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href='/assistant-commissioner/stakeholder-engagements'
+                isActive={
+                  pathname ===
+                    '/assistant-commissioner/stakeholder-engagements' ||
+                  pathname.startsWith(
+                    '/assistant-commissioner/stakeholder-engagements/',
+                  )
+                }
+              >
+                <Handshake />
+                <span>Stakeholder engagements</span>
+              </SidebarContractGatedItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -524,14 +544,15 @@ export function AppSidebarNav({
                   const active =
                     pathname === href || pathname.startsWith(`${href}/`)
                   return (
-                    <SidebarMenuItem key={section._id}>
-                      <SidebarMenuButton asChild isActive={active}>
-                        <Link href={href}>
-                          <Building2 />
-                          <span className='truncate'>{section.name}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    <SidebarContractGatedItem
+                      key={section._id}
+                      unlocked={contractUnlocked}
+                      href={href}
+                      isActive={active}
+                    >
+                      <Building2 />
+                      <span className='truncate'>{section.name}</span>
+                    </SidebarContractGatedItem>
                   )
                 })
               )}
@@ -543,20 +564,17 @@ export function AppSidebarNav({
           <SidebarGroupLabel>Reports</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/assistant-commissioner/reports' ||
-                    pathname.startsWith('/assistant-commissioner/reports/')
-                  }
-                >
-                  <Link href='/assistant-commissioner/reports'>
-                    <BarChart3 />
-                    <span>Reports</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href='/assistant-commissioner/reports'
+                isActive={
+                  pathname === '/assistant-commissioner/reports' ||
+                  pathname.startsWith('/assistant-commissioner/reports/')
+                }
+              >
+                <BarChart3 />
+                <span>Reports</span>
+              </SidebarContractGatedItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -588,46 +606,51 @@ export function AppSidebarNav({
                 <SidebarMenuButton
                   asChild
                   isActive={
-                    pathname === '/commissioner/board-actions' ||
-                    pathname.startsWith('/commissioner/board-actions/')
+                    pathname === '/commissioner/contract' ||
+                    pathname.startsWith('/commissioner/contract/')
                   }
                 >
-                  <Link href='/commissioner/board-actions'>
-                    <ClipboardList />
-                    <span>Board Actions</span>
+                  <Link href='/commissioner/contract'>
+                    <FileText />
+                    <span>Contract</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/commissioner/audit-queries' ||
-                    pathname.startsWith('/commissioner/audit-queries/')
-                  }
-                >
-                  <Link href='/commissioner/audit-queries'>
-                    <Search />
-                    <span>Audit Queries</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/commissioner/stakeholder-engagements' ||
-                    pathname.startsWith(
-                      '/commissioner/stakeholder-engagements/',
-                    )
-                  }
-                >
-                  <Link href='/commissioner/stakeholder-engagements'>
-                    <Handshake />
-                    <span>Stakeholder engagements</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href='/commissioner/board-actions'
+                isActive={
+                  pathname === '/commissioner/board-actions' ||
+                  pathname.startsWith('/commissioner/board-actions/')
+                }
+              >
+                <ClipboardList />
+                <span>Board Actions</span>
+              </SidebarContractGatedItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href='/commissioner/audit-queries'
+                isActive={
+                  pathname === '/commissioner/audit-queries' ||
+                  pathname.startsWith('/commissioner/audit-queries/')
+                }
+              >
+                <Search />
+                <span>Audit Queries</span>
+              </SidebarContractGatedItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href='/commissioner/stakeholder-engagements'
+                isActive={
+                  pathname === '/commissioner/stakeholder-engagements' ||
+                  pathname.startsWith(
+                    '/commissioner/stakeholder-engagements/',
+                  )
+                }
+              >
+                <Handshake />
+                <span>Stakeholder engagements</span>
+              </SidebarContractGatedItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -649,14 +672,15 @@ export function AppSidebarNav({
                   const active =
                     pathname === href || pathname.startsWith(`${href}/`)
                   return (
-                    <SidebarMenuItem key={div._id}>
-                      <SidebarMenuButton asChild isActive={active}>
-                        <Link href={href}>
-                          <Building2 />
-                          <span className='truncate'>{label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    <SidebarContractGatedItem
+                      key={div._id}
+                      unlocked={contractUnlocked}
+                      href={href}
+                      isActive={active}
+                    >
+                      <Building2 />
+                      <span className='truncate'>{label}</span>
+                    </SidebarContractGatedItem>
                   )
                 })
               )}
@@ -668,20 +692,17 @@ export function AppSidebarNav({
           <SidebarGroupLabel>Reports</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={
-                    pathname === '/commissioner/reports' ||
-                    pathname.startsWith('/commissioner/reports/')
-                  }
-                >
-                  <Link href='/commissioner/reports'>
-                    <BarChart3 />
-                    <span>Reports</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <SidebarContractGatedItem
+                unlocked={contractUnlocked}
+                href='/commissioner/reports'
+                isActive={
+                  pathname === '/commissioner/reports' ||
+                  pathname.startsWith('/commissioner/reports/')
+                }
+              >
+                <BarChart3 />
+                <span>Reports</span>
+              </SidebarContractGatedItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

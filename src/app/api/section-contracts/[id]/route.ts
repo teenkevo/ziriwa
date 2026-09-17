@@ -295,6 +295,36 @@ export async function PATCH(
       return NextResponse.json({ ok: true })
     }
 
+    if (op === 'deleteMeasurableActivity') {
+      const { objectiveIndex, initiativeIndex, activityIndex } = payload
+      if (
+        typeof objectiveIndex !== 'number' ||
+        typeof initiativeIndex !== 'number' ||
+        typeof activityIndex !== 'number'
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'objectiveIndex, initiativeIndex, and activityIndex are required',
+          },
+          { status: 400 },
+        )
+      }
+      await writeClient
+        .patch(id)
+        .unset([
+          `objectives[${objectiveIndex}].initiatives[${initiativeIndex}].measurableActivities[${activityIndex}]`,
+        ])
+        .commit()
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
+      return NextResponse.json({ ok: true })
+    }
+
     if (op === 'addObjective') {
       const { code, title, order } = payload
       if (!code || typeof code !== 'string') {
@@ -455,7 +485,9 @@ export async function PATCH(
         order: typeof order === 'number' ? order : undefined,
         targetDate: targetDate || undefined,
         status: 'not_started',
-        reportingFrequency: 'monthly',
+        // KPI optional due dates use free-form targetDate; periodic cycles are for CC.
+        reportingFrequency:
+          activityType === 'kpi' || targetDate ? 'n/a' : 'monthly',
       }
       if (activityType === 'kpi' && aim?.trim()) {
         doc.aim = aim.trim()

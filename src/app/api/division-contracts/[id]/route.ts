@@ -293,6 +293,36 @@ export async function PATCH(
       return NextResponse.json({ ok: true })
     }
 
+    if (op === 'deleteMeasurableActivity') {
+      const { objectiveIndex, initiativeIndex, activityIndex } = payload
+      if (
+        typeof objectiveIndex !== 'number' ||
+        typeof initiativeIndex !== 'number' ||
+        typeof activityIndex !== 'number'
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'objectiveIndex, initiativeIndex, and activityIndex are required',
+          },
+          { status: 400 },
+        )
+      }
+      await writeClient
+        .patch(id)
+        .unset([
+          `objectives[${objectiveIndex}].initiatives[${initiativeIndex}].measurableActivities[${activityIndex}]`,
+        ])
+        .commit()
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        divisionId,
+      )
+      return NextResponse.json({ ok: true })
+    }
+
     if (op === 'addObjective') {
       const { code, title, order } = payload
       if (!code || typeof code !== 'string') {

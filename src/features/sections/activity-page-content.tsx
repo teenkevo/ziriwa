@@ -15,7 +15,18 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
+import { DatePicker } from '@/components/ui/date-picker'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import {
   Card,
   CardContent,
@@ -26,11 +37,6 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -328,14 +334,28 @@ export function ActivityPageContent({
       : numberingKind === 'cross-cutting'
         ? 'Cross-cutting'
         : 'measurable'
+  /** KPI activities use a free-form due date; periodic cycles apply to CC/measurable. */
+  const dueDateReportingFrequency =
+    numberingKind === 'kpi' ? 'n/a' : reportingFrequency
 
   const [title, setTitle] = React.useState(activity.title)
   const [aim, setAim] = React.useState(activity.aim ?? '')
   const [targetDate, setTargetDate] = React.useState(activity.targetDate ?? '')
-  const [status, setStatus] = React.useState(activity.status ?? 'not_started')
   const [reportingFrequency, setReportingFrequency] = React.useState<
     'weekly' | 'monthly' | 'quarterly' | 'n/a'
   >(activity.reportingFrequency ?? 'n/a')
+
+  React.useEffect(() => {
+    setTitle(activity.title)
+    setAim(activity.aim ?? '')
+    setTargetDate(activity.targetDate ?? '')
+    setReportingFrequency(activity.reportingFrequency ?? 'n/a')
+  }, [
+    activity.title,
+    activity.aim,
+    activity.targetDate,
+    activity.reportingFrequency,
+  ])
   const [tasks, setTasks] = React.useState<TaskRow[]>(() => {
     let rows = normalizeTasks(activity.tasks)
     if (isSupervisorContract || isSectionContract) {
@@ -353,11 +373,11 @@ export function ActivityPageContent({
   const [titleBeforeEdit, setTitleBeforeEdit] = React.useState('')
   const [isEditingAim, setIsEditingAim] = React.useState(false)
   const [aimBeforeEdit, setAimBeforeEdit] = React.useState('')
-  const [datePopoverOpen, setDatePopoverOpen] = React.useState(false)
   const [isSavingDate, setIsSavingDate] = React.useState(false)
-  const [isSavingStatus, setIsSavingStatus] = React.useState(false)
   const [isSavingReportingFrequency, setIsSavingReportingFrequency] =
     React.useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [isDeletingActivity, setIsDeletingActivity] = React.useState(false)
   const titleEditRef = React.useRef<HTMLDivElement>(null)
   const aimEditRef = React.useRef<HTMLDivElement>(null)
 
@@ -463,6 +483,49 @@ export function ActivityPageContent({
     setIsEditingAim(false)
   }, [aimBeforeEdit])
 
+  const handleDeleteActivity = React.useCallback(async () => {
+    setIsDeletingActivity(true)
+    try {
+      const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op: 'deleteMeasurableActivity',
+          payload: {
+            objectiveIndex,
+            initiativeIndex,
+            activityIndex,
+          },
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to delete measurable activity')
+      }
+      toast.success('Measurable activity deleted')
+      setDeleteDialogOpen(false)
+      router.push(contractHref)
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Failed to delete measurable activity',
+      )
+    } finally {
+      setIsDeletingActivity(false)
+    }
+  }, [
+    contractApiBase,
+    sectionContract._id,
+    objectiveIndex,
+    initiativeIndex,
+    activityIndex,
+    router,
+    contractHref,
+  ])
+
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node
@@ -486,11 +549,10 @@ export function ActivityPageContent({
   }, [isEditingTitle, isEditingAim, handleCancelTitle, handleCancelAim])
 
   const handleTargetDateChange = React.useCallback(
-    async (date: Date | undefined) => {
-      const newDate = date ? format(date, 'yyyy-MM-dd') : ''
+    async (newDate: string) => {
+      if (!newDate) return
+      const previous = targetDate
       setTargetDate(newDate)
-      setDatePopoverOpen(false)
-      if (!date) return
       setIsSavingDate(true)
       setIsSavingActivity(true)
       try {
@@ -514,7 +576,7 @@ export function ActivityPageContent({
         router.refresh()
       } catch (err) {
         console.error(err)
-        setTargetDate(targetDate)
+        setTargetDate(previous)
         alert(err instanceof Error ? err.message : 'Failed to save')
       } finally {
         setIsSavingDate(false)
@@ -523,54 +585,12 @@ export function ActivityPageContent({
     },
     [
       sectionContract._id,
+      contractApiBase,
       objectiveIndex,
       initiativeIndex,
       activityIndex,
       router,
       targetDate,
-    ],
-  )
-
-  const handleStatusChange = React.useCallback(
-    async (value: string) => {
-      setStatus(value as 'not_started' | 'in_progress' | 'completed')
-      setIsSavingStatus(true)
-      setIsSavingActivity(true)
-      try {
-        const res = await fetch(`${contractApiBase}/${sectionContract._id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            op: 'updateActivity',
-            payload: {
-              objectiveIndex,
-              initiativeIndex,
-              activityIndex,
-              status: value,
-            },
-          }),
-        })
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Failed to save')
-        }
-        router.refresh()
-      } catch (err) {
-        console.error(err)
-        setStatus(status)
-        alert(err instanceof Error ? err.message : 'Failed to save')
-      } finally {
-        setIsSavingStatus(false)
-        setIsSavingActivity(false)
-      }
-    },
-    [
-      sectionContract._id,
-      objectiveIndex,
-      initiativeIndex,
-      activityIndex,
-      router,
-      status,
     ],
   )
 
@@ -1464,6 +1484,7 @@ export function ActivityPageContent({
       canSuperviseDetailedTasks={canSuperviseDetailedTasks}
       contractOfficer={contractOfficer}
       canSubmitTaskWork={canSubmitSelectedTaskWork}
+      parentTargetDate={targetDate || activity.targetDate || null}
       workManagedInSprints
       sprintEvidence={selectedSprintEvidence}
       sprintsHref={sprintsHref}
@@ -1499,17 +1520,73 @@ export function ActivityPageContent({
   return (
     <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
       <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
-        <Button
-          variant='secondary'
-          size='sm'
-          className='w-fit -ml-2 shrink-0'
-          asChild
-        >
-          <Link href={contractHref}>
-            <ArrowLeft className='mr-2 h-4 w-4' />
-            Back to contract
-          </Link>
-        </Button>
+        <div className='flex items-center justify-between gap-3'>
+          <Button
+            variant='secondary'
+            size='sm'
+            className='w-fit -ml-2 shrink-0'
+            asChild
+          >
+            <Link href={contractHref}>
+              <ArrowLeft className='mr-2 h-4 w-4' />
+              Back to contract
+            </Link>
+          </Button>
+          {canManageContract && !isOfficerContract ? (
+            <AlertDialog
+              open={deleteDialogOpen}
+              onOpenChange={open => {
+                if (!isDeletingActivity) setDeleteDialogOpen(open)
+              }}
+            >
+              <AlertDialogTrigger asChild>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive'
+                  disabled={isDeletingActivity}
+                >
+                  <Trash2 className='mr-2 h-4 w-4' />
+                  Delete activity
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent disableClose={isDeletingActivity}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Delete measurable activity?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete this measurable activity and
+                    all of its detailed tasks. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeletingActivity}>
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                    disabled={isDeletingActivity}
+                    onClick={e => {
+                      e.preventDefault()
+                      void handleDeleteActivity()
+                    }}
+                  >
+                    {isDeletingActivity ? (
+                      <>
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                        Deleting…
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
+        </div>
         <div>
           {!isOfficerContract ? (
             <>
@@ -1629,6 +1706,111 @@ export function ActivityPageContent({
               </h1>
             </div>
           )}
+
+          {!isOfficerContract ? (
+            <div className='mt-8 flex max-w-4xl flex-wrap items-start gap-8'>
+              {numberingKind !== 'kpi' ? (
+                <Card className='w-full max-w-prose'>
+                  <CardHeader className='flex flex-row items-center justify-between space-y-0'>
+                    <div>
+                      <CardTitle className='text-base font-medium'>
+                        Activity is reported periodically
+                      </CardTitle>
+                      <CardDescription className='mt-1'>
+                        Enable if this activity has regular reporting cycles
+                        (weekly, monthly, or quarterly)
+                      </CardDescription>
+                    </div>
+                    <Switch
+                      checked={reportingFrequency !== 'n/a'}
+                      disabled={isSavingActivity || !canManageContract}
+                      onCheckedChange={handlePeriodicReportingToggle}
+                    />
+                  </CardHeader>
+                  {reportingFrequency !== 'n/a' ? (
+                    <CardContent className='space-y-2 pt-0'>
+                      <Label className='mb-2 text-sm'>Reporting frequency</Label>
+                      <div className='flex items-center gap-2'>
+                        <Select
+                          value={reportingFrequency}
+                          onValueChange={handleReportingFrequencyChange}
+                          disabled={isSavingActivity || !canManageContract}
+                        >
+                          <SelectTrigger className='h-9 min-w-[140px]'>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='weekly'>Weekly</SelectItem>
+                            <SelectItem value='monthly'>Monthly</SelectItem>
+                            <SelectItem value='quarterly'>Quarterly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {isSavingReportingFrequency ? (
+                          <Loader2 className='h-4 w-4 shrink-0 animate-spin text-muted-foreground' />
+                        ) : null}
+                      </div>
+                    </CardContent>
+                  ) : null}
+                </Card>
+              ) : null}
+
+              <div className='flex flex-col gap-1'>
+                <Label className='mb-2 text-sm'>Due Date</Label>
+                <div className='flex items-center gap-2'>
+                  {dueDateReportingFrequency === 'weekly' ? (
+                    <div className='flex h-9 min-w-[200px] items-center gap-2 rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground'>
+                      <CalendarIcon className='h-4 w-4 shrink-0' />
+                      <span>
+                        Due end of this week (
+                        {format(endOfWeek(new Date()), 'PPP')})
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className='relative min-w-[200px]'>
+                        <DatePicker
+                          value={targetDate}
+                          onChange={value => {
+                            void handleTargetDateChange(value)
+                          }}
+                          placeholder='Select due date'
+                          disabled={
+                            isSavingActivity ||
+                            isSavingDate ||
+                            !canManageContract
+                          }
+                        />
+                        {isSavingDate ? (
+                          <Loader2 className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground' />
+                        ) : null}
+                      </div>
+                      {dueDateReportingFrequency === 'monthly' ||
+                      dueDateReportingFrequency === 'quarterly' ? (
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='sm'
+                          className='h-9 text-muted-foreground'
+                          disabled={isSavingActivity || !canManageContract}
+                          onClick={() => {
+                            const end =
+                              dueDateReportingFrequency === 'quarterly'
+                                ? endOfQuarter(new Date())
+                                : endOfMonth(new Date())
+                            void handleTargetDateChange(
+                              format(end, 'yyyy-MM-dd'),
+                            )
+                          }}
+                        >
+                          Set to end of period
+                        </Button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div
             className={cn(

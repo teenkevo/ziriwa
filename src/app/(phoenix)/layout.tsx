@@ -10,6 +10,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { SidebarChromeHeader } from '@/components/sidebar-chrome-header'
+import { SidebarFinancialYear } from '@/components/sidebar-financial-year'
 import { AppSidebarFooter } from '@/components/app-sidebar-footer'
 import { AppSidebarNavWrapper } from '@/components/app-sidebar-nav-wrapper'
 import { AppTopBarShell } from '@/components/app-top-bar-shell'
@@ -64,6 +65,7 @@ export default async function Layout({ children }: LayoutProps) {
             <SidebarProvider defaultOpen={defaultOpen}>
               <Sidebar collapsible='icon' variant='inset'>
                 <SidebarChromeHeader />
+                <SidebarFinancialYear />
                 <Suspense fallback={null}>
                   <AppSidebarNavWrapper />
                 </Suspense>

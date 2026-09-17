@@ -14,9 +14,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useSidebarOptional } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 
-export function FinancialYearSwitcher({ className }: { className?: string }) {
+export function FinancialYearSwitcher({
+  className,
+  placement = 'default',
+}: {
+  className?: string
+  /** Sidebar: full-width trigger above Dashboard; collapses to icon when the rail is icon-only. */
+  placement?: 'default' | 'sidebar'
+}) {
   const {
     active,
     calendarCurrent,
@@ -27,6 +35,9 @@ export function FinancialYearSwitcher({ className }: { className?: string }) {
     switchFinancialYear,
   } = useFinancialYear()
   const [open, setOpen] = React.useState(false)
+  const sidebar = useSidebarOptional()
+  const isSidebarCollapsed =
+    placement === 'sidebar' && sidebar?.state === 'collapsed'
 
   async function handleSelect(label: string) {
     if (label === active.label || isSwitching) return
@@ -47,30 +58,44 @@ export function FinancialYearSwitcher({ className }: { className?: string }) {
         <Button
           variant='default'
           size='sm'
-          className={cn('h-8 gap-1.5 px-2.5', className)}
+          className={cn(
+            'h-8 gap-1.5 px-2.5',
+            placement === 'sidebar' && 'w-full justify-start',
+            isSidebarCollapsed && 'size-8 justify-center px-0',
+            className,
+          )}
           disabled={isSwitching}
           aria-label='Switch financial year'
+          title={displayLabel}
         >
           {isSwitching ? (
-            <Loader2 className='h-3.5 w-3.5 animate-spin' />
+            <Loader2 className='h-3.5 w-3.5 shrink-0 animate-spin' />
           ) : (
-            <CalendarRange className='h-3.5 w-3.5' />
+            <CalendarRange className='h-3.5 w-3.5 shrink-0' />
           )}
-          <span className='max-w-[7.5rem] truncate sm:max-w-none'>
-            {displayLabel}
-          </span>
-          {isHistorical ? (
-            <Badge
-              variant='secondary'
-              className='hidden h-5 border-0 bg-primary-foreground/15 px-1.5 text-[10px] font-medium text-primary-foreground sm:inline-flex'
-            >
-              Past
-            </Badge>
+          {!isSidebarCollapsed ? (
+            <>
+              <span className='min-w-0 flex-1 truncate text-left'>
+                {displayLabel}
+              </span>
+              {isHistorical ? (
+                <Badge
+                  variant='secondary'
+                  className='h-5 shrink-0 border-0 bg-primary-foreground/15 px-1.5 text-[10px] font-medium text-primary-foreground'
+                >
+                  Past
+                </Badge>
+              ) : null}
+              <ChevronsUpDown className='h-3.5 w-3.5 shrink-0 opacity-70' />
+            </>
           ) : null}
-          <ChevronsUpDown className='h-3.5 w-3.5 opacity-70' />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' className='w-52'>
+      <DropdownMenuContent
+        align={placement === 'sidebar' ? 'start' : 'end'}
+        side={placement === 'sidebar' ? 'bottom' : 'bottom'}
+        className='w-52'
+      >
         <DropdownMenuLabel className='font-normal text-muted-foreground'>
           Financial year
         </DropdownMenuLabel>

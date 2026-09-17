@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   Dialog,
   DialogContent,
@@ -123,12 +124,12 @@ export function AddDepartmentMeasurableActivityDialog({
               />
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='dept-act-targetDate'>Due date (optional)</Label>
-              <Input
+              <Label htmlFor='dept-act-targetDate'>Due date</Label>
+              <DatePicker
                 id='dept-act-targetDate'
-                type='date'
                 value={targetDate}
-                onChange={e => setTargetDate(e.target.value)}
+                onChange={setTargetDate}
+                placeholder='Select due date'
                 disabled={isCreating}
               />
             </div>

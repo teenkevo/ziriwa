@@ -6,6 +6,7 @@ import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import { flattenInitiatives } from '@/sanity/lib/section-contracts/get-section-contract'
 import { SectionDashboardContent } from '@/features/sections/section-dashboard-content'
 import { SectionStaffContent } from '@/features/sections/section-staff-content'
@@ -203,6 +204,7 @@ export function ManagerWorkspaceContent({
   const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
   const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
+  const { active: activeFY } = useFinancialYear()
 
   const activeSprintView: SprintView =
     isProjectManagerWorkspace || isDeputyProjectManagerWorkspace
@@ -230,7 +232,7 @@ export function ManagerWorkspaceContent({
   const currentFY =
     activeContract?.financialYearLabel ??
     sectionContract?.financialYearLabel ??
-    'current FY'
+    activeFY.label
   const manager = section.manager
   const hasManager = !!manager?._id
   const showRightRail = view === 'contract' || view === 'sprints'
@@ -242,6 +244,172 @@ export function ManagerWorkspaceContent({
 
   const content = (() => {
     if (view === 'dashboard') {
+      if (!activeContract) {
+        if (usesOfficerContract) {
+          return (
+            <div className='space-y-4'>
+              <OnboardOfficerContractDialog
+                open={onboardOpen}
+                onOpenChange={setOnboardOpen}
+                sectionId={section._id}
+                officerId={sectionAccess.viewerStaffId ?? undefined}
+                sectionName={section.name}
+                officerName={personalContractDisplayName}
+                scopeLabel={scopeLabel}
+                roleLabel={
+                  isProjectWorkstreamWorkspace
+                    ? 'Workstream Member'
+                    : 'Officer'
+                }
+                upstreamRoleLabel={
+                  isProjectWorkstreamWorkspace ? 'Workstream Lead' : undefined
+                }
+                upstreamName={
+                  isProjectWorkstreamWorkspace
+                    ? (supervisors[0]?.fullName ??
+                      staffRoster.supervisors[0]?.fullName)
+                    : undefined
+                }
+                onSuccess={() => setOnboardOpen(false)}
+              />
+              <ContractOnboardEmptyState
+                financialYearLabel={currentFY}
+                description={
+                  scopeLabels.kind === 'workstream'
+                    ? 'Add objectives and activities, then cascade from your workstream lead.'
+                    : 'Add objectives and activities, then cascade from your supervisor.'
+                }
+                canOnboard={
+                  sectionAccess.canManageOfficerContract ||
+                  isOfficerLikeWorkspaceBasePath(workspaceBasePath)
+                }
+                onOnboard={() => setOnboardOpen(true)}
+              />
+            </div>
+          )
+        }
+        if (usesSupervisorContract) {
+          return (
+            <div className='space-y-4'>
+              <OnboardSupervisorContractDialog
+                open={onboardOpen}
+                onOpenChange={setOnboardOpen}
+                sectionId={section._id}
+                supervisorId={sectionAccess.viewerStaffId ?? undefined}
+                sectionName={section.name}
+                supervisorName={personalContractDisplayName}
+                hasManagerContract={Boolean(sectionContract)}
+                isProjectWorkstream={isProjectWorkstreamWorkspace}
+                scopeLabel={scopeLabel}
+                roleLabel={
+                  isProjectWorkstreamWorkspace
+                    ? 'Workstream Lead'
+                    : 'Supervisor'
+                }
+                onSuccess={() => setOnboardOpen(false)}
+              />
+              <ContractOnboardEmptyState
+                financialYearLabel={currentFY}
+                description={
+                  scopeLabels.kind === 'workstream'
+                    ? 'Onboard your contract to add activities or cascade from the project manager.'
+                    : 'Onboard your contract and cascade to other project members.'
+                }
+                canOnboard={canManageActiveContract}
+                onOnboard={() => setOnboardOpen(true)}
+              />
+            </div>
+          )
+        }
+        if (isDeputyProjectManagerWorkspace) {
+          return (
+            <div className='space-y-4'>
+              <OnboardDeputyProjectContractDialog
+                open={onboardOpen}
+                onOpenChange={setOnboardOpen}
+                projectId={projectId ?? section._id}
+                deputyProjectManagerId={manager?._id ?? viewerStaffId ?? ''}
+                projectName={section.name}
+                deputyProjectManagerName={
+                  manager?.fullName ?? 'Deputy Project Manager'
+                }
+                onSuccess={() => setOnboardOpen(false)}
+              />
+              <ContractOnboardEmptyState
+                financialYearLabel={currentFY}
+                description='Onboard your contract and cascade to other project members.'
+                canOnboard={
+                  sectionAccess.canOnboardContract &&
+                  Boolean(hasManager || viewerStaffId)
+                }
+                onOnboard={() => setOnboardOpen(true)}
+                missingAssigneeMessage={
+                  sectionAccess.canOnboardContract &&
+                  !hasManager &&
+                  !viewerStaffId
+                    ? 'Assign a deputy project manager before onboarding a contract.'
+                    : undefined
+                }
+              />
+            </div>
+          )
+        }
+        if (isProjectManagerWorkspace) {
+          return (
+            <div className='space-y-4'>
+              <OnboardProjectContractDialog
+                open={onboardOpen}
+                onOpenChange={setOnboardOpen}
+                projectId={projectId ?? section._id}
+                projectManagerId={manager?._id ?? viewerStaffId ?? ''}
+                projectName={section.name}
+                projectManagerName={manager?.fullName ?? 'Project Manager'}
+                onSuccess={() => setOnboardOpen(false)}
+              />
+              <ContractOnboardEmptyState
+                financialYearLabel={currentFY}
+                description='Onboard your contract and cascade to other project members'
+                canOnboard={
+                  sectionAccess.canOnboardContract &&
+                  Boolean(hasManager || viewerStaffId)
+                }
+                onOnboard={() => setOnboardOpen(true)}
+                missingAssigneeMessage={
+                  sectionAccess.canOnboardContract &&
+                  !hasManager &&
+                  !viewerStaffId
+                    ? 'Assign a project manager before onboarding a contract.'
+                    : undefined
+                }
+              />
+            </div>
+          )
+        }
+        return (
+          <div className='space-y-4'>
+            <OnboardContractDialog
+              open={onboardOpen}
+              onOpenChange={setOnboardOpen}
+              sectionId={section._id}
+              managerId={manager?._id ?? ''}
+              sectionName={section.name}
+              managerName={manager?.fullName ?? '—'}
+              onSuccess={() => setOnboardOpen(false)}
+            />
+            <ContractOnboardEmptyState
+              financialYearLabel={currentFY}
+              description='Add SSMARTA objectives, initiatives, and KPIs to unlock your dashboard.'
+              canOnboard={sectionAccess.canOnboardContract && hasManager}
+              onOnboard={() => setOnboardOpen(true)}
+              missingAssigneeMessage={
+                sectionAccess.canOnboardContract && !hasManager
+                  ? `Assign a manager to this ${scopeLabels.unit} before onboarding a contract.`
+                  : undefined
+              }
+            />
+          </div>
+        )
+      }
       return (
         <SectionDashboardContent
           sectionId={section._id}

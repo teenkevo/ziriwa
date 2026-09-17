@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   Card,
   CardContent,
@@ -135,6 +136,8 @@ interface TaskDetailsPanelProps {
   canSuperviseDetailedTasks?: boolean
   contractOfficer?: ContractOfficer | null
   canSubmitTaskWork?: boolean
+  /** Parent measurable activity due date (YYYY-MM-DD); task due dates cannot be later. */
+  parentTargetDate?: string | null
   /** When true, inputs/deliverables are submitted in sprints; panel shows consolidated evidence. */
   workManagedInSprints?: boolean
   sprintEvidence?: ContractTaskSprintCycleEvidence[]
@@ -150,6 +153,7 @@ export function TaskDetailsPanel({
   canSuperviseDetailedTasks = false,
   contractOfficer = null,
   canSubmitTaskWork = false,
+  parentTargetDate = null,
   workManagedInSprints = false,
   sprintEvidence = [],
   sprintsHref,
@@ -569,6 +573,59 @@ export function TaskDetailsPanel({
           </Select>
         </div>
         <div>
+          <Label className='text-xs text-muted-foreground'>Due Date</Label>
+          <div className='mt-1 space-y-1'>
+            <div className='flex items-center gap-1'>
+              <DatePicker
+                className='flex-1'
+                value={task.targetDate ?? ''}
+                onChange={value => {
+                  if (
+                    parentTargetDate &&
+                    value &&
+                    value >= parentTargetDate
+                  ) {
+                    toast.error(
+                      'Due date must be before the measurable activity due date',
+                    )
+                    return
+                  }
+                  onUpdate({ targetDate: value || undefined })
+                }}
+                placeholder={
+                  canSuperviseDetailedTasks ? 'Select due date' : 'No due date'
+                }
+                disabled={isSaving || planningLocked}
+                disabledDates={
+                  parentTargetDate
+                    ? date => format(date, 'yyyy-MM-dd') >= parentTargetDate
+                    : undefined
+                }
+              />
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon'
+                className='h-9 w-9 shrink-0 text-muted-foreground'
+                aria-label='Clear due date'
+                title='Clear due date'
+                disabled={
+                  isSaving || planningLocked || !task.targetDate
+                }
+                onClick={() => onUpdate({ targetDate: undefined })}
+              >
+                <X className='h-4 w-4' />
+              </Button>
+            </div>
+            {parentTargetDate ? (
+              <p className='text-xs text-muted-foreground'>
+                Before{' '}
+                {format(parseDateAsLocal(parentTargetDate), 'PPP')}
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <div>
           <Label className='text-xs text-muted-foreground'>Assignee</Label>
           <div className='mt-1'>
             {canEditAssignee ? (
@@ -794,60 +851,6 @@ export function TaskDetailsPanel({
               )}
               {taskFreq === 'n/a' && (
                 <div className='px-6 pb-6 space-y-4'>
-                  <div className='space-y-2'>
-                    <Label className='text-xs text-muted-foreground'>
-                      Due Date
-                    </Label>
-                    <div className='mt-1 flex items-center gap-2'>
-                      <Popover
-                        open={datePopoverOpen}
-                        onOpenChange={setDatePopoverOpen}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant='outline'
-                            disabled={isSaving || planningLocked}
-                            className={cn(
-                              'h-9 justify-between text-left font-normal min-w-[180px]',
-                              !task.targetDate && 'text-muted-foreground',
-                            )}
-                          >
-                            <span className='flex items-center gap-2'>
-                              <CalendarIcon className='h-4 w-4 shrink-0' />
-                              {task.targetDate ? (
-                                format(parseDateAsLocal(task.targetDate), 'PPP')
-                              ) : (
-                                <span>
-                                  {canSuperviseDetailedTasks
-                                    ? 'Select due date'
-                                    : 'No due date'}
-                                </span>
-                              )}
-                            </span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className='w-auto p-0' align='start'>
-                          <Calendar
-                            mode='single'
-                            selected={
-                              task.targetDate
-                                ? parseDateAsLocal(task.targetDate)
-                                : undefined
-                            }
-                            onSelect={date => {
-                              if (date) {
-                                onUpdate({
-                                  targetDate: format(date, 'yyyy-MM-dd'),
-                                })
-                                setDatePopoverOpen(false)
-                              }
-                            }}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
                   <div className='space-y-2'>
                     <Label className='text-xs text-muted-foreground'>
                       Expected Deliverable

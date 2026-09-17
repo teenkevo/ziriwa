@@ -43,6 +43,7 @@ import { EditSectionDialog } from '@/features/dashboard/components/edit-section-
 import { DueTodayThisWeek } from './components/due-today-this-week'
 import { ContractTree } from './components/contract-tree'
 import { OnboardContractDialog } from './components/onboard-contract-dialog'
+import { ContractOnboardEmptyState } from './components/contract-onboard-empty-state'
 import { StakeholderEngagementContent } from './stakeholder-engagement-content'
 import { WeeklySprintContent } from './weekly-sprint-content'
 import { SectionDashboardContent } from './section-dashboard-content'
@@ -64,6 +65,7 @@ import {
   useRegisterHeaderIdentity,
   useRegisterPageBreadcrumbs,
 } from '@/contexts/app-breadcrumb-context'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import type { SectionAccess } from '@/lib/section-access'
 import {
   scopeSprintsForViewer,
@@ -178,6 +180,7 @@ export function SectionPageContent({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { active: activeFY } = useFinancialYear()
   const { role } = useAppRole()
   const { canCreateSection: allowSectionActions, isSuperadmin } =
     useOrgStructureAccess()
@@ -260,7 +263,7 @@ export function SectionPageContent({
   const currentFY =
     activeContract?.financialYearLabel ??
     sectionContract?.financialYearLabel ??
-    'current FY'
+    activeFY.label
   const canManageActiveContract = usesOfficerContract
     ? sectionAccess.canManageOfficerContract || sectionAccess.isSectionOfficer
     : usesSupervisorContract
@@ -456,22 +459,94 @@ export function SectionPageContent({
             ))}
           </TabsList>
           <TabsContent value='dashboard' className='space-y-4'>
-            <SectionDashboardContent
-              sectionId={section._id}
-              sectionName={section.name}
-              sectionSlug={section.slug?.current}
-              contract={activeContract as SectionContract | null}
-              sprints={sprints}
-              sectionAccess={sectionAccess}
-              workspaceBasePath={getWorkspaceBasePathForAccess(sectionAccess)}
-              engagement={stakeholderEngagement}
-              dueToday={dueToday}
-              dueThisWeek={dueThisWeek}
-              dueThisMonth={dueThisMonth}
-              dueThisQuarter={dueThisQuarter}
-              today={today}
-              onNavigateToTab={setSectionTab}
-            />
+            {!activeContract ? (
+              usesOfficerContract ? (
+                <div className='space-y-4'>
+                  <OnboardOfficerContractDialog
+                    open={onboardOpen}
+                    onOpenChange={setOnboardOpen}
+                    sectionId={section._id}
+                    officerId={sectionAccess.viewerStaffId ?? undefined}
+                    sectionName={section.name}
+                    officerName={personalContractDisplayName}
+                    onSuccess={() => setOnboardOpen(false)}
+                  />
+                  <ContractOnboardEmptyState
+                    financialYearLabel={currentFY}
+                    description='Onboard your contract to add SSMARTA objectives, initiatives, and measurable activities.'
+                    canOnboard={sectionAccess.canManageOfficerContract}
+                    onOnboard={() => setOnboardOpen(true)}
+                  />
+                </div>
+              ) : usesSupervisorContract ? (
+                <div className='space-y-4'>
+                  <OnboardSupervisorContractDialog
+                    open={onboardOpen}
+                    onOpenChange={setOnboardOpen}
+                    sectionId={section._id}
+                    supervisorId={sectionAccess.viewerStaffId ?? undefined}
+                    sectionName={section.name}
+                    supervisorName={personalContractDisplayName}
+                    hasManagerContract={Boolean(sectionContract)}
+                    isProjectWorkstream={isProjectWorkstreamWorkspace}
+                    roleLabel={
+                      isProjectWorkstreamWorkspace
+                        ? 'Workstream Lead'
+                        : 'Supervisor'
+                    }
+                    onSuccess={() => setOnboardOpen(false)}
+                  />
+                  <ContractOnboardEmptyState
+                    financialYearLabel={currentFY}
+                    description='Onboard your contract to add SSMARTA objectives, initiatives, and measurable activities.'
+                    canOnboard={canManageActiveContract}
+                    onOnboard={() => setOnboardOpen(true)}
+                  />
+                </div>
+              ) : (
+                <div className='space-y-4'>
+                  <OnboardContractDialog
+                    open={onboardOpen}
+                    onOpenChange={setOnboardOpen}
+                    sectionId={section._id}
+                    managerId={manager?._id ?? ''}
+                    sectionName={section.name}
+                    managerName={manager?.fullName ?? '—'}
+                    onSuccess={() => setOnboardOpen(false)}
+                  />
+                  <ContractOnboardEmptyState
+                    financialYearLabel={currentFY}
+                    description='Onboard a contract to unlock your dashboard with SSMARTA objectives, initiatives, and measurable activities.'
+                    canOnboard={
+                      sectionAccess.canOnboardContract && hasManager
+                    }
+                    onOnboard={() => setOnboardOpen(true)}
+                    missingAssigneeMessage={
+                      sectionAccess.canOnboardContract && !hasManager
+                        ? 'Assign a manager to this section before onboarding a contract.'
+                        : undefined
+                    }
+                  />
+                </div>
+              )
+            ) : (
+              <SectionDashboardContent
+                sectionId={section._id}
+                sectionName={section.name}
+                sectionSlug={section.slug?.current}
+                contract={activeContract as SectionContract | null}
+                sprints={sprints}
+                sectionAccess={sectionAccess}
+                workspaceBasePath={getWorkspaceBasePathForAccess(sectionAccess)}
+                engagement={stakeholderEngagement}
+                dueToday={dueToday}
+                dueThisWeek={dueThisWeek}
+                dueThisMonth={dueThisMonth}
+                dueThisQuarter={dueThisQuarter}
+                today={today}
+                onNavigateToTab={setSectionTab}
+              />
+            )}
           </TabsContent>
           <TabsContent value='contract' className='space-y-4'>
             <Card>
@@ -621,19 +696,12 @@ export function SectionPageContent({
                       officerName={personalContractDisplayName}
                       onSuccess={() => setOnboardOpen(false)}
                     />
-                    <div className='flex items-center gap-2 text-muted-foreground'>
-                      <FileText className='h-5 w-5' />
-                      <span>No officer contract for {currentFY}</span>
-                    </div>
-                    <p className='text-sm'>
-                      Onboard your contract to add SSMARTA objectives,
-                      initiatives, and measurable activities.
-                    </p>
-                    {sectionAccess.canManageOfficerContract ? (
-                      <Button onClick={() => setOnboardOpen(true)}>
-                        Onboard Contract
-                      </Button>
-                    ) : null}
+                    <ContractOnboardEmptyState
+                      financialYearLabel={currentFY}
+                      description='Onboard your contract to add SSMARTA objectives, initiatives, and measurable activities.'
+                      canOnboard={sectionAccess.canManageOfficerContract}
+                      onOnboard={() => setOnboardOpen(true)}
+                    />
                   </div>
                 ) : usesSupervisorContract ? (
                   <div className='space-y-4'>
@@ -653,19 +721,12 @@ export function SectionPageContent({
                       }
                       onSuccess={() => setOnboardOpen(false)}
                     />
-                    <div className='flex items-center gap-2 text-muted-foreground'>
-                      <FileText className='h-5 w-5' />
-                      <span>No supervisor contract for {currentFY}</span>
-                    </div>
-                    <p className='text-sm'>
-                      Onboard your contract to add SSMARTA objectives,
-                      initiatives, and measurable activities.
-                    </p>
-                    {canManageActiveContract ? (
-                      <Button onClick={() => setOnboardOpen(true)}>
-                        Onboard Contract
-                      </Button>
-                    ) : null}
+                    <ContractOnboardEmptyState
+                      financialYearLabel={currentFY}
+                      description='Onboard your contract to add SSMARTA objectives, initiatives, and measurable activities.'
+                      canOnboard={canManageActiveContract}
+                      onOnboard={() => setOnboardOpen(true)}
+                    />
                   </div>
                 ) : (
                   <div className='space-y-4'>
@@ -678,24 +739,19 @@ export function SectionPageContent({
                       managerName={manager?.fullName ?? '—'}
                       onSuccess={() => setOnboardOpen(false)}
                     />
-                    <div className='flex items-center gap-2 text-muted-foreground'>
-                      <FileText className='h-5 w-5' />
-                      <span>No contract for {currentFY}</span>
-                    </div>
-                    <p className='text-sm'>
-                      Onboard a contract to add SSMARTA objectives, initiatives,
-                      and measurable activities.
-                    </p>
-                    {sectionAccess.canOnboardContract && hasManager ? (
-                      <Button onClick={() => setOnboardOpen(true)}>
-                        Onboard Contract
-                      </Button>
-                    ) : sectionAccess.canOnboardContract ? null : (
-                      <p className='text-sm text-muted-foreground'>
-                        Assign a manager to this section before onboarding a
-                        contract.
-                      </p>
-                    )}
+                    <ContractOnboardEmptyState
+                      financialYearLabel={currentFY}
+                      description='Onboard a contract to add SSMARTA objectives, initiatives, and measurable activities.'
+                      canOnboard={
+                        sectionAccess.canOnboardContract && hasManager
+                      }
+                      onOnboard={() => setOnboardOpen(true)}
+                      missingAssigneeMessage={
+                        sectionAccess.canOnboardContract && !hasManager
+                          ? 'Assign a manager to this section before onboarding a contract.'
+                          : undefined
+                      }
+                    />
                   </div>
                 )}
               </CardContent>

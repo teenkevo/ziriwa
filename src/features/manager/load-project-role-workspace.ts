@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { WorkContextMode } from '@/lib/section-access'
 import { buildSectionAccessForWorkContext } from '@/lib/section-access'
 import { getActiveFinancialYear } from '@/lib/financial-year.server'
+import { isDateInFinancialYear } from '@/lib/financial-year'
 import { buildSupervisorSprintInitiativesByStaffId } from '@/lib/supervisor-sprint-initiatives.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
@@ -168,9 +169,8 @@ async function loadProjectManagerWorkspace(
       projectMembersToStaffRoster(projectId, projectManagerId),
       getProjectMembersRoster(projectId),
     ])
-  const sprints = allSprints.filter(
-    s =>
-      s.weekStart >= currentFY.startDate && s.weekStart <= currentFY.endDate,
+  const sprints = allSprints.filter(s =>
+    isDateInFinancialYear(s.weekStart, currentFY),
   )
   const staffOptions = staffOptionsFromProjectMembers(projectMembers)
 
@@ -348,9 +348,8 @@ async function loadDeputyProjectManagerWorkspace(
       projectMembersToStaffRoster(projectId, deputyId),
       getProjectMembersRoster(projectId),
     ])
-  const sprints = allSprints.filter(
-    s =>
-      s.weekStart >= currentFY.startDate && s.weekStart <= currentFY.endDate,
+  const sprints = allSprints.filter(s =>
+    isDateInFinancialYear(s.weekStart, currentFY),
   )
   const staffOptions = staffOptionsFromProjectMembers(projectMembers)
 

@@ -174,6 +174,11 @@ export function ContractTree({
     objIdx: number
     initIdx: number
   } | null>(null)
+  const [deleteActivity, setDeleteActivity] = React.useState<{
+    objIdx: number
+    initIdx: number
+    actIdx: number
+  } | null>(null)
   const [deleting, setDeleting] = React.useState(false)
   const [activityDialogParams, setActivityDialogParams] = React.useState<{
     objIdx: number
@@ -254,6 +259,41 @@ export function ContractTree({
     }
   }, [deleteInitiative, router, sectionContract._id])
 
+  const handleDeleteActivity = React.useCallback(async () => {
+    if (!deleteActivity) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/section-contracts/${sectionContract._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op: 'deleteMeasurableActivity',
+          payload: {
+            objectiveIndex: deleteActivity.objIdx,
+            initiativeIndex: deleteActivity.initIdx,
+            activityIndex: deleteActivity.actIdx,
+          },
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to delete measurable activity')
+      }
+      setDeleteActivity(null)
+      toast.success('Measurable activity deleted')
+      router.refresh()
+    } catch (err) {
+      console.error(err)
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Failed to delete measurable activity',
+      )
+    } finally {
+      setDeleting(false)
+    }
+  }, [deleteActivity, router, sectionContract._id])
+
   const handleSelectChange = React.useCallback(
     (item: { id: string } | undefined) => {
       if (!item || !sectionSlug) return
@@ -322,12 +362,8 @@ export function ContractTree({
             </span>
           )}
           <div className='flex-1 min-w-0'>
-            <div
-              className={`flex gap-1 min-w-0 ${isActivityRow ? 'items-start' : 'items-center'}`}
-            >
-              <div
-                className={`flex min-w-0 flex-1 gap-1.5 ${isActivityRow ? 'items-start' : 'items-center'}`}
-              >
+            <div className='flex min-w-0 items-center gap-1'>
+              <div className='flex min-w-0 flex-1 items-center gap-1.5'>
                 {isActivityRow && (
                   <Badge
                     variant='outline'
@@ -524,6 +560,50 @@ export function ContractTree({
                   </DropdownMenu>
                 </>
               )}
+              {isActivityRow && canManageContract && (
+                <DropdownMenu
+                  open={openMenu === `${item.id}:activity-options`}
+                  onOpenChange={open =>
+                    setOpenMenu(open ? `${item.id}:activity-options` : null)
+                  }
+                >
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-6 w-6 shrink-0'
+                      onClick={e => e.stopPropagation()}
+                      onPointerDown={e => e.stopPropagation()}
+                      aria-label='Measurable activity options'
+                      title='Measurable activity options'
+                    >
+                      <MoreVertical className='h-4 w-4' />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align='start'
+                    onPointerDown={e => e.stopPropagation()}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <DropdownMenuItem
+                      className='text-destructive focus:text-destructive'
+                      onSelect={e => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setTimeout(() => setOpenMenu(null), 0)
+                        setDeleteActivity({
+                          objIdx: meta!.objIdx!,
+                          initIdx: meta!.initIdx!,
+                          actIdx: meta!.actIdx!,
+                        })
+                      }}
+                    >
+                      <Trash2 className='mr-2 h-4 w-4' />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
             {meta?.aim && isLeaf && (
               <p className='text-xs text-muted-foreground mt-0.5'>{meta.aim}</p>
@@ -532,7 +612,7 @@ export function ContractTree({
         </div>
       )
     },
-    [openMenu],
+    [openMenu, canManageContract],
   )
 
   return (
@@ -629,6 +709,41 @@ export function ContractTree({
               onClick={e => {
                 e.preventDefault()
                 handleDeleteInitiative()
+              }}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  Deleting…
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteActivity !== null}
+        onOpenChange={open => !open && setDeleteActivity(null)}
+      >
+        <AlertDialogContent disableClose={deleting}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete measurable activity?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this measurable activity and all of
+              its detailed tasks.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              disabled={deleting}
+              onClick={e => {
+                e.preventDefault()
+                handleDeleteActivity()
               }}
             >
               {deleting ? (

@@ -651,7 +651,7 @@ export function DetailedTasksTable({
                     colSpan={table.getAllColumns().length}
                     className='h-24 text-center text-muted-foreground'
                   >
-                    No tasks yet.
+                    Detailed tasks are created by supervisors
                   </TableCell>
                 </TableRow>
               )}

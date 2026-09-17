@@ -78,7 +78,9 @@ export function buildContractOversightSummary(
 
   const subtitle =
     total === 0
-      ? 'Contract is not onboarded'
+      ? contract
+        ? 'Contract has no activities'
+        : 'Contract is not onboarded'
       : `${completed} completed • ${percent}%`
 
   return {

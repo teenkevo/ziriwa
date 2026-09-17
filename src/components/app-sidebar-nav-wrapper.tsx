@@ -14,6 +14,7 @@ import { buildProjectAdminBasePath } from '@/lib/project-workspace-paths'
 import { projectRoleToWorkspaceBasePath } from '@/lib/project-role'
 import { getProjectWorkspaceContext } from '@/lib/workspace-mode.server'
 import { getProjectSlugById } from '@/sanity/lib/projects/get-project-by-id'
+import { viewerHasActiveFyContract } from '@/lib/viewer-active-fy-contract.server'
 
 export async function AppSidebarNavWrapper() {
   const role = await getAppRole()
@@ -34,9 +35,10 @@ export async function AppSidebarNavWrapper() {
       )
     }
 
-    const [membership, sprintNavCounts] = await Promise.all([
+    const [membership, sprintNavCounts, contractUnlocked] = await Promise.all([
       getProjectMembershipForViewer(projectId),
       getSprintNavCountsForViewer(),
+      viewerHasActiveFyContract(),
     ])
 
     if (membership && slug) {
@@ -56,6 +58,7 @@ export async function AppSidebarNavWrapper() {
             showWorkstreamsNav
             useProjectMembersNav
             sprintsNavMode='ready-only'
+            contractUnlocked={contractUnlocked}
           />
         )
       }
@@ -71,6 +74,7 @@ export async function AppSidebarNavWrapper() {
             showWorkstreamsNav
             useProjectMembersNav
             sprintsNavMode='ready-only'
+            contractUnlocked={contractUnlocked}
           />
         )
       }
@@ -84,6 +88,7 @@ export async function AppSidebarNavWrapper() {
             sprintNavCounts={sprintNavCounts}
             hideSprintReviewTab
             staffNavLabel='Workstream Members'
+            contractUnlocked={contractUnlocked}
           />
         )
       }
@@ -95,6 +100,7 @@ export async function AppSidebarNavWrapper() {
             workspaceBasePath={workspaceBasePath}
             sprintNavCounts={sprintNavCounts}
             sprintsNavMode='split'
+            contractUnlocked={contractUnlocked}
           />
         )
       }
@@ -111,6 +117,7 @@ export async function AppSidebarNavWrapper() {
             : '/workspace/projects'
         }
         hideSprintReviewTab
+        contractUnlocked={contractUnlocked}
       />
     )
   }
@@ -122,21 +129,25 @@ export async function AppSidebarNavWrapper() {
   if (role === 'commissioner') {
     const email = await getEffectiveViewerEmail()
 
-    const commissionerDepartmentId = email
-      ? await client.fetch<string | null>(
-          /* groq */ `
+    const [commissionerDepartmentId, contractUnlocked] = await Promise.all([
+      email
+        ? client.fetch<string | null>(
+            /* groq */ `
             coalesce(
               *[_type == "department" && commissioner->status == "active" && lower(commissioner->email) == $email][0]._id,
               *[_type == "department" && commissioner._ref == *[_type == "staff" && lower(email) == $email && status == "active"][0]._id][0]._id,
               *[_type == "staff" && lower(email) == $email && status == "active" && role == "commissioner"][0].department._ref
             )
           `,
-          { email },
-        )
-      : null
+            { email },
+          )
+        : Promise.resolve(null),
+      viewerHasActiveFyContract(),
+    ])
 
     const commissionerDivisions = commissionerDepartmentId
-      ? departmentsTree.find(dept => dept._id === commissionerDepartmentId)?.divisions ?? []
+      ? departmentsTree.find(dept => dept._id === commissionerDepartmentId)
+          ?.divisions ?? []
       : []
 
     return (
@@ -144,12 +155,16 @@ export async function AppSidebarNavWrapper() {
         departmentsTree={departmentsTree}
         variant='commissioner'
         commissionerDivisions={commissionerDivisions}
+        contractUnlocked={contractUnlocked}
       />
     )
   }
 
   if (role === 'manager') {
-    const sprintNavCounts = await getSprintNavCountsForViewer()
+    const [sprintNavCounts, contractUnlocked] = await Promise.all([
+      getSprintNavCountsForViewer(),
+      viewerHasActiveFyContract(),
+    ])
     return (
       <AppSidebarNav
         departmentsTree={departmentsTree}
@@ -157,12 +172,16 @@ export async function AppSidebarNavWrapper() {
         managerSprintsReviewLabel='To Review'
         sprintNavCounts={sprintNavCounts}
         hideSprintReviewTab={hideSprintReviewTab}
+        contractUnlocked={contractUnlocked}
       />
     )
   }
 
   if (role === 'supervisor') {
-    const sprintNavCounts = await getSprintNavCountsForViewer()
+    const [sprintNavCounts, contractUnlocked] = await Promise.all([
+      getSprintNavCountsForViewer(),
+      viewerHasActiveFyContract(),
+    ])
     return (
       <AppSidebarNav
         departmentsTree={departmentsTree}
@@ -170,23 +189,31 @@ export async function AppSidebarNavWrapper() {
         managerSprintsReviewLabel='In Review'
         sprintNavCounts={sprintNavCounts}
         hideSprintReviewTab={hideSprintReviewTab}
+        contractUnlocked={contractUnlocked}
       />
     )
   }
 
   if (role === 'officer') {
-    const sprintNavCounts = await getSprintNavCountsForViewer()
+    const [sprintNavCounts, contractUnlocked] = await Promise.all([
+      getSprintNavCountsForViewer(),
+      viewerHasActiveFyContract(),
+    ])
     return (
       <AppSidebarNav
         departmentsTree={departmentsTree}
         variant='officer'
         sprintNavCounts={sprintNavCounts}
+        contractUnlocked={contractUnlocked}
       />
     )
   }
 
   if (role === 'assistant_commissioner') {
-    const division = await getAssistantCommissionerDivision()
+    const [division, contractUnlocked] = await Promise.all([
+      getAssistantCommissionerDivision(),
+      viewerHasActiveFyContract(),
+    ])
     const assistantCommissionerSections = division?._id
       ? await client.fetch<SidebarSection[]>(
           /* groq */ `
@@ -205,6 +232,7 @@ export async function AppSidebarNavWrapper() {
         departmentsTree={departmentsTree}
         variant='assistant-commissioner'
         assistantCommissionerSections={assistantCommissionerSections ?? []}
+        contractUnlocked={contractUnlocked}
       />
     )
   }
