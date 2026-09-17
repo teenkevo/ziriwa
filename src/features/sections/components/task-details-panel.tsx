@@ -580,11 +580,13 @@ export function TaskDetailsPanel({
                 className='flex-1'
                 value={task.targetDate ?? ''}
                 onChange={value => {
-                  if (
-                    parentTargetDate &&
-                    value &&
-                    value >= parentTargetDate
-                  ) {
+                  if (!parentTargetDate) {
+                    toast.error(
+                      'Set a due date on the measurable activity first',
+                    )
+                    return
+                  }
+                  if (value && value >= parentTargetDate) {
                     toast.error(
                       'Due date must be before the measurable activity due date',
                     )
@@ -593,9 +595,15 @@ export function TaskDetailsPanel({
                   onUpdate({ targetDate: value || undefined })
                 }}
                 placeholder={
-                  canSuperviseDetailedTasks ? 'Select due date' : 'No due date'
+                  !parentTargetDate
+                    ? 'Activity due date required'
+                    : canSuperviseDetailedTasks
+                      ? 'Select due date'
+                      : 'No due date'
                 }
-                disabled={isSaving || planningLocked}
+                disabled={
+                  isSaving || planningLocked || !parentTargetDate
+                }
                 disabledDates={
                   parentTargetDate
                     ? date => format(date, 'yyyy-MM-dd') >= parentTargetDate
@@ -610,7 +618,10 @@ export function TaskDetailsPanel({
                 aria-label='Clear due date'
                 title='Clear due date'
                 disabled={
-                  isSaving || planningLocked || !task.targetDate
+                  isSaving ||
+                  planningLocked ||
+                  !parentTargetDate ||
+                  !task.targetDate
                 }
                 onClick={() => onUpdate({ targetDate: undefined })}
               >
@@ -622,7 +633,11 @@ export function TaskDetailsPanel({
                 Before{' '}
                 {format(parseDateAsLocal(parentTargetDate), 'PPP')}
               </p>
-            ) : null}
+            ) : (
+              <p className='text-xs text-muted-foreground'>
+                Set the measurable activity due date first
+              </p>
+            )}
           </div>
         </div>
         <div>
