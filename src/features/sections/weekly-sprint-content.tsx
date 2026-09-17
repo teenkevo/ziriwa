@@ -27,6 +27,7 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { RichTextContent } from '@/components/ui/rich-text-content'
 import { Badge } from '@/components/ui/badge'
 import { AllClearState } from '@/components/all-clear-state'
+import { SprintDraftsEmptyState } from '@/features/sections/components/sprint-drafts-empty-state'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1685,13 +1686,11 @@ export function WeeklySprintContent({
   const draftSprintsContent = (
     <div className='space-y-4 mt-4'>
       {draftSprints.length === 0 ? (
-        <Card>
-          <CardContent className='pt-6'>
-            <p className='text-sm text-muted-foreground'>
-              No draft sprints. Create a new sprint to get started.
-            </p>
-          </CardContent>
-        </Card>
+        <SprintDraftsEmptyState
+          financialYearLabel={activeFY.label}
+          canCreate={sectionAccess.canCreateSprints}
+          onCreate={openNewSprintDialog}
+        />
       ) : (
         draftSprints.map(sprint => (
           <SprintCard
@@ -1760,7 +1759,9 @@ export function WeeklySprintContent({
     <div className='space-y-4'>
       {presentation === 'single-view' ? (
         <>
-          {singleView === 'draft' && sectionAccess.canCreateSprints ? (
+          {singleView === 'draft' &&
+          sectionAccess.canCreateSprints &&
+          draftSprints.length > 0 ? (
             <div className='flex justify-end'>
               <Button onClick={openNewSprintDialog} size='sm'>
                 <Plus className='h-4 w-4' />
@@ -1824,7 +1825,9 @@ export function WeeklySprintContent({
                 )}
               </TabsTrigger>
             </TabsList>
-            {sprintTab === 'draft' && sectionAccess.canCreateSprints ? (
+            {sprintTab === 'draft' &&
+            sectionAccess.canCreateSprints &&
+            draftSprints.length > 0 ? (
               <Button onClick={openNewSprintDialog} size='sm'>
                 <Plus className='h-4 w-4' />
                 New Sprint
