@@ -2,8 +2,13 @@ import 'server-only'
 
 import { getManagedSectionsForViewer } from '@/features/sections/load-section-workspace-data'
 import { getAppRole } from '@/lib/clerk-app-role.server'
-import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
+import {
+  canUseSuperadminPowers,
+  getViewerContext,
+} from '@/lib/impersonation/viewer-context.server'
 import { getProjectsForViewer } from '@/sanity/lib/projects/get-projects-for-viewer'
+import { client } from '@/sanity/lib/client'
+import type { ViewerProjectOption } from '@/sanity/lib/projects/get-projects-for-viewer'
 
 /** Whether the viewer can use the mainstream (section/org) workspace. */
 export async function hasMainstreamWorkspaceForViewer(): Promise<boolean> {
@@ -44,10 +49,39 @@ export interface WorkspaceCapabilities {
   canCreateProject: boolean
 }
 
-/** What the workspace picker should offer (no redirects). */
+async function getAllActiveProjectsForPicker(): Promise<ViewerProjectOption[]> {
+  return client.fetch<ViewerProjectOption[]>(
+    /* groq */ `
+      *[_type == "project" && coalesce(status, "active") == "active"] | order(name asc) {
+        _id,
+        name,
+        slug,
+        "role": "project_manager",
+        "memberCount": count(*[_type == "projectMember" && status == "active" && project._ref == ^._id])
+      }
+    `,
+  )
+}
+
+/**
+ * What the workspace picker should offer (no redirects).
+ * Uses the signed-in account (real superadmin), not the impersonated subject —
+ * so clearing impersonation mid-request does not hide picker options.
+ */
 export async function getWorkspaceCapabilities(): Promise<WorkspaceCapabilities> {
-  const [superadmin, projects, hasMainstream] = await Promise.all([
-    canUseSuperadminPowers(),
+  const viewer = await getViewerContext()
+
+  if (viewer.isSuperadmin) {
+    const projects = await getAllActiveProjectsForPicker()
+    return {
+      projects,
+      hasMainstream: true,
+      hasProjects: projects.length > 0,
+      canCreateProject: true,
+    }
+  }
+
+  const [projects, hasMainstream] = await Promise.all([
     getProjectsForViewer(),
     hasMainstreamWorkspaceForViewer(),
   ])
@@ -56,7 +90,7 @@ export async function getWorkspaceCapabilities(): Promise<WorkspaceCapabilities>
     projects,
     hasMainstream,
     hasProjects: projects.length > 0,
-    canCreateProject: superadmin,
+    canCreateProject: false,
   }
 }
 

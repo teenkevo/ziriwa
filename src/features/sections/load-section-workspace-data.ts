@@ -26,7 +26,7 @@ import { canCreateSelfServiceDelegation } from '@/lib/role-delegation'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { getDelegationCandidatesForStaff } from '@/lib/section-delegation-candidates.server'
 import { getSectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { buildSupervisorSprintInitiativesByStaffId } from '@/lib/supervisor-sprint-initiatives.server'
 import { getSupervisorContractForViewer } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract-for-viewer'
 import { getSupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
@@ -113,9 +113,10 @@ export async function loadSectionWorkspaceData(
     stakeholderEngagement,
     supervisors,
     officers,
-    sprints,
+    allSprints,
     managers,
     staffRoster,
+    activeFY,
   ] = await Promise.all([
     getSectionContractBySection(section._id),
     parentProjectId
@@ -126,7 +127,13 @@ export async function loadSectionWorkspaceData(
     getSprintsBySection(section._id),
     getManagersForPicker(),
     getSectionStaffRoster(section._id),
+    getActiveFinancialYear(),
   ])
+
+  const sprints = allSprints.filter(
+    s =>
+      s.weekStart >= activeFY.startDate && s.weekStart <= activeFY.endDate,
+  )
 
   const today = new Date().toISOString().slice(0, 10)
   const now = new Date()
@@ -241,7 +248,7 @@ export async function loadSectionWorkspaceData(
   let supervisorContractForCascade: SupervisorContract | null = null
   if (usesOfficerContract && supervisors.length > 0) {
     const fy =
-      officerContract?.financialYearLabel ?? getCurrentFinancialYear().label
+      officerContract?.financialYearLabel ?? (await getActiveFinancialYear()).label
     supervisorContractForCascade = await getSupervisorContract(
       section._id,
       supervisors[0]._id,

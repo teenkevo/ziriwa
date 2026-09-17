@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import { OnboardContractDetailsCard } from '@/features/sections/components/onboard-contract-details-card'
 
 interface OnboardProjectContractDialogProps {
@@ -37,7 +37,7 @@ export function OnboardProjectContractDialog({
 }: OnboardProjectContractDialogProps) {
   const router = useRouter()
   const [isCreating, setIsCreating] = React.useState(false)
-  const currentFY = getCurrentFinancialYear()
+  const { active: currentFY } = useFinancialYear()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

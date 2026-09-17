@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import {
   assertContractOnboardAllowed,
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const denied = assertContractOnboardAllowed(access)
     if (denied) return denied
 
-    const currentFY = getCurrentFinancialYear()
+    const currentFY = await getActiveFinancialYear()
 
     // One contract per section per FY
     const existing = await getSectionContract(sectionId, currentFY.label)

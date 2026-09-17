@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { buildManagerCascadeOptions } from '@/lib/contract-cascade/build-cascade-options'
 import {
   assertSupervisorContractManageAllowed,
@@ -23,7 +23,7 @@ export async function GET(
     const denied = await assertSupervisorContractManageAllowed(sectionId)
     if (denied) return denied
 
-    const currentFY = getCurrentFinancialYear()
+    const currentFY = await getActiveFinancialYear()
     const upstream = await getUpstreamManagerContractForSection(
       sectionId,
       currentFY.label,

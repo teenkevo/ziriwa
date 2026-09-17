@@ -2,7 +2,7 @@ import 'server-only'
 
 import { currentUser } from '@clerk/nextjs/server'
 
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import type { WorkContextMode } from '@/lib/section-access'
 import {
   resolveCommissionerWorkspace,
@@ -63,7 +63,7 @@ export async function loadCommissionerStakeholderEngagementsData(options?: {
   const department = commissionerWorkspace.department
   if (!department?._id) return null
 
-  const financialYearLabel = getCurrentFinancialYear().label
+  const financialYearLabel = (await getActiveFinancialYear()).label
 
   const engagements = await client.fetch<EngagementDoc[]>(
     /* groq */ `

@@ -285,8 +285,10 @@ export function computeSectionDashboardMetrics(input: {
   sprints: WeeklySprint[]
   engagement: StakeholderEngagement | null
   today: string
+  /** Fallback when no contract is loaded for the active FY. */
+  financialYearLabel?: string
 }): SectionDashboardMetrics {
-  const { contract, sprints, engagement, today } = input
+  const { contract, sprints, engagement, today, financialYearLabel } = input
 
   // ---- Contract walk: status, totals, status breakdown, per-objective progress, frequencies
   const activityStatusBreakdown = emptyActivityStatus()
@@ -642,7 +644,10 @@ export function computeSectionDashboardMetrics(input: {
   )
 
   return {
-    fyLabel: contract?.financialYearLabel,
+    fyLabel:
+      contract?.financialYearLabel?.trim() ||
+      financialYearLabel?.trim() ||
+      undefined,
     contractStatus: contract?.status,
     managerName: contract?.manager?.fullName,
     lastSprintWeekLabel,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import {
   assertDivisionContractManageAllowed,
   resolveAssistantCommissionerStaffRefForDivision,
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const currentFY = getCurrentFinancialYear()
+    const currentFY = await getActiveFinancialYear()
     const existing = await getDivisionContract(divisionId, currentFY.label)
     if (existing) {
       return NextResponse.json(

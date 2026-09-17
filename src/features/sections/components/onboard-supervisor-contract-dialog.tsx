@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import {
   getSupervisorCascadeDialogTitle,
   getSupervisorUpstreamRoleLabel,
@@ -68,7 +68,7 @@ export function OnboardSupervisorContractDialog({
   const [createdContractId, setCreatedContractId] = React.useState<
     string | null
   >(null)
-  const currentFY = getCurrentFinancialYear()
+  const { active: currentFY } = useFinancialYear()
 
   const finish = React.useCallback(() => {
     onOpenChange(false)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import {
   assertProjectContractManageAllowed,
   resolveProjectManagerStaffRef,
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const currentFY = getCurrentFinancialYear()
+    const currentFY = await getActiveFinancialYear()
     const existing = await getProjectContract(projectId, currentFY.label)
     if (existing) {
       return NextResponse.json(

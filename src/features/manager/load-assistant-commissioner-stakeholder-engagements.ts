@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import type { WorkContextMode } from '@/lib/section-access'
 import {
   resolveAssistantCommissionerWorkspace,
@@ -51,7 +51,7 @@ export async function loadAssistantCommissionerStakeholderEngagementsData(option
 
   const divisionName =
     division.fullName || division.acronym || division.name
-  const financialYearLabel = getCurrentFinancialYear().label
+  const financialYearLabel = (await getActiveFinancialYear()).label
 
   const engagements = await client.fetch<EngagementDoc[]>(
     /* groq */ `

@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { getProjectContract } from '@/sanity/lib/project-contracts/get-project-contract'
 import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
@@ -28,7 +28,7 @@ export async function getUpstreamManagerContractForSection(
   sectionId: string,
   financialYearLabel?: string,
 ): Promise<UpstreamManagerContract | null> {
-  const fy = financialYearLabel ?? getCurrentFinancialYear().label
+  const fy = financialYearLabel ?? (await getActiveFinancialYear()).label
   const projectId = await getProjectIdForWorkstreamSection(sectionId)
 
   if (projectId) {

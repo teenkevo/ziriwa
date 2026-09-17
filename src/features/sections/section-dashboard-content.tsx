@@ -36,6 +36,7 @@ import {
   type WorkspaceBasePath,
 } from '@/lib/workspace-paths'
 import { SectionAskAiSheet } from '@/features/sections/components/section-ask-ai-sheet'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 
 interface SectionDashboardContentProps {
   sectionId?: string
@@ -77,6 +78,7 @@ export function SectionDashboardContent({
   workspaceBasePath = '/manager',
   workspaceScope = 'mainstream',
 }: SectionDashboardContentProps) {
+  const { active: activeFY } = useFinancialYear()
   const paths = React.useMemo(
     () => getWorkspacePaths(workspaceBasePath),
     [workspaceBasePath],
@@ -100,8 +102,9 @@ export function SectionDashboardContent({
         sprints: oversightSprints,
         engagement,
         today,
+        financialYearLabel: activeFY.label,
       }),
-    [contract, oversightSprints, engagement, today],
+    [contract, oversightSprints, engagement, today, activeFY.label],
   )
 
   const contractOversight = React.useMemo(
@@ -137,9 +140,9 @@ export function SectionDashboardContent({
     () =>
       buildStakeholderOversightSummary(
         engagement,
-        contract?.financialYearLabel,
+        contract?.financialYearLabel ?? activeFY.label,
       ),
-    [engagement, contract?.financialYearLabel],
+    [engagement, contract?.financialYearLabel, activeFY.label],
   )
 
   const weeklyReport = React.useMemo(

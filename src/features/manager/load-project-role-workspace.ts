@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import type { WorkContextMode } from '@/lib/section-access'
 import { buildSectionAccessForWorkContext } from '@/lib/section-access'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { buildSupervisorSprintInitiativesByStaffId } from '@/lib/supervisor-sprint-initiatives.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
@@ -118,7 +118,7 @@ async function loadProjectManagerWorkspace(
   ])
   if (!project) notFound()
 
-  const currentFY = getCurrentFinancialYear()
+  const currentFY = await getActiveFinancialYear()
   const projectContract = await getProjectContract(projectId, currentFY.label)
   const workstreamIds = workstreams.map(w => w._id)
   const primaryWorkstream = workstreams[0]
@@ -161,13 +161,17 @@ async function loadProjectManagerWorkspace(
           : undefined,
       }
 
-  const [sprints, stakeholderEngagement, staffRoster, projectMembers] =
+  const [allSprints, stakeholderEngagement, staffRoster, projectMembers] =
     await Promise.all([
       getSprintsByWorkstreamIds(workstreamIds),
       getStakeholderEngagementForProject(projectId),
       projectMembersToStaffRoster(projectId, projectManagerId),
       getProjectMembersRoster(projectId),
     ])
+  const sprints = allSprints.filter(
+    s =>
+      s.weekStart >= currentFY.startDate && s.weekStart <= currentFY.endDate,
+  )
   const staffOptions = staffOptionsFromProjectMembers(projectMembers)
 
   const today = new Date().toISOString().slice(0, 10)
@@ -288,7 +292,7 @@ async function loadDeputyProjectManagerWorkspace(
   ])
   if (!project) notFound()
 
-  const currentFY = getCurrentFinancialYear()
+  const currentFY = await getActiveFinancialYear()
   const [deputyContract, projectContract] = await Promise.all([
     getDeputyProjectContract(projectId, currentFY.label),
     getProjectContract(projectId, currentFY.label),
@@ -337,13 +341,17 @@ async function loadDeputyProjectManagerWorkspace(
           : undefined,
       }
 
-  const [sprints, stakeholderEngagement, staffRoster, projectMembers] =
+  const [allSprints, stakeholderEngagement, staffRoster, projectMembers] =
     await Promise.all([
       getSprintsByWorkstreamIds(workstreamIds),
       getStakeholderEngagementForProject(projectId),
       projectMembersToStaffRoster(projectId, deputyId),
       getProjectMembersRoster(projectId),
     ])
+  const sprints = allSprints.filter(
+    s =>
+      s.weekStart >= currentFY.startDate && s.weekStart <= currentFY.endDate,
+  )
   const staffOptions = staffOptionsFromProjectMembers(projectMembers)
 
   const today = new Date().toISOString().slice(0, 10)
@@ -460,7 +468,7 @@ async function enrichWorkstreamWorkspace(
 ) {
   if (!data) return null
 
-  const currentFY = getCurrentFinancialYear()
+  const currentFY = await getActiveFinancialYear()
   const upstream = await getUpstreamManagerContractForSection(data.section._id)
   const upstreamAsSection = upstream
     ? ({

@@ -8,7 +8,7 @@ import {
 import { getSectionDivisionPairsForDepartment } from '@/sanity/lib/sections/get-section-division-pairs-for-department'
 import { getInitiativeProgressForSections } from '@/sanity/lib/section-contracts/get-initiative-progress-for-sections'
 import { aggregateProgress } from '@/lib/initiative-progress'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { DepartmentPageContent } from '@/features/departments/department-page-content'
 
 export default async function DepartmentPage({
@@ -28,7 +28,7 @@ export default async function DepartmentPage({
       getCommissionersForPicker(),
     ])
 
-  const fy = getCurrentFinancialYear()
+  const fy = await getActiveFinancialYear()
   const sectionPairs = await getSectionDivisionPairsForDepartment(department._id)
   const sectionIds = sectionPairs.map(p => p._id)
   const progressBySection = await getInitiativeProgressForSections(

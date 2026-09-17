@@ -12,7 +12,7 @@ import { StakeholderMatrix } from './components/stakeholder-matrix'
 import { AssignActionPointsDialog } from './components/assign-action-points-dialog'
 import { StakeholderMinutesDialog } from './components/stakeholder-minutes-dialog'
 import { SubmitReportDialog } from './components/submit-report-dialog'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import type {
   StakeholderEngagement,
   StakeholderEntry,
@@ -75,9 +75,9 @@ export function StakeholderEngagementContent({
   const [minutesIndex, setMinutesIndex] = React.useState<number | null>(null)
   const [minutesDialogOpen, setMinutesDialogOpen] = React.useState(false)
 
+  const { active: activeFY } = useFinancialYear()
   const stakeholders = engagement?.stakeholders ?? []
-  const currentFY =
-    engagement?.financialYearLabel ?? getCurrentFinancialYear().label
+  const currentFY = engagement?.financialYearLabel ?? activeFY.label
 
   const handleCreateEngagement = async () => {
     if (!sectionId && !projectId) return

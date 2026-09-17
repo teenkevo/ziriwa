@@ -1,4 +1,4 @@
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { flattenInitiativesWithActivities } from '@/lib/flatten-initiatives-with-activities'
 import type { InitiativeWithActivities } from '@/lib/flatten-initiatives-with-activities'
 import { supervisorSprintInitiativesKey } from '@/lib/supervisor-sprint-initiatives'
@@ -13,7 +13,7 @@ export async function buildSupervisorSprintInitiativesByStaffId(
   sprints: WeeklySprint[],
   financialYearLabel?: string,
 ): Promise<Record<string, InitiativeWithActivities[]>> {
-  const fy = financialYearLabel ?? getCurrentFinancialYear().label
+  const fy = financialYearLabel ?? (await getActiveFinancialYear()).label
 
   const lookups = new Map<
     string,

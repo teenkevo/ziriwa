@@ -1,4 +1,4 @@
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 
 import { getOfficerContract, type OfficerContract } from './get-officer-contract'
 
@@ -7,7 +7,9 @@ export type { OfficerContract }
 export async function getOfficerContractForViewer(
   sectionId: string,
   officerStaffId: string,
+  financialYearLabel?: string,
 ) {
-  const currentFY = getCurrentFinancialYear()
-  return getOfficerContract(sectionId, officerStaffId, currentFY.label)
+  const label =
+    financialYearLabel ?? (await getActiveFinancialYear()).label
+  return getOfficerContract(sectionId, officerStaffId, label)
 }

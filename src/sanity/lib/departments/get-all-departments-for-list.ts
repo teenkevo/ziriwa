@@ -3,7 +3,7 @@ import { sanityFetch } from '../client'
 import { getSectionDivisionPairsForDepartment } from '../sections/get-section-division-pairs-for-department'
 import { getInitiativeProgressForSections } from '../section-contracts/get-initiative-progress-for-sections'
 import { aggregateProgress } from '@/lib/initiative-progress'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 
 export type DepartmentListRow = {
   _id: string
@@ -48,7 +48,7 @@ export async function getAllDepartmentsForList(): Promise<DepartmentListRow[]> {
     >[]
 
     const base = rows || []
-    const fy = getCurrentFinancialYear()
+    const fy = await getActiveFinancialYear()
 
     return Promise.all(
       base.map(async d => {

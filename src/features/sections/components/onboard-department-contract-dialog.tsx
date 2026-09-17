@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 
 interface OnboardDepartmentContractDialogProps {
   open: boolean
@@ -36,7 +36,7 @@ export function OnboardDepartmentContractDialog({
 }: OnboardDepartmentContractDialogProps) {
   const router = useRouter()
   const [isCreating, setIsCreating] = React.useState(false)
-  const currentFY = getCurrentFinancialYear()
+  const { active: currentFY } = useFinancialYear()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import {
   assertSupervisorContractManageAllowed,
   resolveSupervisorStaffRefForSection,
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const currentFY = getCurrentFinancialYear()
+    const currentFY = await getActiveFinancialYear()
     const existing = await getSupervisorContract(
       sectionId,
       supervisorId,

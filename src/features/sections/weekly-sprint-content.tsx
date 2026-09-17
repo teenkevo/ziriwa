@@ -134,6 +134,7 @@ import {
   type WorkspaceScopeKind,
 } from '@/lib/project-workspace-copy'
 import { cn } from '@/lib/utils'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 
 interface WeeklySprintContentProps {
   sectionId: string
@@ -170,19 +171,22 @@ function formatLocalYMD(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-function getFYWeeks(): WeekOption[] {
+function getFYWeeks(
+  fyStartYear: number,
+  options?: { listAllWeeks?: boolean },
+): WeekOption[] {
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-
-  const fyStartYear = month >= 7 ? year : year - 1
   const fyStart = new Date(fyStartYear, 6, 1) // July 1
   const fyEnd = new Date(fyStartYear + 1, 5, 30) // June 30
 
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const cutoff = new Date(today)
-  cutoff.setDate(cutoff.getDate() + 7) // include next week
-  if (cutoff > fyEnd) cutoff.setTime(fyEnd.getTime())
+  if (options?.listAllWeeks) {
+    cutoff.setTime(fyEnd.getTime())
+  } else {
+    cutoff.setDate(cutoff.getDate() + 7) // include next week
+    if (cutoff > fyEnd) cutoff.setTime(fyEnd.getTime())
+  }
 
   const fmt = (d: Date) =>
     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -195,7 +199,7 @@ function getFYWeeks(): WeekOption[] {
     firstWeekEnd.setDate(firstWeekEnd.getDate() + 1)
   }
 
-  if (fyStart <= today) {
+  if (fyStart <= today || options?.listAllWeeks) {
     weeks.push({
       label: `Week ${weekNum} – ${fmt(fyStart)}-${fmt(firstWeekEnd)}, ${fyStart.getFullYear()}`,
       start: formatLocalYMD(fyStart),
@@ -694,6 +698,7 @@ export function WeeklySprintContent({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { active: activeFY, isHistorical } = useFinancialYear()
   const scopeLabels = scopeLabelsFromKind(workspaceScope)
   const isProjectSprint = isProjectSprintScope(workspaceScope)
   const activityCategoryOptions =
@@ -810,7 +815,13 @@ export function WeeklySprintContent({
     initiatives,
   ])
 
-  const fyWeeks = React.useMemo(() => getFYWeeks(), [])
+  const fyWeeks = React.useMemo(
+    () =>
+      getFYWeeks(activeFY.startYear, {
+        listAllWeeks: isHistorical,
+      }),
+    [activeFY.startYear, isHistorical],
+  )
   const [selectedWeekIdx, setSelectedWeekIdx] = React.useState('0')
   const todayStart = React.useMemo(() => {
     const now = new Date()
@@ -1897,7 +1908,7 @@ export function WeeklySprintContent({
                     ? isProjectSprint
                       ? 'Update the week and tasks for this draft. Mark as ready when complete.'
                       : 'Update the week and tasks for this draft. Submit when ready for review.'
-                    : 'Create a sprint plan for a week in the current financial year.'}
+                    : `Create a sprint plan for a week in ${activeFY.label}.`}
                 </DialogDescription>
               </div>
               <div className='flex shrink-0 items-center gap-2'>

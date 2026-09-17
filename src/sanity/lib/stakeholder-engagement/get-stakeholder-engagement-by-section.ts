@@ -1,14 +1,16 @@
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { getStakeholderEngagement } from './get-stakeholder-engagement'
 
 export type { StakeholderEngagement, StakeholderEntry } from './get-stakeholder-engagement'
 
 /**
- * Get the stakeholder engagement for a section in the current financial year.
+ * Get the stakeholder engagement for a section in the active (or given) financial year.
  */
 export async function getStakeholderEngagementBySection(
   sectionId: string,
+  financialYearLabel?: string,
 ): Promise<Awaited<ReturnType<typeof getStakeholderEngagement>> | null> {
-  const currentFY = getCurrentFinancialYear()
-  return getStakeholderEngagement(sectionId, currentFY.label)
+  const label =
+    financialYearLabel ?? (await getActiveFinancialYear()).label
+  return getStakeholderEngagement(sectionId, label)
 }

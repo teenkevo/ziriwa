@@ -19,9 +19,15 @@ import {
   WorkspaceRouteNavigationProvider,
 } from '@/contexts/workspace-route-navigation-context'
 import { DelegationSidebarProvider } from '@/contexts/delegation-sidebar-context'
+import { FinancialYearProvider, FinancialYearSwitchOverlay } from '@/contexts/financial-year-context'
 import { ImpersonationBanner } from '@/components/impersonation-banner'
 import { ViewerProvider } from '@/contexts/viewer-context'
 import { getViewerContext } from '@/lib/impersonation/viewer-context.server'
+import {
+  getCurrentFinancialYear,
+  listSelectableFinancialYears,
+} from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 
 export const metadata: Metadata = {
   title: 'Ziriwa by DIP',
@@ -35,7 +41,12 @@ interface LayoutProps {
 export default async function Layout({ children }: LayoutProps) {
   const cookieStore = await cookies()
   const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false'
-  const viewer = await getViewerContext()
+  const [viewer, activeFinancialYear] = await Promise.all([
+    getViewerContext(),
+    getActiveFinancialYear(),
+  ])
+  const calendarCurrentFinancialYear = getCurrentFinancialYear()
+  const financialYearOptions = listSelectableFinancialYears()
 
   return (
     <ViewerProvider
@@ -43,36 +54,43 @@ export default async function Layout({ children }: LayoutProps) {
       isImpersonating={viewer.isImpersonating}
       effectiveRole={viewer.effectiveAppRole}
     >
-      <DelegationSidebarProvider>
-        <WorkspaceRouteNavigationProvider>
-          <SidebarProvider defaultOpen={defaultOpen}>
-            <Sidebar collapsible='icon' variant='inset'>
-              <SidebarChromeHeader />
-              <Suspense fallback={null}>
-                <AppSidebarNavWrapper />
-              </Suspense>
-              <AppSidebarFooter />
-              <SidebarRail />
-            </Sidebar>
-            <SidebarInset>
-              <AppBreadcrumbProvider>
-                {viewer.isImpersonating ? (
-                  <ImpersonationBanner
-                    targetName={viewer.effectiveName}
-                    targetEmail={viewer.effectiveEmail}
-                    targetRole={viewer.effectiveAppRole}
-                  />
-                ) : null}
-                <AppTopBarShell />
-                <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
-                  <Suspense fallback={null}>{children}</Suspense>
-                  <WorkspaceRouteNavigationOverlay />
-                </div>
-              </AppBreadcrumbProvider>
-            </SidebarInset>
-          </SidebarProvider>
-        </WorkspaceRouteNavigationProvider>
-      </DelegationSidebarProvider>
+      <FinancialYearProvider
+        active={activeFinancialYear}
+        calendarCurrent={calendarCurrentFinancialYear}
+        options={financialYearOptions}
+      >
+        <DelegationSidebarProvider>
+          <WorkspaceRouteNavigationProvider>
+            <SidebarProvider defaultOpen={defaultOpen}>
+              <Sidebar collapsible='icon' variant='inset'>
+                <SidebarChromeHeader />
+                <Suspense fallback={null}>
+                  <AppSidebarNavWrapper />
+                </Suspense>
+                <AppSidebarFooter />
+                <SidebarRail />
+              </Sidebar>
+              <SidebarInset>
+                <AppBreadcrumbProvider>
+                  {viewer.isImpersonating ? (
+                    <ImpersonationBanner
+                      targetName={viewer.effectiveName}
+                      targetEmail={viewer.effectiveEmail}
+                      targetRole={viewer.effectiveAppRole}
+                    />
+                  ) : null}
+                  <AppTopBarShell />
+                  <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
+                    <Suspense fallback={null}>{children}</Suspense>
+                    <WorkspaceRouteNavigationOverlay />
+                    <FinancialYearSwitchOverlay />
+                  </div>
+                </AppBreadcrumbProvider>
+              </SidebarInset>
+            </SidebarProvider>
+          </WorkspaceRouteNavigationProvider>
+        </DelegationSidebarProvider>
+      </FinancialYearProvider>
     </ViewerProvider>
   )
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { getProjectIdForSection } from '@/lib/project-access.server'
 import {
   getStakeholderEngagement,
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const currentFY = getCurrentFinancialYear()
+    const currentFY = await getActiveFinancialYear()
 
     if (projectId) {
       const existing = await getStakeholderEngagementByProject(

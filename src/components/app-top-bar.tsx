@@ -12,7 +12,9 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { ModeToggle } from '@/components/modeToggle'
+import { FinancialYearSwitcher } from '@/components/financial-year-switcher'
 import { GlobalSearch } from '@/components/global-search'
+import { SwitchWorkspaceButton } from '@/components/switch-workspace-button'
 import { UserNav } from '@/features/dashboard/components/user-nav'
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
@@ -113,9 +115,8 @@ export function AppTopBar({
       </div>
       <div className='flex shrink-0 items-center gap-2'>
         <SignedIn>
-          <Button variant='ghost' size='sm' className='hidden sm:inline-flex' asChild>
-            <Link href='/workspace'>Switch workspace</Link>
-          </Button>
+          <FinancialYearSwitcher />
+          <SwitchWorkspaceButton className='hidden sm:inline-flex' />
         </SignedIn>
         <ModeToggle />
         <SignedIn>

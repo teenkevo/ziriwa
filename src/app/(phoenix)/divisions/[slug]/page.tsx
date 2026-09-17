@@ -6,7 +6,7 @@ import {
   getManagersForPicker,
 } from '@/sanity/lib/staff/get-staff-for-picker'
 import { getInitiativeProgressForSections } from '@/sanity/lib/section-contracts/get-initiative-progress-for-sections'
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { DivisionPageContent } from '@/features/divisions/division-page-content'
 
 export default async function DivisionPage({
@@ -25,7 +25,7 @@ export default async function DivisionPage({
     getAssistantCommissionersForPicker(),
   ])
 
-  const fy = getCurrentFinancialYear()
+  const fy = await getActiveFinancialYear()
   const progressBySection = await getInitiativeProgressForSections(
     sections.map(s => s._id),
     fy.label,

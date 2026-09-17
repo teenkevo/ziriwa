@@ -1,15 +1,16 @@
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { getSectionContract } from './get-section-contract'
 
 export type { SectionContract } from './get-section-contract'
 
 /**
- * Get the section contract for a section in the current financial year.
- * Current FY is computed from today's date (e.g. FY-2025/2026).
+ * Get the section contract for a section in the active (or given) financial year.
  */
 export async function getSectionContractBySection(
   sectionId: string,
+  financialYearLabel?: string,
 ): Promise<Awaited<ReturnType<typeof getSectionContract>> | null> {
-  const currentFY = getCurrentFinancialYear()
-  return getSectionContract(sectionId, currentFY.label)
+  const label =
+    financialYearLabel ?? (await getActiveFinancialYear()).label
+  return getSectionContract(sectionId, label)
 }

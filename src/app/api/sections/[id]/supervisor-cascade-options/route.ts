@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getCurrentFinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { buildOfficerCascadeOptions } from '@/lib/contract-cascade/build-officer-cascade-options'
 import { assertOfficerContractManageAllowed } from '@/lib/officer-contract-access.server'
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
@@ -20,7 +20,7 @@ export async function GET(
     const denied = await assertOfficerContractManageAllowed(sectionId)
     if (denied) return denied
 
-    const currentFY = getCurrentFinancialYear()
+    const currentFY = await getActiveFinancialYear()
     const officerContractId = req.nextUrl.searchParams.get('officerContractId')
     const supervisorContractIdParam = req.nextUrl.searchParams.get(
       'supervisorContractId',
