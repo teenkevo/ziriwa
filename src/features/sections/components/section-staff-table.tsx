@@ -48,6 +48,8 @@ export interface SectionStaffTableRow extends SectionStaffRosterRow {
 interface SectionStaffTableProps {
   rows: SectionStaffTableRow[]
   canManage: boolean
+  /** When set, overrides per-row action visibility (e.g. supervisors can only manage officers). */
+  canManageRow?: (row: SectionStaffTableRow) => boolean
   onEdit: (row: SectionStaffTableRow) => void
   onRefresh: () => void
 }
@@ -55,6 +57,7 @@ interface SectionStaffTableProps {
 export function SectionStaffTable({
   rows,
   canManage,
+  canManageRow,
   onEdit,
   onRefresh,
 }: SectionStaffTableProps) {
@@ -166,8 +169,9 @@ export function SectionStaffTable({
         id: 'actions',
         header: () => <span className='sr-only'>Actions</span>,
         cell: ({ row }) => {
-          if (!canManage) return null
           const r = row.original
+          const showActions = canManageRow ? canManageRow(r) : canManage
+          if (!showActions) return null
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -196,7 +200,7 @@ export function SectionStaffTable({
         },
       },
     ],
-    [canManage, disablingId, onEdit],
+    [canManage, canManageRow, disablingId, onEdit],
   )
 
   const table = useReactTable({

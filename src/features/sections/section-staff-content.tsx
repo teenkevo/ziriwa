@@ -109,6 +109,11 @@ export function SectionStaffContent({
   )
   const canAddStaff = canManageMainstreamStaff || canAddWorkstreamMembers
   const canManageTableActions = canManageMainstreamStaff
+  const canManageSupervisors =
+    sectionAccess.isGlobalAdmin || sectionAccess.isSectionManager
+  const allowedCreateRoles = canManageSupervisors
+    ? (['supervisor', 'officer'] as const)
+    : (['officer'] as const)
 
   const [rows, setRows] = React.useState(() => buildTableRows(roster))
   const [addStaffOpen, setAddStaffOpen] = React.useState(false)
@@ -121,6 +126,12 @@ export function SectionStaffContent({
   }, [roster])
 
   const refresh = () => router.refresh()
+
+  function canManageRow(row: SectionStaffTableRow) {
+    if (!canManageTableActions) return false
+    if (canManageSupervisors) return row.role === 'supervisor' || row.role === 'officer'
+    return row.role === 'officer'
+  }
 
   return (
     <div className='space-y-6'>
@@ -158,6 +169,7 @@ export function SectionStaffContent({
           <SectionStaffTable
             rows={rows}
             canManage={canManageTableActions}
+            canManageRow={canManageRow}
             onEdit={setEditStaff}
             onRefresh={refresh}
           />
@@ -200,7 +212,7 @@ export function SectionStaffContent({
           <CreateStaffDialog
             open={addStaffOpen}
             onOpenChange={setAddStaffOpen}
-            allowedRoles={['supervisor', 'officer']}
+            allowedRoles={allowedCreateRoles}
             fixedSectionId={sectionId}
             createApiUrl={`/api/sections/${sectionId}/staff`}
             onSuccess={() => {

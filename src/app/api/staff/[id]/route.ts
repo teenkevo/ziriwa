@@ -4,6 +4,7 @@ import { assertAuth } from '@/lib/authz/guards.server'
 import { audit } from '@/lib/audit-log/events'
 import {
   assertSectionStaffManageAllowed,
+  assertSectionStaffTargetRoleAllowed,
   getSectionAccessForViewer,
 } from '@/lib/section-access.server'
 
@@ -45,6 +46,9 @@ export async function PATCH(
     const access = await getSectionAccessForViewer(staff.sectionId)
     const denied = assertSectionStaffManageAllowed(access)
     if (denied) return denied
+
+    const targetDenied = assertSectionStaffTargetRoleAllowed(access, staff.role)
+    if (targetDenied) return targetDenied
 
     if (
       staff.role !== 'supervisor' &&

@@ -144,10 +144,22 @@ export function assertSectionStaffManageAllowed(
   if (access.isGlobalAdmin) return null
   if (!access.canManageSectionStaff) {
     return sectionAccessDenied(
-      'Only the section manager can manage section staff',
+      'Only the section manager or supervisors can manage section staff',
     )
   }
   return null
+}
+
+/** Supervisors may only manage officers; managers/admins may manage supervisors and officers. */
+export function assertSectionStaffTargetRoleAllowed(
+  access: SectionAccess,
+  targetRole: string | undefined,
+): NextResponse | null {
+  if (access.isGlobalAdmin || access.isSectionManager) return null
+  if (access.isSectionSupervisor && targetRole === 'officer') return null
+  return sectionAccessDenied(
+    'Supervisors can only manage officers in this section',
+  )
 }
 
 export function assertSectionAskAiAllowed(

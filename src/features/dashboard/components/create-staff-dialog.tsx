@@ -83,7 +83,7 @@ interface CreateStaffDialogProps {
   departmentId?: string
   /** Division context (assistant commissioner; manager without section yet). */
   divisionId?: string
-  /** Override POST URL (e.g. section-scoped staff create for managers). */
+  /** Override POST URL (e.g. section-scoped staff create for managers/supervisors). */
   createApiUrl?: string
   onSuccess?: (staff: StaffMember) => void
 }

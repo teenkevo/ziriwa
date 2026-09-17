@@ -8,6 +8,7 @@ import { assertAuth } from '@/lib/authz/guards.server'
 import { audit } from '@/lib/audit-log/events'
 import {
   assertSectionStaffManageAllowed,
+  assertSectionStaffTargetRoleAllowed,
   getSectionAccessForViewer,
 } from '@/lib/section-access.server'
 import { writeClient } from '@/sanity/lib/write-client'
@@ -42,6 +43,9 @@ export async function POST(
         { status: 400 },
       )
     }
+
+    const roleDenied = assertSectionStaffTargetRoleAllowed(access, role)
+    if (roleDenied) return roleDenied
 
     if (!firstName || !lastName || !idNumber || !email) {
       return NextResponse.json(

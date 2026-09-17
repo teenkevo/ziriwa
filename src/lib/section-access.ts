@@ -218,7 +218,7 @@ export function buildSectionAccessForWorkContext(
     officerContextStaffId: isSectionOfficer ? input.viewerStaffId : null,
     supervisorContextStaffId: isSectionSupervisor ? input.viewerStaffId : null,
     isGlobalAdmin: false,
-    canManageSectionStaff: isSectionManager,
+    canManageSectionStaff: isSectionManager || isSectionSupervisor,
     canSelfServiceDelegate,
     isProjectWorkstream: input.isProjectWorkstream,
   }
