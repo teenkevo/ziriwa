@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { RichTextContent } from '@/components/ui/rich-text-content'
+import { getRichTextPlainText } from '@/lib/rich-text'
 
 export type SprintTaskReviewAction =
   | 'accepted'
@@ -62,11 +62,12 @@ export function SprintTaskReviewDialog({
           </DialogDescription>
         </DialogHeader>
         <div className='rounded-md border bg-muted/20 p-3'>
-          <RichTextContent
-            html={taskDescription}
-            className='text-sm'
-            emptyText='No description provided.'
-          />
+          <p className='text-sm whitespace-pre-wrap'>
+            {getRichTextPlainText(
+              taskDescription,
+              'No description provided.',
+            )}
+          </p>
         </div>
         <div className='space-y-4 py-2'>
           {action === 'revisions_requested' && (

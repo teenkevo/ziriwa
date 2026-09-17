@@ -34,6 +34,7 @@ import {
 import { EvidenceFileIcon } from '@/features/sections/components/evidence-file-icon'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -42,9 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { RichTextContent } from '@/components/ui/rich-text-content'
-import { RichTextEditor } from '@/components/ui/rich-text-editor'
-import { hasRichTextContent } from '@/lib/rich-text'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import { cn } from '@/lib/utils'
 import {
   Accordion,
@@ -190,7 +189,7 @@ export function SprintTaskDetailsPanel({
   const isCompliance = task.activityCategory === 'compliance'
 
   const handleAddSubmission = async () => {
-    if (!hasRichTextContent(newDescription)) return
+    if (!newDescription.trim()) return
     if (!newOutputFile) {
       toast.error('Output file is required')
       return
@@ -201,7 +200,7 @@ export function SprintTaskDetailsPanel({
         ? parseStakeholderEntryOptionValue(newLinkedStakeholder)
         : null
       await onAddWorkSubmission(task.sprintId, task._key, {
-        description: newDescription,
+        description: newDescription.trim(),
         outputFile: newOutputFile,
         revenueAssessed: newRevenue ? parseFloat(newRevenue) : undefined,
         stakeholderEngagementId: parsedStakeholder?.engagementId,
@@ -219,11 +218,9 @@ export function SprintTaskDetailsPanel({
   return (
     <div className='w-full space-y-6 p-4'>
       <div>
-        <RichTextContent
-          html={task.description}
-          className='text-lg font-bold mt-1 [&_p]:font-bold'
-          emptyText='No description provided.'
-        />
+        <p className='mt-1 text-lg font-bold whitespace-pre-wrap'>
+          {getRichTextPlainText(task.description, 'No description provided.')}
+        </p>
       </div>
 
       {task.activityCategory && (
@@ -421,7 +418,7 @@ export function SprintTaskDetailsPanel({
                         onClick={handleAddSubmission}
                         disabled={
                           isAdding ||
-                          !hasRichTextContent(newDescription) ||
+                          !newDescription.trim() ||
                           !newOutputFile
                         }
                       >
@@ -439,12 +436,13 @@ export function SprintTaskDetailsPanel({
                       <Label className='text-xs' required>
                         Description of Work Done
                       </Label>
-                      <RichTextEditor
+                      <Textarea
                         value={newDescription}
-                        onChange={setNewDescription}
+                        onChange={e => setNewDescription(e.target.value)}
                         placeholder='Describe what was accomplished...'
-                        minHeight='180px'
-                        className='min-h-[160px]'
+                        rows={5}
+                        disabled={isAdding}
+                        className='min-h-[120px]'
                       />
                     </div>
 
@@ -668,11 +666,12 @@ function WorkSubmissionCard({
           </span>
         </div>
 
-        <RichTextContent
-          html={submission.description}
-          className='text-sm'
-          emptyText='No description provided.'
-        />
+        <p className='text-sm whitespace-pre-wrap'>
+          {getRichTextPlainText(
+            submission.description,
+            'No description provided.',
+          )}
+        </p>
 
         {linkedStakeholderLabel ? (
           <p className='text-xs text-muted-foreground'>

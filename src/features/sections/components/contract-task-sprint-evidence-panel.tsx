@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { Download, Eye, ExternalLink } from 'lucide-react'
 
-import { RichTextContent } from '@/components/ui/rich-text-content'
 import { EvidenceFileIcon } from '@/features/sections/components/evidence-file-icon'
 import { Badge } from '@/components/ui/badge'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import {
   Accordion,
   AccordionContent,
@@ -61,7 +61,9 @@ function ReadOnlySubmissionCard({
         </Badge>
       </div>
       {submission.description ? (
-        <p className='text-sm'>{submission.description}</p>
+        <p className='text-sm whitespace-pre-wrap'>
+          {getRichTextPlainText(submission.description)}
+        </p>
       ) : null}
       {submission.totalHours != null ? (
         <p className='text-xs text-muted-foreground'>
@@ -190,11 +192,12 @@ export function ContractTaskSprintEvidencePanel({
                 </span>
               </AccordionTrigger>
               <AccordionContent className='space-y-3 pb-3'>
-                <RichTextContent
-                  html={cycle.sprintTaskDescription}
-                  className='text-xs text-muted-foreground'
-                  emptyText='No description provided.'
-                />
+                <p className='text-xs text-muted-foreground whitespace-pre-wrap'>
+                  {getRichTextPlainText(
+                    cycle.sprintTaskDescription,
+                    'No description provided.',
+                  )}
+                </p>
                 {cycle.workSubmissions.map(sub => (
                   <ReadOnlySubmissionCard key={sub._key} submission={sub} />
                 ))}

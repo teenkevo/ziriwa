@@ -3,8 +3,8 @@ import { FilePenLine, TriangleAlert } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { RichTextContent } from '@/components/ui/rich-text-content'
 import { cn } from '@/lib/utils'
+import { getRichTextPlainText } from '@/lib/rich-text'
 import type { AtRiskSprintTask } from '@/lib/section-dashboard-metrics'
 import { SprintTaskContractLinkRows } from '@/features/sections/components/sprint-task-contract-link-rows'
 
@@ -37,11 +37,12 @@ export function SprintRevisionTaskCard({
           >
             Revisions Requested
           </Badge>
-          <RichTextContent
-            html={task.description}
-            className='text-sm'
-            emptyText='No description provided.'
-          />
+          <p className='text-sm whitespace-pre-wrap'>
+            {getRichTextPlainText(
+              task.description,
+              'No description provided.',
+            )}
+          </p>
         </div>
 
         <SprintTaskContractLinkRows

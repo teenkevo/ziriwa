@@ -23,8 +23,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { RichTextEditor } from '@/components/ui/rich-text-editor'
-import { RichTextContent } from '@/components/ui/rich-text-content'
 import { Badge } from '@/components/ui/badge'
 import { AllClearState } from '@/components/all-clear-state'
 import { SprintDraftsEmptyState } from '@/features/sections/components/sprint-drafts-empty-state'
@@ -92,7 +90,10 @@ import {
   type SectionAccess,
 } from '@/lib/section-access'
 import { useIsLg } from '@/hooks/use-is-lg'
-import { WORK_SUBMISSION_UPLOAD_PURPOSE, getWorkSubmissionFileError } from '@/lib/work-submission-file-policy'
+import {
+  WORK_SUBMISSION_UPLOAD_PURPOSE,
+  getWorkSubmissionFileError,
+} from '@/lib/work-submission-file-policy'
 import { toast } from 'sonner'
 import { getEffectiveTaskStatus } from '@/lib/sprint-week'
 import {
@@ -355,7 +356,7 @@ function createDraftTaskKey(): string {
 function sprintTaskToDraft(t: SprintTask): DraftTask {
   return {
     _key: t._key || createDraftTaskKey(),
-    description: t.description ?? '',
+    description: getRichTextPlainText(t.description ?? ''),
     activityCategory: t.activityCategory ?? '',
     initiativeKey: t.initiativeKey ?? '',
     activityKey: t.activityKey ?? '',
@@ -461,24 +462,23 @@ function SprintTaskDescriptionEditor({
   value,
   onChange,
   disabled = false,
-  minHeight = '140px',
 }: {
   value: string
   onChange: (value: string) => void
   disabled?: boolean
+  /** @deprecated Unused; kept for call-site compatibility. */
   minHeight?: string
 }) {
   return (
-    <div className={disabled ? 'pointer-events-none opacity-50' : undefined}>
-      <RichTextEditor
-        value={value}
-        onChange={onChange}
-        placeholder='Describe the task...'
-        minHeight={minHeight}
-        enableMentions={false}
-        className='text-xs'
-      />
-    </div>
+    <Textarea
+      autoFocus={true}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder='Describe the task...'
+      rows={4}
+      disabled={disabled}
+      className='text-xs'
+    />
   )
 }
 
@@ -772,9 +772,8 @@ export function WeeklySprintContent({
     React.useState('')
   const [extraTaskSupervisorStaffId, setExtraTaskSupervisorStaffId] =
     React.useState('')
-  const [extraTaskDraft, setExtraTaskDraft] = React.useState<DraftTask>(
-    createEmptyDraftTask,
-  )
+  const [extraTaskDraft, setExtraTaskDraft] =
+    React.useState<DraftTask>(createEmptyDraftTask)
   const [isSavingExtraTask, setIsSavingExtraTask] = React.useState(false)
 
   const reviseInitiatives = React.useMemo(() => {
@@ -2098,7 +2097,6 @@ export function WeeklySprintContent({
                 </Accordion>
                 <Button
                   type='button'
-                  variant='outline'
                   size='sm'
                   onClick={addTask}
                   disabled={isSavingSprint}
@@ -2289,7 +2287,8 @@ export function WeeklySprintContent({
                 (reviewingTask?.status === 'revisions_requested'
                   ? 'Update revision request'
                   : 'Request Revisions')}
-              {reviewAction === 'withdraw_revision' && 'Withdraw revision request'}
+              {reviewAction === 'withdraw_revision' &&
+                'Withdraw revision request'}
             </DialogTitle>
             <DialogDescription>
               Review this sprint task before deciding.
@@ -2297,11 +2296,12 @@ export function WeeklySprintContent({
           </DialogHeader>
           {reviewingTask ? (
             <div className='rounded-md border bg-muted/20 p-3'>
-              <RichTextContent
-                html={reviewingTask.description}
-                className='text-sm'
-                emptyText='No description provided.'
-              />
+              <p className='text-sm whitespace-pre-wrap'>
+                {getRichTextPlainText(
+                  reviewingTask.description,
+                  'No description provided.',
+                )}
+              </p>
             </div>
           ) : null}
           <div className='space-y-4 py-2'>
@@ -2849,7 +2849,6 @@ function SprintCard({
                   <Button
                     type='button'
                     size='sm'
-                    variant='outline'
                     className='h-8'
                     onClick={() => onAddPlanTask(sprint)}
                   >
@@ -3024,11 +3023,12 @@ function SprintCard({
                         >
                           {config.label}
                         </Badge>
-                        <RichTextContent
-                          html={task.description}
-                          className='text-sm'
-                          emptyText='No description provided.'
-                        />
+                        <p className='text-sm whitespace-pre-wrap'>
+                          {getRichTextPlainText(
+                            task.description,
+                            'No description provided.',
+                          )}
+                        </p>
                       </div>
 
                       <SprintTaskContractLinkRows
@@ -3057,7 +3057,9 @@ function SprintCard({
                             </span>
                           </div>
                         ) : null}
-                        {(canRevise || canReview || canManageRevisionRequest) && (
+                        {(canRevise ||
+                          canReview ||
+                          canManageRevisionRequest) && (
                           <div className='flex shrink-0 items-center gap-2'>
                             {canRevise && (
                               <Button

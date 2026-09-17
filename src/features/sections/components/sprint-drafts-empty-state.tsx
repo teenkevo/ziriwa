@@ -47,10 +47,10 @@ export function SprintDraftsEmptyState({
           <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
             {financialYearLabel}
           </p>
-          <h2 className='text-xl font-semibold tracking-tight text-foreground sm:text-2xl'>
+          <h2 className='text-xl font-semibold tracking-tight text-foreground sm:text-xl'>
             Plan your first weekly sprint
           </h2>
-          <p className='text-sm leading-relaxed text-muted-foreground'>
+          <p className='text-xs leading-relaxed text-muted-foreground'>
             Drafts are where you shape the week before marking a sprint ready
             for review by your manager. Pick a week, add tasks from your
             contract, then submit to manager when the plan is set.
