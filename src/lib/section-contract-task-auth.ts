@@ -1,12 +1,25 @@
 import type { SectionAccess } from '@/lib/section-access'
 import { canSubmitDetailedTaskWork } from '@/lib/section-access'
+import { assigneeIdFromUnknown } from '@/lib/detailed-task-assignees'
+
+type WorkSnapshot = {
+  _key?: string
+  assignee?: string | { _id?: string; _ref?: string } | null
+  status?: string
+  inputs?: unknown
+  deliverable?: unknown
+  periodDeliverables?: unknown
+  inputsReviewThread?: unknown
+  deliverableReviewThread?: unknown
+}
 
 type TaskSnapshot = {
   _key?: string
   task?: string
   priority?: string
   cascadeKind?: string | null
-  assignee?: string | { _ref?: string } | null
+  assignee?: string | { _ref?: string; _id?: string } | null
+  officerWork?: WorkSnapshot[]
   status?: string
   targetDate?: string
   reportingFrequency?: string
@@ -26,19 +39,16 @@ const PLANNING_FIELDS = [
   'expectedDeliverable',
 ] as const satisfies readonly (keyof TaskSnapshot)[]
 
-const SUPERVISOR_FIELDS = [
+const SUPERVISOR_TASK_FIELDS = [
   'priority',
   'assignee',
-  'status',
-  'inputsReviewThread',
-  'deliverableReviewThread',
 ] as const satisfies readonly (keyof TaskSnapshot)[]
 
-const ASSIGNEE_CONTENT_FIELDS = [
+const WORK_CONTENT_FIELDS = [
   'inputs',
   'deliverable',
   'periodDeliverables',
-] as const satisfies readonly (keyof TaskSnapshot)[]
+] as const satisfies readonly (keyof WorkSnapshot)[]
 
 const ASSIGNEE_STATUS_VALUES = [
   'inputs_submitted',
@@ -51,13 +61,31 @@ function taskKey(task: TaskSnapshot, index: number): string {
   return task._key ?? `idx-${index}`
 }
 
-function assigneeId(task: TaskSnapshot): string | null {
-  const assignee = task.assignee
-  if (typeof assignee === 'string') return assignee
-  if (assignee && typeof assignee === 'object' && assignee._ref) {
-    return assignee._ref
+function workCopies(task: TaskSnapshot): WorkSnapshot[] {
+  if (Array.isArray(task.officerWork) && task.officerWork.length) {
+    return task.officerWork
   }
-  return null
+  return [
+    {
+      assignee: task.assignee,
+      status: task.status,
+      inputs: task.inputs,
+      deliverable: task.deliverable,
+      periodDeliverables: task.periodDeliverables,
+      inputsReviewThread: task.inputsReviewThread,
+      deliverableReviewThread: task.deliverableReviewThread,
+    },
+  ]
+}
+
+function workAssigneeId(work: WorkSnapshot): string | null {
+  return assigneeIdFromUnknown(work.assignee)
+}
+
+function assigneeIds(task: TaskSnapshot): string[] {
+  return workCopies(task)
+    .map(workAssigneeId)
+    .filter((id): id is string => Boolean(id))
 }
 
 function stableJson(value: unknown): string {
@@ -72,44 +100,70 @@ function fieldsChanged(
   return fields.some(field => stableJson(before[field]) !== stableJson(after[field]))
 }
 
-function isAssigneeContentOnlyChange(
+function workFieldsChanged(
+  before: WorkSnapshot,
+  after: WorkSnapshot,
+  fields: readonly (keyof WorkSnapshot)[],
+): boolean {
+  return fields.some(field => stableJson(before[field]) !== stableJson(after[field]))
+}
+
+function isOwnWorkContentOnlyChange(
   before: TaskSnapshot,
   after: TaskSnapshot,
   viewerStaffId: string,
 ): boolean {
-  const afterAssigneeId = assigneeId(after)
-  const beforeAssigneeId = assigneeId(before)
-
-  if (afterAssigneeId !== viewerStaffId) return false
-
-  if (
-    fieldsChanged(before, after, ['priority', 'assignee', ...PLANNING_FIELDS])
-  ) {
+  if (fieldsChanged(before, after, ['priority', 'assignee', ...PLANNING_FIELDS])) {
     return false
   }
+  if (stableJson(before.task) !== stableJson(after.task)) return false
 
-  if (stableJson(before.task) !== stableJson(after.task)) {
-    return false
-  }
+  const beforeIds = [...assigneeIds(before)].sort().join(',')
+  const afterIds = [...assigneeIds(after)].sort().join(',')
+  if (beforeIds !== afterIds) return false
 
-  const contentChanged = fieldsChanged(before, after, ASSIGNEE_CONTENT_FIELDS)
-  const reviewThreadChanged = fieldsChanged(before, after, [
-    'inputsReviewThread',
-    'deliverableReviewThread',
-  ])
-  const statusChanged = stableJson(before.status) !== stableJson(after.status)
+  const beforeByAssignee = new Map(
+    workCopies(before)
+      .map(work => [workAssigneeId(work), work] as const)
+      .filter((entry): entry is readonly [string, WorkSnapshot] => Boolean(entry[0])),
+  )
+  const afterCopies = workCopies(after)
 
-  if (statusChanged) {
-    if (
-      !ASSIGNEE_STATUS_VALUES.includes(
-        after.status as (typeof ASSIGNEE_STATUS_VALUES)[number],
-      )
+  let ownWorkChanged = false
+  for (const afterWork of afterCopies) {
+    const id = workAssigneeId(afterWork)
+    if (!id) continue
+    const beforeWork = beforeByAssignee.get(id)
+    if (!beforeWork) return false
+    if (stableJson(beforeWork) === stableJson(afterWork)) continue
+    if (id !== viewerStaffId) return false
+
+    if (workFieldsChanged(beforeWork, afterWork, ['assignee'])) return false
+
+    const contentChanged = workFieldsChanged(
+      beforeWork,
+      afterWork,
+      WORK_CONTENT_FIELDS,
     )
-      return false
-    if (!contentChanged && !reviewThreadChanged) return false
+    const reviewThreadChanged = workFieldsChanged(beforeWork, afterWork, [
+      'inputsReviewThread',
+      'deliverableReviewThread',
+    ])
+    const statusChanged = stableJson(beforeWork.status) !== stableJson(afterWork.status)
+    if (statusChanged) {
+      if (
+        !ASSIGNEE_STATUS_VALUES.includes(
+          afterWork.status as (typeof ASSIGNEE_STATUS_VALUES)[number],
+        )
+      ) {
+        return false
+      }
+      if (!contentChanged && !reviewThreadChanged) return false
+    }
+    ownWorkChanged = contentChanged || reviewThreadChanged || statusChanged
   }
 
-  return contentChanged || reviewThreadChanged
+  return ownWorkChanged
 }
 
 function assertTaskPairAllowed(
@@ -117,10 +171,9 @@ function assertTaskPairAllowed(
   before: TaskSnapshot,
   after: TaskSnapshot,
 ): string | null {
-  if (
-    before.cascadeKind === 'cascaded' &&
-    assigneeId(before) !== assigneeId(after)
-  ) {
+  const beforeIds = [...assigneeIds(before)].sort().join(',')
+  const afterIds = [...assigneeIds(after)].sort().join(',')
+  if (before.cascadeKind === 'cascaded' && beforeIds !== afterIds) {
     return 'Assignee is locked for cascaded tasks'
   }
 
@@ -131,11 +184,15 @@ function assertTaskPairAllowed(
     return 'Only supervisors can set reporting cycle, due date, and expected deliverables'
   }
 
-  if (fieldsChanged(before, after, SUPERVISOR_FIELDS)) {
+  const officerWorkChanged =
+    stableJson(workCopies(before)) !== stableJson(workCopies(after))
+  const supervisorMetaChanged = fieldsChanged(before, after, SUPERVISOR_TASK_FIELDS)
+
+  if (supervisorMetaChanged || officerWorkChanged) {
     if (!access.canSuperviseDetailedTasks) {
       if (
         !access.viewerStaffId ||
-        !isAssigneeContentOnlyChange(before, after, access.viewerStaffId)
+        !isOwnWorkContentOnlyChange(before, after, access.viewerStaffId)
       ) {
         return 'Only supervisors can change priority, assignment, or reviews; assignees may submit inputs and deliverables on their own tasks'
       }
@@ -153,7 +210,7 @@ function assertTaskPairAllowed(
   if (
     !access.canSuperviseDetailedTasks &&
     (!access.viewerStaffId ||
-      !isAssigneeContentOnlyChange(before, after, access.viewerStaffId))
+      !isOwnWorkContentOnlyChange(before, after, access.viewerStaffId))
   ) {
     return 'Only supervisors can change priority, assignment, or reviews; assignees may submit inputs and deliverables on their own tasks'
   }
@@ -163,7 +220,7 @@ function assertTaskPairAllowed(
 
 /**
  * Supervisors may edit task planning and reviews;
- * assignees may only submit inputs/deliverables on their tasks.
+ * assignees may only submit inputs/deliverables on their own work copies.
  */
 export function assertActivityTasksUpdateAllowed(
   access: SectionAccess,
@@ -201,7 +258,7 @@ export function assertActivityTasksUpdateAllowed(
     if (!afterTasks.some((t, j) => taskKey(t, j) === key)) {
       if (
         !access.viewerStaffId ||
-        !canSubmitDetailedTaskWork(access, assigneeId(beforeTasks[i]!))
+        !canSubmitDetailedTaskWork(access, assigneeIds(beforeTasks[i]!))
       ) {
         return 'Only supervisors can add or remove detailed tasks'
       }

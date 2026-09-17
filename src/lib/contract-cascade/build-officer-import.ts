@@ -103,6 +103,13 @@ function copySupervisorTasks(
       reportingPeriodStart:
         typeof raw === 'string' ? undefined : raw.reportingPeriodStart,
       assignee: officerTaskAssignee(officerStaffId),
+      officerWork: [
+        {
+          _key: `ow-${officerStaffId.replace(/[^a-zA-Z0-9]/g, '').slice(-16)}`,
+          assignee: officerTaskAssignee(officerStaffId),
+          status: 'to_do',
+        },
+      ],
       cascadeKind: 'cascaded',
       cascadeSource: buildCascadeSource(
         {
@@ -133,6 +140,13 @@ function copyRewriteTasks(
     status: 'to_do',
     reportingFrequency: 'n/a',
     assignee: officerTaskAssignee(officerStaffId),
+    officerWork: [
+      {
+        _key: `ow-${officerStaffId.replace(/[^a-zA-Z0-9]/g, '').slice(-16)}`,
+        assignee: officerTaskAssignee(officerStaffId),
+        status: 'to_do',
+      },
+    ],
     cascadeKind: 'cascaded',
     cascadeSource: buildCascadeSource(
       {

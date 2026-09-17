@@ -1,6 +1,7 @@
 import { defineQuery } from 'next-sanity'
 
 import { sanityFetch } from '../client'
+import { DETAILED_TASK_PROJECTION } from '../contracts/measurable-activities-projection'
 import type {
   ContractInitiative,
   SsmartaObjective,
@@ -49,14 +50,7 @@ export async function getProjectContract(
             "reportingFrequency": coalesce(reportingFrequency, "n/a"),
             evidence,
             tasks[] | {
-              _key,
-              "task": coalesce(task, @),
-              "priority": coalesce(priority, "medium"),
-              "assignee": select(defined(assignee) => assignee->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName), staffId }, null),
-              "inputs": select(defined(inputs) => inputs { file { asset->{ _id, url, originalFilename, size, mimeType } }, submittedAt }, null),
-              "status": coalesce(status, "to_do"),
-              targetDate,
-              "reportingFrequency": coalesce(reportingFrequency, "n/a"),
+              ${DETAILED_TASK_PROJECTION}
             },
           },
         },

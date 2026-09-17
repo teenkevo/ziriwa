@@ -72,11 +72,18 @@ import {
   canEditTaskAssignee,
   formatAssigneeDisplay,
   hasOfficerContent,
+  taskAssigneeIds,
   type ContractOfficer,
+  type OfficerWorkRow,
   type TaskRow,
 } from './detailed-tasks-table'
 import { ContractTaskSprintEvidencePanel } from './contract-task-sprint-evidence-panel'
 import type { ContractTaskSprintCycleEvidence } from '@/lib/contract-task-sprint-evidence'
+import {
+  lockedAssigneeIds,
+  syncOfficerWorkCopies,
+} from '@/lib/detailed-task-assignees'
+import { Badge } from '@/components/ui/badge'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -142,6 +149,9 @@ interface TaskDetailsPanelProps {
   workManagedInSprints?: boolean
   sprintEvidence?: ContractTaskSprintCycleEvidence[]
   sprintsHref?: string
+  officerWorkTabs?: OfficerWorkRow[]
+  activeWorkKey?: string | null
+  onActiveWorkKeyChange?: (key: string) => void
 }
 
 export function TaskDetailsPanel({
@@ -157,6 +167,9 @@ export function TaskDetailsPanel({
   workManagedInSprints = false,
   sprintEvidence = [],
   sprintsHref,
+  officerWorkTabs,
+  activeWorkKey,
+  onActiveWorkKeyChange,
   onUpdate,
   onAddInputs,
   onApproveInputs,
@@ -511,6 +524,44 @@ export function TaskDetailsPanel({
             </p>
           )}
         </div>
+        {canSuperviseDetailedTasks &&
+        (officerWorkTabs?.length ?? 0) > 1 &&
+        onActiveWorkKeyChange ? (
+          <div className='space-y-2'>
+            <Label className='text-xs text-muted-foreground'>
+              Officer work
+            </Label>
+            <Tabs
+              value={activeWorkKey ?? officerWorkTabs?.[0]?._key ?? ''}
+              onValueChange={onActiveWorkKeyChange}
+            >
+              <TabsList className='flex h-auto w-full flex-wrap justify-start gap-1'>
+                {officerWorkTabs?.map(work => {
+                  const name =
+                    officers.find(officer => officer._id === work.assignee)
+                      ?.fullName ??
+                    work.assigneeName ??
+                    'Officer'
+                  const statusLabel =
+                    TASK_STATUSES.find(status => status.value === work.status)
+                      ?.label ?? work.status
+                  return (
+                    <TabsTrigger
+                      key={work._key}
+                      value={work._key}
+                      className='gap-2'
+                    >
+                      <span className='truncate'>{name}</span>
+                      <Badge variant='secondary' className='font-normal'>
+                        {statusLabel}
+                      </Badge>
+                    </TabsTrigger>
+                  )
+                })}
+              </TabsList>
+            </Tabs>
+          </div>
+        ) : null}
         <div>
           <Label className='text-xs text-muted-foreground'>Status</Label>
           <Select
@@ -646,8 +697,21 @@ export function TaskDetailsPanel({
             {canEditAssignee ? (
               <OfficerSwitcher
                 officers={officers}
-                value={task.assignee}
-                onChange={id => onUpdate({ assignee: id })}
+                multiple
+                values={taskAssigneeIds(task)}
+                lockedIds={lockedAssigneeIds(task.officerWork ?? [])}
+                onValuesChange={ids => {
+                  const names = new Map(
+                    officers.map(officer => [officer._id, officer.fullName]),
+                  )
+                  onUpdate({
+                    officerWork: syncOfficerWorkCopies(
+                      task.officerWork ?? [],
+                      ids,
+                      names,
+                    ) as OfficerWorkRow[],
+                  })
+                }}
                 disabled={isSaving || isDone}
                 placeholder='Select officer'
                 sectionId={sectionId}

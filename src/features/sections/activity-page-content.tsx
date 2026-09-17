@@ -70,6 +70,7 @@ import {
   enrichTaskRowsWithContractOfficer,
   type ContractOfficer,
   type OfficerCascadeAssignee,
+  type OfficerWorkRow,
   type TaskRow,
 } from '@/features/sections/components/detailed-tasks-table'
 import { TaskDetailsPanel } from '@/features/sections/components/task-details-panel'
@@ -82,6 +83,13 @@ import {
   canSubmitDetailedTaskWork,
   type SectionAccess,
 } from '@/lib/section-access'
+import {
+  defaultOfficerWorkKey,
+  findOfficerWork,
+  flattenOfficerWork,
+  omitWorkFields,
+  pickWorkFields,
+} from '@/lib/detailed-task-assignees'
 
 type Section = {
   _id: string
@@ -90,19 +98,71 @@ type Section = {
   division?: { _id: string; name: string; slug?: { current: string } }
 }
 
+function mapTaskStatus(s: string | undefined) {
+  const status = s ?? 'to_do'
+  const legacy: Record<string, string> = {
+    not_started: 'to_do',
+    completed: 'done',
+  }
+  return legacy[status] ?? status
+}
+
+function officerWorkFromDetailedTask(
+  t: DetailedTaskType,
+  fallbackKey: string,
+): OfficerWorkRow[] {
+  if (t.officerWork?.length) {
+    return t.officerWork.map((work, index) => ({
+      _key: work._key ?? `ow-${fallbackKey}-${index}`,
+      assignee: work.assignee?._id ?? null,
+      assigneeName: work.assignee?.fullName ?? null,
+      status: mapTaskStatus(work.status),
+      inputs: work.inputs ?? undefined,
+      inputsReviewThread: work.inputsReviewThread ?? [],
+      deliverableReviewThread: work.deliverableReviewThread ?? [],
+      periodDeliverables: work.periodDeliverables ?? [],
+      deliverable: work.deliverable ?? [],
+    }))
+  }
+  if (
+    t.assignee?._id ||
+    t.inputs ||
+    (t.deliverable ?? []).length ||
+    (t.periodDeliverables ?? []).length
+  ) {
+    return [
+      {
+        _key: `ow-legacy-${fallbackKey}`,
+        assignee: t.assignee?._id ?? null,
+        assigneeName: t.assignee?.fullName ?? null,
+        status: mapTaskStatus(t.status),
+        inputs: t.inputs ?? undefined,
+        inputsReviewThread: t.inputsReviewThread ?? [],
+        deliverableReviewThread: t.deliverableReviewThread ?? [],
+        periodDeliverables: t.periodDeliverables ?? [],
+        deliverable: t.deliverable ?? [],
+      },
+    ]
+  }
+  return []
+}
+
+function emptyOfficerWorkFields() {
+  return {
+    status: 'to_do',
+    inputs: undefined,
+    inputsReviewThread: [] as OfficerWorkRow['inputsReviewThread'],
+    deliverableReviewThread: [] as OfficerWorkRow['deliverableReviewThread'],
+    periodDeliverables: [] as OfficerWorkRow['periodDeliverables'],
+    deliverable: [] as OfficerWorkRow['deliverable'],
+  }
+}
+
 function normalizeTasks(
   raw: (DetailedTaskType | string)[] | undefined,
 ): TaskRow[] {
   if (!raw?.length) return []
   return raw.map((t, i) => {
-    const mapStatus = (s: string | undefined) => {
-      const status = s ?? 'to_do'
-      const legacy: Record<string, string> = {
-        not_started: 'to_do',
-        completed: 'done',
-      }
-      return legacy[status] ?? status
-    }
     if (typeof t === 'string') {
       return {
         _key: `task-${i}`,
@@ -110,27 +170,30 @@ function normalizeTasks(
         priority: 'medium',
         assignee: null,
         assigneeName: null,
+        officerWork: [],
         cascadeKind: null,
-        status: 'to_do',
+        ...emptyOfficerWorkFields(),
         targetDate: undefined,
         reportingFrequency: 'n/a' as const,
-        periodDeliverables: [],
-        deliverable: [],
-        inputsReviewThread: [],
-        deliverableReviewThread: [],
       }
     }
+    const key = t._key ?? `task-${i}`
+    const officerWork = officerWorkFromDetailedTask(t, key)
+    const primary = officerWork[0]
     return {
-      _key: t._key ?? `task-${i}`,
+      _key: key,
       task: t.task ?? '',
       priority: t.priority ?? 'medium',
-      assignee: t.assignee?._id ?? null,
-      assigneeName: t.assignee?.fullName ?? null,
+      assignee: primary?.assignee ?? t.assignee?._id ?? null,
+      assigneeName: primary?.assigneeName ?? t.assignee?.fullName ?? null,
+      officerWork,
       cascadeKind: t.cascadeKind ?? null,
-      inputs: t.inputs ?? undefined,
-      inputsReviewThread: t.inputsReviewThread ?? [],
-      deliverableReviewThread: t.deliverableReviewThread ?? [],
-      status: mapStatus(t.status),
+      inputs: primary?.inputs ?? t.inputs ?? undefined,
+      inputsReviewThread:
+        primary?.inputsReviewThread ?? t.inputsReviewThread ?? [],
+      deliverableReviewThread:
+        primary?.deliverableReviewThread ?? t.deliverableReviewThread ?? [],
+      status: primary?.status ?? mapTaskStatus(t.status),
       targetDate: t.targetDate ?? undefined,
       reportingFrequency: (t.reportingFrequency ?? 'n/a') as
         | 'weekly'
@@ -139,8 +202,9 @@ function normalizeTasks(
         | 'n/a',
       expectedDeliverable: t.expectedDeliverable ?? undefined,
       reportingPeriodStart: t.reportingPeriodStart ?? undefined,
-      periodDeliverables: t.periodDeliverables ?? [],
-      deliverable: t.deliverable ?? [],
+      periodDeliverables:
+        primary?.periodDeliverables ?? t.periodDeliverables ?? [],
+      deliverable: primary?.deliverable ?? t.deliverable ?? [],
     }
   })
 }
@@ -156,56 +220,43 @@ function resolveInitialSelectedTaskKey(
     : null
 }
 
-function tasksToPayload(rows: TaskRow[]) {
-  return rows.map(r => ({
-    _key: r._key,
-    task: r.task,
-    priority: r.priority,
-    assignee: r.assignee,
-    inputs: r.inputs?.file?.asset?._id
+function serializeReviewThread(
+  entries: NonNullable<OfficerWorkRow['inputsReviewThread']>,
+) {
+  return entries.map(entry => {
+    const assetId = entry.file?.asset?._id
+    const authorId =
+      typeof entry.author === 'string' ? entry.author : entry.author?._id
+    return {
+      _key: entry._key,
+      author: authorId,
+      role: entry.role,
+      action: entry.action,
+      message: entry.message,
+      createdAt: entry.createdAt,
+      ...(assetId && {
+        file: { asset: { _ref: assetId } },
+      }),
+    }
+  })
+}
+
+function serializeOfficerWork(work: OfficerWorkRow) {
+  return {
+    _key: work._key,
+    assignee: work.assignee,
+    status: work.status,
+    inputs: work.inputs?.file?.asset?._id
       ? {
-          file: { asset: { _ref: r.inputs.file.asset._id } },
-          submittedAt: r.inputs.submittedAt ?? new Date().toISOString(),
+          file: { asset: { _ref: work.inputs.file.asset._id } },
+          submittedAt: work.inputs.submittedAt ?? new Date().toISOString(),
         }
       : undefined,
-    inputsReviewThread: (r.inputsReviewThread ?? []).map(entry => {
-      const assetId = entry.file?.asset?._id
-      const authorId =
-        typeof entry.author === 'string' ? entry.author : entry.author?._id
-      return {
-        _key: entry._key,
-        author: authorId,
-        role: entry.role,
-        action: entry.action,
-        message: entry.message,
-        createdAt: entry.createdAt,
-        ...(assetId && {
-          file: { asset: { _ref: assetId } },
-        }),
-      }
-    }),
-    deliverableReviewThread: (r.deliverableReviewThread ?? []).map(entry => {
-      const assetId = entry.file?.asset?._id
-      const authorId =
-        typeof entry.author === 'string' ? entry.author : entry.author?._id
-      return {
-        _key: entry._key,
-        author: authorId,
-        role: entry.role,
-        action: entry.action,
-        message: entry.message,
-        createdAt: entry.createdAt,
-        ...(assetId && {
-          file: { asset: { _ref: assetId } },
-        }),
-      }
-    }),
-    status: r.status,
-    targetDate: r.targetDate,
-    reportingFrequency: r.reportingFrequency ?? 'n/a',
-    expectedDeliverable: r.expectedDeliverable,
-    reportingPeriodStart: r.reportingPeriodStart,
-    periodDeliverables: (r.periodDeliverables ?? []).map(pd => ({
+    inputsReviewThread: serializeReviewThread(work.inputsReviewThread ?? []),
+    deliverableReviewThread: serializeReviewThread(
+      work.deliverableReviewThread ?? [],
+    ),
+    periodDeliverables: (work.periodDeliverables ?? []).map(pd => ({
       _key: pd._key,
       periodKey: pd.periodKey,
       status: pd.status,
@@ -218,26 +269,11 @@ function tasksToPayload(rows: TaskRow[]) {
           tag: e.tag === 'main' ? 'main' : 'support',
           locked: e.locked ?? false,
         })),
-      deliverableReviewThread: (pd.deliverableReviewThread ?? []).map(entry => {
-        const assetId = entry.file?.asset?._id
-        const authorId =
-          typeof entry.author === 'string' ? entry.author : entry.author?._id
-        return {
-          _key: entry._key,
-          author: authorId
-            ? { _type: 'reference' as const, _ref: authorId }
-            : undefined,
-          role: entry.role,
-          action: entry.action,
-          message: entry.message,
-          createdAt: entry.createdAt,
-          ...(assetId && {
-            file: { asset: { _ref: assetId } },
-          }),
-        }
-      }),
+      deliverableReviewThread: serializeReviewThread(
+        pd.deliverableReviewThread ?? [],
+      ),
     })),
-    deliverable: (r.deliverable ?? [])
+    deliverable: (work.deliverable ?? [])
       .filter(e => e.file?.asset?._id)
       .map(e => ({
         _key: e._key,
@@ -245,6 +281,20 @@ function tasksToPayload(rows: TaskRow[]) {
         tag: e.tag === 'main' ? 'main' : 'support',
         locked: e.locked ?? false,
       })),
+  }
+}
+
+function tasksToPayload(rows: TaskRow[]) {
+  return rows.map(r => ({
+    _key: r._key,
+    task: r.task,
+    priority: r.priority,
+    assignee: r.officerWork[0]?.assignee ?? r.assignee,
+    officerWork: (r.officerWork ?? []).map(serializeOfficerWork),
+    targetDate: r.targetDate,
+    reportingFrequency: r.reportingFrequency ?? 'n/a',
+    expectedDeliverable: r.expectedDeliverable,
+    reportingPeriodStart: r.reportingPeriodStart,
   }))
 }
 
@@ -754,6 +804,9 @@ export function ActivityPageContent({
   const [selectedTaskKey, setSelectedTaskKey] = React.useState<string | null>(
     () => resolveInitialSelectedTaskKey(activity, initialTaskKey),
   )
+  const [selectedWorkKey, setSelectedWorkKey] = React.useState<string | null>(
+    null,
+  )
   const [pendingSubmitForReviewTaskKey, setPendingSubmitForReviewTaskKey] =
     React.useState<string | null>(null)
 
@@ -761,21 +814,78 @@ export function ActivityPageContent({
     () => tasks.find(t => (t._key ?? '') === selectedTaskKey) ?? null,
     [tasks, selectedTaskKey],
   )
+
+  React.useEffect(() => {
+    if (!selectedTask) {
+      setSelectedWorkKey(null)
+      return
+    }
+    const nextKey = defaultOfficerWorkKey(selectedTask.officerWork ?? [], {
+      viewerStaffId: sectionAccess.viewerStaffId,
+      canSupervise: canSuperviseDetailedTasks,
+    })
+    setSelectedWorkKey(current => {
+      if (current && selectedTask.officerWork?.some(work => work._key === current)) {
+        return current
+      }
+      return nextKey
+    })
+  }, [
+    selectedTask,
+    canSuperviseDetailedTasks,
+    sectionAccess.viewerStaffId,
+  ])
+
+  const activeWork = React.useMemo(
+    () => findOfficerWork(selectedTask?.officerWork ?? [], selectedWorkKey),
+    [selectedTask, selectedWorkKey],
+  )
+  const detailsTask = React.useMemo(
+    () =>
+      selectedTask
+        ? (flattenOfficerWork(selectedTask, activeWork) as TaskRow)
+        : null,
+    [selectedTask, activeWork],
+  )
   const selectedSprintEvidence = React.useMemo(() => {
     if (!selectedTaskKey || !sprintEvidenceByTaskKey) return []
     return sprintEvidenceByTaskKey[selectedTaskKey] ?? []
   }, [selectedTaskKey, sprintEvidenceByTaskKey])
   const canSubmitSelectedTaskWork = canSubmitDetailedTaskWork(
     sectionAccess,
-    selectedTask?.assignee,
+    activeWork?.assignee ?? selectedTask?.assignee,
   )
+  const selectedWorkKeyRef = React.useRef(selectedWorkKey)
+  selectedWorkKeyRef.current = selectedWorkKey
 
   const updateTaskByKey = React.useCallback(
     (key: string, updates: Partial<TaskRow>) => {
       setTasks(prev =>
-        prev.map(row =>
-          (row._key ?? '') === key ? { ...row, ...updates } : row,
-        ),
+        prev.map(row => {
+          if ((row._key ?? '') !== key) return row
+          if (updates.officerWork) {
+            const works = updates.officerWork
+            return {
+              ...row,
+              ...updates,
+              officerWork: works,
+              assignee: works[0]?.assignee ?? null,
+              assigneeName: works[0]?.assigneeName ?? null,
+            }
+          }
+          const workUpdates = pickWorkFields(
+            updates as Record<string, unknown>,
+          ) as Partial<OfficerWorkRow>
+          const rest = omitWorkFields(updates as Record<string, unknown>) as Partial<TaskRow>
+          const workKey = selectedWorkKeyRef.current
+          const officerWork =
+            Object.keys(workUpdates).length > 0 && workKey
+              ? (row.officerWork ?? []).map(work =>
+                  work._key === workKey ? { ...work, ...workUpdates } : work,
+                )
+              : row.officerWork
+          return { ...row, ...rest, officerWork }
+        }),
       )
     },
     [],
@@ -814,13 +924,13 @@ export function ActivityPageContent({
         },
         tag,
       }
-      const existing = selectedTask?.deliverable ?? []
+      const existing = activeWork?.deliverable ?? []
       const updated =
         tag === 'main'
           ? [...existing.filter(e => (e.tag ?? 'support') !== 'main'), newEv]
           : [...existing, newEv]
       const isMainAndInProgress =
-        tag === 'main' && selectedTask?.status === 'in_progress'
+        tag === 'main' && activeWork?.status === 'in_progress'
       updateTaskByKey(selectedTaskKey, {
         deliverable: updated,
         ...(isMainAndInProgress && { status: 'delivered' }),
@@ -830,24 +940,24 @@ export function ActivityPageContent({
         setTimeout(() => setPendingSubmitForReviewTaskKey(keyToShow), 0)
       }
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleRemoveDeliverable = React.useCallback(
     (itemKey: string) => {
       if (!selectedTaskKey) return
-      const item = (selectedTask?.deliverable ?? []).find(
+      const item = (activeWork?.deliverable ?? []).find(
         e => (e._key ?? '') === itemKey,
       )
       if (item?.locked) return
-      const filtered = (selectedTask?.deliverable ?? []).filter(
+      const filtered = (activeWork?.deliverable ?? []).filter(
         e => (e._key ?? '') !== itemKey,
       )
       const isRemovingMain = (item?.tag ?? 'support') === 'main'
       const statusUpdate =
         isRemovingMain &&
-        (selectedTask?.status === 'delivered' ||
-          selectedTask?.status === 'in_review')
+        (activeWork?.status === 'delivered' ||
+          activeWork?.status === 'in_review')
           ? { status: 'in_progress' as const }
           : {}
       updateTaskByKey(selectedTaskKey, {
@@ -855,18 +965,18 @@ export function ActivityPageContent({
         ...statusUpdate,
       })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleSubmitForReview = React.useCallback(
     async (key: string) => {
       const task = tasks.find(t => (t._key ?? '') === key)
       if (!task) return
-      const mainEv = (task.deliverable ?? []).find(
-        e => (e.tag ?? 'support') === 'main',
-      )
+      const work = findOfficerWork(task.officerWork ?? [], selectedWorkKeyRef.current) as OfficerWorkRow | null
+      const deliverable = work?.deliverable ?? task.deliverable ?? []
+      const mainEv = deliverable.find(e => (e.tag ?? 'support') === 'main')
       if (!mainEv) return
-      const lockedDeliverable = (task.deliverable ?? []).map(e =>
+      const lockedDeliverable = deliverable.map(e =>
         (e.tag ?? 'support') === 'main' ? { ...e, locked: true } : e,
       )
       const submitEntry = {
@@ -874,20 +984,31 @@ export function ActivityPageContent({
         action: 'submit' as const,
         role: 'officer' as const,
         createdAt: new Date().toISOString(),
+        author: sectionAccess.viewerStaffId
+          ? { _id: sectionAccess.viewerStaffId }
+          : undefined,
       }
-      const updatedTasks = tasks.map(row =>
-        (row._key ?? '') === key
-          ? {
-              ...row,
-              deliverable: lockedDeliverable,
-              status: 'in_review',
-              deliverableReviewThread: [
-                ...(row.deliverableReviewThread ?? []),
-                submitEntry,
-              ],
-            }
-          : row,
-      )
+      const workKey = work?._key
+      const updatedTasks = tasks.map(row => {
+        if ((row._key ?? '') !== key) return row
+        if (!workKey) return row
+        return {
+          ...row,
+          officerWork: (row.officerWork ?? []).map(copy =>
+            copy._key === workKey
+              ? {
+                  ...copy,
+                  deliverable: lockedDeliverable,
+                  status: 'in_review',
+                  deliverableReviewThread: [
+                    ...(copy.deliverableReviewThread ?? []),
+                    submitEntry,
+                  ],
+                }
+              : copy,
+          ),
+        }
+      })
       setTasks(updatedTasks)
       try {
         await saveTasks(updatedTasks)
@@ -896,7 +1017,7 @@ export function ActivityPageContent({
         /* saveTasks shows toast */
       }
     },
-    [tasks, saveTasks],
+    [tasks, saveTasks, sectionAccess.viewerStaffId],
   )
 
   const handleAddInputs = React.useCallback(
@@ -940,12 +1061,12 @@ export function ActivityPageContent({
         },
         status: 'inputs_submitted',
         inputsReviewThread: [
-          ...(selectedTask?.inputsReviewThread ?? []),
+          ...(activeWork?.inputsReviewThread ?? []),
           newEntry,
         ],
       })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleApproveInputs = React.useCallback(
@@ -961,12 +1082,12 @@ export function ActivityPageContent({
       updateTaskByKey(selectedTaskKey, {
         status: 'in_progress',
         inputsReviewThread: [
-          ...(selectedTask?.inputsReviewThread ?? []),
+          ...(activeWork?.inputsReviewThread ?? []),
           newEntry,
         ],
       })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleRejectInputs = React.useCallback(
@@ -981,18 +1102,18 @@ export function ActivityPageContent({
       }
       updateTaskByKey(selectedTaskKey, {
         inputsReviewThread: [
-          ...(selectedTask?.inputsReviewThread ?? []),
+          ...(activeWork?.inputsReviewThread ?? []),
           newEntry,
         ],
       })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleRespondToRejection = React.useCallback(
     async (message: string, replacementFile?: File) => {
       if (!selectedTaskKey) return
-      let inputs = selectedTask?.inputs
+      let inputs = activeWork?.inputs
       let fileAsset:
         | {
             _id: string
@@ -1043,12 +1164,12 @@ export function ActivityPageContent({
       updateTaskByKey(selectedTaskKey, {
         ...(inputs && { inputs }),
         inputsReviewThread: [
-          ...(selectedTask?.inputsReviewThread ?? []),
+          ...(activeWork?.inputsReviewThread ?? []),
           newEntry,
         ],
       })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleApproveDeliverable = React.useCallback(
@@ -1064,12 +1185,12 @@ export function ActivityPageContent({
       updateTaskByKey(selectedTaskKey, {
         status: 'done',
         deliverableReviewThread: [
-          ...(selectedTask?.deliverableReviewThread ?? []),
+          ...(activeWork?.deliverableReviewThread ?? []),
           newEntry,
         ],
       })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleRejectDeliverable = React.useCallback(
@@ -1084,12 +1205,12 @@ export function ActivityPageContent({
       }
       updateTaskByKey(selectedTaskKey, {
         deliverableReviewThread: [
-          ...(selectedTask?.deliverableReviewThread ?? []),
+          ...(activeWork?.deliverableReviewThread ?? []),
           newEntry,
         ],
       })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleRespondToDeliverableRejection = React.useCallback(
@@ -1138,7 +1259,7 @@ export function ActivityPageContent({
         createdAt: new Date().toISOString(),
         ...(fileAsset && { file: { asset: fileAsset } }),
       }
-      const existing = selectedTask?.deliverable ?? []
+      const existing = activeWork?.deliverable ?? []
       const updatedDeliverable = fileAsset
         ? existing.map(e =>
             (e.tag ?? 'support') === 'main'
@@ -1156,18 +1277,18 @@ export function ActivityPageContent({
         deliverable: updatedDeliverable,
         status: 'in_review',
         deliverableReviewThread: [
-          ...(selectedTask?.deliverableReviewThread ?? []),
+          ...(activeWork?.deliverableReviewThread ?? []),
           newEntry,
         ],
       })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const getOrCreatePeriodDeliverable = (
     periodKey: string,
   ): NonNullable<TaskRow['periodDeliverables']>[0] => {
-    const existing = selectedTask?.periodDeliverables ?? []
+    const existing = activeWork?.periodDeliverables ?? []
     const pd = existing.find(p => p.periodKey === periodKey)
     if (pd) return pd
     return {
@@ -1187,7 +1308,7 @@ export function ActivityPageContent({
       ) => NonNullable<TaskRow['periodDeliverables']>[0],
     ) => {
       if (!selectedTaskKey) return
-      const existing = selectedTask?.periodDeliverables ?? []
+      const existing = activeWork?.periodDeliverables ?? []
       const idx = existing.findIndex(p => p.periodKey === periodKey)
       const pd =
         idx >= 0 ? existing[idx] : getOrCreatePeriodDeliverable(periodKey)
@@ -1198,7 +1319,7 @@ export function ActivityPageContent({
           : [...existing, updatedPd]
       updateTaskByKey(selectedTaskKey, { periodDeliverables: updated })
     },
-    [selectedTaskKey, selectedTask, updateTaskByKey],
+    [selectedTaskKey, activeWork, updateTaskByKey],
   )
 
   const handleAddPeriodDeliverable = React.useCallback(
@@ -1435,6 +1556,7 @@ export function ActivityPageContent({
       _key: `task-${Date.now()}`,
       task: trimmed,
       priority: 'medium',
+      officerWork: [],
       assignee: null,
       status: 'to_do',
       deliverable: [],
@@ -1476,7 +1598,7 @@ export function ActivityPageContent({
 
   const taskDetailsPanelEl = (
     <TaskDetailsPanel
-      task={selectedTask}
+      task={detailsTask}
       officers={officers}
       sectionId={section._id}
       activityType={activity.activityType}
@@ -1488,6 +1610,15 @@ export function ActivityPageContent({
       workManagedInSprints
       sprintEvidence={selectedSprintEvidence}
       sprintsHref={sprintsHref}
+      officerWorkTabs={
+        canSuperviseDetailedTasks
+          ? (selectedTask?.officerWork ?? [])
+          : activeWork
+            ? [activeWork]
+            : []
+      }
+      activeWorkKey={selectedWorkKey}
+      onActiveWorkKeyChange={setSelectedWorkKey}
       onUpdate={updates =>
         selectedTaskKey && updateTaskByKey(selectedTaskKey, updates)
       }

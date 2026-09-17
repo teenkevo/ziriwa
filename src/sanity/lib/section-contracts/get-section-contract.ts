@@ -1,5 +1,6 @@
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
+import { DETAILED_TASK_PROJECTION } from '../contracts/measurable-activities-projection'
 
 export type DeliverableItem = {
   _key?: string
@@ -91,12 +92,30 @@ export type TaskInputs = {
   submittedAt?: string
 }
 
+export type DetailedTaskAssignee = {
+  _id: string
+  fullName?: string
+  staffId?: string
+}
+
+export type DetailedTaskOfficerWork = {
+  _key?: string
+  assignee?: DetailedTaskAssignee
+  inputs?: TaskInputs
+  inputsReviewThread?: InputsReviewEntry[]
+  deliverableReviewThread?: DeliverableReviewEntry[]
+  status?: string
+  periodDeliverables?: PeriodDeliverable[]
+  deliverable?: DeliverableItem[]
+}
+
 export type DetailedTask = {
   _key?: string
   task: string
   priority?: string
   cascadeKind?: string
-  assignee?: { _id: string; fullName?: string; staffId?: string }
+  assignee?: DetailedTaskAssignee
+  officerWork?: DetailedTaskOfficerWork[]
   inputs?: TaskInputs
   inputsReviewThread?: InputsReviewEntry[]
   deliverableReviewThread?: DeliverableReviewEntry[]
@@ -199,61 +218,7 @@ export async function getSectionContract(
             "reportingFrequency": coalesce(reportingFrequency, "n/a"),
             evidence,
             tasks[] | {
-              _key,
-              "task": coalesce(task, @),
-              "priority": coalesce(priority, "medium"),
-              "assignee": select(defined(assignee) => assignee->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName), staffId }, null),
-              "inputs": select(defined(inputs) => inputs { file { asset->{ _id, url, originalFilename, size, mimeType } }, submittedAt }, null),
-              "inputsReviewThread": select(defined(inputsReviewThread) => inputsReviewThread[] {
-                _key,
-                "author": author->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
-                role,
-                action,
-                message,
-                createdAt,
-                file { asset->{ _id, url, originalFilename, size, mimeType } },
-              }, []),
-              "deliverableReviewThread": select(defined(deliverableReviewThread) => deliverableReviewThread[] {
-                _key,
-                "author": author->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
-                role,
-                action,
-                message,
-                createdAt,
-                file { asset->{ _id, url, originalFilename, size, mimeType } },
-              }, []),
-              "status": coalesce(status, "to_do"),
-              targetDate,
-              "reportingFrequency": coalesce(reportingFrequency, "n/a"),
-              expectedDeliverable,
-              reportingPeriodStart,
-              "periodDeliverables": select(defined(periodDeliverables) => periodDeliverables[] {
-                _key,
-                periodKey,
-                "status": coalesce(status, "pending"),
-                submittedAt,
-                "deliverable": select(defined(deliverable) => deliverable[] {
-                  _key,
-                  file { asset->{ _id, url, originalFilename, size, mimeType } },
-                  tag,
-                  locked,
-                }, []),
-                "deliverableReviewThread": select(defined(deliverableReviewThread) => deliverableReviewThread[] {
-                  _key,
-                  "author": author->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
-                  role,
-                  action,
-                  message,
-                  createdAt,
-                  file { asset->{ _id, url, originalFilename, size, mimeType } },
-                }, []),
-              }, []),
-              "deliverable": select(defined(deliverable) => deliverable[] {
-                _key,
-                file { asset->{ _id, url, originalFilename, size, mimeType } },
-                tag,
-                locked,
-              }, []),
+              ${DETAILED_TASK_PROJECTION}
             },
           },
         },

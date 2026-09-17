@@ -242,13 +242,19 @@ export function buildSectionAccess(input: SectionAccessInput): SectionAccess {
 
 export function canSubmitDetailedTaskWork(
   access: SectionAccess,
-  taskAssigneeId: string | null | undefined,
+  taskAssigneeId: string | string[] | null | undefined,
 ): boolean {
-  if (!access.viewerStaffId || !taskAssigneeId) return false
+  if (!access.viewerStaffId) return false
+  const ids = Array.isArray(taskAssigneeId)
+    ? taskAssigneeId
+    : taskAssigneeId
+      ? [taskAssigneeId]
+      : []
+  if (ids.length === 0) return false
   const allowedIds = new Set(
     [access.viewerStaffId, access.officerContextStaffId].filter(Boolean),
   )
-  return allowedIds.has(taskAssigneeId)
+  return ids.some(id => allowedIds.has(id))
 }
 
 export type SprintUiMode = 'officer' | 'manager' | 'supervisor' | 'other'

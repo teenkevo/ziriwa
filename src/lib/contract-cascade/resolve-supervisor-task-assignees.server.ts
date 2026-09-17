@@ -5,6 +5,10 @@ import type { CascadeImportSelection } from './types'
 import type { DetailedTask, SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
+import {
+  cascadeOfficerAssignment,
+  taskHasStoredAssignee,
+} from '@/lib/detailed-task-assignees'
 
 export interface OfficerCascadeAssignee {
   assigneeId: string
@@ -50,8 +54,10 @@ export async function getSupervisorTaskAssigneesFromOfficerContracts(
         ),
         "tasks": objectives[].initiatives[].measurableActivities[].tasks[]{
           cascadeSource,
-          "assigneeId": assignee._ref,
+          "assigneeId": coalesce(officerWork[0].assignee._ref, assignee._ref),
           "assigneeName": coalesce(
+            officerWork[0].assignee->fullName,
+            officerWork[0].assignee->firstName + " " + officerWork[0].assignee->lastName,
             assignee->fullName,
             assignee->firstName + " " + assignee->lastName
           ),
@@ -135,10 +141,7 @@ export async function syncSupervisorTaskAssigneesFromOfficerCascade(
           const key = resolveTaskKey(raw, index)
           if (!keysToSync.has(key)) return raw
           changed = true
-          const assigneeRef = {
-            _type: 'reference' as const,
-            _ref: officerStaffId,
-          }
+          const assignment = cascadeOfficerAssignment(officerStaffId)
           if (typeof raw === 'string') {
             return {
               _type: 'detailedTask' as const,
@@ -146,12 +149,12 @@ export async function syncSupervisorTaskAssigneesFromOfficerCascade(
               task: raw,
               priority: 'medium',
               status: 'to_do',
-              assignee: assigneeRef,
+              ...assignment,
             } as unknown as DetailedTask
           }
           return {
             ...(raw as DetailedTask),
-            assignee: assigneeRef as unknown as DetailedTask['assignee'],
+            ...assignment,
           } as unknown as DetailedTask
         }) as (DetailedTask | string)[]
       }
@@ -200,18 +203,10 @@ export async function backfillSupervisorActivityAssigneesFromOfficers(
           const key = resolveTaskKey(raw, index)
           const match = lookup[key]
           if (!match) return raw
-          const hasRef =
-            typeof raw !== 'string' &&
-            raw.assignee &&
-            typeof raw.assignee === 'object' &&
-            '_id' in raw.assignee
-          if (hasRef) return raw
+          if (taskHasStoredAssignee(raw)) return raw
 
           updated += 1
-          const assigneeRef = {
-            _type: 'reference' as const,
-            _ref: match.assigneeId,
-          }
+          const assignment = cascadeOfficerAssignment(match.assigneeId)
           if (typeof raw === 'string') {
             return {
               _type: 'detailedTask' as const,
@@ -219,12 +214,12 @@ export async function backfillSupervisorActivityAssigneesFromOfficers(
               task: raw,
               priority: 'medium',
               status: 'to_do',
-              assignee: assigneeRef,
+              ...assignment,
             } as unknown as DetailedTask
           }
           return {
             ...(raw as DetailedTask),
-            assignee: assigneeRef as unknown as DetailedTask['assignee'],
+            ...assignment,
           } as unknown as DetailedTask
         }) as (DetailedTask | string)[]
       }

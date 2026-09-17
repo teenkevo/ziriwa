@@ -16,6 +16,7 @@ import {
   backfillSupervisorActivityAssigneesFromOfficers,
   getSupervisorTaskAssigneesFromOfficerContracts,
 } from '@/lib/contract-cascade/resolve-supervisor-task-assignees.server'
+import { taskHasAssignee } from '@/lib/detailed-task-assignees'
 import { collectSprintEvidenceForContractTask } from '@/lib/contract-task-sprint-evidence'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { ActivityPageContent } from '@/features/sections/activity-page-content'
@@ -94,7 +95,7 @@ export default async function ActivityPage({
         )
       const hasMirroredAssignee = (activity.tasks ?? []).some(t => {
         if (typeof t === 'string') return false
-        return Boolean(t.assignee?._id)
+        return taskHasAssignee(t)
       })
       if (
         !hasMirroredAssignee &&
@@ -120,7 +121,7 @@ export default async function ActivityPage({
       )
       const hasMirroredAssignee = (activity.tasks ?? []).some(t => {
         if (typeof t === 'string') return false
-        return Boolean(t.assignee?._id)
+        return taskHasAssignee(t)
       })
       if (
         !hasMirroredAssignee &&

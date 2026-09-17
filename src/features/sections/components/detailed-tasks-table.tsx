@@ -55,6 +55,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  formatAggregateStatus,
+  formatAssigneeNames,
+  hasOfficerWorkContent,
+  lockedAssigneeIds,
+  syncOfficerWorkCopies,
+  type OfficerWorkCopy,
+} from '@/lib/detailed-task-assignees'
 
 const PRIORITIES = [
   { label: 'Highest', value: 'highest' },
@@ -163,6 +171,14 @@ export type TaskInputs = {
 
 export type DeliverableReviewEntry = InputsReviewEntry
 
+export type OfficerWorkRow = OfficerWorkCopy & {
+  inputs?: TaskInputs
+  inputsReviewThread?: InputsReviewEntry[]
+  deliverableReviewThread?: DeliverableReviewEntry[]
+  periodDeliverables?: PeriodDeliverable[]
+  deliverable?: DeliverableItem[]
+}
+
 export type TaskRow = {
   _key?: string
   task: string
@@ -170,6 +186,7 @@ export type TaskRow = {
   assignee: string | null
   /** From Sanity assignee projection when roster lookup is unavailable. */
   assigneeName?: string | null
+  officerWork: OfficerWorkRow[]
   /** Officer who took this task via cascade (supervisor contract view). */
   officerCascadeAssignee?: OfficerCascadeAssignee | null
   cascadeKind?: string | null
@@ -189,9 +206,9 @@ export function isCascadedDetailedTask(task: Pick<TaskRow, 'cascadeKind'>): bool
   return task.cascadeKind === 'cascaded'
 }
 
-/** Locks assignee (cascaded ownership or work already started). */
+/** Locks the assignee list for cascaded ownership. Copies with content cannot be removed. */
 export function isAssigneeLocked(task: TaskRow): boolean {
-  return isCascadedDetailedTask(task) || hasOfficerContent(task)
+  return isCascadedDetailedTask(task) || Boolean(task.officerCascadeAssignee)
 }
 
 export interface ContractOfficer {
@@ -217,10 +234,35 @@ export function enrichTasksWithDownstreamAssignees(
     if (!key) return row
     const match = lookup[key]
     if (!match) return row
+    const nextWork =
+      (row.officerWork ?? []).length > 0
+        ? row.officerWork.map(work =>
+            work.assignee
+              ? work
+              : {
+                  ...work,
+                  assignee: match.assigneeId,
+                  assigneeName: work.assigneeName ?? match.assigneeName,
+                },
+          )
+        : [
+            {
+              _key: `ow-${match.assigneeId.replace(/[^a-zA-Z0-9]/g, '').slice(-16)}`,
+              assignee: match.assigneeId,
+              assigneeName: match.assigneeName,
+              status: row.status || 'to_do',
+              inputs: row.inputs,
+              inputsReviewThread: row.inputsReviewThread ?? [],
+              deliverable: row.deliverable ?? [],
+              deliverableReviewThread: row.deliverableReviewThread ?? [],
+              periodDeliverables: row.periodDeliverables ?? [],
+            },
+          ]
     return {
       ...row,
       assignee: row.assignee ?? match.assigneeId,
       assigneeName: row.assigneeName ?? match.assigneeName,
+      officerWork: nextWork,
       officerCascadeAssignee: match,
     }
   })
@@ -242,15 +284,41 @@ export function enrichTaskRowsWithContractOfficer(
       row.assigneeName ??
       (assignee === contractOfficer._id ? contractOfficer.fullName : undefined) ??
       null
-    if (row.assignee === assignee && row.assigneeName === assigneeName) return row
-    return { ...row, assignee, assigneeName }
+    const nextWork =
+      (row.officerWork ?? []).length > 0
+        ? row.officerWork
+        : [
+            {
+              _key: `ow-${assignee.replace(/[^a-zA-Z0-9]/g, '').slice(-16)}`,
+              assignee,
+              assigneeName,
+              status: row.status || 'to_do',
+              inputs: row.inputs,
+              inputsReviewThread: row.inputsReviewThread ?? [],
+              deliverable: row.deliverable ?? [],
+              deliverableReviewThread: row.deliverableReviewThread ?? [],
+              periodDeliverables: row.periodDeliverables ?? [],
+            },
+          ]
+    if (
+      row.assignee === assignee &&
+      row.assigneeName === assigneeName &&
+      (row.officerWork ?? []).length > 0
+    ) {
+      return row
+    }
+    return { ...row, assignee, assigneeName, officerWork: nextWork }
   })
 }
 
 export function formatAssigneeDisplay(
   task: Pick<
     TaskRow,
-    'assignee' | 'assigneeName' | 'cascadeKind' | 'officerCascadeAssignee'
+    | 'assignee'
+    | 'assigneeName'
+    | 'cascadeKind'
+    | 'officerCascadeAssignee'
+    | 'officerWork'
   >,
   officers: Officer[],
   contractOfficer?: ContractOfficer | null,
@@ -261,6 +329,13 @@ export function formatAssigneeDisplay(
       officers.find(o => o._id === mirrored.assigneeId)?.fullName ??
       mirrored.assigneeName ??
       '—'
+    )
+  }
+  if (task.officerWork?.length) {
+    return formatAssigneeNames(
+      task.officerWork,
+      officers,
+      contractOfficer?.fullName,
     )
   }
   const assigneeId =
@@ -282,20 +357,21 @@ export function canEditTaskAssignee(
   canSuperviseDetailedTasks: boolean,
 ): boolean {
   if (task.officerCascadeAssignee) return false
-  return canSuperviseDetailedTasks && !isAssigneeLocked(task)
+  return canSuperviseDetailedTasks && !isCascadedDetailedTask(task)
 }
 
-/** True when inputs or any deliverables (one-off or period) exist. Locks assignee and task config. */
+/** True when inputs or any deliverables exist on any officer copy. Locks shared task config. */
 export function hasOfficerContent(task: TaskRow): boolean {
-  if (task.inputs?.file?.asset?.url) return true
-  if ((task.deliverable ?? []).some(e => e.file?.asset?.url)) return true
-  if (
-    (task.periodDeliverables ?? []).some(pd =>
-      (pd.deliverable ?? []).some(d => d.file?.asset?.url),
-    )
-  )
-    return true
-  return false
+  const works = task.officerWork?.length ? task.officerWork : [task]
+  return works.some(work => hasOfficerWorkContent(work))
+}
+
+export function taskAssigneeIds(task: TaskRow): string[] {
+  const fromWork = (task.officerWork ?? [])
+    .map(work => work.assignee)
+    .filter((id): id is string => Boolean(id))
+  if (fromWork.length > 0) return fromWork
+  return task.assignee ? [task.assignee] : []
 }
 
 interface DetailedTasksTableProps {
@@ -393,10 +469,21 @@ export function DetailedTasksTable({
             <div onClick={e => e.stopPropagation()}>
               <OfficerSwitcher
                 officers={officers}
-                value={row.original.assignee}
-                onChange={id =>
-                  onUpdateTask(row.original._key ?? '', { assignee: id })
-                }
+                multiple
+                values={taskAssigneeIds(row.original)}
+                lockedIds={lockedAssigneeIds(row.original.officerWork ?? [])}
+                onValuesChange={ids => {
+                  const names = new Map(
+                    officers.map(officer => [officer._id, officer.fullName]),
+                  )
+                  onUpdateTask(row.original._key ?? '', {
+                    officerWork: syncOfficerWorkCopies(
+                      row.original.officerWork ?? [],
+                      ids,
+                      names,
+                    ) as OfficerWorkRow[],
+                  })
+                }}
                 disabled={isSaving}
                 placeholder='Select officer'
                 sectionId={sectionId}
@@ -413,16 +500,35 @@ export function DetailedTasksTable({
           <DataTableColumnHeader column={column} title='Status' />
         ),
         cell: ({ row }) => {
-          const status = row.original.status ?? ''
-          const hasInputs = !!row.original.inputs?.file?.asset?.url
+          const works = row.original.officerWork ?? []
+          if (works.length > 1) {
+            return (
+              <span className='text-xs text-muted-foreground'>
+                {formatAggregateStatus(works)}
+              </span>
+            )
+          }
+          const work = works[0]
+          const status = work?.status ?? row.original.status ?? ''
+          const hasInputs = !!work?.inputs?.file?.asset?.url
           return (
             <Select
               value={status}
               onValueChange={v =>
-                onUpdateTask(row.original._key ?? '', { status: v })
+                onUpdateTask(row.original._key ?? '', {
+                  officerWork: works.length
+                    ? works.map(copy =>
+                        copy._key === work?._key
+                          ? { ...copy, status: v }
+                          : copy,
+                      )
+                    : works,
+                })
               }
               disabled={
-                isSaving || !row.original.assignee || !canSuperviseDetailedTasks
+                isSaving ||
+                !work?.assignee ||
+                !canSuperviseDetailedTasks
               }
             >
               <SelectTrigger

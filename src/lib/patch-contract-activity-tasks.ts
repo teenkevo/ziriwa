@@ -6,6 +6,11 @@ import { audit } from '@/lib/audit-log/events'
 import type { ActivityPageContractType } from '@/sanity/lib/contracts/get-contract-for-activity'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
+import {
+  normalizeOfficerWorkCopies,
+  storedTaskAssigneeId,
+  type OfficerWorkPersistInput,
+} from '@/lib/normalize-detailed-task-persist'
 
 const CONTRACT_LABEL: Record<ActivityPageContractType, string> = {
   sectionContract: 'Section contract',
@@ -90,14 +95,6 @@ export async function patchContractActivityTasks(
 
   const path = `objectives[${objectiveIndex}].initiatives[${initiativeIndex}].measurableActivities[${activityIndex}].tasks`
   const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest']
-  const TASK_STATUSES = [
-    'to_do',
-    'inputs_submitted',
-    'in_progress',
-    'delivered',
-    'in_review',
-    'done',
-  ]
   const normalizedTasks = tasks
     .map((t: unknown, i: number) => {
       if (typeof t === 'string') {
@@ -114,61 +111,13 @@ export async function patchContractActivityTasks(
           task: string
           priority?: string
           assignee?: string | null
+          officerWork?: OfficerWorkPersistInput[]
           status?: string
           targetDate?: string
           reportingFrequency?: string
           reportingPeriodStart?: string
           expectedDeliverable?: string
-          periodDeliverables?: Array<{
-            _key?: string
-            periodKey?: string
-            status?: string
-            submittedAt?: string
-            deliverable?: Array<{
-              _key?: string
-              file?: { asset?: { _ref?: string; _id?: string } }
-              tag?: string
-              locked?: boolean
-            }>
-            deliverableReviewThread?: Array<{
-              _key?: string
-              author?: string | { _id?: string } | null
-              role?: string
-              action?: string
-              message?: string
-              createdAt?: string
-              file?: { asset?: { _ref?: string; _id?: string } }
-            }>
-          }>
           _key?: string
-          inputs?: {
-            file?: { asset?: { _ref?: string; _id?: string } }
-            submittedAt?: string
-          }
-          inputsReviewThread?: Array<{
-            _key?: string
-            author?: string | null
-            role?: string
-            action?: string
-            message?: string
-            createdAt?: string
-            file?: { asset?: { _ref?: string; _id?: string } }
-          }>
-          deliverableReviewThread?: Array<{
-            _key?: string
-            author?: string | null
-            role?: string
-            action?: string
-            message?: string
-            createdAt?: string
-            file?: { asset?: { _ref?: string; _id?: string } }
-          }>
-          deliverable?: Array<{
-            _key?: string
-            file?: { asset?: { _ref?: string } }
-            tag?: string
-            locked?: boolean
-          }>
         }
         const FREQ_VALUES = ['weekly', 'monthly', 'quarterly', 'n/a']
         const task: Record<string, unknown> = {
@@ -178,9 +127,6 @@ export async function patchContractActivityTasks(
           priority: PRIORITIES.includes(obj.priority || '')
             ? obj.priority
             : 'medium',
-          status: TASK_STATUSES.includes(obj.status || '')
-            ? obj.status
-            : 'to_do',
         }
         if (typeof obj.targetDate === 'string') task.targetDate = obj.targetDate
         if (FREQ_VALUES.includes(obj.reportingFrequency || ''))
@@ -189,177 +135,31 @@ export async function patchContractActivityTasks(
           task.reportingPeriodStart = obj.reportingPeriodStart
         if (typeof obj.expectedDeliverable === 'string')
           task.expectedDeliverable = obj.expectedDeliverable
-        if (Array.isArray(obj.periodDeliverables))
-          task.periodDeliverables = obj.periodDeliverables
-        if (obj.inputs && typeof obj.inputs === 'object') {
-          const assetRef =
-            obj.inputs.file?.asset?._ref ?? obj.inputs.file?.asset?._id
-          if (assetRef) {
-            task.inputs = {
-              file: {
-                _type: 'file',
-                asset: { _type: 'reference', _ref: assetRef },
-              },
-              submittedAt: obj.inputs.submittedAt ?? new Date().toISOString(),
-            }
-          }
-        }
-        if (Array.isArray(obj.inputsReviewThread)) {
-          task.inputsReviewThread = obj.inputsReviewThread
-            .map(
-              (
-                entry: {
-                  _key?: string
-                  author?: string | null
-                  role?: string
-                  action?: string
-                  message?: string
-                  createdAt?: string
-                  file?: { asset?: { _ref?: string; _id?: string } }
-                },
-                ei: number,
-              ) => {
-                if (!entry.action) return null
-                const assetRef =
-                  entry.file?.asset?._ref ?? entry.file?.asset?._id
-                const authorRef =
-                  typeof entry.author === 'string'
-                    ? entry.author
-                    : (entry.author as unknown as { _id?: string } | null)
-                        ?._id
-                const out: Record<string, unknown> = {
-                  _key:
-                    entry._key ??
-                    `thread-${ei}-${crypto.randomUUID().slice(0, 8)}`,
-                  author: authorRef
-                    ? { _type: 'reference', _ref: authorRef }
-                    : undefined,
-                  role: ['officer', 'supervisor'].includes(entry.role || '')
-                    ? entry.role
-                    : undefined,
-                  action: ['submit', 'reject', 'approve', 'respond'].includes(
-                    entry.action,
-                  )
-                    ? entry.action
-                    : undefined,
-                  message:
-                    typeof entry.message === 'string' ? entry.message : undefined,
-                  createdAt: entry.createdAt ?? new Date().toISOString(),
-                }
-                if (assetRef) {
-                  out.file = {
-                    _type: 'file',
-                    asset: { _type: 'reference', _ref: assetRef },
-                  }
-                }
-                return out
-              },
-            )
-            .filter(Boolean)
-        }
-        if (Array.isArray(obj.deliverableReviewThread)) {
-          task.deliverableReviewThread = obj.deliverableReviewThread
-            .map(
-              (
-                entry: {
-                  _key?: string
-                  author?: string | null
-                  role?: string
-                  action?: string
-                  message?: string
-                  createdAt?: string
-                  file?: { asset?: { _ref?: string; _id?: string } }
-                },
-                ei: number,
-              ) => {
-                if (!entry.action) return null
-                const assetRef =
-                  entry.file?.asset?._ref ?? entry.file?.asset?._id
-                const authorRef =
-                  typeof entry.author === 'string'
-                    ? entry.author
-                    : (entry.author as unknown as { _id?: string } | null)?._id
-                const out: Record<string, unknown> = {
-                  _key:
-                    entry._key ??
-                    `dr-thread-${ei}-${crypto.randomUUID().slice(0, 8)}`,
-                  author: authorRef
-                    ? { _type: 'reference', _ref: authorRef }
-                    : undefined,
-                  role: ['officer', 'supervisor'].includes(entry.role || '')
-                    ? entry.role
-                    : undefined,
-                  action: ['submit', 'reject', 'approve', 'respond'].includes(
-                    entry.action,
-                  )
-                    ? entry.action
-                    : undefined,
-                  message:
-                    typeof entry.message === 'string' ? entry.message : undefined,
-                  createdAt: entry.createdAt ?? new Date().toISOString(),
-                }
-                if (assetRef) {
-                  out.file = {
-                    _type: 'file',
-                    asset: { _type: 'reference', _ref: assetRef },
-                  }
-                }
-                return out
-              },
-            )
-            .filter(Boolean)
-        }
+
         const stored = obj._key ? storedTaskByKey.get(obj._key) : undefined
         if (stored?.cascadeKind === 'cascaded') {
           task.cascadeKind = 'cascaded'
-          const storedAssignee = stored.assignee
-          let assigneeRef: string | null = null
-          if (
-            storedAssignee &&
-            typeof storedAssignee === 'object' &&
-            '_ref' in storedAssignee &&
-            typeof (storedAssignee as { _ref?: string })._ref === 'string'
-          ) {
-            assigneeRef = (storedAssignee as { _ref: string })._ref
-          }
-          if (!assigneeRef && typeof obj.assignee === 'string') {
-            assigneeRef = obj.assignee
-          }
-          if (!assigneeRef && contractOfficerId) {
-            assigneeRef = contractOfficerId
-          }
-          if (assigneeRef) {
-            task.assignee = { _type: 'reference', _ref: assigneeRef }
-          }
-        } else if (obj.assignee && typeof obj.assignee === 'string') {
-          task.assignee = { _type: 'reference', _ref: obj.assignee }
-        }
-        if (Array.isArray(obj.deliverable)) {
-          task.deliverable = obj.deliverable
-            .map(
-              (
-                ev: {
-                  _key?: string
-                  file?: { asset?: { _ref?: string } }
-                  tag?: string
-                  locked?: boolean
-                },
-                ei: number,
-              ) => {
-                const assetRef = ev.file?.asset?._ref
-                if (!assetRef) return null
-                return {
-                  _key: ev._key ?? `ev-${ei}-${crypto.randomUUID().slice(0, 8)}`,
-                  file: {
-                    _type: 'file',
-                    asset: { _type: 'reference', _ref: assetRef },
-                  },
-                  tag: ev.tag === 'main' ? 'main' : 'support',
-                  locked: ev.locked === true,
-                }
-              },
-            )
-            .filter(Boolean)
+          if (stored.cascadeSource) task.cascadeSource = stored.cascadeSource
+          const assigneeRef =
+            storedTaskAssigneeId(stored) ??
+            (typeof obj.assignee === 'string' ? obj.assignee : null) ??
+            contractOfficerId
+          const cascadeCopies = obj.officerWork?.length
+            ? obj.officerWork.map(copy => ({
+                ...copy,
+                assignee: assigneeRef,
+              }))
+            : undefined
+          task.officerWork = cascadeCopies
+            ? normalizeOfficerWorkCopies(cascadeCopies, assigneeRef)
+            : Array.isArray(stored.officerWork) && stored.officerWork.length
+              ? stored.officerWork
+              : normalizeOfficerWorkCopies(undefined, assigneeRef)
+        } else {
+          task.officerWork = normalizeOfficerWorkCopies(
+            obj.officerWork,
+            typeof obj.assignee === 'string' ? obj.assignee : null,
+          )
         }
         return task
       }

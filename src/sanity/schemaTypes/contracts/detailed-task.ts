@@ -17,6 +17,207 @@ const TASK_STATUS_OPTIONS = [
   { title: 'Done', value: 'done' },
 ]
 
+const REVIEW_ROLE_OPTIONS = [
+  { title: 'Officer', value: 'officer' },
+  { title: 'Supervisor', value: 'supervisor' },
+]
+
+const REVIEW_ACTION_OPTIONS = [
+  { title: 'Submit', value: 'submit' },
+  { title: 'Reject', value: 'reject' },
+  { title: 'Approve', value: 'approve' },
+  { title: 'Respond', value: 'respond' },
+]
+
+function reviewThreadField(
+  name: string,
+  title: string,
+  entryName: string,
+  description: string,
+  hidden?: boolean,
+) {
+  return defineField({
+    name,
+    title,
+    type: 'array',
+    hidden,
+    of: [
+      {
+        type: 'object',
+        name: entryName,
+        fields: [
+          { name: 'author', title: 'Author', type: 'reference', to: [{ type: 'staff' }] },
+          {
+            name: 'role',
+            title: 'Role',
+            type: 'string',
+            options: { list: REVIEW_ROLE_OPTIONS, layout: 'dropdown' },
+          },
+          {
+            name: 'action',
+            title: 'Action',
+            type: 'string',
+            options: { list: REVIEW_ACTION_OPTIONS, layout: 'dropdown' },
+          },
+          { name: 'message', title: 'Message', type: 'text' },
+          { name: 'createdAt', title: 'Created At', type: 'datetime' },
+          {
+            name: 'file',
+            title: 'File',
+            type: 'file',
+            description: 'Attached file for submit/respond entries.',
+          },
+        ],
+      },
+    ],
+    description,
+  })
+}
+
+function deliverableArrayField(hidden?: boolean) {
+  return defineField({
+    name: 'deliverable',
+    title: 'Deliverable',
+    type: 'array',
+    hidden,
+    of: [
+      {
+        type: 'object',
+        name: 'deliverableItem',
+        fields: [
+          { name: 'file', title: 'File', type: 'file' },
+          {
+            name: 'tag',
+            title: 'Tag',
+            type: 'string',
+            options: {
+              list: [
+                { title: 'Support', value: 'support' },
+                { title: 'Main', value: 'main' },
+              ],
+              layout: 'dropdown',
+            },
+            initialValue: 'support',
+          },
+          {
+            name: 'locked',
+            title: 'Locked',
+            type: 'boolean',
+            initialValue: false,
+            description:
+              'When true, deliverable has been sent for supervisor review and cannot be deleted.',
+          },
+        ],
+        preview: {
+          select: { tag: 'tag' },
+          prepare({ tag }) {
+            return {
+              title:
+                tag === 'main' ? 'Main deliverable' : 'Supporting deliverable',
+            }
+          },
+        },
+      },
+    ],
+  })
+}
+
+function periodDeliverablesField(hidden?: boolean) {
+  return defineField({
+    name: 'periodDeliverables',
+    title: 'Period Deliverables',
+    type: 'array',
+    hidden,
+    of: [
+      {
+        type: 'object',
+        name: 'periodDeliverable',
+        fields: [
+          {
+            name: 'periodKey',
+            title: 'Period Key',
+            type: 'string',
+            description:
+              'e.g. 2025-01 (monthly), 2025-W01 (weekly), 2025-Q1 (quarterly)',
+          },
+          {
+            name: 'status',
+            title: 'Status',
+            type: 'string',
+            options: {
+              list: [
+                { title: 'Pending', value: 'pending' },
+                { title: 'Delivered', value: 'delivered' },
+                { title: 'In review', value: 'in_review' },
+                { title: 'Done', value: 'done' },
+              ],
+              layout: 'dropdown',
+            },
+            initialValue: 'pending',
+          },
+          { name: 'submittedAt', title: 'Submitted At', type: 'datetime' },
+          deliverableArrayField(),
+          reviewThreadField(
+            'deliverableReviewThread',
+            'Deliverable Review Thread',
+            'periodDeliverableReviewEntry',
+            'Back-and-forth between officer and supervisor on main deliverable for this period.',
+          ),
+        ],
+        preview: {
+          select: { periodKey: 'periodKey' },
+          prepare({ periodKey }) {
+            return { title: periodKey || 'Period' }
+          },
+        },
+      },
+    ],
+    description:
+      'Tracks which periods have been reported. Populated by automated reporting module.',
+  })
+}
+
+function officerWorkFields() {
+  return [
+    defineField({
+      name: 'assignee',
+      title: 'Assignee',
+      type: 'reference',
+      to: [{ type: 'staff' }],
+    }),
+    defineField({
+      name: 'status',
+      title: 'Status',
+      type: 'string',
+      options: { list: TASK_STATUS_OPTIONS, layout: 'dropdown' },
+      initialValue: 'to_do',
+    }),
+    defineField({
+      name: 'inputs',
+      title: 'Inputs',
+      type: 'object',
+      fields: [
+        { name: 'file', title: 'File', type: 'file' },
+        { name: 'submittedAt', title: 'Submitted At', type: 'datetime' },
+      ],
+    }),
+    reviewThreadField(
+      'inputsReviewThread',
+      'Inputs Review Thread',
+      'inputsReviewEntry',
+      'Trackable back-and-forth between officer and supervisor on inputs.',
+    ),
+    deliverableArrayField(),
+    reviewThreadField(
+      'deliverableReviewThread',
+      'Deliverable Review Thread',
+      'deliverableReviewEntry',
+      'Trackable back-and-forth between officer and supervisor on main deliverable.',
+    ),
+    periodDeliverablesField(),
+  ]
+}
+
 export const detailedTask = defineType({
   name: 'detailedTask',
   title: 'Detailed Task',
@@ -39,10 +240,34 @@ export const detailedTask = defineType({
       initialValue: 'medium',
     }),
     defineField({
+      name: 'officerWork',
+      title: 'Officer work',
+      type: 'array',
+      description:
+        'Independent work copy per assigned officer (status, inputs, deliverables).',
+      of: [
+        {
+          type: 'object',
+          name: 'detailedTaskOfficerWork',
+          fields: officerWorkFields(),
+          preview: {
+            select: { assigneeName: 'assignee.fullName', status: 'status' },
+            prepare({ assigneeName, status }) {
+              return {
+                title: assigneeName || 'Unassigned officer',
+                subtitle: status || 'to_do',
+              }
+            },
+          },
+        },
+      ],
+    }),
+    defineField({
       name: 'assignee',
       title: 'Assignee',
       type: 'reference',
       to: [{ type: 'staff' }],
+      hidden: true,
     }),
     defineField({
       name: 'inputs',
@@ -61,6 +286,7 @@ export const detailedTask = defineType({
         },
       ],
       description: 'Single file submitted by officer as inputs/dependencies. Available when task is assigned.',
+      hidden: true,
     }),
     defineField({
       name: 'inputsReviewThread',
@@ -110,6 +336,7 @@ export const detailedTask = defineType({
         },
       ],
       description: 'Trackable back-and-forth between officer and supervisor on inputs.',
+      hidden: true,
     }),
     defineField({
       name: 'status',
@@ -120,6 +347,7 @@ export const detailedTask = defineType({
         layout: 'dropdown',
       },
       initialValue: 'to_do',
+      hidden: true,
     }),
     defineField({
       name: 'targetDate',
@@ -313,7 +541,7 @@ export const detailedTask = defineType({
       ],
       description:
         'Tracks which periods have been reported. Populated by automated reporting module.',
-      hidden: ({ parent }) => parent?.reportingFrequency === 'n/a',
+      hidden: true,
     }),
     defineField({
       name: 'deliverable',
@@ -362,6 +590,7 @@ export const detailedTask = defineType({
           },
         },
       ],
+      hidden: true,
     }),
     defineField({
       name: 'cascadeKind',
@@ -435,6 +664,7 @@ export const detailedTask = defineType({
       ],
       description:
         'Trackable back-and-forth between officer and supervisor on main deliverable.',
+      hidden: true,
     }),
   ],
   preview: {
