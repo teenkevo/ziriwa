@@ -539,12 +539,9 @@ export function SectionPageContent({
                 sectionAccess={sectionAccess}
                 workspaceBasePath={getWorkspaceBasePathForAccess(sectionAccess)}
                 engagement={stakeholderEngagement}
-                dueToday={dueToday}
-                dueThisWeek={dueThisWeek}
-                dueThisMonth={dueThisMonth}
-                dueThisQuarter={dueThisQuarter}
                 today={today}
                 onNavigateToTab={setSectionTab}
+                supervisorCount={supervisors.length}
               />
             )}
           </TabsContent>

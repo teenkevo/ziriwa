@@ -85,6 +85,35 @@ export type AtRiskPeriodDeliverable = {
   objectiveTitle?: string
 }
 
+/** Incomplete measurable activity with a due date on or after today. */
+export type UpcomingMeasurableActivity = {
+  _key: string
+  title: string
+  targetDate: string
+  daysUntilDue: number
+  objectiveTitle?: string
+  initiativeTitle?: string
+  initiativeCode?: string
+  activityType?: 'kpi' | 'cross-cutting' | 'measurable'
+  contractId: string
+  objectiveIndex: number
+  initiativeIndex: number
+  activityIndex: number
+  status?: string
+}
+
+/** Period deliverable whose period has not ended yet and is not done. */
+export type UpcomingPeriodDeliverable = {
+  _key: string
+  title: string
+  periodLabel: string
+  endDate: string
+  daysUntilDue: number
+  activityTitle?: string
+  initiativeTitle?: string
+  objectiveTitle?: string
+}
+
 export type AtRiskSprintTask = {
   _key: string
   title: string
@@ -215,6 +244,8 @@ export type SectionDashboardMetrics = {
 
   objectiveProgress: ObjectiveProgress[]
 
+  upcomingActivities: UpcomingMeasurableActivity[]
+  upcomingPeriodDeliverables: UpcomingPeriodDeliverable[]
   overdueActivities: AtRiskActivity[]
   overduePeriodDeliverables: AtRiskPeriodDeliverable[]
   pendingReviewTasks: AtRiskSprintTask[]
@@ -301,6 +332,8 @@ export function computeSectionDashboardMetrics(input: {
   let contractCompletedActivities = 0
 
   const objectiveProgress: ObjectiveProgress[] = []
+  const upcomingActivities: UpcomingMeasurableActivity[] = []
+  const upcomingPeriodDeliverables: UpcomingPeriodDeliverable[] = []
   const overdueActivities: AtRiskActivity[] = []
   const overduePeriodDeliverables: AtRiskPeriodDeliverable[] = []
 
@@ -341,6 +374,31 @@ export function computeSectionDashboardMetrics(input: {
         const freq = (act.reportingFrequency ?? 'n/a') as ReportingFrequencyKey
         if (freq in reportingFrequencyMix) reportingFrequencyMix[freq]++
 
+        // Upcoming measurable activities (activity-level due date, not yet completed)
+        if (act.status !== 'completed') {
+          const activityDue =
+            act.reportingFrequency === 'weekly'
+              ? getCurrentPeriodDueDate('weekly') || act.targetDate
+              : act.targetDate
+          if (activityDue && activityDue >= today) {
+            upcomingActivities.push({
+              _key: act._key,
+              title: act.title || 'Untitled activity',
+              targetDate: activityDue,
+              daysUntilDue: diffDays(today, activityDue),
+              objectiveTitle: obj.title,
+              initiativeTitle: init.title,
+              initiativeCode: init.code,
+              activityType: act.activityType,
+              contractId,
+              objectiveIndex: objIdx,
+              initiativeIndex: initIdx,
+              activityIndex: actIdx,
+              status: act.status,
+            })
+          }
+        }
+
         const rawTasks = act.tasks ?? []
         for (let taskIdx = 0; taskIdx < rawTasks.length; taskIdx++) {
           const t = rawTasks[taskIdx]
@@ -368,7 +426,7 @@ export function computeSectionDashboardMetrics(input: {
           })
         }
 
-        // KPI tasks: scan periodDeliverables for overdue (period end < today, status != done)
+        // KPI tasks: scan periodDeliverables for overdue + upcoming
         if (act.activityType === 'kpi' && act.tasks?.length) {
           for (const t of act.tasks) {
             const task = typeof t === 'string' ? null : (t as DetailedTask)
@@ -389,6 +447,17 @@ export function computeSectionDashboardMetrics(input: {
                   periodLabel: info.label,
                   endDate: info.endDate,
                   daysOverdue: diffDays(info.endDate, today),
+                  activityTitle: act.title,
+                  initiativeTitle: init.title,
+                  objectiveTitle: obj.title,
+                })
+              } else {
+                upcomingPeriodDeliverables.push({
+                  _key: `${act._key}-${task._key ?? 'task'}-${pd.periodKey}`,
+                  title: task.task || act.title,
+                  periodLabel: info.label,
+                  endDate: info.endDate,
+                  daysUntilDue: diffDays(today, info.endDate),
                   activityTitle: act.title,
                   initiativeTitle: init.title,
                   objectiveTitle: obj.title,
@@ -419,6 +488,8 @@ export function computeSectionDashboardMetrics(input: {
         : Math.round((contractCompletedActivities / activitiesCount) * 100),
   }
 
+  upcomingActivities.sort((a, b) => a.daysUntilDue - b.daysUntilDue)
+  upcomingPeriodDeliverables.sort((a, b) => a.daysUntilDue - b.daysUntilDue)
   overdueActivities.sort((a, b) => b.daysOverdue - a.daysOverdue)
   overduePeriodDeliverables.sort((a, b) => b.daysOverdue - a.daysOverdue)
   objectiveProgress.sort((a, b) => {
@@ -680,6 +751,8 @@ export function computeSectionDashboardMetrics(input: {
 
     objectiveProgress,
 
+    upcomingActivities,
+    upcomingPeriodDeliverables,
     overdueActivities,
     overduePeriodDeliverables,
     pendingReviewTasks,

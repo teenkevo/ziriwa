@@ -421,11 +421,8 @@ export function ManagerWorkspaceContent({
           workspaceBasePath={workspaceBasePath}
           workspaceScope={scopeLabels.kind}
           engagement={stakeholderEngagement}
-          dueToday={dueToday}
-          dueThisWeek={dueThisWeek}
-          dueThisMonth={dueThisMonth}
-          dueThisQuarter={dueThisQuarter}
           today={today}
+          supervisorCount={supervisors.length}
         />
       )
     }
@@ -840,9 +837,11 @@ export function ManagerWorkspaceContent({
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
         <div className='flex flex-col gap-2'>
           <h1 className='text-2xl font-bold'>{title}</h1>
-          <p className='max-w-3xl text-sm text-muted-foreground'>
-            {config.description}
-          </p>
+          {view !== 'dashboard' ? (
+            <p className='max-w-3xl text-sm text-muted-foreground'>
+              {config.description}
+            </p>
+          ) : null}
         </div>
 
         {content}
