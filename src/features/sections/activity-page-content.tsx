@@ -334,9 +334,6 @@ export function ActivityPageContent({
       : numberingKind === 'cross-cutting'
         ? 'Cross-cutting'
         : 'measurable'
-  /** KPI activities use a free-form due date; periodic cycles apply to CC/measurable. */
-  const dueDateReportingFrequency =
-    numberingKind === 'kpi' ? 'n/a' : reportingFrequency
 
   const [title, setTitle] = React.useState(activity.title)
   const [aim, setAim] = React.useState(activity.aim ?? '')
@@ -344,6 +341,9 @@ export function ActivityPageContent({
   const [reportingFrequency, setReportingFrequency] = React.useState<
     'weekly' | 'monthly' | 'quarterly' | 'n/a'
   >(activity.reportingFrequency ?? 'n/a')
+  /** KPI activities use a free-form due date; periodic cycles apply to CC/measurable. */
+  const dueDateReportingFrequency =
+    numberingKind === 'kpi' ? 'n/a' : reportingFrequency
 
   React.useEffect(() => {
     setTitle(activity.title)
