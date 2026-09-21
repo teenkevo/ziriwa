@@ -61,7 +61,7 @@ async function getStaffByEmail(email: string): Promise<StaffRow | null> {
   return client.fetch<StaffRow | null>(
     /* groq */ `*[_type == "staff" && lower(email) == $email && status == "active"][0]{
       _id,
-      name,
+      "name": coalesce(fullName, firstName + " " + lastName, email),
       email,
       role
     }`,

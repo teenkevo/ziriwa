@@ -73,6 +73,7 @@ function decodePayload(raw: string): ImpersonationPayload | null {
   }
 }
 
+/** Clear impersonation on a Route Handler response (reliable Set-Cookie). */
 export function applyImpersonationCookieClear(response: NextResponse): void {
   const options = impersonationCookieClearOptions()
   response.cookies.set(options.name, options.value, {
@@ -84,6 +85,35 @@ export function applyImpersonationCookieClear(response: NextResponse): void {
   })
 }
 
+/**
+ * Set impersonation on a Route Handler response.
+ * Prefer this over `cookies().set()` — same reliability pattern as workspace enter.
+ */
+export async function applyImpersonationCookieSet(
+  response: NextResponse,
+  email: string,
+): Promise<void> {
+  const { userId } = await auth()
+  if (!userId) {
+    throw new Error('Cannot impersonate without an authenticated session')
+  }
+
+  const normalized = email.trim().toLowerCase()
+  const payload = encodePayload({
+    email: normalized,
+    clerkUserId: userId,
+    exp: Date.now() + IMPERSONATION_COOKIE_MAX_AGE_SEC * 1000,
+  })
+  response.cookies.set(IMPERSONATION_COOKIE_NAME, payload, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: IMPERSONATION_COOKIE_MAX_AGE_SEC,
+  })
+}
+
+/** @deprecated Prefer `applyImpersonationCookieClear` on the Route Handler response. */
 export async function clearImpersonationCookie(): Promise<void> {
   const cookieStore = await cookies()
   const options = impersonationCookieClearOptions()
@@ -112,6 +142,7 @@ export async function readImpersonationEmail(): Promise<string | null> {
   return payload.email
 }
 
+/** @deprecated Prefer `applyImpersonationCookieSet` on the Route Handler response. */
 export async function setImpersonationCookie(email: string): Promise<void> {
   const { userId } = await auth()
   if (!userId) {

@@ -65,7 +65,7 @@ export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
         lower(manager->email) == $email ||
         lower(division->assistantCommissioner->email) == $email ||
         division._ref in *[_type == "staff" && lower(email) == $email && status == "active" && role == "assistant_commissioner" && defined(division._ref)].division._ref ||
-        _id in *[_type == "staff" && lower(email) == $email && defined(section._ref)].section._ref
+        _id in *[_type == "staff" && lower(email) == $email && coalesce(status, "active") == "active" && defined(section._ref)].section._ref
       )] | order(name asc) {
         _id,
         name,

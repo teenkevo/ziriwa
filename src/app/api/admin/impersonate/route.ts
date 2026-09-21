@@ -4,14 +4,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { audit } from '@/lib/audit-log/events'
 import { isSuperadmin } from '@/lib/authz/guards.server'
 import {
-  clearImpersonationCookie,
+  applyImpersonationCookieClear,
+  applyImpersonationCookieSet,
   readImpersonationEmail,
-  setImpersonationCookie,
 } from '@/lib/impersonation/cookie.server'
 import { mainstreamDashboardPathForRole } from '@/lib/impersonation/redirect.server'
 import { getViewerContext } from '@/lib/impersonation/viewer-context.server'
 import { parseAppRole, type AppRole } from '@/lib/app-role'
 import { getSuperadminEmailWhitelist } from '@/lib/authz/env'
+import { applyWorkspaceCookiesToResponse } from '@/lib/workspace-cookies'
 import { client } from '@/sanity/lib/client'
 
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,7 @@ async function loadImpersonationTargets(): Promise<
     /* groq */ `
       *[_type == "staff" && status == "active" && defined(email)] | order(name asc) {
         _id,
-        name,
+        "name": coalesce(fullName, firstName + " " + lastName, email),
         "email": lower(email),
         role
       }
@@ -61,7 +62,7 @@ async function loadStaffTarget(email: string): Promise<StaffTarget | null> {
   return client.fetch<StaffTarget | null>(
     /* groq */ `*[_type == "staff" && lower(email) == $email && status == "active"][0]{
       _id,
-      name,
+      "name": coalesce(fullName, firstName + " " + lastName, email),
       email,
       role
     }`,
@@ -85,8 +86,9 @@ export async function GET() {
 
   const staff = await loadStaffTarget(email)
   if (!staff) {
-    await clearImpersonationCookie()
-    return NextResponse.json({ active: false, targets })
+    const res = NextResponse.json({ active: false, targets })
+    applyImpersonationCookieClear(res)
+    return res
   }
 
   return NextResponse.json({
@@ -134,8 +136,6 @@ export async function POST(req: NextRequest) {
   }
 
   const ctx = await getViewerContext()
-  await setImpersonationCookie(email)
-
   const realStaff = await loadStaffTarget(ctx.realEmail)
   audit.impersonation.started(
     staff._id,
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     },
   )
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     success: true,
     redirect: mainstreamDashboardPathForRole(role),
     target: {
@@ -163,6 +163,12 @@ export async function POST(req: NextRequest) {
       staffId: staff._id,
     },
   })
+  // Set-Cookie on the response (not cookies().set) so production browsers keep it.
+  await applyImpersonationCookieSet(res, email)
+  // Impersonation is always mainstream — leftover project workspace cookies
+  // otherwise make supervisor/manager dashboards show "No section assigned".
+  applyWorkspaceCookiesToResponse(res, 'mainstream')
+  return res
 }
 
 export async function DELETE() {
@@ -174,8 +180,6 @@ export async function DELETE() {
   const email = await readImpersonationEmail()
   const ctx = await getViewerContext()
   const staff = email ? await loadStaffTarget(email) : null
-
-  await clearImpersonationCookie()
 
   if (email && staff && ctx.isSuperadmin) {
     const realStaff = await loadStaffTarget(ctx.realEmail)
@@ -196,8 +200,10 @@ export async function DELETE() {
     )
   }
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     success: true,
     redirect: '/departments',
   })
+  applyImpersonationCookieClear(res)
+  return res
 }
