@@ -7,11 +7,9 @@ const POWER_INTEREST_OPTIONS = [
 ] as const
 
 const STAKEHOLDER_CATEGORY_OPTIONS = [
-  { title: 'Regulatory body', value: 'regulatory_body' },
-  { title: 'Community leader', value: 'community_leader' },
-  { title: 'Supplier', value: 'supplier' },
+  { title: 'Vendor', value: 'vendor' },
   { title: 'Partner organization', value: 'partner_organization' },
-  { title: 'Internal (other division/section)', value: 'internal' },
+  { title: 'Internal', value: 'internal' },
   { title: 'Other', value: 'other' },
 ] as const
 
@@ -49,7 +47,23 @@ export const stakeholderEntry = defineType({
         list: STAKEHOLDER_CATEGORY_OPTIONS as unknown as { title: string; value: string }[],
         layout: 'dropdown',
       },
+      validation: Rule => Rule.required(),
       description: 'Category/type of stakeholder',
+    }),
+    defineField({
+      name: 'stakeholderOther',
+      title: 'Other stakeholder type',
+      type: 'string',
+      description: 'Required when stakeholder type is Other',
+      hidden: ({ parent }) => parent?.stakeholder !== 'other',
+      validation: Rule =>
+        Rule.custom((value, context) => {
+          const parent = context.parent as { stakeholder?: string } | undefined
+          if (parent?.stakeholder === 'other' && !String(value ?? '').trim()) {
+            return 'Please specify the stakeholder type'
+          }
+          return true
+        }),
     }),
     defineField({
       name: 'designation',

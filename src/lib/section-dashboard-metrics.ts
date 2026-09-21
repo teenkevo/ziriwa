@@ -170,6 +170,25 @@ export type UpcomingEngagement = {
   designation?: string
 }
 
+/** Follow-up action from a stakeholder engagement, assigned within the section. */
+export type StakeholderActionTrackerItem = {
+  _key: string
+  description: string
+  dueDate: string
+  daysUntilDue: number
+  isOverdue: boolean
+  assigneeName?: string
+  stakeholderName: string
+  stakeholderKey: string
+}
+
+export type StakeholderActionTracker = {
+  total: number
+  overdue: number
+  dueSoon: number
+  items: StakeholderActionTrackerItem[]
+}
+
 export type ObjectiveProgress = {
   _key: string
   code?: string
@@ -255,6 +274,7 @@ export type SectionDashboardMetrics = {
   stakeholderQuadrants: StakeholderQuadrantCounts
   stakeholderPriorityMix: { H: number; M: number; L: number; unknown: number }
   upcomingEngagements: UpcomingEngagement[]
+  actionTracker: StakeholderActionTracker
 }
 
 function diffDays(fromIso: string, toIso: string): number {
@@ -638,12 +658,18 @@ export function computeSectionDashboardMetrics(input: {
   const stakeholderPriorityMix = { H: 0, M: 0, L: 0, unknown: 0 }
   const lateEngagements: LateEngagement[] = []
   const upcomingEngagements: UpcomingEngagement[] = []
+  const actionTrackerItems: StakeholderActionTrackerItem[] = []
   let stakeholderTotal = 0
   let stakeholderWithReport = 0
 
   const in30Days = (() => {
     const d = new Date(today + 'T00:00:00')
     d.setDate(d.getDate() + 30)
+    return d.toISOString().slice(0, 10)
+  })()
+  const in7Days = (() => {
+    const d = new Date(today + 'T00:00:00')
+    d.setDate(d.getDate() + 7)
     return d.toISOString().slice(0, 10)
   })()
 
@@ -707,12 +733,40 @@ export function computeSectionDashboardMetrics(input: {
         designation: entry.designation,
       })
     }
+
+    for (const point of entry.actionPoints ?? []) {
+      if (!point?._key || !point.dueDate) continue
+      const daysUntilDue = diffDays(today, point.dueDate)
+      actionTrackerItems.push({
+        _key: `${entry._key}-${point._key}`,
+        description: point.description?.trim() || 'Action point',
+        dueDate: point.dueDate,
+        daysUntilDue,
+        isOverdue: point.dueDate < today,
+        assigneeName: point.assignee?.fullName,
+        stakeholderName: entry.name,
+        stakeholderKey: entry._key,
+      })
+    }
   }
 
   lateEngagements.sort((a, b) => b.daysLate - a.daysLate)
   upcomingEngagements.sort((a, b) =>
     a.proposedDate.localeCompare(b.proposedDate),
   )
+  actionTrackerItems.sort((a, b) => {
+    if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
+    return a.dueDate.localeCompare(b.dueDate)
+  })
+
+  const actionTracker: StakeholderActionTracker = {
+    total: actionTrackerItems.length,
+    overdue: actionTrackerItems.filter(i => i.isOverdue).length,
+    dueSoon: actionTrackerItems.filter(
+      i => !i.isOverdue && i.dueDate <= in7Days,
+    ).length,
+    items: actionTrackerItems,
+  }
 
   return {
     fyLabel:
@@ -762,5 +816,6 @@ export function computeSectionDashboardMetrics(input: {
     stakeholderQuadrants,
     stakeholderPriorityMix,
     upcomingEngagements,
+    actionTracker,
   }
 }

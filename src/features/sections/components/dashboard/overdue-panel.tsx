@@ -714,9 +714,11 @@ export function OverduePanel({
             )}
           >
             Needs action
-            <span className='ml-1.5 tabular-nums opacity-80'>
-              {totalAtRisk}
-            </span>
+            {totalAtRisk > 0 ? (
+              <span className='ml-1.5 tabular-nums opacity-80'>
+                {totalAtRisk}
+              </span>
+            ) : null}
           </button>
         </div>
 

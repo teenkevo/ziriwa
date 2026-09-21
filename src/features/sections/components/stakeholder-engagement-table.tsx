@@ -43,10 +43,24 @@ import type { StakeholderEntry } from '@/sanity/lib/stakeholder-engagement/get-s
 const STAKEHOLDER_LABELS: Record<string, string> = {
   regulatory_body: 'Regulatory body',
   community_leader: 'Community leader',
-  supplier: 'Supplier',
+  vendor: 'Vendor',
+  supplier: 'Vendor',
   partner_organization: 'Partner organization',
   internal: 'Internal',
   other: 'Other',
+}
+
+function formatStakeholderType(entry: {
+  stakeholder?: string
+  stakeholderOther?: string
+}): string {
+  if (entry.stakeholder === 'other') {
+    const other = entry.stakeholderOther?.trim()
+    return other || 'Other'
+  }
+  return (
+    STAKEHOLDER_LABELS[entry.stakeholder ?? ''] ?? entry.stakeholder ?? '—'
+  )
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -155,11 +169,7 @@ export function StakeholderEngagementTable({
               stakeholders.map((s, i) => (
                 <TableRow key={s._key}>
                   <TableCell>{s.sn ?? i + 1}</TableCell>
-                  <TableCell>
-                    {STAKEHOLDER_LABELS[s.stakeholder ?? ''] ??
-                      s.stakeholder ??
-                      '—'}
-                  </TableCell>
+                  <TableCell>{formatStakeholderType(s)}</TableCell>
                   <TableCell>{s.designation ?? '—'}</TableCell>
                   <TableCell className='font-medium'>{s.name}</TableCell>
                   <TableCell>{s.initiativeCode ?? '—'}</TableCell>

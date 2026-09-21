@@ -11,9 +11,7 @@ import {
 
 const POWER_VALUES = ['H', 'M', 'L'] as const
 const STAKEHOLDER_CATEGORIES = [
-  'regulatory_body',
-  'community_leader',
-  'supplier',
+  'vendor',
   'partner_organization',
   'internal',
   'other',
@@ -28,6 +26,21 @@ const MODE_OPTIONS = [
   'other',
 ] as const
 
+function normalizeStakeholderCategory(
+  value: unknown,
+): (typeof STAKEHOLDER_CATEGORIES)[number] | undefined {
+  if (typeof value !== 'string') return undefined
+  const mapped = value === 'supplier' ? 'vendor' : value
+  if (
+    STAKEHOLDER_CATEGORIES.includes(
+      mapped as (typeof STAKEHOLDER_CATEGORIES)[number],
+    )
+  ) {
+    return mapped as (typeof STAKEHOLDER_CATEGORIES)[number]
+  }
+  return undefined
+}
+
 function buildStakeholderDoc(payload: Record<string, unknown>) {
   const doc: Record<string, unknown> = {
     _type: 'stakeholderEntry',
@@ -35,8 +48,15 @@ function buildStakeholderDoc(payload: Record<string, unknown>) {
     name: String(payload.name || '').trim(),
   }
   if (typeof payload.sn === 'number') doc.sn = payload.sn
-  if (STAKEHOLDER_CATEGORIES.includes(payload.stakeholder as (typeof STAKEHOLDER_CATEGORIES)[number]))
-    doc.stakeholder = payload.stakeholder
+  const stakeholder = normalizeStakeholderCategory(payload.stakeholder)
+  if (stakeholder) doc.stakeholder = stakeholder
+  if (stakeholder === 'other') {
+    if (typeof payload.stakeholderOther === 'string') {
+      doc.stakeholderOther = payload.stakeholderOther.trim()
+    }
+  } else if (stakeholder) {
+    doc.stakeholderOther = null
+  }
   if (typeof payload.designation === 'string') doc.designation = payload.designation.trim()
   if (typeof payload.phoneNumber === 'string') doc.phoneNumber = payload.phoneNumber.trim()
   if (typeof payload.emailAddress === 'string') doc.emailAddress = payload.emailAddress.trim()
@@ -99,6 +119,16 @@ function buildActionPointDoc(payload: Record<string, unknown>) {
     return null
   }
 
+  const today = new Date()
+  const todayIso = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-')
+  if (dueDate < todayIso) {
+    return null
+  }
+
   return {
     _type: 'stakeholderActionPoint',
     _key:
@@ -138,7 +168,27 @@ export async function PATCH(
           { status: 400 },
         )
       }
+      const stakeholder = normalizeStakeholderCategory(payload.stakeholder)
+      if (!stakeholder) {
+        return NextResponse.json(
+          { error: 'Stakeholder type is required' },
+          { status: 400 },
+        )
+      }
+      if (
+        stakeholder === 'other' &&
+        !(
+          typeof payload.stakeholderOther === 'string' &&
+          payload.stakeholderOther.trim()
+        )
+      ) {
+        return NextResponse.json(
+          { error: 'Please specify the stakeholder type' },
+          { status: 400 },
+        )
+      }
       const doc = buildStakeholderDoc(payload)
+      if (doc.stakeholderOther === null) delete doc.stakeholderOther
       await writeClient
         .patch(id)
         .setIfMissing({ stakeholders: [] })
@@ -155,14 +205,42 @@ export async function PATCH(
           { status: 400 },
         )
       }
-      const doc = buildStakeholderDoc({ ...fields, name: fields.name ?? '' })
+      if (!fields.name || typeof fields.name !== 'string') {
+        return NextResponse.json(
+          { error: 'name is required' },
+          { status: 400 },
+        )
+      }
+      const stakeholder = normalizeStakeholderCategory(fields.stakeholder)
+      if (!stakeholder) {
+        return NextResponse.json(
+          { error: 'Stakeholder type is required' },
+          { status: 400 },
+        )
+      }
+      if (
+        stakeholder === 'other' &&
+        !(
+          typeof fields.stakeholderOther === 'string' &&
+          fields.stakeholderOther.trim()
+        )
+      ) {
+        return NextResponse.json(
+          { error: 'Please specify the stakeholder type' },
+          { status: 400 },
+        )
+      }
+      const doc = buildStakeholderDoc({ ...fields, name: fields.name })
       delete (doc as Record<string, unknown>)._key
       const setPayload: Record<string, unknown> = {}
       const unsetPaths: string[] = []
       for (const [key, value] of Object.entries(doc)) {
         if (key === '_type') continue
-        if (key === 'linkedWorkSubmission' && value === null) {
-          unsetPaths.push(`stakeholders[${stakeholderIndex}].linkedWorkSubmission`)
+        if (
+          (key === 'linkedWorkSubmission' || key === 'stakeholderOther') &&
+          value === null
+        ) {
+          unsetPaths.push(`stakeholders[${stakeholderIndex}].${key}`)
           continue
         }
         if (value !== undefined) {
@@ -274,7 +352,7 @@ export async function PATCH(
         return NextResponse.json(
           {
             error:
-              'Each action point requires a description, assignee, and due date',
+              'Each action point requires a description, assignee, and a due date that is today or later',
           },
           { status: 400 },
         )

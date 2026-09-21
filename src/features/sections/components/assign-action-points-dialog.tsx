@@ -116,10 +116,9 @@ function ActionPointAccordionSummary({
   isOpen,
   actions,
 }: ActionPointAccordionSummaryProps) {
-  const description = draft.description.trim()
   const assigneeName = getAssigneeName(draft, staffOptions)
   const dueDateLabel = formatDueDate(draft.dueDate)
-  const title = description || `Action point ${index + 1}`
+  const title = `Action ${index + 1}`
   const showMeta = !isOpen && (assigneeName || dueDateLabel)
 
   return (
@@ -158,9 +157,34 @@ function isDraftEmpty(draft: ActionPointDraft): boolean {
   )
 }
 
+function todayIsoDate(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function isDueDateInPast(dueDate: string): boolean {
+  const trimmed = dueDate.trim()
+  if (!trimmed) return false
+  return trimmed < todayIsoDate()
+}
+
+function isPastCalendarDay(date: Date): boolean {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const candidate = new Date(date)
+  candidate.setHours(0, 0, 0, 0)
+  return candidate < today
+}
+
 function isDraftComplete(draft: ActionPointDraft): boolean {
   return Boolean(
-    draft.description.trim() && draft.assignee.trim() && draft.dueDate.trim(),
+    draft.description.trim() &&
+      draft.assignee.trim() &&
+      draft.dueDate.trim() &&
+      !isDueDateInPast(draft.dueDate),
   )
 }
 
@@ -400,7 +424,13 @@ export function AssignActionPointsDialog({
                             }
                             placeholder='Pick due date'
                             disabled={isSaving}
+                            disabledDates={isPastCalendarDay}
                           />
+                          {isDueDateInPast(draft.dueDate) ? (
+                            <p className='text-xs text-destructive'>
+                              Due date cannot be in the past.
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     </AccordionContent>

@@ -53,10 +53,24 @@ import {
 const STAKEHOLDER_LABELS: Record<string, string> = {
   regulatory_body: 'Regulatory body',
   community_leader: 'Community leader',
-  supplier: 'Supplier',
+  vendor: 'Vendor',
+  supplier: 'Vendor',
   partner_organization: 'Partner organization',
   internal: 'Internal',
   other: 'Other',
+}
+
+function formatStakeholderType(row: {
+  stakeholder?: string
+  stakeholderOther?: string
+}): string {
+  if (row.stakeholder === 'other') {
+    const other = row.stakeholderOther?.trim()
+    return other || 'Other'
+  }
+  return (
+    STAKEHOLDER_LABELS[row.stakeholder ?? ''] ?? row.stakeholder ?? '—'
+  )
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -76,7 +90,7 @@ function stakeholderSearchHaystack(row: CommissionerStakeholderRow): string {
     row.sectionName,
     row.divisionName,
     row.initiativeCode,
-    STAKEHOLDER_LABELS[row.stakeholder ?? ''] ?? row.stakeholder,
+    formatStakeholderType(row),
     row.engagementReport,
   ]
     .filter(Boolean)
@@ -178,10 +192,7 @@ export function CommissionerStakeholderEngagementsTable({
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title='Stakeholder' />
         ),
-        cell: ({ row }) =>
-          STAKEHOLDER_LABELS[row.original.stakeholder ?? ''] ??
-          row.original.stakeholder ??
-          '—',
+        cell: ({ row }) => formatStakeholderType(row.original),
       },
       {
         accessorKey: 'designation',

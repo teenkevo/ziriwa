@@ -45,6 +45,7 @@ export type StakeholderEntry = {
   _key: string
   sn?: number
   stakeholder?: string
+  stakeholderOther?: string
   designation?: string
   name: string
   phoneNumber?: string
@@ -86,6 +87,7 @@ const STAKEHOLDER_ENGAGEMENT_PROJECTION = `
     _key,
     sn,
     stakeholder,
+    stakeholderOther,
     designation,
     name,
     phoneNumber,

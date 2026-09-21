@@ -42,11 +42,9 @@ import {
 import { StakeholderLinkOptionLabel } from './stakeholder-link-option-label'
 
 const STAKEHOLDER_OPTIONS = [
-  { value: 'regulatory_body', label: 'Regulatory body' },
-  { value: 'community_leader', label: 'Community leader' },
-  { value: 'supplier', label: 'Supplier' },
+  { value: 'vendor', label: 'Vendor' },
   { value: 'partner_organization', label: 'Partner organization' },
-  { value: 'internal', label: 'Internal (other division/section)' },
+  { value: 'internal', label: 'Internal' },
   { value: 'other', label: 'Other' },
 ]
 
@@ -115,6 +113,7 @@ interface AddStakeholderDialogProps {
 const emptyForm = {
   name: '',
   stakeholder: '',
+  stakeholderOther: '',
   designation: '',
   phoneNumber: '',
   emailAddress: '',
@@ -162,9 +161,18 @@ export function AddStakeholderDialog({
     if (open) {
       setStep(1)
       if (editingEntry) {
+        const legacyStakeholder = editingEntry.stakeholder ?? ''
+        const stakeholder =
+          legacyStakeholder === 'supplier'
+            ? 'vendor'
+            : legacyStakeholder === 'community_leader' ||
+                legacyStakeholder === 'regulatory_body'
+              ? ''
+              : legacyStakeholder
         setForm({
           name: editingEntry.name ?? '',
-          stakeholder: editingEntry.stakeholder ?? '',
+          stakeholder,
+          stakeholderOther: editingEntry.stakeholderOther ?? '',
           designation: editingEntry.designation ?? '',
           phoneNumber: editingEntry.phoneNumber ?? '',
           emailAddress: editingEntry.emailAddress ?? '',
@@ -205,7 +213,12 @@ export function AddStakeholderDialog({
   }
 
   const canProceedFromStep = (s: number): boolean => {
-    if (s === 1) return !!form.name.trim()
+    if (s === 1) {
+      if (!form.name.trim() || !form.stakeholder) return false
+      if (form.stakeholder === 'other' && !form.stakeholderOther.trim())
+        return false
+      return true
+    }
     return true
   }
 
@@ -220,13 +233,17 @@ export function AddStakeholderDialog({
   }
 
   const saveStakeholder = async () => {
-    if (!form.name.trim() || isSubmitting) return
+    if (!canProceedFromStep(1) || isSubmitting) return
     setIsSubmitting(true)
     try {
       const payload: Record<string, unknown> = {
         name: form.name.trim(),
         sn: isEditing ? undefined : nextSn,
-        stakeholder: form.stakeholder || undefined,
+        stakeholder: form.stakeholder,
+        stakeholderOther:
+          form.stakeholder === 'other'
+            ? form.stakeholderOther.trim()
+            : undefined,
         designation: form.designation || undefined,
         phoneNumber: form.phoneNumber || undefined,
         emailAddress: form.emailAddress || undefined,
@@ -367,7 +384,7 @@ export function AddStakeholderDialog({
               type='submit'
               tabIndex={-1}
               className='sr-only'
-              disabled={isSubmitting || !form.name.trim()}
+              disabled={isSubmitting || !canProceedFromStep(1)}
             >
               {isEditing ? 'Update stakeholder' : 'Add stakeholder'}
             </button>
@@ -381,10 +398,19 @@ export function AddStakeholderDialog({
                 </p>
                 <div className='grid grid-cols-2 gap-4'>
                   <div className='space-y-2'>
-                    <Label htmlFor='stakeholder'>Stakeholder type</Label>
+                    <Label htmlFor='stakeholder' required>
+                      Stakeholder type
+                    </Label>
                     <Select
                       value={form.stakeholder}
-                      onValueChange={v => update('stakeholder', v)}
+                      onValueChange={v => {
+                        setForm(prev => ({
+                          ...prev,
+                          stakeholder: v,
+                          stakeholderOther:
+                            v === 'other' ? prev.stakeholderOther : '',
+                        }))
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder='Select type' />
@@ -404,11 +430,28 @@ export function AddStakeholderDialog({
                       id='designation'
                       value={form.designation}
                       onChange={e => update('designation', e.target.value)}
-                      placeholder='e.g. Director, Manager'
+                      placeholder='e.g. Manager Data Science'
                       disabled={isSubmitting}
                     />
                   </div>
                 </div>
+                {form.stakeholder === 'other' ? (
+                  <div className='space-y-2'>
+                    <Label htmlFor='stakeholderOther' required>
+                      Specify type
+                    </Label>
+                    <Input
+                      id='stakeholderOther'
+                      value={form.stakeholderOther}
+                      onChange={e =>
+                        update('stakeholderOther', e.target.value)
+                      }
+                      placeholder='e.g. Media house'
+                      disabled={isSubmitting}
+                      required
+                    />
+                  </div>
+                ) : null}
                 <div className='space-y-2'>
                   <Label htmlFor='name' required>
                     Full name
@@ -764,7 +807,7 @@ export function AddStakeholderDialog({
                     isSubmitting ||
                     (step < TOTAL_STEPS
                       ? !canProceedFromStep(step)
-                      : !form.name.trim())
+                      : !canProceedFromStep(1))
                   }
                 >
                   {isSubmitting && step === TOTAL_STEPS ? (

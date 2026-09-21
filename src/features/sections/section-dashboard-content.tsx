@@ -51,12 +51,9 @@ export function SectionDashboardContent({
   today,
   onNavigateToTab,
   workspaceBasePath = '/manager',
-  workspaceScope = 'mainstream',
   supervisorCount = 0,
 }: SectionDashboardContentProps) {
   const { active: activeFY } = useFinancialYear()
-  const isOfficerWorkspace = workspaceBasePath === '/officer'
-  const showStakeholders = !isOfficerWorkspace
   const isSupervisorWorkspace = workspaceBasePath === '/supervisor'
   const isManagerView =
     (workspaceBasePath === '/manager' ||
@@ -93,17 +90,8 @@ export function SectionDashboardContent({
       sprints: oversightSprints,
       today,
     })
-  }, [
-    isManagerView,
-    sprints,
-    oversightSprints,
-    today,
-    supervisorCount,
-  ])
+  }, [isManagerView, sprints, oversightSprints, today, supervisorCount])
 
-  const onOpenContract = onNavigateToTab
-    ? () => onNavigateToTab('contract')
-    : undefined
   const onOpenSprints = onNavigateToTab
     ? () => onNavigateToTab('weekly-sprint')
     : undefined
@@ -135,10 +123,6 @@ export function SectionDashboardContent({
 
       <DashboardInsights
         metrics={metrics}
-        showStakeholders={showStakeholders}
-        workspaceScope={workspaceScope}
-        onOpenContract={onOpenContract}
-        onOpenSprints={onOpenSprints}
         onOpenStakeholders={onOpenStakeholders}
       />
     </div>

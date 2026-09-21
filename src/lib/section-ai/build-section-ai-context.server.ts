@@ -65,6 +65,7 @@ function serializeStakeholderEntry(
     name: entry.name,
     designation: entry.designation,
     stakeholderCategory: entry.stakeholder,
+    stakeholderOther: entry.stakeholderOther,
     initiativeCode: entry.initiativeCode,
     proposedDateOfEngagement: entry.proposedDateOfEngagement,
     modeOfEngagement: entry.modeOfEngagement,
