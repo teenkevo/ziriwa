@@ -1,12 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
-import { parseAppRole } from '@/lib/app-role'
-import { getSuperadminEmailWhitelist } from '@/lib/authz/env'
-import { impersonationCookieClearOptions } from '@/lib/impersonation/cookie-options'
-import { IMPERSONATION_COOKIE_NAME } from '@/lib/impersonation/constants'
 import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
-import { client } from '@/sanity/lib/client'
 import { isMaintenanceModeEnabled } from '@/lib/maintenance-mode'
 
 const isMaintenanceBypassRoute = createRouteMatcher([
@@ -15,101 +10,8 @@ const isMaintenanceBypassRoute = createRouteMatcher([
   '/api/cron(.*)',
 ])
 
-function clearImpersonationCookieOnResponse(response: NextResponse) {
-  const options = impersonationCookieClearOptions()
-  response.cookies.set(options.name, options.value, {
-    httpOnly: options.httpOnly,
-    secure: options.secure,
-    sameSite: options.sameSite,
-    path: options.path,
-    maxAge: options.maxAge,
-  })
-  return response
-}
-
-function finalizeResponse(
-  userId: string | null | undefined,
-  request: NextRequest,
-  response: NextResponse,
-) {
-  if (userId) return response
-  if (!request.cookies.get(IMPERSONATION_COOKIE_NAME)?.value) return response
-  return clearImpersonationCookieOnResponse(response)
-}
-
 // Set to 'true' to require auth + staff email in Sanity. 'false' = open access (dev).
 const AUTH_GATED = process.env.AUTH_GATED === 'true'
-
-async function getStaffRoleByEmail(email: string) {
-  if (!email) return null
-
-  const staff = await client.fetch<{ role?: string } | null>(
-    /* groq */ `*[_type == "staff" && lower(email) == $email && status == "active"][0]{ role }`,
-    { email: email.toLowerCase() },
-  )
-
-  return parseAppRole(staff?.role)
-}
-
-async function getStaffSectionPathByEmail(email: string) {
-  if (!email) return null
-
-  const section = await client.fetch<{
-    _id: string
-    slug?: { current?: string }
-  } | null>(
-    /* groq */ `*[_type == "staff" && lower(email) == $email && status == "active" && defined(section._ref)][0].section->{
-      _id,
-      slug
-    }`,
-    { email: email.toLowerCase() },
-  )
-
-  const sectionKey = section?.slug?.current ?? section?._id
-  return sectionKey ? `/sections/${sectionKey}` : null
-}
-
-async function getWorkspaceDestination(userId: string, requestUrl: string) {
-  const clerk = await clerkClient()
-  const user = await clerk.users.getUser(userId)
-  const roleFromMetadata = parseAppRole(
-    (user.publicMetadata as Record<string, unknown> | undefined)?.appRole,
-  )
-
-  const primaryEmail = user.emailAddresses?.find(
-    (email: any) => email.id === user.primaryEmailAddressId,
-  )?.emailAddress
-  const normalizedEmail = primaryEmail?.toLowerCase() ?? ''
-  const isFallbackExplorer = getSuperadminEmailWhitelist().includes(
-    normalizedEmail,
-  )
-  if (isFallbackExplorer) {
-    return new URL('/departments', requestUrl)
-  }
-  const role = roleFromMetadata ?? (await getStaffRoleByEmail(primaryEmail ?? ''))
-
-  if (role === 'assistant_commissioner') {
-    return new URL('/assistant-commissioner/dashboard', requestUrl)
-  }
-
-  if (role === 'commissioner') {
-    return new URL('/commissioner/dashboard', requestUrl)
-  }
-
-  if (role === 'manager') {
-    return new URL('/manager/dashboard', requestUrl)
-  }
-
-  if (role === 'supervisor') {
-    return new URL('/supervisor/dashboard', requestUrl)
-  }
-
-  if (role === 'officer') {
-    return new URL('/officer/dashboard', requestUrl)
-  }
-
-  return new URL('/departments', requestUrl)
-}
 
 // Define public routes - homepage, Clerk auth, and Clerk frontend API (handshake)
 const isPublicRoute = createRouteMatcher([
@@ -144,16 +46,12 @@ export default clerkMiddleware(async (auth, request) => {
 
   // Post-sign-in boot (loader + workspace routing).
   if (userId && pathname === '/') {
-    return finalizeResponse(
-      userId,
-      request,
-      NextResponse.redirect(new URL('/auth/continue', request.url)),
-    )
+    return NextResponse.redirect(new URL('/auth/continue', request.url))
   }
 
   // Skip auth gating when AUTH_GATED is not 'true'
   if (!AUTH_GATED) {
-    return finalizeResponse(userId, request, NextResponse.next())
+    return NextResponse.next()
   }
 
   // Protect all routes except public routes
@@ -174,28 +72,16 @@ export default clerkMiddleware(async (auth, request) => {
 
           if (!emailExists) {
             // User's email is not in Sanity, redirect to unauthorized
-            return finalizeResponse(
-              userId,
-              request,
-              NextResponse.redirect(new URL('/unauthorized', request.url)),
-            )
+            return NextResponse.redirect(new URL('/unauthorized', request.url))
           }
         } else {
           // No email found, redirect to unauthorized
-          return finalizeResponse(
-            userId,
-            request,
-            NextResponse.redirect(new URL('/unauthorized', request.url)),
-          )
+          return NextResponse.redirect(new URL('/unauthorized', request.url))
         }
       } catch (error) {
         // If there's an error getting the user (e.g., user was deleted),
         // redirect to unauthorized page
-        return finalizeResponse(
-          userId,
-          request,
-          NextResponse.redirect(new URL('/unauthorized', request.url)),
-        )
+        return NextResponse.redirect(new URL('/unauthorized', request.url))
       }
     }
 
@@ -203,7 +89,7 @@ export default clerkMiddleware(async (auth, request) => {
     await auth.protect()
   }
 
-  return finalizeResponse(userId, request, NextResponse.next())
+  return NextResponse.next()
 })
 
 export const config = {

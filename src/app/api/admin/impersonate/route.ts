@@ -86,9 +86,9 @@ export async function GET() {
 
   const staff = await loadStaffTarget(email)
   if (!staff) {
-    const res = NextResponse.json({ active: false, targets })
-    applyImpersonationCookieClear(res)
-    return res
+    // Do not clear the cookie here — a transient Sanity miss would end the
+    // session. Cookie expiry / explicit stop handles cleanup.
+    return NextResponse.json({ active: false, targets })
   }
 
   return NextResponse.json({

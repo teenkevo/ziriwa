@@ -106,29 +106,12 @@ export function ImpersonationDialog({
     setTransitionMessage(switchingMessage(target))
     onOpenChange(false)
 
-    try {
-      const res = await fetch('/api/admin/impersonate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: selectedEmail }),
-      })
-      const data = (await res.json().catch(() => ({}))) as {
-        error?: string
-        redirect?: string
-      }
-      if (!res.ok) {
-        throw new Error(data.error || 'Could not start impersonation')
-      }
-      window.location.assign(data.redirect || '/departments')
-    } catch (err) {
-      setTransitionMessage(null)
-      setError(
-        err instanceof Error ? err.message : 'Could not start impersonation',
-      )
-      onOpenChange(true)
-    } finally {
-      setIsSubmitting(false)
-    }
+    // Full-document navigation so Set-Cookie on the enter redirect sticks in
+    // production (fetch + JSON Set-Cookie was getting cleared by middleware /
+    // subsequent requests).
+    window.location.assign(
+      `/api/admin/impersonate/enter?email=${encodeURIComponent(selectedEmail)}`,
+    )
   }
 
   return (
