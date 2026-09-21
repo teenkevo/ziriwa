@@ -37,20 +37,20 @@ function PulseCell({
 }: PulseCellProps) {
   const main = (
     <>
-      <div className='flex items-center gap-2 text-foreground'>
+      <div className='flex items-start gap-2 text-foreground'>
         {Icon ? (
           <Icon
-            className='size-3.5 shrink-0 text-muted-foreground'
+            className='mt-0.5 size-3.5 shrink-0 text-muted-foreground'
             aria-hidden
           />
         ) : null}
-        <span className='text-[11px] font-medium uppercase tracking-wide'>
+        <span className='min-w-0 text-[11px] font-medium uppercase leading-tight tracking-wide'>
           {label}
         </span>
       </div>
       <p
         className={cn(
-          'mt-2 text-2xl font-semibold tabular-nums tracking-tight',
+          'mt-1.5 text-2xl font-semibold tabular-nums tracking-tight lg:text-xl',
           tone === 'warn' && 'text-destructive',
           tone === 'ok' && 'text-emerald-600 dark:text-emerald-500',
         )}
@@ -66,7 +66,7 @@ function PulseCell({
   )
 
   return (
-    <div className='flex h-full flex-col px-4 py-3.5'>
+    <div className='flex h-full min-h-0 flex-col px-4 py-3.5 lg:px-3 lg:py-2.5'>
       {onClick ? (
         <button
           type='button'
@@ -97,14 +97,17 @@ function planStatusLabel(
 }
 
 /**
- * Current-week sprint strip under Attention Items.
+ * Current-week sprint cards. Stacked in the dashboard sidebar on large screens.
  * Manager and supervisor see different four-card sets.
  */
 export function DashboardPulse({ pulse, onOpenSprints }: DashboardPulseProps) {
   const weekLabel = pulse.weekLabel
 
   return (
-    <section aria-label='Current week sprints' className='space-y-2'>
+    <section
+      aria-label='Current week sprints'
+      className='flex h-full flex-col gap-2'
+    >
       <div className='flex items-center justify-between gap-3 px-0.5'>
         <h2 className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
           Sprints
@@ -116,7 +119,7 @@ export function DashboardPulse({ pulse, onOpenSprints }: DashboardPulseProps) {
         )}
       </div>
 
-      <div className='grid overflow-hidden rounded-xl border border-border/80 bg-card divide-y sm:grid-cols-2 sm:divide-y-0 sm:divide-x xl:grid-cols-4'>
+      <div className='grid min-h-0 flex-1 overflow-hidden rounded-xl border border-border/80 bg-card divide-y sm:grid-cols-2 sm:divide-y-0 sm:divide-x lg:grid-cols-1 lg:grid-rows-4 lg:divide-x-0 lg:divide-y'>
         {pulse.role === 'manager' ? (
           <ManagerCards pulse={pulse} onOpenSprints={onOpenSprints} />
         ) : (
@@ -140,7 +143,7 @@ function ManagerCards({
     <>
       <PulseCell
         icon={CalendarRange}
-        label='Sprints planned by supervisors'
+        label='Sprints planned'
         value={`${planned.count}/${planned.max}`}
         hint={
           planned.max <= 0
@@ -198,8 +201,7 @@ function SupervisorCards({
   onOpenSprints?: () => void
 }) {
   const { planned, planStatus, tasksDone, awaitingYou } = pulse
-  const awaitingTotal =
-    awaitingYou.evidenceReview + awaitingYou.planRevisions
+  const awaitingTotal = awaitingYou.evidenceReview + awaitingYou.planRevisions
   const doneTone =
     tasksDone.total === 0
       ? 'default'
@@ -251,7 +253,7 @@ function SupervisorCards({
         value={`${tasksDone.done}/${tasksDone.total}`}
         hint={
           tasksDone.total === 0
-            ? 'No tasks on this week\'s sprint yet'
+            ? "No tasks on this week's sprint yet"
             : 'Completed of planned sprint tasks'
         }
         tone={doneTone}
@@ -263,7 +265,7 @@ function SupervisorCards({
         value={String(awaitingTotal)}
         hint={
           awaitingTotal === 0
-            ? 'No evidence reviews or plan revisions waiting'
+            ? 'Nothing awaiting your review'
             : [
                 awaitingYou.evidenceReview > 0
                   ? `${awaitingYou.evidenceReview} evidence review${awaitingYou.evidenceReview === 1 ? '' : 's'}`

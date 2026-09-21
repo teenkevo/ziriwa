@@ -660,63 +660,64 @@ export function OverduePanel({
   const isPendingReviewTasks = selectedCategoryId === 'review'
 
   return (
-    <section className='relative overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-muted/30 via-background to-muted/10'>
-      <div
-        aria-hidden
-        className={cn(
-          'pointer-events-none absolute -right-20 -top-24 size-56 rounded-full',
-          totalAtRisk > 0 ? 'bg-destructive/[0.07]' : 'bg-primary/[0.06]',
-        )}
-      />
+    <section aria-label='Focus items' className='flex h-full flex-col gap-2'>
+      <div className='flex items-center justify-between gap-3 px-0.5'>
+        <h2 className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+          Focus Items
+        </h2>
+      </div>
 
-      <div className='relative space-y-5 p-5 sm:p-6'>
-        <div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
-          <h2 className='text-xl font-semibold tracking-tight sm:text-xl'>
-            Focus Items
-          </h2>
+      <div className='relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-muted/30 via-background to-muted/10'>
+        <div
+          aria-hidden
+          className={cn(
+            'pointer-events-none absolute -right-20 -top-24 size-56 rounded-full',
+            totalAtRisk > 0 ? 'bg-destructive/[0.07]' : 'bg-primary/[0.06]',
+          )}
+        />
 
-          <div
-            className='inline-flex rounded-lg border border-border/80 bg-background/80 p-1 shadow-sm'
-            role='tablist'
-            aria-label='Attention items mode'
+      <div className='relative flex h-full flex-col space-y-5 p-5 sm:p-6'>
+        <div
+          className='inline-flex self-start rounded-lg border border-border/80 bg-background/80 p-1 shadow-sm'
+          role='tablist'
+          aria-label='Attention items mode'
+        >
+          <button
+            type='button'
+            role='tab'
+            aria-selected={mode === 'upcoming'}
+            onClick={() => selectMode('upcoming')}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              mode === 'upcoming'
+                ? 'bg-foreground text-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
           >
-            <button
-              type='button'
-              role='tab'
-              aria-selected={mode === 'action'}
-              onClick={() => selectMode('action')}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                mode === 'action'
-                  ? totalAtRisk > 0
-                    ? 'bg-destructive text-destructive-foreground shadow-sm'
-                    : 'bg-foreground text-background shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Needs action
-              <span className='ml-1.5 tabular-nums opacity-80'>
-                {totalAtRisk}
-              </span>
-            </button>
-            <button
-              type='button'
-              role='tab'
-              aria-selected={mode === 'upcoming'}
-              onClick={() => selectMode('upcoming')}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                mode === 'upcoming'
-                  ? 'bg-foreground text-background shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Coming up
-              <span className='ml-1.5 tabular-nums opacity-80'>
-                {totalUpcoming}
-              </span>
-            </button>
-          </div>
+            Coming up
+            <span className='ml-1.5 tabular-nums opacity-80'>
+              {totalUpcoming}
+            </span>
+          </button>
+          <button
+            type='button'
+            role='tab'
+            aria-selected={mode === 'action'}
+            onClick={() => selectMode('action')}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              mode === 'action'
+                ? totalAtRisk > 0
+                  ? 'bg-destructive text-destructive-foreground shadow-sm'
+                  : 'bg-foreground text-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            Needs action
+            <span className='ml-1.5 tabular-nums opacity-80'>
+              {totalAtRisk}
+            </span>
+          </button>
         </div>
 
         {modeTotal === 0 ? (
@@ -822,6 +823,7 @@ export function OverduePanel({
             </div>
           </div>
         )}
+      </div>
       </div>
     </section>
   )

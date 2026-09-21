@@ -113,20 +113,25 @@ export function SectionDashboardContent({
 
   return (
     <div className='space-y-8'>
-      <OverduePanel
-        upcomingActivities={metrics.upcomingActivities}
-        upcomingPeriodDeliverables={metrics.upcomingPeriodDeliverables}
-        overdueActivities={metrics.overdueActivities}
-        overduePeriodDeliverables={metrics.overduePeriodDeliverables}
-        pendingReviewTasks={metrics.pendingReviewTasks}
-        revisionRequestedTasks={metrics.revisionRequestedTasks}
-        lateEngagements={metrics.lateEngagements}
-        sectionSlug={sectionSlug}
-        onNavigateToTab={onNavigateToTab}
-        workspaceBasePath={workspaceBasePath}
-      />
-
-      <DashboardPulse pulse={sprintPulse} onOpenSprints={onOpenSprints} />
+      <div className='grid gap-6 lg:grid-cols-4 lg:items-stretch'>
+        <div className='min-w-0 lg:col-span-3'>
+          <OverduePanel
+            upcomingActivities={metrics.upcomingActivities}
+            upcomingPeriodDeliverables={metrics.upcomingPeriodDeliverables}
+            overdueActivities={metrics.overdueActivities}
+            overduePeriodDeliverables={metrics.overduePeriodDeliverables}
+            pendingReviewTasks={metrics.pendingReviewTasks}
+            revisionRequestedTasks={metrics.revisionRequestedTasks}
+            lateEngagements={metrics.lateEngagements}
+            sectionSlug={sectionSlug}
+            onNavigateToTab={onNavigateToTab}
+            workspaceBasePath={workspaceBasePath}
+          />
+        </div>
+        <div className='min-w-0 lg:col-span-1'>
+          <DashboardPulse pulse={sprintPulse} onOpenSprints={onOpenSprints} />
+        </div>
+      </div>
 
       <DashboardInsights
         metrics={metrics}
