@@ -47,6 +47,31 @@ export async function POST(
     const roleDenied = assertSectionStaffTargetRoleAllowed(access, role)
     if (roleDenied) return roleDenied
 
+    if (role === 'supervisor') {
+      const sectionMeta = await writeClient.fetch<{
+        isPlanningSection?: boolean
+        supervisorCount?: number
+      } | null>(
+        `*[_id == $sectionId][0]{
+          "isPlanningSection": coalesce(isPlanningSection, false),
+          "supervisorCount": count(*[_type == "staff" && role == "supervisor" && coalesce(status, "active") != "inactive" && section._ref == $sectionId])
+        }`,
+        { sectionId },
+      )
+      if (
+        sectionMeta?.isPlanningSection &&
+        (sectionMeta.supervisorCount ?? 0) >= 1
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Planning sections can have only one supervisor. Add officers for the rest of the team.',
+          },
+          { status: 400 },
+        )
+      }
+    }
+
     if (!firstName || !lastName || !idNumber || !email) {
       return NextResponse.json(
         { error: 'firstName, lastName, idNumber, and email are required' },

@@ -2160,7 +2160,7 @@ export function WeeklySprintContent({
               </DialogTitle>
               <DialogDescription>
                 {extraTaskMode === 'supervisor-plan'
-                  ? 'Add a new task to this sprint plan for manager review.'
+                  ? 'Add a new task to this sprint plan for review.'
                   : 'Add an extra task to the current sprint week'}
               </DialogDescription>
             </DialogHeader>
@@ -2401,7 +2401,7 @@ export function WeeklySprintContent({
               <DialogHeader className='shrink-0 pr-8'>
                 <DialogTitle>Revise task</DialogTitle>
                 <DialogDescription>
-                  Edit this task and resubmit it for manager review.
+                  Edit this task and resubmit it for review.
                   {reviseManagerFeedback ? (
                     <div className='items-start gap-2 text-xs my-5 rounded-xl text-orange-500 border border-orange-500/50 bg-orange-500/10 px-4 py-2 leading-relaxed'>
                       <span className='font-medium uppercase text-foreground mr-1'>

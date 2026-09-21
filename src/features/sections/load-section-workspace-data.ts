@@ -41,6 +41,7 @@ export type WorkspaceSection = {
   slug?: { current: string }
   division?: { _id: string; name: string; slug?: { current: string } }
   manager?: { _id: string; fullName?: string }
+  isPlanningSection?: boolean
 }
 
 type SectionLookup = {
@@ -49,6 +50,7 @@ type SectionLookup = {
   slug?: { current: string }
   division?: { _id: string; name: string; slug?: { current: string } }
   manager?: { _id: string; fullName?: string }
+  isPlanningSection?: boolean
 }
 
 export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
@@ -69,7 +71,8 @@ export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
         name,
         slug,
         division->{ _id, name, slug },
-        manager->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) }
+        manager->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
+        isPlanningSection
       }
     `,
     { email },
@@ -99,7 +102,8 @@ export async function loadSectionWorkspaceData(
           name,
           slug,
           division->{ _id, name, slug },
-          manager->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) }
+          manager->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
+          isPlanningSection
         }
       `,
       { sectionId: sectionIdOrSlug },

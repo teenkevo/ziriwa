@@ -52,8 +52,8 @@ export function SprintDraftsEmptyState({
           </h2>
           <p className='text-xs leading-relaxed text-muted-foreground'>
             Drafts are where you shape the week before marking a sprint ready
-            for review by your manager. Pick a week, add tasks from your
-            contract, then submit to manager when the plan is set.
+            for review. Pick a week, add tasks from your contract, then submit
+            when the plan is set.
           </p>
         </div>
 

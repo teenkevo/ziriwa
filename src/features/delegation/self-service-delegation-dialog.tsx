@@ -38,6 +38,8 @@ interface SelfServiceDelegationDialogProps {
   candidates: DelegationCandidate[]
   createPayload: Record<string, string>
   apiPath?: string
+  title?: string
+  description?: string
   onSuccess: () => void
 }
 
@@ -48,6 +50,8 @@ export function SelfServiceDelegationDialog({
   candidates,
   createPayload,
   apiPath = '/api/section-delegations',
+  title = 'Delegate while on leave',
+  description,
   onSuccess,
 }: SelfServiceDelegationDialogProps) {
   const [toStaffId, setToStaffId] = React.useState('')
@@ -115,10 +119,10 @@ export function SelfServiceDelegationDialog({
       <DialogContent disableClose={isSaving} className='max-w-md'>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Delegate while on leave</DialogTitle>
+            <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
-              Choose an eligible colleague to cover your {actingRoleLabel}{' '}
-              duties for a maximum of {DELEGATION_MAX_DAYS} days.
+              {description ??
+                `Choose an eligible colleague to cover your ${actingRoleLabel} duties for a maximum of ${DELEGATION_MAX_DAYS} days.`}
             </DialogDescription>
           </DialogHeader>
           <div className='space-y-4 py-4'>

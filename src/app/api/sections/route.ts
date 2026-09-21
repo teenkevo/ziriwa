@@ -15,7 +15,13 @@ export async function POST(req: NextRequest) {
     if (denied) return denied
 
     const body = await req.json()
-    const { name, divisionId, managerId, order } = body
+    const { name, divisionId, managerId, order, isPlanningSection } = body as {
+      name?: string
+      divisionId?: string
+      managerId?: string
+      order?: number
+      isPlanningSection?: boolean
+    }
 
     if (!name || typeof name !== 'string') {
       return NextResponse.json(
@@ -29,7 +35,9 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
-    if (!managerId || typeof managerId !== 'string') {
+
+    const planning = isPlanningSection === true
+    if (!planning && (!managerId || typeof managerId !== 'string')) {
       return NextResponse.json(
         { error: 'Manager is required' },
         { status: 400 },
@@ -48,19 +56,29 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       slug: { _type: 'slug', current: slug },
       division: { _type: 'reference', _ref: divisionId },
-      manager: { _type: 'reference', _ref: managerId },
+      isPlanningSection: planning,
+      ...(planning
+        ? {}
+        : { manager: { _type: 'reference', _ref: managerId } }),
       ...(typeof order === 'number' && { order }),
     }
 
     const result = await writeClient.create(doc)
 
-    await writeClient
-      .patch(managerId)
-      .set({ section: { _type: 'reference', _ref: result._id } })
-      .commit()
+    if (!planning && typeof managerId === 'string') {
+      await writeClient
+        .patch(managerId)
+        .set({ section: { _type: 'reference', _ref: result._id } })
+        .commit()
+    }
 
     return NextResponse.json(
-      { id: result._id, name: name.trim(), slug },
+      {
+        id: result._id,
+        name: name.trim(),
+        slug,
+        isPlanningSection: planning,
+      },
       { status: 201 },
     )
   } catch (error) {

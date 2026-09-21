@@ -241,7 +241,7 @@ function SupervisorCards({
             : planStatus === 'draft'
               ? 'Still a draft — submit when ready'
               : planStatus === 'submitted'
-                ? 'Awaiting manager review'
+                ? 'Awaiting review'
                 : 'Plan reviewed for this week'
         }
         tone={planTone}

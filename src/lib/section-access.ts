@@ -20,6 +20,8 @@ export interface SectionAccessInput {
   isGlobalAdmin?: boolean
   /** Section belongs to a project (workstream); sprint review tab is hidden. */
   isProjectWorkstream?: boolean
+  /** No section manager; supervisors report to the division Assistant Commissioner. */
+  isPlanningSection?: boolean
   delegation?: SectionDelegationState
 }
 
@@ -34,6 +36,8 @@ export interface SectionAccess {
   isSectionManager: boolean
   isSectionSupervisor: boolean
   isSectionOfficer: boolean
+  /** Planning sections have no manager; AC reviews supervisor work. */
+  isPlanningSection: boolean
   /** When acting as officer, the absent officer's staff id for contract/sprint scope. */
   officerContextStaffId: string | null
   /** When acting as supervisor, the absent supervisor's staff id for contract scope. */
@@ -147,6 +151,7 @@ export function buildSectionAccessForWorkContext(
       isSectionManager: true,
       isSectionSupervisor: true,
       isSectionOfficer: false,
+      isPlanningSection: input.isPlanningSection === true,
       officerContextStaffId: null,
       supervisorContextStaffId: null,
       canManageContract: true,
@@ -166,6 +171,7 @@ export function buildSectionAccessForWorkContext(
 
   const permanent = permanentFlags(input)
   const assignment = delegation.assignmentAsDelegatee
+  const isPlanningSection = input.isPlanningSection === true
 
   if (workContext === 'acting' && assignment) {
     const actingRole = assignment.actingRole as SectionActingRole
@@ -197,6 +203,7 @@ export function buildSectionAccessForWorkContext(
       delegation,
       ...permanent,
       ...roleFlags,
+      isPlanningSection,
       ...capabilitiesFromRoles(roleFlags),
       canSelfServiceDelegate: false,
       isGlobalAdmin: false,
@@ -218,6 +225,7 @@ export function buildSectionAccessForWorkContext(
     officerContextStaffId: isSectionOfficer ? input.viewerStaffId : null,
     supervisorContextStaffId: isSectionSupervisor ? input.viewerStaffId : null,
     isGlobalAdmin: false,
+    // Planning sections: AC onboards supervisors; supervisors may onboard officers.
     canManageSectionStaff: isSectionManager || isSectionSupervisor,
     canSelfServiceDelegate,
     isProjectWorkstream: input.isProjectWorkstream,
@@ -229,6 +237,7 @@ export function buildSectionAccessForWorkContext(
     delegation,
     ...permanent,
     ...roleFlags,
+    isPlanningSection,
     ...capabilitiesFromRoles(roleFlags),
     canSelfServiceDelegate,
     isGlobalAdmin: false,

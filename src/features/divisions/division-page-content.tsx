@@ -70,7 +70,11 @@ function filterSectionsForGrid(
   const q = query.toLowerCase().trim()
   if (!q) return list
   return list.filter(s => {
-    const hay = [s.name, s.manager?.fullName]
+    const hay = [
+      s.name,
+      s.manager?.fullName,
+      s.isPlanningSection ? 'planning' : '',
+    ]
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
@@ -292,11 +296,15 @@ export function DivisionPageContent({
                     </CardHeader>
                     <CardContent>
                       <div className='font-bold text-lg'>{section.name}</div>
-                      {section.manager && (
+                      {section.isPlanningSection ? (
+                        <p className='mt-1 text-xs text-muted-foreground'>
+                          Planning section · reports to AC
+                        </p>
+                      ) : section.manager ? (
                         <p className='mt-1 text-xs text-muted-foreground'>
                           Managed by {section.manager.fullName}
                         </p>
-                      )}
+                      ) : null}
                     </CardContent>
                   </Link>
                 </Card>

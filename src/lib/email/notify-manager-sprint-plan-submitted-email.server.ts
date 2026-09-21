@@ -32,8 +32,12 @@ async function loadAndQueueManagerSprintPlanSubmittedEmail(
   const sprintMeta = await client.fetch<{
     weekLabel?: string
     sectionName?: string
+    sectionSlug?: string
+    isPlanningSection?: boolean
     managerEmail?: string
     managerName?: string
+    assistantCommissionerEmail?: string
+    assistantCommissionerName?: string
     supervisorName?: string
     tasks?: Array<{
       description?: string
@@ -46,8 +50,15 @@ async function loadAndQueueManagerSprintPlanSubmittedEmail(
     /* groq */ `*[_type == "weeklySprint" && _id == $sprintId][0]{
       weekLabel,
       "sectionName": section->name,
+      "sectionSlug": section->slug.current,
+      "isPlanningSection": coalesce(section->isPlanningSection, false),
       "managerEmail": section->manager->email,
       "managerName": coalesce(section->manager->fullName, section->manager->firstName + " " + section->manager->lastName),
+      "assistantCommissionerEmail": section->division->assistantCommissioner->email,
+      "assistantCommissionerName": coalesce(
+        section->division->assistantCommissioner->fullName,
+        section->division->assistantCommissioner->firstName + " " + section->division->assistantCommissioner->lastName
+      ),
       "supervisorName": coalesce(supervisor->fullName, supervisor->firstName + " " + supervisor->lastName),
       tasks[]{
         description,
@@ -60,8 +71,26 @@ async function loadAndQueueManagerSprintPlanSubmittedEmail(
     { sprintId: input.sprintId },
   )
 
-  const managerEmail = sprintMeta?.managerEmail?.trim().toLowerCase()
-  if (!managerEmail) return
+  const isPlanningSection = Boolean(sprintMeta?.isPlanningSection)
+  const reviewerEmail = (
+    isPlanningSection
+      ? sprintMeta?.assistantCommissionerEmail
+      : sprintMeta?.managerEmail
+  )
+    ?.trim()
+    .toLowerCase()
+  if (!reviewerEmail) return
+
+  const reviewerName = isPlanningSection
+    ? sprintMeta?.assistantCommissionerName?.trim() || 'Assistant Commissioner'
+    : sprintMeta?.managerName?.trim() || 'Manager'
+
+  const sectionSlug = sprintMeta?.sectionSlug?.trim()
+  const reviewHref = isPlanningSection
+    ? sectionSlug
+      ? `/sections/${sectionSlug}?tab=weekly-sprint`
+      : '/assistant-commissioner/dashboard'
+    : '/manager/sprints?tab=to-review'
 
   const tasks = sprintMeta?.tasks ?? []
   const rows: SprintPlanSubmittedTaskRow[] = tasks.map(task => ({
@@ -77,12 +106,13 @@ async function loadAndQueueManagerSprintPlanSubmittedEmail(
   if (rows.length === 0) return
 
   queueSprintPlanSubmittedEmail({
-    to: managerEmail,
-    managerName: sprintMeta?.managerName?.trim() || 'Manager',
+    to: reviewerEmail,
+    managerName: reviewerName,
     supervisorName: sprintMeta?.supervisorName?.trim() || 'Supervisor',
     sectionName: sprintMeta?.sectionName?.trim() || 'Section',
     weekLabel: sprintMeta?.weekLabel?.trim() || 'Sprint week',
     isResubmission: input.isResubmission,
+    reviewHref,
     rows,
     idempotencyKey: `sprint-plan-submitted:${input.sprintId}:${input.isResubmission ? 'resubmit' : 'submit'}:${Date.now()}`,
   })

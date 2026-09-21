@@ -66,7 +66,16 @@ import {
   useRegisterPageBreadcrumbs,
 } from '@/contexts/app-breadcrumb-context'
 import { useFinancialYear } from '@/contexts/financial-year-context'
-import type { SectionAccess } from '@/lib/section-access'
+import type { SectionAccess, WorkContextMode } from '@/lib/section-access'
+import {
+  canCreateSelfServiceDelegation,
+  DELEGATION_MAX_DAYS,
+  type DelegationCandidate,
+} from '@/lib/role-delegation'
+import { useRegisterDelegationSidebar } from '@/contexts/delegation-sidebar-context'
+import { WorkContextNavigationProvider } from '@/contexts/work-context-navigation-context'
+import { SelfServiceDelegationDialog } from '@/features/delegation/self-service-delegation-dialog'
+import { WorkContextBar } from '@/features/delegation/work-context-bar'
 import {
   scopeSprintsForViewer,
   shouldScopeSprintsToOfficer,
@@ -109,6 +118,7 @@ type Section = {
   slug?: { current: string }
   division?: { _id: string; name: string; slug?: { current: string } }
   manager?: { _id: string; fullName?: string }
+  isPlanningSection?: boolean
 }
 
 type StaffOption = { _id: string; fullName?: string; staffId?: string }
@@ -152,6 +162,8 @@ export interface SectionPageContentProps {
   }[]
   /** Managers in this section’s division (edit section dialog). */
   managers: StaffMember[]
+  workContext?: WorkContextMode
+  delegationCandidates?: DelegationCandidate[]
 }
 
 export function SectionPageContent({
@@ -176,6 +188,8 @@ export function SectionPageContent({
   sectionAccess,
   staffRoster,
   managers,
+  workContext = 'own',
+  delegationCandidates = [],
 }: SectionPageContentProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -187,6 +201,32 @@ export function SectionPageContent({
   const [showEditSection, setShowEditSection] = useState(false)
   const [showDeleteSection, setShowDeleteSection] = useState(false)
   const [deletingSection, setDeletingSection] = useState(false)
+  const [delegateOpen, setDelegateOpen] = useState(false)
+
+  const canSelfServiceDelegate = canCreateSelfServiceDelegation({
+    roleAllowsDelegation: sectionAccess.canSelfServiceDelegate,
+    workContext,
+    assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
+    assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
+  })
+  const openDelegate = React.useCallback(() => setDelegateOpen(true), [])
+  useRegisterDelegationSidebar(canSelfServiceDelegate, openDelegate)
+
+  const isPlanningAcDelegate =
+    sectionAccess.isPlanningSection && sectionAccess.isPermanentManager
+  const delegateTitle = isPlanningAcDelegate
+    ? 'Delegate contract work'
+    : undefined
+  const delegateDescription = isPlanningAcDelegate
+    ? `Choose the planning supervisor to onboard the contract and add items for you, for up to ${DELEGATION_MAX_DAYS} days.`
+    : undefined
+  const actingRoleLabel = isPlanningAcDelegate
+    ? 'contract'
+    : sectionAccess.isPermanentOfficer
+      ? 'officer'
+      : sectionAccess.isPermanentSupervisor
+        ? 'supervisor'
+        : 'manager'
 
   const [activeTab, setActiveTab] = useState<SectionTab>(() =>
     resolveSectionTabFromQuery(searchParams.get('tab')),
@@ -237,7 +277,20 @@ export function SectionPageContent({
   const [onboardOpen, setOnboardOpen] = useState(false)
   const [cascadeImportOpen, setCascadeImportOpen] = useState(false)
   const manager = section.manager
+  const isPlanningSection = Boolean(
+    section.isPlanningSection || sectionAccess.isPlanningSection,
+  )
   const hasManager = !!manager?._id
+  const contractOwnerId = isPlanningSection
+    ? (sectionAccess.viewerStaffId ?? '')
+    : (manager?._id ?? '')
+  const contractOwnerName = isPlanningSection
+    ? 'Assistant Commissioner'
+    : (manager?.fullName ?? '—')
+  const canOnboardSectionContract =
+    sectionAccess.canOnboardContract &&
+    Boolean(contractOwnerId) &&
+    (hasManager || isPlanningSection)
   const scopedSprints = React.useMemo(
     () => scopeSprintsForViewer(sprints, sectionAccess),
     [sprints, sectionAccess],
@@ -311,7 +364,11 @@ export function SectionPageContent({
   useRegisterPageBreadcrumbs(breadcrumbItems)
 
   const headerRoleLabel = React.useMemo(() => {
-    if (sectionAccess.isSectionManager) return 'Manager'
+    if (sectionAccess.isSectionManager) {
+      return sectionAccess.isPlanningSection
+        ? 'Assistant Commissioner'
+        : 'Manager'
+    }
     if (sectionAccess.isSectionSupervisor) return 'Supervisor'
     if (sectionAccess.isSectionOfficer) return 'Officer'
     if (isSuperadmin) return 'Administrator'
@@ -356,15 +413,42 @@ export function SectionPageContent({
   }
 
   return (
-    <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>
+    <WorkContextNavigationProvider
+      serverWorkContext={workContext}
+      actingForName={
+        sectionAccess.delegation.assignmentAsDelegatee?.fromStaffName ?? null
+      }
+    >
+      <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden'>
+        <WorkContextBar
+          workContext={workContext}
+          assignmentAsDelegatee={
+            sectionAccess.delegation.assignmentAsDelegatee
+          }
+          assignmentAsAbsent={sectionAccess.delegation.assignmentAsAbsent}
+        />
+        <SelfServiceDelegationDialog
+          open={delegateOpen}
+          onOpenChange={setDelegateOpen}
+          actingRoleLabel={actingRoleLabel}
+          candidates={delegationCandidates}
+          createPayload={{ sectionId: section._id }}
+          title={delegateTitle}
+          description={delegateDescription}
+          onSuccess={() => router.refresh()}
+        />
+        <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>
       {/* Main column: scrolls independently; shell height is capped (h-svh + flex chain) */}
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
         <div className='mb-6 flex flex-col items-start gap-4 sm:flex-row sm:items-start sm:justify-between'>
           <div>
             <h1 className='text-2xl font-bold'>{section.name}</h1>
             <p className='text-muted-foreground'>
-              {section.manager?.fullName &&
-                `Manager: ${section.manager.fullName}`}
+              {sectionAccess.isPlanningSection
+                ? 'Planning section · reports to Assistant Commissioner'
+                : section.manager?.fullName
+                  ? `Manager: ${section.manager.fullName}`
+                  : null}
             </p>
           </div>
           {allowSectionActions && section.division?._id && (
@@ -509,20 +593,23 @@ export function SectionPageContent({
                     open={onboardOpen}
                     onOpenChange={setOnboardOpen}
                     sectionId={section._id}
-                    managerId={manager?._id ?? ''}
+                    managerId={contractOwnerId}
                     sectionName={section.name}
-                    managerName={manager?.fullName ?? '—'}
+                    managerName={contractOwnerName}
+                    ownerLabel={
+                      isPlanningSection ? 'Assistant Commissioner' : 'Manager'
+                    }
                     onSuccess={() => setOnboardOpen(false)}
                   />
                   <ContractOnboardEmptyState
                     financialYearLabel={currentFY}
                     description='Onboard a contract to unlock your dashboard with SSMARTA objectives, initiatives, and measurable activities.'
-                    canOnboard={
-                      sectionAccess.canOnboardContract && hasManager
-                    }
+                    canOnboard={canOnboardSectionContract}
                     onOnboard={() => setOnboardOpen(true)}
                     missingAssigneeMessage={
-                      sectionAccess.canOnboardContract && !hasManager
+                      sectionAccess.canOnboardContract &&
+                      !hasManager &&
+                      !isPlanningSection
                         ? 'Assign a manager to this section before onboarding a contract.'
                         : undefined
                     }
@@ -731,20 +818,25 @@ export function SectionPageContent({
                       open={onboardOpen}
                       onOpenChange={setOnboardOpen}
                       sectionId={section._id}
-                      managerId={manager?._id ?? ''}
+                      managerId={contractOwnerId}
                       sectionName={section.name}
-                      managerName={manager?.fullName ?? '—'}
+                      managerName={contractOwnerName}
+                      ownerLabel={
+                        isPlanningSection
+                          ? 'Assistant Commissioner'
+                          : 'Manager'
+                      }
                       onSuccess={() => setOnboardOpen(false)}
                     />
                     <ContractOnboardEmptyState
                       financialYearLabel={currentFY}
                       description='Onboard a contract to add SSMARTA objectives, initiatives, and measurable activities.'
-                      canOnboard={
-                        sectionAccess.canOnboardContract && hasManager
-                      }
+                      canOnboard={canOnboardSectionContract}
                       onOnboard={() => setOnboardOpen(true)}
                       missingAssigneeMessage={
-                        sectionAccess.canOnboardContract && !hasManager
+                        sectionAccess.canOnboardContract &&
+                        !hasManager &&
+                        !isPlanningSection
                           ? 'Assign a manager to this section before onboarding a contract.'
                           : undefined
                       }
@@ -835,5 +927,7 @@ export function SectionPageContent({
         </div>
       )}
     </div>
+      </div>
+    </WorkContextNavigationProvider>
   )
 }

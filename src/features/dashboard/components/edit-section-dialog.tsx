@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ interface EditSectionDialogProps {
     name: string
     slug?: { current: string }
     manager?: { _id: string }
+    isPlanningSection?: boolean
   }
   divisionId: string
   managers: StaffMember[]
@@ -47,16 +49,23 @@ export function EditSectionDialog({
   const [isSaving, setIsSaving] = React.useState(false)
   const [name, setName] = React.useState('')
   const [managerId, setManagerId] = React.useState('')
+  const [isPlanningSection, setIsPlanningSection] = React.useState(false)
 
   React.useEffect(() => {
     if (!open) return
     setName(section.name)
-    setManagerId(section.manager?._id ?? '')
+    setIsPlanningSection(Boolean(section.isPlanningSection))
+    setManagerId(
+      section.isPlanningSection ? '' : (section.manager?._id ?? ''),
+    )
   }, [open, section])
+
+  const canSubmit =
+    Boolean(name.trim()) && (isPlanningSection || Boolean(managerId))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !managerId) return
+    if (!canSubmit) return
 
     setIsSaving(true)
     try {
@@ -65,7 +74,8 @@ export function EditSectionDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          managerId,
+          isPlanningSection,
+          managerId: isPlanningSection ? null : managerId,
         }),
       })
       if (!res.ok) {
@@ -93,11 +103,34 @@ export function EditSectionDialog({
         <DialogHeader>
           <DialogTitle>Edit section</DialogTitle>
           <DialogDescription>
-            Update the section name and manager.
+            Update the section name, type, and manager.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>
+            <div className='space-y-1'>
+              <div className='flex items-center space-x-2'>
+                <Checkbox
+                  id='editIsPlanningSection'
+                  checked={isPlanningSection}
+                  onCheckedChange={v => {
+                    const checked = v === true
+                    setIsPlanningSection(checked)
+                    if (checked) setManagerId('')
+                  }}
+                  disabled={isSaving}
+                />
+                <Label
+                  htmlFor='editIsPlanningSection'
+                  className='text-sm font-semibold'
+                >
+                  Is this a planning section?
+                </Label>
+              </div>
+              <p className='pl-6 text-xs text-muted-foreground'>
+                Supervisors report directly to the Assistant Commissioner.
+              </p>
+            </div>
             <div className='space-y-2'>
               <Label htmlFor='editSectionName' required>
                 Section name
@@ -110,20 +143,22 @@ export function EditSectionDialog({
                 required
               />
             </div>
-            <div className='space-y-2'>
-              <Label htmlFor='editSectionManager' required>
-                Manager
-              </Label>
-              <ManagerSwitcher
-                managers={managers}
-                value={managerId}
-                onChange={id => setManagerId(id || '')}
-                disabled={isSaving}
-                placeholder='Select or create manager'
-                divisionId={divisionId}
-                currentSectionId={section._id}
-              />
-            </div>
+            {!isPlanningSection ? (
+              <div className='space-y-2'>
+                <Label htmlFor='editSectionManager' required>
+                  Manager
+                </Label>
+                <ManagerSwitcher
+                  managers={managers}
+                  value={managerId}
+                  onChange={id => setManagerId(id || '')}
+                  disabled={isSaving}
+                  placeholder='Select or create manager'
+                  divisionId={divisionId}
+                  currentSectionId={section._id}
+                />
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
@@ -134,10 +169,7 @@ export function EditSectionDialog({
             >
               Cancel
             </Button>
-            <Button
-              type='submit'
-              disabled={isSaving || !name.trim() || !managerId}
-            >
+            <Button type='submit' disabled={isSaving || !canSubmit}>
               {isSaving ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />

@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ export type Section = {
   slug?: { current: string }
   division?: { _id: string; name: string }
   order?: number
+  isPlanningSection?: boolean
 }
 
 export type StaffMember = {
@@ -54,10 +56,21 @@ export function CreateSectionDialog({
   const [isCreating, setIsCreating] = React.useState(false)
   const [name, setName] = React.useState('')
   const [managerId, setManagerId] = React.useState<string>('')
+  const [isPlanningSection, setIsPlanningSection] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!open) return
+    setName('')
+    setManagerId('')
+    setIsPlanningSection(false)
+  }, [open])
+
+  const canSubmit =
+    Boolean(name.trim()) && (isPlanningSection || Boolean(managerId))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim() || !managerId) return
+    if (!canSubmit) return
 
     setIsCreating(true)
     try {
@@ -67,7 +80,8 @@ export function CreateSectionDialog({
         body: JSON.stringify({
           name: name.trim(),
           divisionId,
-          managerId,
+          managerId: isPlanningSection ? undefined : managerId,
+          isPlanningSection,
           order: 0,
         }),
       })
@@ -78,6 +92,7 @@ export function CreateSectionDialog({
       const newSection = await res.json()
       setName('')
       setManagerId('')
+      setIsPlanningSection(false)
       onOpenChange(false)
       router.refresh()
       onSuccess?.(newSection)
@@ -100,6 +115,29 @@ export function CreateSectionDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>
+            <div className='space-y-1'>
+              <div className='flex items-center space-x-2'>
+                <Checkbox
+                  id='isPlanningSection'
+                  checked={isPlanningSection}
+                  onCheckedChange={v => {
+                    const checked = v === true
+                    setIsPlanningSection(checked)
+                    if (checked) setManagerId('')
+                  }}
+                  disabled={isCreating}
+                />
+                <Label
+                  htmlFor='isPlanningSection'
+                  className='text-sm font-medium'
+                >
+                  Are you creating a planning section?
+                </Label>
+              </div>
+              <p className='pl-6 text-xs text-muted-foreground'>
+                Supervisors report directly to the Assistant Commissioner.
+              </p>
+            </div>
             <div className='space-y-2'>
               <Label htmlFor='sectionName' required>
                 Section Name
@@ -113,19 +151,21 @@ export function CreateSectionDialog({
                 required
               />
             </div>
-            <div className='space-y-2'>
-              <Label htmlFor='manager' required>
-                Manager
-              </Label>
-              <ManagerSwitcher
-                managers={managers}
-                value={managerId}
-                onChange={setManagerId}
-                divisionId={divisionId}
-                disabled={isCreating}
-                placeholder='Select or create manager'
-              />
-            </div>
+            {!isPlanningSection ? (
+              <div className='space-y-2'>
+                <Label htmlFor='manager' required>
+                  Manager
+                </Label>
+                <ManagerSwitcher
+                  managers={managers}
+                  value={managerId}
+                  onChange={setManagerId}
+                  divisionId={divisionId}
+                  disabled={isCreating}
+                  placeholder='Select or create manager'
+                />
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
@@ -136,10 +176,7 @@ export function CreateSectionDialog({
             >
               Cancel
             </Button>
-            <Button
-              type='submit'
-              disabled={isCreating || !name.trim() || !managerId}
-            >
+            <Button type='submit' disabled={isCreating || !canSubmit}>
               {isCreating ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />

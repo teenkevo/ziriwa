@@ -111,9 +111,17 @@ export function SectionStaffContent({
   const canManageTableActions = canManageMainstreamStaff
   const canManageSupervisors =
     sectionAccess.isGlobalAdmin || sectionAccess.isSectionManager
+  const hasPlanningSupervisor =
+    sectionAccess.isPlanningSection && roster.supervisors.length >= 1
   const allowedCreateRoles = canManageSupervisors
-    ? (['supervisor', 'officer'] as const)
+    ? hasPlanningSupervisor
+      ? (['officer'] as const)
+      : (['supervisor', 'officer'] as const)
     : (['officer'] as const)
+
+  const resolvedPageDescription = sectionAccess.isPlanningSection
+    ? `The Assistant Commissioner onboards the supervisor; supervisors can onboard officers. One supervisor max.`
+    : pageDescription
 
   const [rows, setRows] = React.useState(() => buildTableRows(roster))
   const [addStaffOpen, setAddStaffOpen] = React.useState(false)
@@ -142,7 +150,7 @@ export function SectionStaffContent({
               <Users className='h-5 w-5' />
               {pageTitle}
             </CardTitle>
-            <CardDescription>{pageDescription}</CardDescription>
+            <CardDescription>{resolvedPageDescription}</CardDescription>
           </div>
           {canAddStaff && (
             <Button size='sm' onClick={() => setAddStaffOpen(true)}>

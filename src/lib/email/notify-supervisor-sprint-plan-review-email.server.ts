@@ -92,7 +92,7 @@ async function loadAndQueueSupervisorSprintPlanReviewEmail(
 
   if (recipients.size === 0) return
 
-  const managerName = manager?.fullName?.trim() || 'Manager'
+  const managerName = manager?.fullName?.trim() || 'Reviewer'
   const emailData = {
     managerName,
     sectionName: sprintMeta.sectionName?.trim() || 'Section',

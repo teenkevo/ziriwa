@@ -7,6 +7,7 @@ export type Section = {
   slug?: { current: string }
   division?: { _id: string; name: string; slug?: { current: string } }
   manager?: { _id: string; fullName?: string }
+  isPlanningSection?: boolean
 }
 
 export async function getSectionBySlug(
@@ -19,6 +20,7 @@ export async function getSectionBySlug(
       slug,
       division->{ _id, "name": coalesce(acronym, fullName, name), slug },
       manager->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
+      isPlanningSection,
     }
   `)
 

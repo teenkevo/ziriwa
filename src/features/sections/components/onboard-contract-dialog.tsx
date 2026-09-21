@@ -23,6 +23,8 @@ interface OnboardContractDialogProps {
   managerId: string
   sectionName: string
   managerName: string
+  /** Label for the contract owner row (defaults to Manager). */
+  ownerLabel?: string
   onSuccess?: () => void
 }
 
@@ -33,6 +35,7 @@ export function OnboardContractDialog({
   managerId,
   sectionName,
   managerName,
+  ownerLabel = 'Manager',
   onSuccess,
 }: OnboardContractDialogProps) {
   const router = useRouter()
@@ -76,7 +79,7 @@ export function OnboardContractDialog({
           <OnboardContractDetailsCard
             rows={[
               { label: 'Section', value: sectionName },
-              { label: 'Manager', value: managerName },
+              { label: ownerLabel, value: managerName },
               { label: 'Financial Year', value: currentFY.label },
             ]}
           />

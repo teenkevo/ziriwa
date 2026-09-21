@@ -10,7 +10,10 @@ import { ManagerWorkspaceContent } from '@/features/manager/manager-workspace-co
 import type { WorkspaceBasePath } from '@/lib/workspace-paths'
 import type { DelegationCandidate } from '@/lib/role-delegation'
 import type { OrgDelegationRecord } from '@/lib/org-role-delegation.server'
-import { canCreateSelfServiceDelegation } from '@/lib/role-delegation'
+import {
+  canCreateSelfServiceDelegation,
+  DELEGATION_MAX_DAYS,
+} from '@/lib/role-delegation'
 import type { WorkContextMode } from '@/lib/section-access'
 import { useRegisterDelegationSidebar } from '@/contexts/delegation-sidebar-context'
 import { SelfServiceDelegationDialog } from '@/features/delegation/self-service-delegation-dialog'
@@ -39,6 +42,9 @@ interface WorkspaceDelegationShellProps extends WorkspaceData {
 }
 
 function actingRoleLabel(access: WorkspaceData['sectionAccess']) {
+  if (access.isPlanningSection && access.isPermanentManager) {
+    return 'contract'
+  }
   if (access.isPermanentOfficer) return 'officer'
   if (access.isPermanentSupervisor) return 'supervisor'
   if (access.isPermanentManager) return 'manager'
@@ -118,6 +124,16 @@ export function WorkspaceDelegationShell({
           actingRoleLabel={actingRoleLabel(sectionAccess)}
           candidates={delegationCandidates}
           createPayload={{ sectionId: section._id }}
+          title={
+            sectionAccess.isPlanningSection && sectionAccess.isPermanentManager
+              ? 'Delegate contract work'
+              : undefined
+          }
+          description={
+            sectionAccess.isPlanningSection && sectionAccess.isPermanentManager
+              ? `Choose the planning supervisor to onboard the contract and add items for you, for up to ${DELEGATION_MAX_DAYS} days.`
+              : undefined
+          }
           onSuccess={refresh}
         />
 

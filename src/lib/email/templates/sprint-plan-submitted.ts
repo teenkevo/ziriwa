@@ -19,6 +19,8 @@ export interface SprintPlanSubmittedEmailData {
   sectionName: string
   weekLabel: string
   isResubmission?: boolean
+  /** Relative app path for the review CTA (defaults to manager to-review). */
+  reviewHref?: string
   rows: SprintPlanSubmittedTaskRow[]
 }
 
@@ -81,7 +83,7 @@ export const sprintPlanSubmittedEmailTemplate: EmailTemplateDefinition<SprintPla
         contentMaxWidth: 800,
         action: {
           label: 'Review sprint plan',
-          href: `${getAppBaseUrl()}/manager/sprints?tab=to-review`,
+          href: `${getAppBaseUrl()}${data.reviewHref ?? '/manager/sprints?tab=to-review'}`,
         },
       })
 

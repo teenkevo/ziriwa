@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { assertAuth } from '@/lib/authz/guards.server'
+import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
 import {
   canStaffReceiveDelegation,
@@ -9,6 +10,7 @@ import {
   isDelegationWithinMaxDays,
   isSectionActingRole,
   staffRoleMatchesActingRole,
+  type SectionActingRole,
 } from '@/lib/role-delegation'
 import {
   findOverlappingDelegationAsAbsentAnyScope,
@@ -21,6 +23,7 @@ import {
   isProjectManagerForProject,
   projectDelegationDenied,
 } from '@/lib/project-delegation.server'
+import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { syncDelegationStatuses } from '@/lib/section-delegation.server'
 import { audit } from '@/lib/audit-log/events'
 
@@ -51,7 +54,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const viewerStaffId = await getViewerStaffIdForSection(sectionId)
+    const viewerStaffIdForSection = await getViewerStaffIdForSection(sectionId)
+    const viewerStaffId =
+      viewerStaffIdForSection ?? (await getViewerStaffId())
     if (!viewerStaffId) {
       return NextResponse.json(
         { error: 'You are not assigned to this section' },
@@ -78,7 +83,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const [fromStaff, toStaff] = await Promise.all([
+    const [fromStaff, toStaff, sectionMeta] = await Promise.all([
       writeClient.fetch<{ _id: string; role?: string; sectionId?: string } | null>(
         `*[_type == "staff" && _id == $id][0]{ _id, role, "sectionId": section._ref }`,
         { id: fromStaffId },
@@ -99,6 +104,18 @@ export async function POST(req: NextRequest) {
         }`,
         { id: toStaffId },
       ),
+      writeClient.fetch<{
+        isPlanningSection?: boolean
+        divisionId?: string | null
+        assistantCommissionerId?: string | null
+      } | null>(
+        `*[_type == "section" && _id == $sectionId][0]{
+          "isPlanningSection": coalesce(isPlanningSection, false),
+          "divisionId": division._ref,
+          "assistantCommissionerId": division->assistantCommissioner._ref
+        }`,
+        { sectionId },
+      ),
     ])
 
     if (!fromStaff || !toStaff) {
@@ -117,7 +134,28 @@ export async function POST(req: NextRequest) {
       projectId &&
       (await isProjectManagerForProject(projectId, fromStaffId))
 
-    const actingRole = fromStaff.role
+    let actingRole: SectionActingRole | string | undefined = fromStaff.role
+    let isPlanningAcDelegation = false
+
+    if (
+      sectionMeta?.isPlanningSection &&
+      sectionMeta.divisionId &&
+      !isProjectManagerDelegation
+    ) {
+      const isPermanentAc =
+        fromStaffId === sectionMeta.assistantCommissionerId
+      const actingAsAc = isPermanentAc
+        ? null
+        : await getActiveOrgDelegationAsDelegatee(fromStaffId, {
+            actingRole: 'assistant_commissioner',
+            divisionId: sectionMeta.divisionId,
+          })
+      if (isPermanentAc || actingAsAc) {
+        isPlanningAcDelegation = true
+        actingRole = 'manager'
+      }
+    }
+
     if (!isSectionActingRole(actingRole)) {
       return NextResponse.json(
         {
@@ -138,6 +176,22 @@ export async function POST(req: NextRequest) {
       if (!(await isDeputyProjectManagerOnProject(projectId, toStaffId))) {
         return projectDelegationDenied(
           'Project managers can only delegate to the deputy project manager',
+        )
+      }
+    } else if (isPlanningAcDelegation) {
+      if (!toStaff?.sectionId || toStaff.sectionId !== sectionId) {
+        return NextResponse.json(
+          { error: 'Acting staff must belong to this planning section' },
+          { status: 400 },
+        )
+      }
+      if (toStaff.role !== 'supervisor') {
+        return NextResponse.json(
+          {
+            error:
+              'Assistant Commissioners can only delegate planning contract work to the section supervisor',
+          },
+          { status: 400 },
         )
       }
     } else {

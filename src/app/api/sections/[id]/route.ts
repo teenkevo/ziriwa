@@ -10,6 +10,7 @@ const staffRef = (id: string) => ({ _type: 'reference' as const, _ref: id })
 type SectionDoc = {
   _id: string
   name: string
+  isPlanningSection?: boolean
   division?: { _id: string }
   manager?: { _id: string }
 }
@@ -30,17 +31,19 @@ export async function PATCH(
 
     const { id } = await params
     const body = await req.json()
-    const { name, managerId, divisionId, order } = body as {
+    const { name, managerId, divisionId, order, isPlanningSection } = body as {
       name?: string
-      managerId?: string
+      managerId?: string | null
       divisionId?: string
       order?: number
+      isPlanningSection?: boolean
     }
 
     const current = await writeClient.fetch<SectionDoc | null>(
       `*[_type == "section" && _id == $id][0]{
         _id,
         name,
+        isPlanningSection,
         division->{ _id },
         manager->{ _id }
       }`,
@@ -51,9 +54,30 @@ export async function PATCH(
       return NextResponse.json({ error: 'Section not found' }, { status: 404 })
     }
 
+    const nextIsPlanning =
+      typeof isPlanningSection === 'boolean'
+        ? isPlanningSection
+        : Boolean(current.isPlanningSection)
+
+    if (!nextIsPlanning) {
+      const nextManagerId =
+        managerId === null
+          ? null
+          : typeof managerId === 'string'
+            ? managerId
+            : (current.manager?._id ?? null)
+      if (!nextManagerId) {
+        return NextResponse.json(
+          { error: 'Manager is required for standard sections' },
+          { status: 400 },
+        )
+      }
+    }
+
     const patch = writeClient.patch(id)
     let newSlug: string | undefined
     let didPatch = false
+    const unsetPaths: string[] = []
 
     if (typeof name === 'string' && name.trim() && name.trim() !== current.name) {
       const trimmed = name.trim()
@@ -102,12 +126,34 @@ export async function PATCH(
       didPatch = true
     }
 
-    const managerChanged =
-      typeof managerId === 'string' &&
-      managerId !== (current.manager?._id ?? '')
+    if (
+      typeof isPlanningSection === 'boolean' &&
+      isPlanningSection !== Boolean(current.isPlanningSection)
+    ) {
+      patch.set({ isPlanningSection })
+      didPatch = true
+    }
 
-    if (managerChanged) {
-      patch.set({ manager: staffRef(managerId) })
+    const previousManagerId = current.manager?._id ?? null
+    let nextManagerId: string | null | undefined = undefined
+    let clearManager = false
+
+    if (nextIsPlanning) {
+      if (previousManagerId) {
+        clearManager = true
+        nextManagerId = null
+      }
+    } else if (typeof managerId === 'string') {
+      if (managerId !== previousManagerId) {
+        nextManagerId = managerId
+      }
+    }
+
+    if (clearManager) {
+      unsetPaths.push('manager')
+      didPatch = true
+    } else if (typeof nextManagerId === 'string') {
+      patch.set({ manager: staffRef(nextManagerId) })
       didPatch = true
     }
 
@@ -118,14 +164,22 @@ export async function PATCH(
       )
     }
 
+    if (unsetPaths.length > 0) {
+      patch.unset(unsetPaths)
+    }
     await patch.commit()
 
-    if (managerChanged) {
-      if (current.manager?._id) {
-        await writeClient.patch(current.manager._id).unset(['section']).commit()
+    if (clearManager && previousManagerId) {
+      await writeClient.patch(previousManagerId).unset(['section']).commit()
+    } else if (
+      typeof nextManagerId === 'string' &&
+      nextManagerId !== previousManagerId
+    ) {
+      if (previousManagerId) {
+        await writeClient.patch(previousManagerId).unset(['section']).commit()
       }
       await writeClient
-        .patch(managerId)
+        .patch(nextManagerId)
         .set({ section: staffRef(id) })
         .commit()
     }
@@ -135,6 +189,7 @@ export async function PATCH(
       managerId,
       divisionId,
       order,
+      isPlanningSection,
     })
 
     return NextResponse.json({

@@ -16,6 +16,7 @@ import {
   getOutgoingActiveDelegation,
   syncDelegationStatuses,
 } from '@/lib/section-delegation.server'
+import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import {
   getProjectWorkstreamOfficerIds,
   getProjectWorkstreamSupervisorIds,
@@ -54,6 +55,9 @@ export async function getSectionAccessForViewer(
       getViewerStaffIdForSection(sectionId),
       client.fetch<{
         managerId: string | null
+        isPlanningSection: boolean | null
+        divisionId: string | null
+        assistantCommissionerId: string | null
         projectId: string | null
         projectManagerId: string | null
         deputyProjectManagerId: string | null
@@ -61,6 +65,9 @@ export async function getSectionAccessForViewer(
       } | null>(
         /* groq */ `*[_type == "section" && _id == $sectionId][0]{
         "managerId": manager._ref,
+        "isPlanningSection": coalesce(isPlanningSection, false),
+        "divisionId": division._ref,
+        "assistantCommissionerId": division->assistantCommissioner._ref,
         "projectId": project._ref,
         "projectManagerId": project->projectManager._ref,
         "deputyProjectManagerId": project->deputyProjectManager._ref,
@@ -79,6 +86,8 @@ export async function getSectionAccessForViewer(
     ])
 
   const isProjectWorkstream = Boolean(sectionMeta?.projectId)
+  const isPlanningSection =
+    !isProjectWorkstream && Boolean(sectionMeta?.isPlanningSection)
   const [supervisorIds, officerIds] = isProjectWorkstream
     ? await Promise.all([
         getProjectWorkstreamSupervisorIds(sectionId),
@@ -86,9 +95,11 @@ export async function getSectionAccessForViewer(
       ])
     : [mainstreamSupervisorIds ?? [], mainstreamOfficerIds ?? []]
 
-  const viewerStaffId =
+  let viewerStaffId =
     viewerStaffIdForSection ??
-    (sectionMeta?.projectId ? await getViewerStaffId() : null)
+    (sectionMeta?.projectId || isPlanningSection
+      ? await getViewerStaffId()
+      : null)
 
   const mergedSupervisorIds = [...(supervisorIds ?? [])]
   if (
@@ -112,6 +123,24 @@ export async function getSectionAccessForViewer(
     ) {
       effectiveManagerId = viewerStaffId
     }
+  } else if (isPlanningSection) {
+    const assistantCommissionerId =
+      sectionMeta?.assistantCommissionerId ?? null
+    effectiveManagerId = assistantCommissionerId
+    if (viewerStaffId && sectionMeta?.divisionId) {
+      if (viewerStaffId === assistantCommissionerId) {
+        effectiveManagerId = viewerStaffId
+      } else {
+        const actingAsAc = await getActiveOrgDelegationAsDelegatee(
+          viewerStaffId,
+          {
+            actingRole: 'assistant_commissioner',
+            divisionId: sectionMeta.divisionId,
+          },
+        )
+        if (actingAsAc) effectiveManagerId = viewerStaffId
+      }
+    }
   }
 
   const [assignmentAsDelegatee, assignmentAsAbsent] = viewerStaffId
@@ -129,6 +158,7 @@ export async function getSectionAccessForViewer(
       officerIds: officerIds ?? [],
       appRole,
       isProjectWorkstream,
+      isPlanningSection,
       delegation: {
         assignmentAsDelegatee,
         assignmentAsAbsent,
@@ -144,7 +174,9 @@ export function assertSectionStaffManageAllowed(
   if (access.isGlobalAdmin) return null
   if (!access.canManageSectionStaff) {
     return sectionAccessDenied(
-      'Only the section manager or supervisors can manage section staff',
+      access.isPlanningSection
+        ? 'Only the Assistant Commissioner or supervisors can manage planning section staff'
+        : 'Only the section manager or supervisors can manage section staff',
     )
   }
   return null
@@ -167,7 +199,11 @@ export function assertSectionAskAiAllowed(
 ): NextResponse | null {
   if (access.isGlobalAdmin) return null
   if (!access.isSectionManager) {
-    return sectionAccessDenied('Only section managers can use Ask AI')
+    return sectionAccessDenied(
+      access.isPlanningSection
+        ? 'Only the Assistant Commissioner can use Ask AI for planning sections'
+        : 'Only section managers can use Ask AI',
+    )
   }
   return null
 }
@@ -224,7 +260,9 @@ export function assertContractOnboardAllowed(
   if (access.isGlobalAdmin) return null
   if (!access.canOnboardContract) {
     return sectionAccessDenied(
-      'Only the section manager can onboard the section contract',
+      access.isPlanningSection
+        ? 'Only the Assistant Commissioner can onboard the section contract'
+        : 'Only the section manager can onboard the section contract',
     )
   }
   return null
@@ -258,7 +296,9 @@ export function assertSprintManagerPlanReviewAllowed(
   if (access.isGlobalAdmin) return null
   if (access.isSectionManager) return null
   return sectionAccessDenied(
-    'Only the section manager can approve or reject sprint plan tasks',
+    access.isPlanningSection
+      ? 'Only the Assistant Commissioner can approve or reject sprint plan tasks for planning sections'
+      : 'Only the section manager can approve or reject sprint plan tasks',
   )
 }
 

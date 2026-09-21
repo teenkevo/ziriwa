@@ -94,7 +94,7 @@ export const sprintPlanReviewOutcomeEmailTemplate: EmailTemplateDefinition<Sprin
           },
           {
             key: 'feedback',
-            header: 'Manager feedback',
+            header: 'Reviewer feedback',
             render: row => cellText(row.revisionReason),
           },
         ],

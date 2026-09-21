@@ -53,6 +53,7 @@ export type SectionRow = {
   name: string
   slug?: { current: string }
   order?: number
+  isPlanningSection?: boolean
   manager?: { _id: string; fullName: string }
   staffCount?: number
   initiativeProgressPercent: number
@@ -70,7 +71,11 @@ function sectionGlobalFilter(
     .trim()
   if (!q) return true
   const s = row.original
-  const hay = [s.name, s.manager?.fullName]
+  const hay = [
+    s.name,
+    s.manager?.fullName,
+    s.isPlanningSection ? 'planning' : '',
+  ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
@@ -169,7 +174,9 @@ function buildColumns(
       cell: ({ row }) => (
         <div className='min-w-[150px]'>
           <span className='text-sm text-muted-foreground'>
-            {row.original.manager?.fullName ?? '—'}
+            {row.original.isPlanningSection
+              ? 'Planning (AC)'
+              : (row.original.manager?.fullName ?? '—')}
           </span>
         </div>
       ),

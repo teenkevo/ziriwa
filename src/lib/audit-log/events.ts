@@ -139,7 +139,7 @@ export const audit = {
       emit('SUBMITTED', 'weeklySprint', {
         resourceId: id,
         resourceLabel: label,
-        message: 'Weekly sprint submitted for manager review',
+        message: 'Weekly sprint submitted for review',
         actionKey: 'weekly-sprint.submit',
         scopeSectionId: sectionId,
       }),

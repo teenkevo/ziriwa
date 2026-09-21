@@ -118,10 +118,14 @@ export async function POST(req: NextRequest) {
       }
       const chain = await writeClient.fetch<{
         _id: string
+        isPlanningSection?: boolean
+        supervisorCount?: number
         division: { _id: string; department: { _id: string } | null } | null
       } | null>(
         `*[_id == $sectionId][0]{
           _id,
+          "isPlanningSection": coalesce(isPlanningSection, false),
+          "supervisorCount": count(*[_type == "staff" && role == "supervisor" && coalesce(status, "active") != "inactive" && section._ref == $sectionId]),
           division->{ _id, department->{ _id } }
         }`,
         { sectionId },
@@ -129,6 +133,19 @@ export async function POST(req: NextRequest) {
       if (!chain?.division?._id || !chain.division.department?._id) {
         return NextResponse.json(
           { error: 'Section must belong to a division with a department' },
+          { status: 400 },
+        )
+      }
+      if (
+        role === 'supervisor' &&
+        chain.isPlanningSection &&
+        (chain.supervisorCount ?? 0) >= 1
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              'Planning sections can have only one supervisor. Add officers for the rest of the team.',
+          },
           { status: 400 },
         )
       }

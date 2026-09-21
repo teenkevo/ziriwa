@@ -53,11 +53,29 @@ export const section = defineType({
         }),
     }),
     defineField({
+      name: 'isPlanningSection',
+      title: 'Planning Section',
+      type: 'boolean',
+      initialValue: false,
+      description:
+        'Planning sections have no manager. Supervisors report directly to the Assistant Commissioner.',
+    }),
+    defineField({
       name: 'manager',
       title: 'Manager',
       type: 'reference',
       to: [{ type: 'staff' }],
       description: 'Staff member (Manager role) heading this section',
+      hidden: ({ parent }) =>
+        Boolean((parent as { isPlanningSection?: boolean })?.isPlanningSection),
+      validation: Rule =>
+        Rule.custom((manager, context) => {
+          const parent = context.parent as
+            | { isPlanningSection?: boolean; project?: unknown }
+            | undefined
+          if (parent?.project || parent?.isPlanningSection) return true
+          return manager ? true : 'Manager is required for standard sections'
+        }),
     }),
     defineField({
       name: 'order',
@@ -70,12 +88,17 @@ export const section = defineType({
     select: {
       name: 'name',
       division: 'division.name',
+      isPlanningSection: 'isPlanningSection',
     },
     prepare(selection) {
-      const { name, division } = selection
+      const { name, division, isPlanningSection } = selection
+      const parts = [
+        isPlanningSection ? 'Planning' : null,
+        division ? `in ${division}` : null,
+      ].filter(Boolean)
       return {
         title: name || 'Unnamed Section',
-        subtitle: division ? `in ${division}` : undefined,
+        subtitle: parts.length > 0 ? parts.join(' · ') : undefined,
       }
     },
   },
