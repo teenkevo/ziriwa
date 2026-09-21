@@ -1,21 +1,15 @@
-import { clearImpersonationCookie } from '@/lib/impersonation/cookie.server'
 import { WorkspaceFlow } from '@/features/workspace/workspace-flow'
-import { getViewerContext } from '@/lib/impersonation/viewer-context.server'
 import { getWorkspaceCapabilities } from '@/lib/workspace-entry.server'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Workspace picker. Never redirect to clear-impersonation from here —
- * soft navigations + redirect loops burn API calls when the clear cookie
- * does not stick on the next RSC request.
+ * Workspace picker.
+ * Do NOT clear impersonation here — Next.js Link prefetch of /workspace (e.g. sidebar
+ * logo) would wipe the cookie in production right after impersonation starts.
+ * Use /workspace/clear-impersonation for an intentional exit from impersonation.
  */
 export default async function WorkspacePage() {
-  const viewer = await getViewerContext()
-  if (viewer.isSuperadmin && viewer.isImpersonating) {
-    await clearImpersonationCookie()
-  }
-
   const caps = await getWorkspaceCapabilities()
 
   return (
