@@ -11,14 +11,13 @@ type SprintsPageProps = {
 const TAB_TO_VIEW = {
   ready: 'ready',
   'to-review': 'in-review',
-  drafts: 'draft',
 } as const
 
 type SprintTab = keyof typeof TAB_TO_VIEW
 
 function parseSprintTab(value: string | string[] | undefined): SprintTab | null {
   const raw = Array.isArray(value) ? value[0] : value
-  if (raw === 'ready' || raw === 'to-review' || raw === 'drafts') return raw
+  if (raw === 'ready' || raw === 'to-review') return raw
   return null
 }
 
@@ -28,6 +27,7 @@ export default async function ManagerSprintsPage({
   const params = await searchParams
   const tab = parseSprintTab(params.tab)
 
+  // Managers only see Ready + To review (no Drafts — supervisors own drafts).
   if (!tab) {
     redirect('/manager/sprints?tab=ready')
   }
@@ -37,7 +37,7 @@ export default async function ManagerSprintsPage({
       view='sprints'
       searchParams={searchParams}
       sprintView={TAB_TO_VIEW[tab]}
-      sprintReviewLabel='To Review'
+      sprintReviewLabel='In review'
     />
   )
 }

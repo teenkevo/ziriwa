@@ -27,6 +27,10 @@ import { Badge } from '@/components/ui/badge'
 import { AllClearState } from '@/components/all-clear-state'
 import { SprintDraftsEmptyState } from '@/features/sections/components/sprint-drafts-empty-state'
 import {
+  SprintViewEmptyState,
+  getSprintViewEmptyCopy,
+} from '@/features/sections/components/sprint-view-empty-state'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -855,7 +859,13 @@ export function WeeklySprintContent({
 
   React.useEffect(() => {
     if (presentation === 'single-view') {
-      setSprintTab(singleView)
+      const nextView =
+        singleView === 'draft' && !sectionAccess.canViewSprintDraftTab
+          ? sectionAccess.canViewSprintInReviewTab
+            ? 'in-review'
+            : 'ready'
+          : singleView
+      setSprintTab(nextView)
       return
     }
     if (!showSprintSubTabs) {
@@ -868,6 +878,8 @@ export function WeeklySprintContent({
     singleView,
     showSprintSubTabs,
     sprintUiMode,
+    sectionAccess.canViewSprintDraftTab,
+    sectionAccess.canViewSprintInReviewTab,
     onSprintTabChange,
     setSprintTab,
   ])
@@ -1639,22 +1651,31 @@ export function WeeklySprintContent({
     />
   )
 
-  const readySprintsEmptyMessage = isOfficerView
-    ? !viewerStaffId
-      ? `Your account could not be matched to a staff record for this ${scopeLabels.unit}. Ensure your sign-in email matches your staff profile.`
-      : 'No tasks assigned to you yet.'
-    : 'No sprints yet, Check back later'
+  const readyEmptyCopy = getSprintViewEmptyCopy({
+    surface: 'ready',
+    mode: sprintUiMode,
+    unitLabel: scopeLabels.unit,
+    missingStaffMatch: isOfficerView && !viewerStaffId,
+  })
+  const inReviewEmptyCopy = getSprintViewEmptyCopy({
+    surface: 'in-review',
+    mode: sprintUiMode,
+  })
+  const officerDraftEmptyCopy = getSprintViewEmptyCopy({
+    surface: 'draft',
+    mode: 'officer',
+  })
 
   const readySprintsContent = (
     <div className='mt-4 space-y-4'>
       {groupsForAcceptedUi.length === 0 ? (
-        <Card>
-          <CardContent className='pt-6'>
-            <p className='text-sm text-muted-foreground'>
-              {readySprintsEmptyMessage}
-            </p>
-          </CardContent>
-        </Card>
+        <SprintViewEmptyState
+          financialYearLabel={activeFY.label}
+          icon={readyEmptyCopy.icon}
+          title={readyEmptyCopy.title}
+          description={readyEmptyCopy.description}
+          note={readyEmptyCopy.note}
+        />
       ) : (
         groupsForAcceptedUi.map(({ sprint, tasks }) => (
           <AcceptedSprintTasksCard
@@ -1685,11 +1706,29 @@ export function WeeklySprintContent({
   const draftSprintsContent = (
     <div className='space-y-4 mt-4'>
       {draftSprints.length === 0 ? (
-        <SprintDraftsEmptyState
-          financialYearLabel={activeFY.label}
-          canCreate={sectionAccess.canCreateSprints}
-          onCreate={openNewSprintDialog}
-        />
+        sectionAccess.canCreateSprints ? (
+          <SprintDraftsEmptyState
+            financialYearLabel={activeFY.label}
+            canCreate
+            onCreate={openNewSprintDialog}
+          />
+        ) : (
+          <SprintViewEmptyState
+            financialYearLabel={activeFY.label}
+            icon={officerDraftEmptyCopy.icon}
+            title={
+              isOfficerView
+                ? officerDraftEmptyCopy.title
+                : 'No sprint drafts yet'
+            }
+            description={
+              isOfficerView
+                ? officerDraftEmptyCopy.description
+                : 'Supervisors draft weekly plans here. Check back when a plan has been prepared for this section.'
+            }
+            note={isOfficerView ? officerDraftEmptyCopy.note : undefined}
+          />
+        )
       ) : (
         draftSprints.map(sprint => (
           <SprintCard
@@ -1717,13 +1756,13 @@ export function WeeklySprintContent({
   const inReviewSprintsContent = (
     <div className='space-y-4 mt-4'>
       {submittedOrReviewedSprints.length === 0 ? (
-        <Card>
-          <CardContent className='pt-6'>
-            <p className='text-sm text-muted-foreground'>
-              No sprints in review.
-            </p>
-          </CardContent>
-        </Card>
+        <SprintViewEmptyState
+          financialYearLabel={activeFY.label}
+          icon={inReviewEmptyCopy.icon}
+          title={inReviewEmptyCopy.title}
+          description={inReviewEmptyCopy.description}
+          note={inReviewEmptyCopy.note}
+        />
       ) : (
         submittedOrReviewedSprints.map(sprint => (
           <SprintCard
@@ -1747,10 +1786,17 @@ export function WeeklySprintContent({
     </div>
   )
 
+  const effectiveSingleView =
+    singleView === 'draft' && !sectionAccess.canViewSprintDraftTab
+      ? sectionAccess.canViewSprintInReviewTab
+        ? 'in-review'
+        : 'ready'
+      : singleView
+
   const singleViewContent =
-    singleView === 'draft'
+    effectiveSingleView === 'draft'
       ? draftSprintsContent
-      : singleView === 'in-review'
+      : effectiveSingleView === 'in-review'
         ? inReviewSprintsContent
         : readySprintsContent
 
@@ -1758,7 +1804,7 @@ export function WeeklySprintContent({
     <div className='space-y-4'>
       {presentation === 'single-view' ? (
         <>
-          {singleView === 'draft' &&
+          {effectiveSingleView === 'draft' &&
           sectionAccess.canCreateSprints &&
           draftSprints.length > 0 ? (
             <div className='flex justify-end'>
@@ -1798,7 +1844,7 @@ export function WeeklySprintContent({
                   value='in-review'
                   className={weeklySprintSubTabTriggerClassName}
                 >
-                  In Review
+                  In review
                   {submittedOrReviewedSprints.length > 0 && (
                     <Badge
                       variant='secondary'

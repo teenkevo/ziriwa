@@ -59,10 +59,12 @@ export type SidebarSection = {
   slug?: { current?: string }
 }
 
-function resolveManagerSprintTab(
+function resolveLeadershipSprintTab(
   tab: string | null,
+  options?: { allowDrafts?: boolean },
 ): 'ready' | 'to-review' | 'drafts' {
-  if (tab === 'to-review' || tab === 'drafts') return tab
+  if (tab === 'to-review') return 'to-review'
+  if (options?.allowDrafts && tab === 'drafts') return 'drafts'
   return 'ready'
 }
 
@@ -86,7 +88,7 @@ export function AppSidebarNav({
   variant = 'default',
   commissionerDivisions = [],
   assistantCommissionerSections = [],
-  managerSprintsReviewLabel = 'To Review',
+  managerSprintsReviewLabel = 'In review',
   sprintNavCounts,
   hideSprintReviewTab = false,
   showWorkstreamsNav = false,
@@ -215,7 +217,10 @@ export function AppSidebarNav({
   const supervisorBasePath = workspaceBasePath ?? '/supervisor'
   const sectionLeadershipSprintTab =
     isManagerSidebar || isSupervisorSidebar
-      ? resolveManagerSprintTab(searchParams.get('tab'))
+      ? resolveLeadershipSprintTab(searchParams.get('tab'), {
+          // Managers have no Drafts tab; supervisors and workstream leads do.
+          allowDrafts: isSupervisorSidebar,
+        })
       : null
   const sprintCounts = sprintNavCounts ?? {
     ready: 0,
@@ -320,7 +325,7 @@ export function AppSidebarNav({
                   badge={<SprintSidebarCountBadge count={sprintCounts.ready} />}
                 >
                   <Zap />
-                  <span>Sprints</span>
+                  <span>Weekly Sprints</span>
                 </SidebarContractGatedItem>
               ) : null}
               <SidebarContractGatedItem
@@ -339,7 +344,7 @@ export function AppSidebarNav({
         </SidebarGroup>
         {officerSprintsSplit ? (
           <SidebarGroup>
-            <SidebarGroupLabel>Sprints</SidebarGroupLabel>
+            <SidebarGroupLabel>Weekly Sprints</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {contractUnlocked ? (
@@ -428,6 +433,7 @@ export function AppSidebarNav({
         contractUnlocked={contractUnlocked}
         sprintsNavMode={leadershipSprintsNavMode}
         hideSprintReviewTab={hideSprintReviewTab}
+        hideSprintDraftsTab
         showWorkstreamsNav={showWorkstreamsNav}
         useProjectMembersNav={useProjectMembersNav}
         staffNavLabel={staffNavLabel}

@@ -53,6 +53,8 @@ interface SectionLeadershipSidebarNavProps {
   sprintsNavMode?: 'split' | 'ready-only'
   /** Project PM workspace: only Ready and Drafts (no manager review queue). */
   hideSprintReviewTab?: boolean
+  /** Section managers: Ready + To review only (supervisors keep Drafts). */
+  hideSprintDraftsTab?: boolean
   /** Project manager: link to workstreams setup. */
   showWorkstreamsNav?: boolean
   /** Project PM / DPM: project members roster (not section staff). */
@@ -70,6 +72,7 @@ export function SectionLeadershipSidebarNav({
   contractUnlocked = true,
   sprintsNavMode = 'split',
   hideSprintReviewTab = false,
+  hideSprintDraftsTab = false,
   showWorkstreamsNav = false,
   useProjectMembersNav = false,
   staffNavLabel,
@@ -221,13 +224,13 @@ export function SectionLeadershipSidebarNav({
                 }
               >
                 <Zap />
-                <span>Sprints</span>
+                <span>Weekly Sprints</span>
               </SidebarContractGatedItem>
             </SidebarMenu>
           </SidebarGroupContent>
         ) : (
           <>
-            <SidebarGroupLabel>Sprints</SidebarGroupLabel>
+            <SidebarGroupLabel>Weekly Sprints</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {contractUnlocked ? (
@@ -272,24 +275,26 @@ export function SectionLeadershipSidebarNav({
                         />
                       </SidebarMenuItem>
                     ) : null}
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isSprintsRoute && sprintTab === 'drafts'}
-                      >
-                        <SprintTabSidebarLink
-                          href={buildSprintTabHref(
-                            basePath,
-                            'drafts',
-                            searchParams,
-                          )}
+                    {!hideSprintDraftsTab ? (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isSprintsRoute && sprintTab === 'drafts'}
                         >
-                          <FilePen />
-                          <span>Drafts</span>
-                        </SprintTabSidebarLink>
-                      </SidebarMenuButton>
-                      <SprintSidebarCountBadge count={sprintCounts.drafts} />
-                    </SidebarMenuItem>
+                          <SprintTabSidebarLink
+                            href={buildSprintTabHref(
+                              basePath,
+                              'drafts',
+                              searchParams,
+                            )}
+                          >
+                            <FilePen />
+                            <span>Drafts</span>
+                          </SprintTabSidebarLink>
+                        </SidebarMenuButton>
+                        <SprintSidebarCountBadge count={sprintCounts.drafts} />
+                      </SidebarMenuItem>
+                    ) : null}
                   </>
                 ) : (
                   <>
@@ -317,16 +322,18 @@ export function SectionLeadershipSidebarNav({
                         <span>{sprintsReviewLabel}</span>
                       </SidebarContractGatedItem>
                     ) : null}
-                    <SidebarContractGatedItem
-                      unlocked={false}
-                      href={`${basePath}/sprints`}
-                      badge={
-                        <SprintSidebarCountBadge count={sprintCounts.drafts} />
-                      }
-                    >
-                      <FilePen />
-                      <span>Drafts</span>
-                    </SidebarContractGatedItem>
+                    {!hideSprintDraftsTab ? (
+                      <SidebarContractGatedItem
+                        unlocked={false}
+                        href={`${basePath}/sprints`}
+                        badge={
+                          <SprintSidebarCountBadge count={sprintCounts.drafts} />
+                        }
+                      >
+                        <FilePen />
+                        <span>Drafts</span>
+                      </SidebarContractGatedItem>
+                    ) : null}
                   </>
                 )}
               </SidebarMenu>

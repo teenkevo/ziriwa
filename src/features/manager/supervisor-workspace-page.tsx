@@ -46,7 +46,7 @@ export async function SupervisorWorkspacePage({
       view={view}
       workspaceBasePath='/supervisor'
       sprintView={sprintView}
-      sprintReviewLabel='In Review'
+      sprintReviewLabel='In review'
     />
   )
 }

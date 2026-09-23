@@ -52,7 +52,7 @@ export async function AppSidebarNavWrapper() {
             departmentsTree={departmentsTree}
             variant='manager'
             workspaceBasePath={workspaceBasePath}
-            managerSprintsReviewLabel='To Review'
+            managerSprintsReviewLabel='In review'
             sprintNavCounts={sprintNavCounts}
             hideSprintReviewTab
             showWorkstreamsNav
@@ -68,7 +68,7 @@ export async function AppSidebarNavWrapper() {
             departmentsTree={departmentsTree}
             variant='manager'
             workspaceBasePath={workspaceBasePath}
-            managerSprintsReviewLabel='To Review'
+            managerSprintsReviewLabel='In review'
             sprintNavCounts={sprintNavCounts}
             hideSprintReviewTab
             showWorkstreamsNav
@@ -84,7 +84,7 @@ export async function AppSidebarNavWrapper() {
             departmentsTree={departmentsTree}
             variant='supervisor'
             workspaceBasePath={workspaceBasePath}
-            managerSprintsReviewLabel='In Review'
+            managerSprintsReviewLabel='In review'
             sprintNavCounts={sprintNavCounts}
             hideSprintReviewTab
             staffNavLabel='Workstream Members'
@@ -169,7 +169,7 @@ export async function AppSidebarNavWrapper() {
       <AppSidebarNav
         departmentsTree={departmentsTree}
         variant='manager'
-        managerSprintsReviewLabel='To Review'
+        managerSprintsReviewLabel='In review'
         sprintNavCounts={sprintNavCounts}
         hideSprintReviewTab={hideSprintReviewTab}
         contractUnlocked={contractUnlocked}
@@ -186,7 +186,7 @@ export async function AppSidebarNavWrapper() {
       <AppSidebarNav
         departmentsTree={departmentsTree}
         variant='supervisor'
-        managerSprintsReviewLabel='In Review'
+        managerSprintsReviewLabel='In review'
         sprintNavCounts={sprintNavCounts}
         hideSprintReviewTab={hideSprintReviewTab}
         contractUnlocked={contractUnlocked}

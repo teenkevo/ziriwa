@@ -75,8 +75,7 @@ export async function ProjectRoleSprintsPage({
     redirect(`${base}?tab=ready`)
   }
 
-  const reviewLabel =
-    parsedRole === 'workstream_lead' ? 'In Review' : 'To Review'
+  const reviewLabel = 'In review'
 
   return (
     <ProjectRoleWorkspacePage

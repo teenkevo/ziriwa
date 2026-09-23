@@ -70,7 +70,7 @@ type ManagerWorkspaceContentProps = WorkspaceData & {
 export function ManagerWorkspaceContent({
   view,
   sprintView,
-  sprintReviewLabel = 'To Review',
+  sprintReviewLabel = 'In review',
   workspaceBasePath = '/manager',
   section,
   isProjectManagerWorkspace = false,

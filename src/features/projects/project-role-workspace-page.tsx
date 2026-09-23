@@ -82,8 +82,7 @@ export async function ProjectRoleWorkspacePage({
     role === 'project_manager' ||
     role === 'deputy_project_manager' ||
     role === 'workstream_lead'
-  const reviewLabel =
-    sprintReviewLabel ?? (role === 'workstream_lead' ? 'In Review' : 'To Review')
+  const reviewLabel = sprintReviewLabel ?? 'In review'
   return (
     <WorkspaceDelegationShell
       {...data}
