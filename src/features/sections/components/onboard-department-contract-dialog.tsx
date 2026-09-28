@@ -66,9 +66,9 @@ export function OnboardDepartmentContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent disableClose={isCreating}>
         <DialogHeader>
-          <DialogTitle>Onboard department contract</DialogTitle>
+          <DialogTitle>Onboard department performance contract</DialogTitle>
           <DialogDescription>
-            Create your department contract for the current financial year.
+            Create your department performance contract for the current financial year.
             Add SSMARTA objectives, initiatives, and measurable activities.
           </DialogDescription>
         </DialogHeader>
@@ -99,7 +99,7 @@ export function OnboardDepartmentContractDialog({
                   Onboarding...
                 </>
               ) : (
-                'Onboard contract'
+                'Onboard performance contract'
               )}
             </Button>
           </DialogFooter>

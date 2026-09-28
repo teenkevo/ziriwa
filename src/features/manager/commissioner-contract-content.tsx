@@ -29,11 +29,7 @@ export function CommissionerContractContent({
     <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden'>
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
         <div className='flex flex-col gap-2'>
-          <h1 className='text-2xl font-bold'>Contract</h1>
-          <p className='max-w-3xl text-sm text-muted-foreground'>
-            Manage SSMARTA objectives, initiatives, and measurable activities
-            for {departmentName}.
-          </p>
+          <h1 className='text-2xl font-bold'>Performance Contract</h1>
         </div>
 
         {departmentContract ? (

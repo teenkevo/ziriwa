@@ -33,11 +33,8 @@ import { AddInitiativeDialog } from '@/features/sections/components/add-initiati
 import { AddMeasurableActivityDialog } from '@/features/sections/components/add-measurable-activity-dialog'
 import { EditObjectiveDialog } from '@/features/sections/components/edit-objective-dialog'
 import { EditInitiativeDialog } from '@/features/sections/components/edit-initiative-dialog'
-import {
-  ContractColumnBrowser,
-  contractItemKindLabel,
-  type ContractColumnObjective,
-} from '@/features/sections/components/contract-column-browser'
+import { ContractColumnBrowser, type ContractColumnObjective } from '@/features/sections/components/contract-column-browser'
+import { EditMeasurableActivityDialog } from '@/features/sections/components/edit-measurable-activity-dialog'
 
 interface ContractTreeProps {
   sectionContract: SectionContract
@@ -59,7 +56,7 @@ function SectionActivityAddMenu({
       <DropdownMenuTrigger asChild>
         <Button
           type='button'
-          variant='ghost'
+          variant='default'
           size='icon'
           className='h-7 w-7 shrink-0'
           aria-label='Add measurable activity'
@@ -91,6 +88,7 @@ function buildSectionColumnObjectives(input: {
   onEditInitiative: (objIdx: number, initIdx: number) => void
   onDeleteInitiative: (objIdx: number, initIdx: number) => void
   onDeleteActivity: (objIdx: number, initIdx: number, actIdx: number) => void
+  onEditActivity: (objIdx: number, initIdx: number, actIdx: number) => void
   onAddActivity: (
     objIdx: number,
     initIdx: number,
@@ -110,6 +108,7 @@ function buildSectionColumnObjectives(input: {
     onEditInitiative,
     onDeleteInitiative,
     onDeleteActivity,
+    onEditActivity,
     onAddActivity,
     onOpenInitiative,
     onOpenActivity,
@@ -159,18 +158,17 @@ function buildSectionColumnObjectives(input: {
             act.activityType === 'kpi' || act.activityType === 'cross-cutting'
               ? measurableActivityNumber(initNum, act.activityType, actOrder)
               : departmentMeasurableActivityNumber(initNum, actOrder)
-          const aim = act.aim?.trim()
-
           return [
             {
               id: act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
               title: act.title,
               code: actNum,
-              subtitle: contractItemKindLabel(act.activityType),
-              detail: aim || undefined,
               status: act.status,
               onOpen: sectionSlug
                 ? () => onOpenActivity(objIdx, initIdx, actIdx)
+                : undefined,
+              onEdit: canManage
+                ? () => onEditActivity(objIdx, initIdx, actIdx)
                 : undefined,
               onDelete: canManage
                 ? () => onDeleteActivity(objIdx, initIdx, actIdx)
@@ -236,6 +234,12 @@ export function ContractTree({
     initIdx: number
     actIdx: number
   } | null>(null)
+  const [editingActivity, setEditingActivity] = React.useState<{
+    objIdx: number
+    initIdx: number
+    actIdx: number
+  } | null>(null)
+  const [editActivityOpen, setEditActivityOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const [activityDialogParams, setActivityDialogParams] = React.useState<{
     objIdx: number
@@ -275,6 +279,10 @@ export function ContractTree({
           setDeleteInitiative({ objIdx, initIdx }),
         onDeleteActivity: (objIdx, initIdx, actIdx) =>
           setDeleteActivity({ objIdx, initIdx, actIdx }),
+        onEditActivity: (objIdx, initIdx, actIdx) => {
+          setEditingActivity({ objIdx, initIdx, actIdx })
+          setEditActivityOpen(true)
+        },
         onAddActivity: (objIdx, initIdx, type) => {
           setActivityDialogParams({ objIdx, initIdx, type })
           setActivityDialogOpen(true)
@@ -391,6 +399,13 @@ export function ContractTree({
     }
   }, [deleteActivity, router, sectionContract._id])
 
+  const activityBeingEdited = editingActivity
+    ? objectives[editingActivity.objIdx]?.initiatives?.[editingActivity.initIdx]
+        ?.measurableActivities?.[editingActivity.actIdx]
+    : undefined
+  const activityBeingEditedRequiresAim =
+    activityBeingEdited?.activityType === 'kpi' ||
+    activityBeingEdited?.activityType === 'core'
 
   return (
     <>
@@ -576,6 +591,21 @@ export function ContractTree({
           }
         />
       )}
+      {editingActivity && activityBeingEdited ? (
+        <EditMeasurableActivityDialog
+          open={editActivityOpen}
+          onOpenChange={setEditActivityOpen}
+          contractId={sectionContract._id}
+          objectiveIndex={editingActivity.objIdx}
+          initiativeIndex={editingActivity.initIdx}
+          activityIndex={editingActivity.actIdx}
+          initialTitle={activityBeingEdited.title}
+          initialAim={activityBeingEdited.aim}
+          initialTargetDate={activityBeingEdited.targetDate}
+          showAim={activityBeingEditedRequiresAim}
+          requireAim={activityBeingEditedRequiresAim}
+        />
+      ) : null}
       <ContractColumnBrowser
         objectives={columnObjectives}
         onAddObjective={

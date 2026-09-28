@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 
-const LOCKED_TOOLTIP = 'Onboard a contract first'
+const LOCKED_TOOLTIP = 'Onboard a performance contract first'
 
 interface SidebarContractGatedItemProps {
   unlocked: boolean

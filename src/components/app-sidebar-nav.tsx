@@ -269,7 +269,7 @@ export function AppSidebarNav({
                 >
                   <Link href={`${officerBasePath}/contract`}>
                     <FileText />
-                    <span>Contract</span>
+                    <span>Performance Contract</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -486,7 +486,7 @@ export function AppSidebarNav({
                 >
                   <Link href='/assistant-commissioner/contract'>
                     <FileText />
-                    <span>Contract</span>
+                    <span>Performance Contract</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -618,7 +618,7 @@ export function AppSidebarNav({
                 >
                   <Link href='/commissioner/contract'>
                     <FileText />
-                    <span>Contract</span>
+                    <span>Performance Contract</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

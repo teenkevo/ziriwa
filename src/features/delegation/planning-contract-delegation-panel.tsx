@@ -73,11 +73,10 @@ export function PlanningContractSupportStatus({
       )}
     >
       <div className='min-w-0 space-y-0.5'>
-        <p className='text-sm font-medium'>Contract work delegated</p>
+        <p className='text-sm font-medium'>Contract entry has been delegated</p>
         <p className='text-xs text-muted-foreground'>
-          {toStaffName} is supporting planning section contract entry
-          {endDate ? ` until ${endDate}` : ''}. You remain responsible as
-          Assistant Commissioner.
+          {toStaffName} is supporting your contract entry
+          {endDate ? ` until ${endDate}` : ''}. You remain responsible for its accuracy and execution
         </p>
       </div>
       {onCancel ? (

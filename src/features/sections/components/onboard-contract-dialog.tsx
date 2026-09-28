@@ -70,7 +70,7 @@ export function OnboardContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent disableClose={isCreating}>
         <DialogHeader>
-          <DialogTitle>Onboard Contract</DialogTitle>
+          <DialogTitle>Onboard Performance Contract</DialogTitle>
           <DialogDescription>
             Cascades to supervisors, then officers.
           </DialogDescription>
@@ -99,7 +99,7 @@ export function OnboardContractDialog({
                   Onboarding...
                 </>
               ) : (
-                'Onboard Contract'
+                'Onboard Performance Contract'
               )}
             </Button>
           </DialogFooter>

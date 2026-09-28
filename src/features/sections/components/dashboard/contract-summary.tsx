@@ -61,7 +61,7 @@ export function ContractSummary({ metrics }: ContractSummaryProps) {
   return (
     <Card>
       <CardHeader className='pb-3'>
-        <CardTitle className='text-base'>Contract execution</CardTitle>
+        <CardTitle className='text-base'>Performance Contract execution</CardTitle>
         <CardDescription>
           Status across {metrics.totals.activities} measurable activit
           {metrics.totals.activities === 1 ? 'y' : 'ies'} in{' '}

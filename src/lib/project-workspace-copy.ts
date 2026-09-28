@@ -66,8 +66,8 @@ export function getManagerWorkspaceViewConfig(
           'Project performance, sprint progress across workstreams, contract status, and pending work.',
       },
       contract: {
-        title: 'Contract',
-        description: 'Manage your project contract and deliverables.',
+        title: 'Performance Contract',
+        description: 'Manage your project performance contract and deliverables.',
       },
       sprints: {
         title: 'Sprints',
@@ -98,8 +98,8 @@ export function getManagerWorkspaceViewConfig(
           'Workstream performance, sprint progress, contract status, and pending work.',
       },
       contract: {
-        title: 'Contract',
-        description: 'Manage your workstream contract and deliverables.',
+        title: 'Performance Contract',
+        description: 'Manage your workstream performance contract and deliverables.',
       },
       sprints: {
         title: 'Sprints',
@@ -128,8 +128,8 @@ export function getManagerWorkspaceViewConfig(
         'Section performance, sprint progress, contract status, and pending work.',
     },
     contract: {
-      title: 'Contract',
-      description: 'Manage your section contract and deliverables.',
+      title: 'Performance Contract',
+      description: 'Manage your section performance contract and deliverables.',
     },
     sprints: {
       title: 'Sprints',

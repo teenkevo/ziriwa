@@ -34,9 +34,9 @@ import { EditInitiativeDialog } from '@/features/sections/components/edit-initia
 import {
   ContractColumnAddButton,
   ContractColumnBrowser,
-  contractItemKindLabel,
   type ContractColumnObjective,
 } from '@/features/sections/components/contract-column-browser'
+import { EditMeasurableActivityDialog } from '@/features/sections/components/edit-measurable-activity-dialog'
 
 type LeadershipContract =
   | DepartmentContract
@@ -91,7 +91,6 @@ function buildDepartmentColumnObjectives(input: {
   contract: LeadershipContract
   sectionSlug: string
   canManage: boolean
-  showActivityAim: boolean
   showTasksOnly: boolean
   onEditObjective: (objIdx: number) => void
   onDeleteObjective: (objIdx: number) => void
@@ -100,6 +99,7 @@ function buildDepartmentColumnObjectives(input: {
   onDeleteInitiative: (objIdx: number, initIdx: number) => void
   onAddActivity: (objIdx: number, initIdx: number) => void
   onDeleteActivity: (objIdx: number, initIdx: number, actIdx: number) => void
+  onEditActivity: (objIdx: number, initIdx: number, actIdx: number) => void
   onOpenActivity: (
     objIdx: number,
     initIdx: number,
@@ -111,7 +111,6 @@ function buildDepartmentColumnObjectives(input: {
     contract,
     sectionSlug,
     canManage,
-    showActivityAim,
     showTasksOnly,
     onEditObjective,
     onDeleteObjective,
@@ -120,6 +119,7 @@ function buildDepartmentColumnObjectives(input: {
     onDeleteInitiative,
     onAddActivity,
     onDeleteActivity,
+    onEditActivity,
     onOpenActivity,
   } = input
   const objectives = contract.objectives ?? []
@@ -177,19 +177,17 @@ function buildDepartmentColumnObjectives(input: {
                       resolveActivityNumberingType(item) ===
                       resolveActivityNumberingType(act),
                   ).length + 1
-              const aim = showActivityAim ? act.aim?.trim() : ''
               return [
                 {
                   id: act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
                   title: act.title,
                   code: leadershipActivityNumber(initNum, act, actOrder),
-                  subtitle: contractItemKindLabel(
-                    resolveActivityNumberingType(act),
-                  ),
-                  detail: aim || undefined,
                   status: act.status,
                   onOpen: sectionSlug
                     ? () => onOpenActivity(objIdx, initIdx, actIdx)
+                    : undefined,
+                  onEdit: canManage
+                    ? () => onEditActivity(objIdx, initIdx, actIdx)
                     : undefined,
                   onDelete: canManage
                     ? () => onDeleteActivity(objIdx, initIdx, actIdx)
@@ -268,6 +266,12 @@ export function DepartmentContractTree({
     objIdx: number
     initIdx: number
   } | null>(null)
+  const [editingActivity, setEditingActivity] = React.useState<{
+    objIdx: number
+    initIdx: number
+    actIdx: number
+  } | null>(null)
+  const [editActivityOpen, setEditActivityOpen] = React.useState(false)
 
   const objectives = departmentContract.objectives ?? []
 
@@ -282,7 +286,6 @@ export function DepartmentContractTree({
         contract: departmentContract,
         sectionSlug,
         canManage: canManageContract,
-        showActivityAim,
         showTasksOnly: showTasksOnlyUnderMeasurable,
         onEditObjective: objIdx => {
           setEditingObjectiveIndex(objIdx)
@@ -305,6 +308,10 @@ export function DepartmentContractTree({
         },
         onDeleteActivity: (objIdx, initIdx, actIdx) =>
           setDeleteActivity({ objIdx, initIdx, actIdx }),
+        onEditActivity: (objIdx, initIdx, actIdx) => {
+          setEditingActivity({ objIdx, initIdx, actIdx })
+          setEditActivityOpen(true)
+        },
         onOpenActivity: (objIdx, initIdx, actIdx, taskKey) => {
           if (!sectionSlug) return
           const taskQs =
@@ -318,7 +325,6 @@ export function DepartmentContractTree({
       departmentContract,
       sectionSlug,
       canManageContract,
-      showActivityAim,
       showTasksOnlyUnderMeasurable,
       router,
     ],
@@ -420,6 +426,13 @@ export function DepartmentContractTree({
     }
   }, [deleteActivity, router, departmentContract._id, apiBase])
 
+  const activityBeingEdited = editingActivity
+    ? objectives[editingActivity.objIdx]?.initiatives?.[editingActivity.initIdx]
+        ?.measurableActivities?.[editingActivity.actIdx]
+    : undefined
+  const activityBeingEditedRequiresAim =
+    activityBeingEdited?.activityType === 'kpi' ||
+    activityBeingEdited?.activityType === 'core'
 
   return (
     <>
@@ -602,6 +615,22 @@ export function DepartmentContractTree({
           }
         />
       )}
+      {editingActivity && activityBeingEdited ? (
+        <EditMeasurableActivityDialog
+          open={editActivityOpen}
+          onOpenChange={setEditActivityOpen}
+          contractId={departmentContract._id}
+          contractsApi={contractsApi}
+          objectiveIndex={editingActivity.objIdx}
+          initiativeIndex={editingActivity.initIdx}
+          activityIndex={editingActivity.actIdx}
+          initialTitle={activityBeingEdited.title}
+          initialAim={activityBeingEdited.aim}
+          initialTargetDate={activityBeingEdited.targetDate}
+          showAim={showActivityAim || activityBeingEditedRequiresAim}
+          requireAim={activityBeingEditedRequiresAim}
+        />
+      ) : null}
       <ContractColumnBrowser
         objectives={columnObjectives}
         onAddObjective={

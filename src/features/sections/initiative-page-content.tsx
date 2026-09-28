@@ -133,7 +133,7 @@ export function InitiativePageContent({
   const breadcrumbs = React.useMemo(
     () => [
       { label: section.name, href: backHref },
-      { label: 'Contract', href: backHref },
+      { label: 'Performance Contract', href: backHref },
       { label: initiative.title || 'Initiative' },
     ],
     [section.name, backHref, initiative.title],

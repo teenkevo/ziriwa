@@ -83,7 +83,7 @@ export function CommissionerDashboardContent({
           <MetricCard
             href='/commissioner/contract'
             icon={FileText}
-            label='Contract Progress'
+            label='Performance Contract Progress'
             value={`${data.myContract.percent}%`}
             subtle={`${data.myContract.completed} / ${data.myContract.total} measurable activities completed`}
             progress={data.myContract.percent}

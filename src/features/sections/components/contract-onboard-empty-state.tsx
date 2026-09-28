@@ -11,7 +11,7 @@ interface ContractOnboardEmptyStateProps {
   canOnboard: boolean
   onOnboard: () => void
   missingAssigneeMessage?: string
-  /** Defaults to "Onboard contract". */
+  /** Defaults to "Onboard performance contract". */
   ctaLabel?: string
   className?: string
 }
@@ -26,7 +26,7 @@ export function ContractOnboardEmptyState({
   canOnboard,
   onOnboard,
   missingAssigneeMessage,
-  ctaLabel = 'Onboard contract',
+  ctaLabel = 'Onboard performance contract',
   className,
 }: ContractOnboardEmptyStateProps) {
   return (
@@ -55,7 +55,7 @@ export function ContractOnboardEmptyState({
             {financialYearLabel}
           </p>
           <h2 className='text-xl font-semibold tracking-tight text-foreground sm:text-2xl'>
-            Set up this financial year&apos;s contract
+            Set up this financial year&apos;s performance contract
           </h2>
           <p className='text-sm leading-relaxed text-muted-foreground'>
             {description}
@@ -70,7 +70,7 @@ export function ContractOnboardEmptyState({
         ) : (
           <p className='max-w-lg rounded-md border border-border/70 bg-background/80 px-3 py-2.5 text-sm text-muted-foreground'>
             {missingAssigneeMessage?.trim() ||
-              'You do not have permission to onboard a contract for this financial year.'}
+              'You do not have permission to onboard a performance contract for this financial year.'}
           </p>
         )}
       </div>

@@ -137,7 +137,7 @@ export function OnboardSupervisorContractDialog({
       <Dialog open={open && step === 'details'} onOpenChange={onOpenChange}>
         <DialogContent disableClose={isSubmitting}>
           <DialogHeader>
-            <DialogTitle>Onboard Contract</DialogTitle>
+            <DialogTitle>Onboard Performance Contract</DialogTitle>
             <DialogDescription>
               {hasManagerContract
                 ? `Cascade from the ${effectiveUpstreamRoleLabel} contract after onboarding.`
@@ -170,7 +170,7 @@ export function OnboardSupervisorContractDialog({
                 ) : hasManagerContract ? (
                   'Continue'
                 ) : (
-                  'Onboard Contract'
+                  'Onboard Performance Contract'
                 )}
               </Button>
             </DialogFooter>

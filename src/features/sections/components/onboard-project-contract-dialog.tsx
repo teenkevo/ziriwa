@@ -67,7 +67,7 @@ export function OnboardProjectContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent disableClose={isCreating}>
         <DialogHeader>
-          <DialogTitle>Onboard Contract</DialogTitle>
+          <DialogTitle>Onboard Performance Contract</DialogTitle>
           <DialogDescription>
             Cascades to workstream leads and members.
           </DialogDescription>
@@ -96,7 +96,7 @@ export function OnboardProjectContractDialog({
                   Onboarding...
                 </>
               ) : (
-                'Onboard Contract'
+                'Onboard Performance Contract'
               )}
             </Button>
           </DialogFooter>

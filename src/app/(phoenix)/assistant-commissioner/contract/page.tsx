@@ -22,7 +22,7 @@ export default async function AssistantCommissionerContractPage({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Contract</CardTitle>
+          <CardTitle>Performance Contract</CardTitle>
         </CardHeader>
         <CardContent className='text-sm text-muted-foreground'>
           No division has been assigned to this assistant commissioner account.

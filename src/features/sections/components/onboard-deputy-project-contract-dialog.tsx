@@ -67,7 +67,7 @@ export function OnboardDeputyProjectContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent disableClose={isCreating}>
         <DialogHeader>
-          <DialogTitle>Onboard Contract</DialogTitle>
+          <DialogTitle>Onboard Performance Contract</DialogTitle>
           <DialogDescription>
             Cascades from the project manager contract.
           </DialogDescription>
@@ -102,7 +102,7 @@ export function OnboardDeputyProjectContractDialog({
                   Onboarding...
                 </>
               ) : (
-                'Onboard Contract'
+                'Onboard Performance Contract'
               )}
             </Button>
           </DialogFooter>

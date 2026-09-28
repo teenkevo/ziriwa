@@ -3,7 +3,7 @@ export const AUDIT_RESOURCE_TYPES = {
   department: 'Department',
   division: 'Division',
   section: 'Section',
-  sectionContract: 'Contract',
+  sectionContract: 'Performance Contract',
   weeklySprint: 'Weekly Sprint',
   sprintTask: 'Sprint Task',
   stakeholderEngagement: 'Stakeholders',

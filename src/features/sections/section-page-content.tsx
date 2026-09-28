@@ -255,7 +255,7 @@ export function SectionPageContent({
   )
   const tabTriggers = [
     { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { value: 'contract', label: 'Contract', icon: FileText },
+    { value: 'contract', label: 'Performance Contract', icon: FileText },
     { value: 'weekly-sprint', label: 'Sprints', icon: Zap },
     {
       value: 'stakeholder-engagements',
@@ -595,9 +595,9 @@ export function SectionPageContent({
           onValueChange={setSectionTab}
           className='space-y-4'
         >
-          <TabsList>
+          <TabsList className='h-auto w-full max-w-full flex-wrap justify-start'>
             {tabTriggers.map(({ value, label, icon: Icon }) => (
-              <TabsTrigger key={value} value={value} className='group'>
+              <TabsTrigger key={value} value={value} className='group shrink-0'>
                 <Icon className='h-4 w-4 mr-2 text-muted-foreground group-data-[state=active]:text-primary' />
                 {label}
               </TabsTrigger>

@@ -66,9 +66,9 @@ export function OnboardDivisionContractDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent disableClose={isCreating}>
         <DialogHeader>
-          <DialogTitle>Onboard division contract</DialogTitle>
+          <DialogTitle>Onboard division performance contract</DialogTitle>
           <DialogDescription>
-            Create your division contract for the current financial year
+            Create your division performance contract for the current financial year
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -100,7 +100,7 @@ export function OnboardDivisionContractDialog({
                   Onboarding...
                 </>
               ) : (
-                'Onboard contract'
+                'Onboard performance contract'
               )}
             </Button>
           </DialogFooter>

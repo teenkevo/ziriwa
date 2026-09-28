@@ -118,7 +118,7 @@ export function SectionLeadershipSidebarNav({
               >
                 <Link href={`${basePath}/contract`}>
                   <FileText />
-                  <span>Contract</span>
+                  <span>Performance Contract</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

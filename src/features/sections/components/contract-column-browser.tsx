@@ -29,6 +29,7 @@ export interface ContractColumnLeaf {
   detail?: string
   status?: string
   onOpen?: () => void
+  onEdit?: () => void
   onDelete?: () => void
 }
 
@@ -98,7 +99,7 @@ export function ContractColumnAddButton({
   return (
     <Button
       type='button'
-      variant='ghost'
+      variant='default'
       size='icon'
       className='h-7 w-7 shrink-0'
       aria-label={label}
@@ -110,30 +111,17 @@ export function ContractColumnAddButton({
   )
 }
 
-export function contractItemKindLabel(activityType: string | undefined): string {
-  if (activityType === 'kpi' || activityType === 'core') return 'Core KPI'
-  if (activityType === 'cross-cutting') return 'Cross-cutting'
-  return 'Measurable activity'
-}
-
-function statusDotClass(status: string): string {
-  if (status === 'completed' || status === 'done') return 'bg-emerald-500'
-  if (
-    status === 'in_progress' ||
-    status === 'in_review' ||
-    status === 'delivered'
-  ) {
-    return 'bg-amber-400'
-  }
-  return 'bg-muted-foreground/40'
-}
-
 function matchesQuery(query: string, row: ColumnRowModel): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
   return [row.code, row.title, row.subtitle, row.detail].some(part =>
     part?.toLowerCase().includes(needle),
   )
+}
+
+function runAfterMenuCloses(action: (() => void) | undefined) {
+  if (!action) return
+  window.setTimeout(action, 0)
 }
 
 function ColumnRowMenu({
@@ -150,11 +138,7 @@ function ColumnRowMenu({
           type='button'
           variant='ghost'
           size='icon'
-          className={cn(
-            'h-7 w-7 shrink-0',
-            row.leafSelected &&
-              'text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground',
-          )}
+          className='h-5 w-5 shrink-0'
           aria-label={`${row.title} options`}
           title='Options'
           onClick={event => event.stopPropagation()}
@@ -169,23 +153,13 @@ function ColumnRowMenu({
         onClick={event => event.stopPropagation()}
       >
         {row.onOpen ? (
-          <DropdownMenuItem
-            onSelect={event => {
-              event.preventDefault()
-              row.onOpen?.()
-            }}
-          >
+          <DropdownMenuItem onSelect={() => runAfterMenuCloses(row.onOpen)}>
             <File className='mr-2 h-4 w-4' />
             Manage
           </DropdownMenuItem>
         ) : null}
         {row.onEdit ? (
-          <DropdownMenuItem
-            onSelect={event => {
-              event.preventDefault()
-              row.onEdit?.()
-            }}
-          >
+          <DropdownMenuItem onSelect={() => runAfterMenuCloses(row.onEdit)}>
             <Pencil className='mr-2 h-4 w-4' />
             Edit
           </DropdownMenuItem>
@@ -193,10 +167,7 @@ function ColumnRowMenu({
         {row.onDelete ? (
           <DropdownMenuItem
             className='text-destructive focus:text-destructive'
-            onSelect={event => {
-              event.preventDefault()
-              row.onDelete?.()
-            }}
+            onSelect={() => runAfterMenuCloses(row.onDelete)}
           >
             <Trash2 className='mr-2 h-4 w-4' />
             Delete
@@ -213,74 +184,56 @@ function ColumnRow({ row }: { row: ColumnRowModel }) {
       role='option'
       aria-selected={Boolean(row.branchSelected || row.leafSelected)}
       className={cn(
-        'flex w-full min-w-0 items-center rounded-md',
-        row.leafSelected && 'bg-primary text-primary-foreground',
-        row.branchSelected && 'bg-muted',
+        'flex w-full min-w-0 items-start rounded-md',
+        (row.leafSelected || row.branchSelected) && 'bg-muted',
         !row.leafSelected && !row.branchSelected && 'hover:bg-muted/80',
       )}
     >
       <button
         type='button'
         onClick={row.onSelect}
-        className='flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left'
+        className='flex min-w-0 flex-1 items-start gap-2 px-2 py-1.5 text-left'
         title={row.code ? `${row.code} ${row.title}` : row.title}
       >
         <span className='min-w-0 flex-1'>
-          <span className='flex min-w-0 items-baseline gap-2'>
+          <span
+            className={cn(
+              'grid text-sm leading-5',
+              row.code && 'grid-cols-[auto_minmax(0,1fr)] gap-x-2',
+            )}
+          >
             {row.code ? (
-              <span className='shrink-0 font-mono text-sm leading-5'>
-                {row.code}
-              </span>
+              <span className='whitespace-nowrap text-muted-foreground'>{row.code}</span>
             ) : null}
-            <span className='truncate text-sm leading-5'>{row.title}</span>
+            <span className='min-w-0'>{row.title}</span>
           </span>
           {row.subtitle ? (
             <span
-              className={cn(
-                'block truncate text-xs leading-4',
-                row.leafSelected
-                  ? 'text-primary-foreground/75'
-                  : 'text-muted-foreground',
-              )}
+              className='block whitespace-normal break-words text-xs leading-4 text-muted-foreground'
             >
               {row.subtitle}
             </span>
           ) : null}
           {row.detail ? (
             <span
-              className={cn(
-                'mt-0.5 line-clamp-2 block text-xs leading-4',
-                row.leafSelected
-                  ? 'text-primary-foreground/75'
-                  : 'text-muted-foreground',
-              )}
+              className='mt-0.5 block whitespace-normal break-words text-xs leading-4 text-muted-foreground'
             >
               {row.detail}
             </span>
           ) : null}
         </span>
-        {row.status ? (
-          <span
-            className={cn(
-              'h-2 w-2 shrink-0 rounded-full',
-              statusDotClass(row.status),
-            )}
-            aria-hidden
-          />
-        ) : null}
       </button>
-      <ColumnRowMenu row={row} />
-      {row.hasChildren ? (
-        <ChevronRight
-          className={cn(
-            'mr-1 h-4 w-4 shrink-0',
-            row.leafSelected
-              ? 'text-primary-foreground/80'
-              : 'text-muted-foreground',
-          )}
-          aria-hidden
-        />
-      ) : null}
+      <div className='shrink-0 pt-1.5'>
+        <div className='flex h-5 items-center'>
+          <ColumnRowMenu row={row} />
+          {row.hasChildren ? (
+            <ChevronRight
+            className='mr-1 h-4 w-4 shrink-0 text-muted-foreground'
+              aria-hidden
+            />
+          ) : null}
+        </div>
+      </div>
     </div>
   )
 }
@@ -322,7 +275,7 @@ function ColumnPane({
             <Input
               value={query}
               onChange={event => onQueryChange(event.target.value)}
-              placeholder='Search list'
+              placeholder={`Search ${column.title}`}
               aria-label={`Search ${column.title}`}
               autoComplete='off'
               className='h-8 border-transparent bg-muted/40 pl-8 shadow-none focus-visible:ring-1'
@@ -473,6 +426,7 @@ export function ContractColumnBrowser({
           leaf.onOpen?.()
         },
         onDelete: leaf.onDelete,
+        onEdit: leaf.onEdit,
         onOpen: leaf.onOpen,
       })),
     }
