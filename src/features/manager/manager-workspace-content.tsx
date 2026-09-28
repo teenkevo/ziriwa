@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -216,10 +215,6 @@ export function ManagerWorkspaceContent({
   const [contractSupportEditorOpen, setContractSupportEditorOpen] =
     React.useState(false)
   const [cascadeImportOpen, setCascadeImportOpen] = React.useState(false)
-  const [expandAllSignal, setExpandAllSignal] = React.useState(0)
-  const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
-  const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
-  const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
   const { active: activeFY } = useFinancialYear()
 
   const activeSprintView: SprintView =
@@ -517,8 +512,6 @@ export function ManagerWorkspaceContent({
       return (
         <div className='space-y-4'>
           {planningDelegatedAction}
-          <Card>
-          <CardContent className='pt-6'>
             {activeContract ? (
               <div className='space-y-4'>
                 {usesSupervisorContract && sectionContract ? (
@@ -543,22 +536,7 @@ export function ManagerWorkspaceContent({
                     isProjectWorkstream={isProjectWorkstreamWorkspace}
                   />
                 ) : null}
-                <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                  <div className='text-sm flex items-center gap-2 min-w-0'>
-                    <FileText className='h-5 w-5 shrink-0' />
-                    <span className='truncate'>{currentFY}</span>
-                  </div>
-                  <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
-                    {canManageActiveContract ? (
-                      <Button
-                        type='button'
-                        size='sm'
-                        onClick={() => setAddObjectiveSignal(s => s + 1)}
-                      >
-                        <Plus className='h-4 w-4 mr-2' />
-                        Add SSMARTA objective
-                      </Button>
-                    ) : null}
+                <div className='flex flex-wrap items-center justify-end gap-2'>
                     {usesSupervisorContract &&
                     canManageActiveContract &&
                     sectionContract ? (
@@ -596,28 +574,6 @@ export function ManagerWorkspaceContent({
                         responsibilityCenter={contractResponsibilityCenter}
                       />
                     ) : null}
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='outline'
-                      onClick={() => {
-                        if (treeBulkExpanded) {
-                          setCollapseAllSignal(s => s + 1)
-                          setExpandAllSignal(0)
-                          setTreeBulkExpanded(false)
-                        } else {
-                          setExpandAllSignal(s => s + 1)
-                          setTreeBulkExpanded(true)
-                        }
-                      }}
-                    >
-                      {treeBulkExpanded ? (
-                        <ChevronsUp className='h-4 w-4' />
-                      ) : (
-                        <ChevronsDown className='h-4 w-4' />
-                      )}
-                    </Button>
-                  </div>
                 </div>
                 {usesLeadershipContract ? (
                   <DepartmentContractTree
@@ -627,12 +583,6 @@ export function ManagerWorkspaceContent({
                     sectionSlug={section.slug?.current ?? ''}
                     contractsApi={leadershipContractsApi}
                     canManageContract={canManageActiveContract}
-                    expandAllSignal={expandAllSignal}
-                    collapseAllSignal={collapseAllSignal}
-                    addObjectiveSignal={addObjectiveSignal}
-                    onAddObjectiveRequestConsumed={() =>
-                      setAddObjectiveSignal(0)
-                    }
                   />
                 ) : (isProjectManagerWorkspace ||
                     isDeputyProjectManagerWorkspace) &&
@@ -645,24 +595,12 @@ export function ManagerWorkspaceContent({
                         : 'project-contracts'
                     }
                     canManageContract={canManageActiveContract}
-                    expandAllSignal={expandAllSignal}
-                    collapseAllSignal={collapseAllSignal}
-                    addObjectiveSignal={addObjectiveSignal}
-                    onAddObjectiveRequestConsumed={() =>
-                      setAddObjectiveSignal(0)
-                    }
                   />
                 ) : (
                   <ContractTree
                     sectionContract={sectionContract!}
                     sectionSlug={section.slug?.current ?? ''}
                     canManageContract={canManageActiveContract}
-                    expandAllSignal={expandAllSignal}
-                    collapseAllSignal={collapseAllSignal}
-                    addObjectiveSignal={addObjectiveSignal}
-                    onAddObjectiveRequestConsumed={() =>
-                      setAddObjectiveSignal(0)
-                    }
                   />
                 )}
               </div>
@@ -823,8 +761,6 @@ export function ManagerWorkspaceContent({
                 />
               </div>
             )}
-          </CardContent>
-        </Card>
         </div>
       )
     }

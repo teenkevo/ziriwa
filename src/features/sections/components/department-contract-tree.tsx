@@ -2,17 +2,9 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { DotIcon, Loader2, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { TreeView, TreeDataItem } from '@/components/tree-view'
 import {
   departmentDetailedTaskNumber,
   leadershipActivityNumber,
@@ -35,12 +26,17 @@ import type { ProjectContract } from '@/sanity/lib/project-contracts/get-project
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
-import type { TreeRenderItemParams } from '@/components/tree-view'
 import { AddObjectiveDialog } from '@/features/sections/components/add-objective-dialog'
 import { AddInitiativeDialog } from '@/features/sections/components/add-initiative-dialog'
 import { AddDepartmentMeasurableActivityDialog } from '@/features/sections/components/add-department-measurable-activity-dialog'
 import { EditObjectiveDialog } from '@/features/sections/components/edit-objective-dialog'
 import { EditInitiativeDialog } from '@/features/sections/components/edit-initiative-dialog'
+import {
+  ContractColumnAddButton,
+  ContractColumnBrowser,
+  contractItemKindLabel,
+  type ContractColumnObjective,
+} from '@/features/sections/components/contract-column-browser'
 
 type LeadershipContract =
   | DepartmentContract
@@ -63,27 +59,11 @@ interface DepartmentContractTreeProps {
     | 'officer-contracts'
   >
   canManageContract?: boolean
-  expandAllSignal?: number
-  collapseAllSignal?: number
   /** Increment to open the add SSMARTA objective dialog (from parent toolbar). */
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
   onAddObjectiveRequestConsumed?: () => void
 }
-
-const nodeMeta = new Map<
-  string,
-  {
-    code?: string
-    aim?: string
-    objIdx?: number
-    initIdx?: number
-    actIdx?: number
-    taskKey?: string
-    isTask?: boolean
-    isKpi?: boolean
-  }
->()
 
 function contractTreeShowsActivityAim(
   contractsApi: DepartmentContractTreeProps['contractsApi'],
@@ -107,126 +87,142 @@ function taskLabel(task: { task?: string } | string): string {
   return task.task?.trim() ?? ''
 }
 
-function departmentContractToTreeData(
-  departmentContract: LeadershipContract,
-  showActivityAim: boolean,
-  showTasksOnlyUnderMeasurable: boolean,
-): TreeDataItem[] {
-  nodeMeta.clear()
-  const objectives = departmentContract.objectives ?? []
-  const items: TreeDataItem[] = [
-    {
-      id: 'label-objectives',
-      name: 'SSMARTA objectives',
-      className: 'py-1 before:h-[1.25rem] text-primary',
-    },
-  ]
+function buildDepartmentColumnObjectives(input: {
+  contract: LeadershipContract
+  sectionSlug: string
+  canManage: boolean
+  showActivityAim: boolean
+  showTasksOnly: boolean
+  onEditObjective: (objIdx: number) => void
+  onDeleteObjective: (objIdx: number) => void
+  onAddInitiative: (objIdx: number) => void
+  onEditInitiative: (objIdx: number, initIdx: number) => void
+  onDeleteInitiative: (objIdx: number, initIdx: number) => void
+  onAddActivity: (objIdx: number, initIdx: number) => void
+  onDeleteActivity: (objIdx: number, initIdx: number, actIdx: number) => void
+  onOpenActivity: (
+    objIdx: number,
+    initIdx: number,
+    actIdx: number,
+    taskKey?: string,
+  ) => void
+}): ContractColumnObjective[] {
+  const {
+    contract,
+    sectionSlug,
+    canManage,
+    showActivityAim,
+    showTasksOnly,
+    onEditObjective,
+    onDeleteObjective,
+    onAddInitiative,
+    onEditInitiative,
+    onDeleteInitiative,
+    onAddActivity,
+    onDeleteActivity,
+    onOpenActivity,
+  } = input
+  const objectives = contract.objectives ?? []
 
-  for (let objIdx = 0; objIdx < objectives.length; objIdx++) {
-    const obj = objectives[objIdx]
+  return objectives.map((obj, objIdx) => {
     const objNum = obj.code ?? String(objIdx + 1)
-    nodeMeta.set(obj._key, { code: objNum, objIdx })
     const initiatives = obj.initiatives ?? []
 
-    const initiativeChildren: TreeDataItem[] = [
-      {
-        id: `label-initiatives-${objIdx}`,
-        name: 'Initiatives',
-        className: 'py-1 before:h-[1.25rem] text-primary',
-      },
-    ]
-
-    for (let initIdx = 0; initIdx < initiatives.length; initIdx++) {
-      const init = initiatives[initIdx]
-      const initNum = init.code ?? `${objNum}.${initIdx + 1}`
-      nodeMeta.set(init._key, { code: initNum, objIdx, initIdx })
-      const activities = init.measurableActivities ?? []
-
-      const activityChildren: TreeDataItem[] = [
-        {
-          id: `label-activities-${objIdx}-${initIdx}`,
-          name: showTasksOnlyUnderMeasurable
-            ? 'Detailed tasks'
-            : 'Measurable activities',
-          className: 'py-1 before:h-[1.25rem] text-primary',
-        },
-      ]
-
-      let officerTaskOrder = 0
-
-      for (let actIdx = 0; actIdx < activities.length; actIdx++) {
-        const act = activities[actIdx]
-        const actOrder =
-          activities
-            .slice(0, actIdx)
-            .filter(
-              a =>
-                resolveActivityNumberingType(a) ===
-                resolveActivityNumberingType(act),
-            ).length + 1
-        const actNum = leadershipActivityNumber(initNum, act, actOrder)
-
-        if (showTasksOnlyUnderMeasurable) {
-          const rawTasks = act.tasks ?? []
-          for (let taskIdx = 0; taskIdx < rawTasks.length; taskIdx++) {
-            const raw = rawTasks[taskIdx]
-            const title = taskLabel(raw)
-            if (!title) continue
-            officerTaskOrder += 1
-            const supervisorTaskKey =
-              typeof raw === 'string'
-                ? `idx-${taskIdx}`
-                : (raw._key ?? `idx-${taskIdx}`)
-            const treeId = `task:${act._key}:${supervisorTaskKey}`
-            const taskNum = departmentDetailedTaskNumber(
-              initNum,
-              officerTaskOrder,
-            )
-            nodeMeta.set(treeId, {
-              code: taskNum,
-              objIdx,
-              initIdx,
-              actIdx,
-              taskKey: supervisorTaskKey,
-              isTask: true,
+    return {
+      id: obj._key || `objective-${objIdx}`,
+      title: obj.title,
+      code: objNum,
+      onEdit: canManage ? () => onEditObjective(objIdx) : undefined,
+      onDelete: canManage ? () => onDeleteObjective(objIdx) : undefined,
+      onAddInitiative: canManage ? () => onAddInitiative(objIdx) : undefined,
+      initiatives: initiatives.map((init, initIdx) => {
+        const initNum = init.code ?? `${objNum}.${initIdx + 1}`
+        const activities = init.measurableActivities ?? []
+        const children = showTasksOnly
+          ? (() => {
+              let officerTaskOrder = 0
+              const leaves: ContractColumnObjective['initiatives'][number]['children'] =
+                []
+              for (let actIdx = 0; actIdx < activities.length; actIdx++) {
+                const act = activities[actIdx]
+                const rawTasks = act.tasks ?? []
+                for (let taskIdx = 0; taskIdx < rawTasks.length; taskIdx++) {
+                  const raw = rawTasks[taskIdx]
+                  const title = taskLabel(raw)
+                  if (!title) continue
+                  officerTaskOrder += 1
+                  const taskKey =
+                    typeof raw === 'string'
+                      ? `idx-${taskIdx}`
+                      : (raw._key ?? `idx-${taskIdx}`)
+                  leaves.push({
+                    id: `task:${act._key}:${taskKey}`,
+                    title,
+                    code: departmentDetailedTaskNumber(initNum, officerTaskOrder),
+                    onOpen: sectionSlug
+                      ? () => onOpenActivity(objIdx, initIdx, actIdx, taskKey)
+                      : undefined,
+                  })
+                }
+              }
+              return leaves
+            })()
+          : activities.flatMap((act, actIdx) => {
+              if (!act?.title || !String(act.title).trim()) return []
+              const actOrder =
+                activities
+                  .slice(0, actIdx)
+                  .filter(
+                    item =>
+                      resolveActivityNumberingType(item) ===
+                      resolveActivityNumberingType(act),
+                  ).length + 1
+              const aim = showActivityAim ? act.aim?.trim() : ''
+              return [
+                {
+                  id: act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
+                  title: act.title,
+                  code: leadershipActivityNumber(initNum, act, actOrder),
+                  subtitle: contractItemKindLabel(
+                    resolveActivityNumberingType(act),
+                  ),
+                  detail: aim || undefined,
+                  status: act.status,
+                  onOpen: sectionSlug
+                    ? () => onOpenActivity(objIdx, initIdx, actIdx)
+                    : undefined,
+                  onDelete: canManage
+                    ? () => onDeleteActivity(objIdx, initIdx, actIdx)
+                    : undefined,
+                },
+              ]
             })
-            activityChildren.push({
-              id: treeId,
-              name: title,
-            })
-          }
-          continue
+
+        return {
+          id: init._key || `initiative-${objIdx}-${initIdx}`,
+          title: init.title,
+          code: initNum,
+          opensNextColumn: true,
+          childEmptyLabel: showTasksOnly
+            ? 'No detailed tasks yet.'
+            : 'No measurable activities yet.',
+          childHeaderAction: canManage ? (
+            <ContractColumnAddButton
+              label='Add measurable activity'
+              onClick={() => onAddActivity(objIdx, initIdx)}
+            />
+          ) : undefined,
+          onEdit: canManage
+            ? () => onEditInitiative(objIdx, initIdx)
+            : undefined,
+          onDelete: canManage
+            ? () => onDeleteInitiative(objIdx, initIdx)
+            : undefined,
+          children,
         }
-
-        if (!act?.title || !String(act.title).trim()) continue
-        nodeMeta.set(act._key, {
-          code: actNum,
-          aim: showActivityAim ? act.aim : undefined,
-          objIdx,
-          initIdx,
-          actIdx,
-        })
-        activityChildren.push({
-          id: act._key,
-          name: act.title,
-        })
-      }
-
-      initiativeChildren.push({
-        id: init._key,
-        name: init.title,
-        children: activityChildren,
-      })
+      }),
     }
-
-    items.push({
-      id: obj._key,
-      name: obj.title,
-      children: initiativeChildren,
-    })
-  }
-
-  return items
+  })
 }
 
 export function DepartmentContractTree({
@@ -234,8 +230,6 @@ export function DepartmentContractTree({
   sectionSlug = '',
   contractsApi = 'department-contracts',
   canManageContract = false,
-  expandAllSignal,
-  collapseAllSignal,
   addObjectiveSignal = 0,
   onAddObjectiveRequestConsumed,
 }: DepartmentContractTreeProps) {
@@ -244,7 +238,6 @@ export function DepartmentContractTree({
   const showActivityAim = contractTreeShowsActivityAim(contractsApi)
   const showTasksOnlyUnderMeasurable =
     contractTreeShowsTasksOnly(contractsApi)
-  const [openMenu, setOpenMenu] = React.useState<string | null>(null)
   const [objectiveDialogOpen, setObjectiveDialogOpen] = React.useState(false)
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
   const [initiativeDialogObjIdx, setInitiativeDialogObjIdx] =
@@ -283,14 +276,52 @@ export function DepartmentContractTree({
     setObjectiveDialogOpen(true)
   }, [addObjectiveSignal, canManageContract])
 
-  const treeData = React.useMemo(
+  const columnObjectives = React.useMemo(
     () =>
-      departmentContractToTreeData(
-        departmentContract,
+      buildDepartmentColumnObjectives({
+        contract: departmentContract,
+        sectionSlug,
+        canManage: canManageContract,
         showActivityAim,
-        showTasksOnlyUnderMeasurable,
-      ),
-    [departmentContract, showActivityAim, showTasksOnlyUnderMeasurable],
+        showTasksOnly: showTasksOnlyUnderMeasurable,
+        onEditObjective: objIdx => {
+          setEditingObjectiveIndex(objIdx)
+          setEditObjectiveOpen(true)
+        },
+        onDeleteObjective: setDeleteObjectiveIndex,
+        onAddInitiative: objIdx => {
+          setInitiativeDialogObjIdx(objIdx)
+          setInitiativeDialogOpen(true)
+        },
+        onEditInitiative: (objIdx, initIdx) => {
+          setEditingInitiative({ objIdx, initIdx })
+          setEditInitiativeOpen(true)
+        },
+        onDeleteInitiative: (objIdx, initIdx) =>
+          setDeleteInitiative({ objIdx, initIdx }),
+        onAddActivity: (objIdx, initIdx) => {
+          setActivityDialogParams({ objIdx, initIdx })
+          setActivityDialogOpen(true)
+        },
+        onDeleteActivity: (objIdx, initIdx, actIdx) =>
+          setDeleteActivity({ objIdx, initIdx, actIdx }),
+        onOpenActivity: (objIdx, initIdx, actIdx, taskKey) => {
+          if (!sectionSlug) return
+          const taskQs =
+            taskKey != null ? `?taskKey=${encodeURIComponent(taskKey)}` : ''
+          router.push(
+            `/sections/${sectionSlug}/activity/${departmentContract._id}/${objIdx}/${initIdx}/${actIdx}${taskQs}`,
+          )
+        },
+      }),
+    [
+      departmentContract,
+      sectionSlug,
+      canManageContract,
+      showActivityAim,
+      showTasksOnlyUnderMeasurable,
+      router,
+    ],
   )
 
   const handleDeleteObjective = React.useCallback(async () => {
@@ -389,308 +420,6 @@ export function DepartmentContractTree({
     }
   }, [deleteActivity, router, departmentContract._id, apiBase])
 
-  const handleSelectChange = React.useCallback(
-    (item: { id: string } | undefined) => {
-      if (!item || !sectionSlug) return
-      const meta = nodeMeta.get(item.id)
-      if (
-        meta &&
-        typeof meta.objIdx === 'number' &&
-        typeof meta.initIdx === 'number' &&
-        typeof meta.actIdx === 'number'
-      ) {
-        const taskQs =
-          meta.taskKey != null
-            ? `?taskKey=${encodeURIComponent(meta.taskKey)}`
-            : ''
-        router.push(
-          `/sections/${sectionSlug}/activity/${departmentContract._id}/${meta.objIdx}/${meta.initIdx}/${meta.actIdx}${taskQs}`,
-        )
-      }
-    },
-    [sectionSlug, departmentContract._id, router],
-  )
-
-  const renderItem = React.useCallback(
-    (params: TreeRenderItemParams) => {
-      const { item, level, isLeaf } = params
-
-      if (item.id.startsWith('label-')) {
-        const hint = item.id.startsWith('label-objectives')
-          ? '(Click an objective below to see its initiatives)'
-          : item.id.startsWith('label-initiatives')
-            ? showTasksOnlyUnderMeasurable
-              ? '(Click an initiative below to see its detailed tasks)'
-              : '(Click an initiative below to see its measurable activities)'
-            : item.id.startsWith('label-activities')
-              ? sectionSlug
-                ? showTasksOnlyUnderMeasurable
-                  ? '(Click a detailed task below to manage)'
-                  : '(Click a measurable activity below to manage its detailed tasks)'
-                : showTasksOnlyUnderMeasurable
-                  ? '(Detailed tasks for this initiative)'
-                  : '(Measurable activities for this initiative)'
-              : undefined
-        return (
-          <div className='flex items-baseline gap-2 min-w-0'>
-            <span
-              className={`flex text-[11px] min-w-[${item.name === 'SSMARTA objectives' ? '120px' : item.name === 'Initiatives' ? '90px' : item.name === 'Measurable activities' ? '130px' : '100px'}] font-bold uppercase tracking-normal  truncate`}
-            >
-              {item.name}
-            </span>
-            {hint && (
-              <span className='text-[11px] font-light normal-case tracking-normal text-muted-foreground truncate'>
-                {hint}
-              </span>
-            )}
-          </div>
-        )
-      }
-
-      const meta = nodeMeta.get(item.id)
-      const code = meta?.code
-      const isObjectiveRow =
-        typeof meta?.objIdx === 'number' && typeof meta?.initIdx !== 'number'
-      const isInitiativeRow =
-        typeof meta?.objIdx === 'number' &&
-        typeof meta?.initIdx === 'number' &&
-        typeof meta?.actIdx !== 'number'
-      const isTaskRow = Boolean(meta?.isTask)
-      const isMeasurableActivityRow =
-        isLeaf && typeof meta?.actIdx === 'number' && !isTaskRow
-      const isNavigableLeaf = isTaskRow || isMeasurableActivityRow
-
-      return (
-        <div
-          className={`flex gap-4 min-w-0 ${isNavigableLeaf ? 'items-start' : 'items-center'}`}
-        >
-          {code && (
-            <span
-              className={`font-mono text-xs leading-4 shrink-0 ${isNavigableLeaf ? 'self-start' : ''}`}
-            >
-              {code}
-            </span>
-          )}
-          <div className='flex-1 min-w-0'>
-            <div className='flex min-w-0 items-center gap-1'>
-              <div className='flex min-w-0 flex-1 items-center gap-1.5'>
-                {isNavigableLeaf && sectionSlug && (
-                  <Badge
-                    variant='outline'
-                    className='shrink-0 px-1.5 py-1 text-[10px] border-primary text-primary font-medium leading-none'
-                  >
-                    Click to manage
-                  </Badge>
-                )}
-                <p className='text-sm leading-4 truncate'>{item.name}</p>
-              </div>
-              {isObjectiveRow && canManageContract && (
-                <>
-                  <DropdownMenu
-                    open={openMenu === `${item.id}:objective-options`}
-                    onOpenChange={open =>
-                      setOpenMenu(open ? `${item.id}:objective-options` : null)
-                    }
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-6 w-6 shrink-0'
-                        onClick={e => e.stopPropagation()}
-                        onPointerDown={e => e.stopPropagation()}
-                        aria-label='Objective options'
-                        title='Objective options'
-                      >
-                        <MoreVertical className='h-4 w-4' />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align='start'
-                      onPointerDown={e => e.stopPropagation()}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <DropdownMenuItem
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setEditingObjectiveIndex(meta!.objIdx!)
-                          setEditObjectiveOpen(true)
-                        }}
-                      >
-                        <Pencil className='mr-2 h-4 w-4' />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className='text-destructive focus:text-destructive'
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setDeleteObjectiveIndex(meta!.objIdx!)
-                        }}
-                      >
-                        <Trash2 className='mr-2 h-4 w-4' />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-6 w-6 shrink-0'
-                    onClick={e => {
-                      e.stopPropagation()
-                      setInitiativeDialogObjIdx(meta!.objIdx!)
-                      setInitiativeDialogOpen(true)
-                    }}
-                    aria-label='Add initiative'
-                    title='Add initiative'
-                  >
-                    <Plus className='h-4 w-4' />
-                  </Button>
-                </>
-              )}
-              {isInitiativeRow && canManageContract && (
-                <>
-                  <DropdownMenu
-                    open={openMenu === `${item.id}:initiative-options`}
-                    onOpenChange={open =>
-                      setOpenMenu(open ? `${item.id}:initiative-options` : null)
-                    }
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-6 w-6 shrink-0'
-                        onClick={e => e.stopPropagation()}
-                        onPointerDown={e => e.stopPropagation()}
-                        aria-label='Initiative options'
-                        title='Initiative options'
-                      >
-                        <MoreVertical className='h-4 w-4' />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align='start'
-                      onPointerDown={e => e.stopPropagation()}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <DropdownMenuItem
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setEditingInitiative({
-                            objIdx: meta!.objIdx!,
-                            initIdx: meta!.initIdx!,
-                          })
-                          setEditInitiativeOpen(true)
-                        }}
-                      >
-                        <Pencil className='mr-2 h-4 w-4' />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className='text-destructive focus:text-destructive'
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setDeleteInitiative({
-                            objIdx: meta!.objIdx!,
-                            initIdx: meta!.initIdx!,
-                          })
-                        }}
-                      >
-                        <Trash2 className='mr-2 h-4 w-4' />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-6 w-6 shrink-0'
-                    onClick={e => {
-                      e.stopPropagation()
-                      setActivityDialogParams({
-                        objIdx: meta!.objIdx!,
-                        initIdx: meta!.initIdx!,
-                      })
-                      setActivityDialogOpen(true)
-                    }}
-                    aria-label='Add measurable activity'
-                    title='Add measurable activity'
-                  >
-                    <Plus className='h-4 w-4' />
-                  </Button>
-                </>
-              )}
-              {isMeasurableActivityRow && canManageContract && (
-                <DropdownMenu
-                  open={openMenu === `${item.id}:activity-options`}
-                  onOpenChange={open =>
-                    setOpenMenu(open ? `${item.id}:activity-options` : null)
-                  }
-                >
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-6 w-6 shrink-0'
-                      onClick={e => e.stopPropagation()}
-                      onPointerDown={e => e.stopPropagation()}
-                      aria-label='Measurable activity options'
-                      title='Measurable activity options'
-                    >
-                      <MoreVertical className='h-4 w-4' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align='start'
-                    onPointerDown={e => e.stopPropagation()}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <DropdownMenuItem
-                      className='text-destructive focus:text-destructive'
-                      onSelect={e => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setTimeout(() => setOpenMenu(null), 0)
-                        setDeleteActivity({
-                          objIdx: meta!.objIdx!,
-                          initIdx: meta!.initIdx!,
-                          actIdx: meta!.actIdx!,
-                        })
-                      }}
-                    >
-                      <Trash2 className='mr-2 h-4 w-4' />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-            {showActivityAim && meta?.aim && isMeasurableActivityRow && (
-              <p className='text-xs text-muted-foreground mt-0.5'>{meta.aim}</p>
-            )}
-          </div>
-        </div>
-      )
-    },
-    [
-      openMenu,
-      canManageContract,
-      sectionSlug,
-      showActivityAim,
-      showTasksOnlyUnderMeasurable,
-    ],
-  )
 
   return (
     <>
@@ -873,12 +602,11 @@ export function DepartmentContractTree({
           }
         />
       )}
-      <TreeView
-        data={treeData}
-        renderItem={renderItem}
-        expandAllSignal={expandAllSignal}
-        collapseAllSignal={collapseAllSignal}
-        onSelectChange={handleSelectChange}
+      <ContractColumnBrowser
+        objectives={columnObjectives}
+        onAddObjective={
+          canManageContract ? () => setObjectiveDialogOpen(true) : undefined
+        }
       />
     </>
   )

@@ -31,9 +31,6 @@ import {
   Pencil,
   Trash2,
   ChevronDown,
-  ChevronsDown,
-  ChevronsUp,
-  Plus,
   LayoutDashboard,
   Users,
 } from 'lucide-react'
@@ -367,12 +364,6 @@ export function SectionPageContent({
     !sectionAccess.isSectionOfficer &&
     (sectionAccess.canViewSprintDraftTab ||
       sectionAccess.canViewSprintInReviewTab)
-  const [expandAllSignal, setExpandAllSignal] = useState(0)
-  const [collapseAllSignal, setCollapseAllSignal] = useState(0)
-  /** Tracks bulk expand/collapse toggle label (tree may diverge if nodes toggled manually). */
-  const [treeBulkExpanded, setTreeBulkExpanded] = useState(false)
-  const [addObjectiveSignal, setAddObjectiveSignal] = useState(0)
-
   const breadcrumbItems = React.useMemo(() => {
     const out: { label: string; href?: string }[] = [
       { label: 'Departments', href: '/departments' },
@@ -735,9 +726,7 @@ export function SectionPageContent({
                 onRedelegate={openContractSupport}
               />
             ) : null}
-            <Card>
-              <CardContent className='pt-6'>
-                {activeContract ? (
+            {activeContract ? (
                   <div className='space-y-4'>
                     {usesSupervisorContract && sectionContract ? (
                       <SupervisorCascadeImportDialog
@@ -761,22 +750,7 @@ export function SectionPageContent({
                         isProjectWorkstream={isProjectWorkstreamWorkspace}
                       />
                     ) : null}
-                    <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                      <div className='text-sm flex items-center gap-2 min-w-0'>
-                        <FileText className='h-5 w-5 shrink-0' />
-                        <span className='truncate'>{currentFY}</span>
-                      </div>
-                      <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
-                        {canManageActiveContract ? (
-                          <Button
-                            type='button'
-                            size='sm'
-                            onClick={() => setAddObjectiveSignal(s => s + 1)}
-                          >
-                            <Plus className='h-4 w-4 mr-2' />
-                            Add SSMARTA objective
-                          </Button>
-                        ) : null}
+                    <div className='flex flex-wrap items-center justify-end gap-2'>
                         {usesSupervisorContract &&
                         canManageActiveContract &&
                         sectionContract &&
@@ -815,28 +789,6 @@ export function SectionPageContent({
                             responsibilityCenter={contractResponsibilityCenter}
                           />
                         ) : null}
-                        <Button
-                          type='button'
-                          size='sm'
-                          variant='outline'
-                          onClick={() => {
-                            if (treeBulkExpanded) {
-                              setCollapseAllSignal(s => s + 1)
-                              setExpandAllSignal(0)
-                              setTreeBulkExpanded(false)
-                            } else {
-                              setExpandAllSignal(s => s + 1)
-                              setTreeBulkExpanded(true)
-                            }
-                          }}
-                        >
-                          {treeBulkExpanded ? (
-                            <ChevronsUp className='h-4 w-4' />
-                          ) : (
-                            <ChevronsDown className='h-4 w-4' />
-                          )}
-                        </Button>
-                      </div>
                     </div>
                     {usesLeadershipContract ? (
                       <DepartmentContractTree
@@ -850,24 +802,12 @@ export function SectionPageContent({
                             | 'officer-contracts'
                         }
                         canManageContract={canManageActiveContract}
-                        expandAllSignal={expandAllSignal}
-                        collapseAllSignal={collapseAllSignal}
-                        addObjectiveSignal={addObjectiveSignal}
-                        onAddObjectiveRequestConsumed={() =>
-                          setAddObjectiveSignal(0)
-                        }
                       />
                     ) : (
                       <ContractTree
                         sectionContract={sectionContract!}
                         sectionSlug={section.slug?.current ?? ''}
                         canManageContract={canManageActiveContract}
-                        expandAllSignal={expandAllSignal}
-                        collapseAllSignal={collapseAllSignal}
-                        addObjectiveSignal={addObjectiveSignal}
-                        onAddObjectiveRequestConsumed={() =>
-                          setAddObjectiveSignal(0)
-                        }
                       />
                     )}
                   </div>
@@ -945,8 +885,6 @@ export function SectionPageContent({
                     />
                   </div>
                 )}
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value='staff' className='space-y-4'>

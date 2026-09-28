@@ -2,10 +2,9 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { DotIcon, Loader2, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -23,150 +22,195 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { TreeView, TreeDataItem } from '@/components/tree-view'
 import {
   departmentMeasurableActivityNumber,
   measurableActivityNumber,
 } from '@/lib/contract-numbering'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
-import type { TreeRenderItemParams } from '@/components/tree-view'
 import { isPmsAlignment } from '@/lib/contract-alignment'
 import { AddObjectiveDialog } from '@/features/sections/components/add-objective-dialog'
 import { AddInitiativeDialog } from '@/features/sections/components/add-initiative-dialog'
 import { AddMeasurableActivityDialog } from '@/features/sections/components/add-measurable-activity-dialog'
 import { EditObjectiveDialog } from '@/features/sections/components/edit-objective-dialog'
 import { EditInitiativeDialog } from '@/features/sections/components/edit-initiative-dialog'
+import {
+  ContractColumnBrowser,
+  contractItemKindLabel,
+  type ContractColumnObjective,
+} from '@/features/sections/components/contract-column-browser'
 
 interface ContractTreeProps {
   sectionContract: SectionContract
   sectionSlug?: string
   canManageContract?: boolean
-  expandAllSignal?: number
-  collapseAllSignal?: number
   /** Increment to open the add SSMARTA objective dialog (from parent toolbar). */
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
   onAddObjectiveRequestConsumed?: () => void
 }
 
-const nodeMeta = new Map<
-  string,
-  {
-    code?: string
-    aim?: string
-    objIdx?: number
-    initIdx?: number
-    actIdx?: number
-    isKpi?: boolean
-  }
->()
+function SectionActivityAddMenu({
+  onAdd,
+}: {
+  onAdd: (type: 'kpi' | 'cross-cutting') => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon'
+          className='h-7 w-7 shrink-0'
+          aria-label='Add measurable activity'
+          title='Add measurable activity'
+        >
+          <Plus className='h-4 w-4' />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='end'>
+        <DropdownMenuItem onSelect={() => onAdd('kpi')}>
+          Core KPI Task
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAdd('cross-cutting')}>
+          Cross-cutting activity
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
-function sectionContractToTreeData(
-  sectionContract: SectionContract,
-  options?: { pmsMode?: boolean },
-): TreeDataItem[] {
-  const pmsMode = options?.pmsMode === true
-  nodeMeta.clear()
+function buildSectionColumnObjectives(input: {
+  sectionContract: SectionContract
+  sectionSlug: string
+  pmsMode: boolean
+  canManage: boolean
+  onEditObjective: (objIdx: number) => void
+  onDeleteObjective: (objIdx: number) => void
+  onAddInitiative: (objIdx: number) => void
+  onEditInitiative: (objIdx: number, initIdx: number) => void
+  onDeleteInitiative: (objIdx: number, initIdx: number) => void
+  onDeleteActivity: (objIdx: number, initIdx: number, actIdx: number) => void
+  onAddActivity: (
+    objIdx: number,
+    initIdx: number,
+    type: 'kpi' | 'cross-cutting',
+  ) => void
+  onOpenInitiative: (objIdx: number, initIdx: number) => void
+  onOpenActivity: (objIdx: number, initIdx: number, actIdx: number) => void
+}): ContractColumnObjective[] {
+  const {
+    sectionContract,
+    sectionSlug,
+    pmsMode,
+    canManage,
+    onEditObjective,
+    onDeleteObjective,
+    onAddInitiative,
+    onEditInitiative,
+    onDeleteInitiative,
+    onDeleteActivity,
+    onAddActivity,
+    onOpenInitiative,
+    onOpenActivity,
+  } = input
   const objectives = sectionContract.objectives ?? []
-  const items: TreeDataItem[] = [
-    {
-      id: 'label-objectives',
-      name: 'SSMARTA objectives',
-      className: 'py-1 before:h-[1.25rem] text-primary',
-    },
-  ]
 
-  for (let objIdx = 0; objIdx < objectives.length; objIdx++) {
-    const obj = objectives[objIdx]
+  return objectives.map((obj, objIdx) => {
     const objNum = obj.code ?? String(objIdx + 1)
-    nodeMeta.set(obj._key, { code: objNum, objIdx })
     const initiatives = obj.initiatives ?? []
 
-    const initiativeChildren: TreeDataItem[] = [
-      {
-        id: `label-initiatives-${objIdx}`,
-        name: 'Initiatives',
-        className: 'py-1 before:h-[1.25rem] text-primary',
-      },
-    ]
+    return {
+      id: obj._key || `objective-${objIdx}`,
+      title: obj.title,
+      code: objNum,
+      onEdit: canManage ? () => onEditObjective(objIdx) : undefined,
+      onDelete: canManage ? () => onDeleteObjective(objIdx) : undefined,
+      onAddInitiative: canManage ? () => onAddInitiative(objIdx) : undefined,
+      initiatives: initiatives.map((init, initIdx) => {
+        const initNum = init.code ?? `${objNum}.${initIdx + 1}`
+        const initiativeId = init._key || `initiative-${objIdx}-${initIdx}`
 
-    for (let initIdx = 0; initIdx < initiatives.length; initIdx++) {
-      const init = initiatives[initIdx]
-      const initNum = init.code ?? `${objNum}.${initIdx + 1}`
-      nodeMeta.set(init._key, { code: initNum, objIdx, initIdx })
+        if (pmsMode) {
+          return {
+            id: initiativeId,
+            title: init.title,
+            code: initNum,
+            onEdit: canManage
+              ? () => onEditInitiative(objIdx, initIdx)
+              : undefined,
+            onDelete: canManage
+              ? () => onDeleteInitiative(objIdx, initIdx)
+              : undefined,
+            onOpen: sectionSlug
+              ? () => onOpenInitiative(objIdx, initIdx)
+              : undefined,
+          }
+        }
 
-      // PMS: measurable activities live on the initiative page, not in the tree.
-      if (pmsMode) {
-        initiativeChildren.push({
-          id: init._key,
-          name: init.title,
+        const activities = init.measurableActivities ?? []
+        const children = activities.flatMap((act, actIdx) => {
+          if (!act?.title || !String(act.title).trim()) return []
+          const sameTypeBefore = activities
+            .slice(0, actIdx)
+            .filter(item => item.activityType === act.activityType).length
+          const actOrder = sameTypeBefore + 1
+          const actNum =
+            act.activityType === 'kpi' || act.activityType === 'cross-cutting'
+              ? measurableActivityNumber(initNum, act.activityType, actOrder)
+              : departmentMeasurableActivityNumber(initNum, actOrder)
+          const aim = act.aim?.trim()
+
+          return [
+            {
+              id: act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
+              title: act.title,
+              code: actNum,
+              subtitle: contractItemKindLabel(act.activityType),
+              detail: aim || undefined,
+              status: act.status,
+              onOpen: sectionSlug
+                ? () => onOpenActivity(objIdx, initIdx, actIdx)
+                : undefined,
+              onDelete: canManage
+                ? () => onDeleteActivity(objIdx, initIdx, actIdx)
+                : undefined,
+            },
+          ]
         })
-        continue
-      }
 
-      const activities = init.measurableActivities ?? []
-
-      const activityChildren: TreeDataItem[] = [
-        {
-          id: `label-activities-${objIdx}-${initIdx}`,
-          name: 'Measurable activities',
-          className: 'py-1 before:h-[1.25rem] text-primary',
-        },
-      ]
-
-      for (let actIdx = 0; actIdx < activities.length; actIdx++) {
-        const act = activities[actIdx]
-        if (!act?.title || !String(act.title).trim()) continue
-        const sameTypeBefore = activities
-          .slice(0, actIdx)
-          .filter(a => a.activityType === act.activityType).length
-        const actOrder = sameTypeBefore + 1
-        const actNum =
-          act.activityType === 'kpi' || act.activityType === 'cross-cutting'
-            ? measurableActivityNumber(initNum, act.activityType, actOrder)
-            : departmentMeasurableActivityNumber(initNum, actOrder)
-        nodeMeta.set(act._key, {
-          code: actNum,
-          aim: act.aim,
-          objIdx,
-          initIdx,
-          actIdx,
-          isKpi: act.activityType === 'kpi',
-        })
-        activityChildren.push({
-          id: act._key,
-          name: act.title,
-        })
-      }
-
-      initiativeChildren.push({
-        id: init._key,
-        name: init.title,
-        children: activityChildren,
-      })
+        return {
+          id: initiativeId,
+          title: init.title,
+          code: initNum,
+          opensNextColumn: true,
+          childEmptyLabel: 'No measurable activities yet.',
+          childHeaderAction: canManage ? (
+            <SectionActivityAddMenu
+              onAdd={type => onAddActivity(objIdx, initIdx, type)}
+            />
+          ) : undefined,
+          onEdit: canManage
+            ? () => onEditInitiative(objIdx, initIdx)
+            : undefined,
+          onDelete: canManage
+            ? () => onDeleteInitiative(objIdx, initIdx)
+            : undefined,
+          children,
+        }
+      }),
     }
-
-    items.push({
-      id: obj._key,
-      name: obj.title,
-      children: initiativeChildren,
-    })
-  }
-
-  return items
+  })
 }
 
 export function ContractTree({
   sectionContract,
   sectionSlug = '',
   canManageContract = false,
-  expandAllSignal,
-  collapseAllSignal,
   addObjectiveSignal = 0,
   onAddObjectiveRequestConsumed,
 }: ContractTreeProps) {
   const router = useRouter()
-  const [openMenu, setOpenMenu] = React.useState<string | null>(null)
   const [objectiveDialogOpen, setObjectiveDialogOpen] = React.useState(false)
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
   const [initiativeDialogObjIdx, setInitiativeDialogObjIdx] =
@@ -207,9 +251,48 @@ export function ContractTree({
     setObjectiveDialogOpen(true)
   }, [addObjectiveSignal, canManageContract])
 
-  const treeData = React.useMemo(
-    () => sectionContractToTreeData(sectionContract, { pmsMode }),
-    [sectionContract, pmsMode],
+  const columnObjectives = React.useMemo(
+    () =>
+      buildSectionColumnObjectives({
+        sectionContract,
+        sectionSlug,
+        pmsMode,
+        canManage: canManageContract,
+        onEditObjective: objIdx => {
+          setEditingObjectiveIndex(objIdx)
+          setEditObjectiveOpen(true)
+        },
+        onDeleteObjective: setDeleteObjectiveIndex,
+        onAddInitiative: objIdx => {
+          setInitiativeDialogObjIdx(objIdx)
+          setInitiativeDialogOpen(true)
+        },
+        onEditInitiative: (objIdx, initIdx) => {
+          setEditingInitiative({ objIdx, initIdx })
+          setEditInitiativeOpen(true)
+        },
+        onDeleteInitiative: (objIdx, initIdx) =>
+          setDeleteInitiative({ objIdx, initIdx }),
+        onDeleteActivity: (objIdx, initIdx, actIdx) =>
+          setDeleteActivity({ objIdx, initIdx, actIdx }),
+        onAddActivity: (objIdx, initIdx, type) => {
+          setActivityDialogParams({ objIdx, initIdx, type })
+          setActivityDialogOpen(true)
+        },
+        onOpenInitiative: (objIdx, initIdx) => {
+          if (!sectionSlug) return
+          router.push(
+            `/sections/${sectionSlug}/initiative/${sectionContract._id}/${objIdx}/${initIdx}`,
+          )
+        },
+        onOpenActivity: (objIdx, initIdx, actIdx) => {
+          if (!sectionSlug) return
+          router.push(
+            `/sections/${sectionSlug}/activity/${sectionContract._id}/${objIdx}/${initIdx}/${actIdx}`,
+          )
+        },
+      }),
+    [sectionContract, sectionSlug, pmsMode, canManageContract, router],
   )
 
   const handleDeleteObjective = React.useCallback(async () => {
@@ -308,344 +391,6 @@ export function ContractTree({
     }
   }, [deleteActivity, router, sectionContract._id])
 
-  const handleSelectChange = React.useCallback(
-    (item: { id: string } | undefined) => {
-      if (!item || !sectionSlug) return
-      const meta = nodeMeta.get(item.id)
-      if (!meta) return
-
-      if (pmsMode) {
-        if (
-          typeof meta.objIdx === 'number' &&
-          typeof meta.initIdx === 'number' &&
-          typeof meta.actIdx !== 'number'
-        ) {
-          router.push(
-            `/sections/${sectionSlug}/initiative/${sectionContract._id}/${meta.objIdx}/${meta.initIdx}`,
-          )
-        }
-        return
-      }
-
-      if (
-        typeof meta.objIdx === 'number' &&
-        typeof meta.initIdx === 'number' &&
-        typeof meta.actIdx === 'number'
-      ) {
-        router.push(
-          `/sections/${sectionSlug}/activity/${sectionContract._id}/${meta.objIdx}/${meta.initIdx}/${meta.actIdx}`,
-        )
-      }
-    },
-    [sectionSlug, sectionContract._id, router, pmsMode],
-  )
-
-  const renderItem = React.useCallback(
-    (params: TreeRenderItemParams) => {
-      const { item, level, isLeaf } = params
-
-      if (item.id.startsWith('label-')) {
-        const hint = item.id.startsWith('label-objectives')
-          ? '(Click an objective below to see its initiatives)'
-          : item.id.startsWith('label-initiatives')
-            ? pmsMode
-              ? '(Click an initiative below to manage measurable activities)'
-              : '(Click an initiative below to see its measurable activities)'
-            : item.id.startsWith('label-activities')
-              ? '(Click a measurable activity below to manage its detailed tasks)'
-              : undefined
-        return (
-          <div className='flex items-baseline gap-2 min-w-0'>
-            <span
-              className={`flex text-[11px] min-w-[${item.name === 'SSMARTA objectives' ? '120px' : item.name === 'Initiatives' ? '90px' : item.name === 'Measurable activities' ? '130px' : '100px'}] font-bold uppercase tracking-normal  truncate`}
-            >
-              {item.name}
-            </span>
-            {hint && (
-              <span className='text-[11px] font-light normal-case tracking-normal text-muted-foreground truncate'>
-                {hint}
-              </span>
-            )}
-          </div>
-        )
-      }
-
-      const meta = nodeMeta.get(item.id)
-      const code = meta?.code
-      const isObjectiveRow =
-        typeof meta?.objIdx === 'number' && typeof meta?.initIdx !== 'number'
-      const isInitiativeRow =
-        typeof meta?.objIdx === 'number' &&
-        typeof meta?.initIdx === 'number' &&
-        typeof meta?.actIdx !== 'number'
-      const isActivityRow = isLeaf && typeof meta?.actIdx === 'number'
-
-      return (
-        <div
-          className={`flex gap-4 min-w-0 ${isActivityRow ? 'items-start' : 'items-center'}`}
-        >
-          {code && (
-            <span
-              className={`font-mono text-xs leading-4 shrink-0 ${isActivityRow ? 'self-start' : ''}`}
-            >
-              {code}
-            </span>
-          )}
-          <div className='flex-1 min-w-0'>
-            <div className='flex min-w-0 items-center gap-1'>
-              <div className='flex min-w-0 flex-1 items-center gap-1.5'>
-                {isActivityRow && (
-                  <Badge
-                    variant='outline'
-                    className='shrink-0 px-1.5 py-1 text-[10px] border-primary text-primary font-medium leading-none'
-                  >
-                    Click to manage
-                  </Badge>
-                )}
-                <p className='text-sm leading-4 truncate'>{item.name}</p>
-              </div>
-              {isObjectiveRow && canManageContract && (
-                <>
-                  <DropdownMenu
-                    open={openMenu === `${item.id}:objective-options`}
-                    onOpenChange={open =>
-                      setOpenMenu(open ? `${item.id}:objective-options` : null)
-                    }
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-6 w-6 shrink-0'
-                        onClick={e => e.stopPropagation()}
-                        onPointerDown={e => e.stopPropagation()}
-                        aria-label='Objective options'
-                        title='Objective options'
-                      >
-                        <MoreVertical className='h-4 w-4' />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align='start'
-                      onPointerDown={e => e.stopPropagation()}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <DropdownMenuItem
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setEditingObjectiveIndex(meta!.objIdx!)
-                          setEditObjectiveOpen(true)
-                        }}
-                      >
-                        <Pencil className='mr-2 h-4 w-4' />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className='text-destructive focus:text-destructive'
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setDeleteObjectiveIndex(meta!.objIdx!)
-                        }}
-                      >
-                        <Trash2 className='mr-2 h-4 w-4' />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='h-6 w-6 shrink-0'
-                    onClick={e => {
-                      e.stopPropagation()
-                      setInitiativeDialogObjIdx(meta!.objIdx!)
-                      setInitiativeDialogOpen(true)
-                    }}
-                    aria-label='Add initiative'
-                    title='Add initiative'
-                  >
-                    <Plus className='h-4 w-4' />
-                  </Button>
-                </>
-              )}
-              {isInitiativeRow && canManageContract && (
-                <>
-                  <DropdownMenu
-                    open={openMenu === `${item.id}:initiative-options`}
-                    onOpenChange={open =>
-                      setOpenMenu(open ? `${item.id}:initiative-options` : null)
-                    }
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-6 w-6 shrink-0'
-                        onClick={e => e.stopPropagation()}
-                        onPointerDown={e => e.stopPropagation()}
-                        aria-label='Initiative options'
-                        title='Initiative options'
-                      >
-                        <MoreVertical className='h-4 w-4' />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align='start'
-                      onPointerDown={e => e.stopPropagation()}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <DropdownMenuItem
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setEditingInitiative({
-                            objIdx: meta!.objIdx!,
-                            initIdx: meta!.initIdx!,
-                          })
-                          setEditInitiativeOpen(true)
-                        }}
-                      >
-                        <Pencil className='mr-2 h-4 w-4' />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className='text-destructive focus:text-destructive'
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setDeleteInitiative({
-                            objIdx: meta!.objIdx!,
-                            initIdx: meta!.initIdx!,
-                          })
-                        }}
-                      >
-                        <Trash2 className='mr-2 h-4 w-4' />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {!pmsMode ? (
-                  <DropdownMenu
-                    open={openMenu === `${item.id}:add-activity`}
-                    onOpenChange={open =>
-                      setOpenMenu(open ? `${item.id}:add-activity` : null)
-                    }
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-6 w-6 shrink-0'
-                        onClick={e => e.stopPropagation()}
-                        onPointerDown={e => e.stopPropagation()}
-                        aria-label='Add measurable activity'
-                        title='Add measurable activity'
-                      >
-                        <Plus className='h-4 w-4' />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align='start'
-                      onPointerDown={e => e.stopPropagation()}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <DropdownMenuItem
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setActivityDialogParams({
-                            objIdx: meta!.objIdx!,
-                            initIdx: meta!.initIdx!,
-                            type: 'kpi',
-                          })
-                          setActivityDialogOpen(true)
-                        }}
-                      >
-                        Core KPI Task
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setTimeout(() => setOpenMenu(null), 0)
-                          setActivityDialogParams({
-                            objIdx: meta!.objIdx!,
-                            initIdx: meta!.initIdx!,
-                            type: 'cross-cutting',
-                          })
-                          setActivityDialogOpen(true)
-                        }}
-                      >
-                        Cross-cutting activity
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  ) : null}
-                </>
-              )}
-              {isActivityRow && canManageContract && (
-                <DropdownMenu
-                  open={openMenu === `${item.id}:activity-options`}
-                  onOpenChange={open =>
-                    setOpenMenu(open ? `${item.id}:activity-options` : null)
-                  }
-                >
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-6 w-6 shrink-0'
-                      onClick={e => e.stopPropagation()}
-                      onPointerDown={e => e.stopPropagation()}
-                      aria-label='Measurable activity options'
-                      title='Measurable activity options'
-                    >
-                      <MoreVertical className='h-4 w-4' />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align='start'
-                    onPointerDown={e => e.stopPropagation()}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <DropdownMenuItem
-                      className='text-destructive focus:text-destructive'
-                      onSelect={e => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setTimeout(() => setOpenMenu(null), 0)
-                        setDeleteActivity({
-                          objIdx: meta!.objIdx!,
-                          initIdx: meta!.initIdx!,
-                          actIdx: meta!.actIdx!,
-                        })
-                      }}
-                    >
-                      <Trash2 className='mr-2 h-4 w-4' />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-            {meta?.aim && isLeaf && (
-              <p className='text-xs text-muted-foreground mt-0.5'>{meta.aim}</p>
-            )}
-          </div>
-        </div>
-      )
-    },
-    [openMenu, canManageContract, pmsMode],
-  )
 
   return (
     <>
@@ -831,12 +576,11 @@ export function ContractTree({
           }
         />
       )}
-      <TreeView
-        data={treeData}
-        renderItem={renderItem}
-        expandAllSignal={expandAllSignal}
-        collapseAllSignal={collapseAllSignal}
-        onSelectChange={handleSelectChange}
+      <ContractColumnBrowser
+        objectives={columnObjectives}
+        onAddObjective={
+          canManageContract ? () => setObjectiveDialogOpen(true) : undefined
+        }
       />
     </>
   )

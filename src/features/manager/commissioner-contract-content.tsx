@@ -1,10 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { useFinancialYear } from '@/contexts/financial-year-context'
 import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
 import { OnboardDepartmentContractDialog } from '@/features/sections/components/onboard-department-contract-dialog'
@@ -19,10 +16,6 @@ export function CommissionerContractContent({
   canManageContract,
 }: CommissionerContractPageData) {
   const [onboardOpen, setOnboardOpen] = React.useState(false)
-  const [expandAllSignal, setExpandAllSignal] = React.useState(0)
-  const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
-  const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
-  const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
   const { active: activeFY } = useFinancialYear()
 
   const departmentName =
@@ -43,58 +36,11 @@ export function CommissionerContractContent({
           </p>
         </div>
 
-        <Card>
-          <CardContent className='pt-6'>
-            {departmentContract ? (
-              <div className='space-y-4'>
-                <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                  <div className='flex min-w-0 items-center gap-2 text-sm'>
-                    <FileText className='h-5 w-5 shrink-0' />
-                    <span className='truncate'>{currentFY}</span>
-                  </div>
-                  <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
-                    {canManageContract ? (
-                      <Button
-                        type='button'
-                        size='sm'
-                        onClick={() => setAddObjectiveSignal(s => s + 1)}
-                      >
-                        <Plus className='mr-2 h-4 w-4' />
-                        Add SSMARTA objective
-                      </Button>
-                    ) : null}
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='outline'
-                      onClick={() => {
-                        if (treeBulkExpanded) {
-                          setCollapseAllSignal(s => s + 1)
-                          setExpandAllSignal(0)
-                          setTreeBulkExpanded(false)
-                        } else {
-                          setExpandAllSignal(s => s + 1)
-                          setTreeBulkExpanded(true)
-                        }
-                      }}
-                    >
-                      {treeBulkExpanded ? (
-                        <ChevronsUp className='h-4 w-4' />
-                      ) : (
-                        <ChevronsDown className='h-4 w-4' />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                <DepartmentContractTree
-                  departmentContract={departmentContract}
-                  canManageContract={canManageContract}
-                  expandAllSignal={expandAllSignal}
-                  collapseAllSignal={collapseAllSignal}
-                  addObjectiveSignal={addObjectiveSignal}
-                  onAddObjectiveRequestConsumed={() => setAddObjectiveSignal(0)}
-                />
-              </div>
+        {departmentContract ? (
+              <DepartmentContractTree
+                departmentContract={departmentContract}
+                canManageContract={canManageContract}
+              />
             ) : (
               <div className='space-y-4'>
                 <OnboardDepartmentContractDialog
@@ -121,8 +67,6 @@ export function CommissionerContractContent({
                 />
               </div>
             )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

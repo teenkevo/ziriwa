@@ -2,13 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  ChevronsDown,
-  ChevronsUp,
-  FileText,
-  Plus,
-  X,
-} from 'lucide-react'
+import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -65,10 +59,6 @@ export function PlanningContractSupportEditorDialog({
   const { active: activeFY } = useFinancialYear()
   const [confirmCloseOpen, setConfirmCloseOpen] = React.useState(false)
   const [onboardOpen, setOnboardOpen] = React.useState(false)
-  const [expandAllSignal, setExpandAllSignal] = React.useState(0)
-  const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
-  const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
-  const [addObjectiveSignal, setAddObjectiveSignal] = React.useState(0)
 
   const currentFY =
     divisionContract?.financialYearLabel ?? activeFY.label
@@ -77,10 +67,6 @@ export function PlanningContractSupportEditorDialog({
     if (!open) {
       setConfirmCloseOpen(false)
       setOnboardOpen(false)
-      setExpandAllSignal(0)
-      setCollapseAllSignal(0)
-      setTreeBulkExpanded(false)
-      setAddObjectiveSignal(0)
     }
   }, [open])
 
@@ -143,58 +129,11 @@ export function PlanningContractSupportEditorDialog({
 
           <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6'>
             {divisionContract ? (
-              <div className='space-y-4'>
-                <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                  <div className='flex min-w-0 items-center gap-2 text-sm'>
-                    <FileText className='h-5 w-5 shrink-0' />
-                    <span className='truncate'>{currentFY}</span>
-                  </div>
-                  <div className='flex flex-wrap items-center gap-2 sm:shrink-0'>
-                    {canManageContract ? (
-                      <Button
-                        type='button'
-                        size='sm'
-                        onClick={() => setAddObjectiveSignal(s => s + 1)}
-                      >
-                        <Plus className='mr-2 h-4 w-4' />
-                        Add SSMARTA objective
-                      </Button>
-                    ) : null}
-                    <Button
-                      type='button'
-                      size='sm'
-                      variant='outline'
-                      onClick={() => {
-                        if (treeBulkExpanded) {
-                          setCollapseAllSignal(s => s + 1)
-                          setExpandAllSignal(0)
-                          setTreeBulkExpanded(false)
-                        } else {
-                          setExpandAllSignal(s => s + 1)
-                          setTreeBulkExpanded(true)
-                        }
-                      }}
-                    >
-                      {treeBulkExpanded ? (
-                        <ChevronsUp className='h-4 w-4' />
-                      ) : (
-                        <ChevronsDown className='h-4 w-4' />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                <DepartmentContractTree
-                  departmentContract={divisionContract}
-                  contractsApi='division-contracts'
-                  canManageContract={canManageContract}
-                  expandAllSignal={expandAllSignal}
-                  collapseAllSignal={collapseAllSignal}
-                  addObjectiveSignal={addObjectiveSignal}
-                  onAddObjectiveRequestConsumed={() =>
-                    setAddObjectiveSignal(0)
-                  }
-                />
-              </div>
+              <DepartmentContractTree
+                departmentContract={divisionContract}
+                contractsApi='division-contracts'
+                canManageContract={canManageContract}
+              />
             ) : (
               <div className='space-y-4'>
                 <OnboardDivisionContractDialog
