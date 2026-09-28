@@ -30,8 +30,6 @@ import type { BoardActionsOversightSummary } from '@/lib/board-actions-oversight
 import { buildContractOversightSummary } from '@/lib/contract-oversight'
 import type { ContractOversightSummary } from '@/lib/contract-oversight'
 import { isCurrentWeekSprint } from '@/lib/sprint-report-readiness'
-import { computeSprintVelocitySummary } from '@/lib/sprint-velocity'
-import type { SprintVelocitySummary } from '@/lib/sprint-velocity'
 import { computeManagerSprintPulse } from '@/lib/sprint-dashboard-pulse'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
@@ -109,10 +107,6 @@ export type AssistantCommissionerDashboardData = {
     sections: { sectionName: string; sprint: WeeklySprint }[]
   }
   monthlyOversight: MonthlyOversightSummary
-  teamVelocity: {
-    sections: { id: string; name: string; slug?: string }[]
-    bySectionId: Record<string, SprintVelocitySummary>
-  }
   boardActionsOversight: BoardActionsOversightSummary
   focusItems: AcFocusItems
   sectionSprintMetrics: AcSectionSprintMetrics[]
@@ -196,20 +190,6 @@ export async function loadAssistantCommissionerDashboardData(options?: {
       }
     }),
   )
-
-  const teamVelocity = {
-    sections: sections.map(section => ({
-      id: section._id,
-      name: section.name,
-      slug: section.slug?.current,
-    })),
-    bySectionId: Object.fromEntries(
-      sectionResults.map(result => [
-        result.section._id,
-        computeSprintVelocitySummary(result.sprints, today, 7),
-      ]),
-    ),
-  }
 
   const sectionMetrics = sectionResults.map(result => result.metrics)
 
@@ -435,7 +415,6 @@ export async function loadAssistantCommissionerDashboardData(options?: {
     weeklyOversight,
     weeklyReport,
     monthlyOversight,
-    teamVelocity,
     boardActionsOversight,
     focusItems,
     sectionSprintMetrics,

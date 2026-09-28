@@ -69,7 +69,7 @@ interface OverduePanelProps {
   workspaceBasePath?: WorkspaceBasePath
   /**
    * When true, each row highlights the responsible section (owning party).
-   * Also shows both manager and supervisor sprint focus categories.
+   * Sprint review and revision stay on the manager and supervisor dashboards.
    */
   showOwningParty?: boolean
 }
@@ -194,14 +194,30 @@ const UPCOMING_PRIORITY: CategoryId[] = [
   'upcoming-deliverables',
 ]
 
+function isAssistantCommissionerFocus(
+  workspaceBasePath: WorkspaceBasePath,
+  showOwningParty: boolean,
+): boolean {
+  return showOwningParty || workspaceBasePath === '/assistant-commissioner'
+}
+
 function isCategoryVisibleForDashboard(
   categoryId: CategoryId,
   workspaceBasePath: WorkspaceBasePath,
   showOwningParty = false,
 ): boolean {
-  if (showOwningParty || workspaceBasePath === '/assistant-commissioner') {
-    return true
+  const isAssistantCommissioner = isAssistantCommissionerFocus(
+    workspaceBasePath,
+    showOwningParty,
+  )
+  // Awaiting review and needs revision stay on manager and supervisor dashboards.
+  if (
+    isAssistantCommissioner &&
+    (categoryId === 'review' || categoryId === 'revision')
+  ) {
+    return false
   }
+  if (isAssistantCommissioner) return true
   if (categoryId === 'review') {
     return isManagerDashboardBasePath(workspaceBasePath)
   }
@@ -558,15 +574,21 @@ function StakeholderLateTable({
 function OwningPartyBadge({
   label,
   href,
+  due = false,
 }: {
   label?: string
   href?: string
+  /** Primary border when this section owns a task that is due. */
+  due?: boolean
 }) {
   if (!label?.trim()) return null
   const badge = (
     <Badge
       variant='secondary'
-      className='max-w-[10rem] truncate text-[10px] font-semibold uppercase tracking-wide'
+      className={cn(
+        'max-w-[10rem] truncate text-[10px] font-semibold uppercase tracking-wide',
+        due && 'border-primary',
+      )}
     >
       {label}
     </Badge>
@@ -602,7 +624,11 @@ function FocusRow({
       <div className='min-w-0 flex-1 space-y-1'>
         {showOwningParty && row.ownerLabel ? (
           <div className='mb-0.5'>
-            <OwningPartyBadge label={row.ownerLabel} href={row.ownerHref} />
+            <OwningPartyBadge
+              label={row.ownerLabel}
+              href={row.ownerHref}
+              due
+            />
           </div>
         ) : null}
         <span className='text-sm font-medium text-foreground'>{row.title}</span>

@@ -6,7 +6,6 @@ import type { AssistantCommissionerDashboardData } from './load-assistant-commis
 import { AssistantCommissionerActionTracker } from './assistant-commissioner-action-tracker'
 import { AssistantCommissionerFocusPanel } from './assistant-commissioner-focus-panel'
 import { AssistantCommissionerSectionSprintPanel } from './assistant-commissioner-section-sprint-panel'
-import { TeamVelocityCard } from './team-velocity-card'
 
 export function AssistantCommissionerDashboardContent({
   data,
@@ -50,11 +49,6 @@ export function AssistantCommissionerDashboardContent({
         </div>
 
         <AssistantCommissionerActionTracker items={data.actionTracker.items} />
-
-        <TeamVelocityCard
-          sections={data.teamVelocity.sections}
-          bySectionId={data.teamVelocity.bySectionId}
-        />
       </div>
     </div>
   )
