@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import {
   buildInitiativeFormSchema,
   INITIATIVE_CODE_REGEX,
+  initiativeCodeMatchesObjective,
   type InitiativeFormValues,
 } from '@/lib/contract-code-validation'
 import { Input } from '@/components/ui/input'
@@ -82,8 +83,12 @@ function AddInitiativeFormInner({
 
   React.useEffect(() => {
     const trimmed = codeValue?.trim() ?? ''
-    if (!INITIATIVE_CODE_REGEX.test(trimmed)) {
-      form.clearErrors('code')
+    // Only uniqueness-check codes that already pass format + objective prefix.
+    // Never clearErrors here — that wiped Zod prefix errors (e.g. 2.1.4 under 1.1).
+    if (
+      !INITIATIVE_CODE_REGEX.test(trimmed) ||
+      !initiativeCodeMatchesObjective(trimmed, objectiveCode)
+    ) {
       return
     }
     const t = setTimeout(async () => {
@@ -91,7 +96,6 @@ function AddInitiativeFormInner({
       checkAbortRef.current = new AbortController()
       const signal = checkAbortRef.current.signal
       setIsCheckingCode(true)
-      form.clearErrors('code')
       try {
         const res = await fetch(
           `${apiBase}/${sectionContractId}/codes`,
@@ -106,6 +110,9 @@ function AddInitiativeFormInner({
             type: 'duplicate',
             message: `Initiative with code "${trimmed}" already exists.`,
           })
+        } else if (form.formState.errors.code?.type === 'duplicate') {
+          form.clearErrors('code')
+          void form.trigger('code')
         }
       } catch (e) {
         if ((e as Error).name !== 'AbortError') throw e
@@ -114,7 +121,14 @@ function AddInitiativeFormInner({
       }
     }, 400)
     return () => clearTimeout(t)
-  }, [codeValue, sectionContractId, objectiveIndex, form])
+  }, [
+    apiBase,
+    codeValue,
+    form,
+    objectiveCode,
+    objectiveIndex,
+    sectionContractId,
+  ])
 
   const isCreating = form.formState.isSubmitting
 
@@ -123,6 +137,16 @@ function AddInitiativeFormInner({
   }, [isCreating, onSubmittingChange])
 
   const onSubmit = async (values: InitiativeFormValues) => {
+    const parsed = initiativeSchema.safeParse(values)
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const path = issue.path[0]
+        if (path === 'code' || path === 'title') {
+          form.setError(path, { message: issue.message })
+        }
+      }
+      return
+    }
     try {
       const res = await fetch(`${apiBase}/${sectionContractId}`, {
         method: 'PATCH',
@@ -131,8 +155,8 @@ function AddInitiativeFormInner({
           op: 'addInitiative',
           payload: {
             objectiveIndex,
-            code: values.code.trim(),
-            title: values.title.trim(),
+            code: parsed.data.code.trim(),
+            title: parsed.data.title.trim(),
             order: nextOrder,
           },
         }),
@@ -231,7 +255,11 @@ function AddInitiativeFormInner({
           </Button>
           <Button
             type='submit'
-            disabled={isCreating || !form.formState.isValid}
+            disabled={
+              isCreating ||
+              !form.formState.isValid ||
+              !initiativeCodeMatchesObjective(codeValue ?? '', objectiveCode)
+            }
           >
             {isCreating ? (
               <>

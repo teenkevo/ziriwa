@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
@@ -28,6 +28,8 @@ import {
   parseContractAlignment,
   type ContractAlignment,
 } from '@/lib/contract-alignment'
+import { buildPlanningSectionName } from '@/lib/planning-section-name'
+import { AnimatedExpand } from './animated-expand'
 import { ManagerSwitcher } from './manager-switcher'
 
 export type StaffMember = {
@@ -48,6 +50,8 @@ interface EditSectionDialogProps {
     contractAlignment?: ContractAlignment | string
   }
   divisionId: string
+  divisionName: string
+  divisionAcronym?: string
   managers: StaffMember[]
   /** Superadmin-only: change ITIL 4 vs PMS alignment for future FY contracts. */
   canEditContractAlignment?: boolean
@@ -58,6 +62,8 @@ export function EditSectionDialog({
   onOpenChange,
   section,
   divisionId,
+  divisionName,
+  divisionAcronym,
   managers,
   canEditContractAlignment = false,
 }: EditSectionDialogProps) {
@@ -69,16 +75,27 @@ export function EditSectionDialog({
   const [contractAlignment, setContractAlignment] =
     React.useState<ContractAlignment>('itil4')
 
+  const planningName = React.useMemo(
+    () =>
+      buildPlanningSectionName({
+        acronym: divisionAcronym,
+        name: divisionName,
+      }),
+    [divisionAcronym, divisionName],
+  )
+
   React.useEffect(() => {
     if (!open) return
-    setName(section.name)
-    setIsPlanningSection(Boolean(section.isPlanningSection))
-    setManagerId(section.isPlanningSection ? '' : (section.manager?._id ?? ''))
+    const planning = Boolean(section.isPlanningSection)
+    setIsPlanningSection(planning)
+    setName(planning ? planningName : section.name)
+    setManagerId(planning ? '' : (section.manager?._id ?? ''))
     setContractAlignment(parseContractAlignment(section.contractAlignment))
-  }, [open, section])
+  }, [open, section, planningName])
 
+  const effectiveName = isPlanningSection ? planningName : name
   const canSubmit =
-    Boolean(name.trim()) && (isPlanningSection || Boolean(managerId))
+    Boolean(effectiveName.trim()) && (isPlanningSection || Boolean(managerId))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,7 +107,7 @@ export function EditSectionDialog({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
+          name: effectiveName.trim(),
           isPlanningSection,
           managerId: isPlanningSection ? null : managerId,
           ...(canEditContractAlignment ? { contractAlignment } : {}),
@@ -129,28 +146,57 @@ export function EditSectionDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>
-            <div className='space-y-1'>
-              <div className='flex items-center space-x-2'>
-                <Checkbox
-                  id='editIsPlanningSection'
-                  checked={isPlanningSection}
-                  onCheckedChange={v => {
-                    const checked = v === true
-                    setIsPlanningSection(checked)
-                    if (checked) setManagerId('')
-                  }}
-                  disabled={isSaving}
-                />
+            <div className='space-y-3'>
+              <Label>Section type</Label>
+              <RadioGroup
+                value={isPlanningSection ? 'planning' : 'normal'}
+                onValueChange={value => {
+                  const planning = value === 'planning'
+                  setIsPlanningSection(planning)
+                  if (planning) {
+                    setManagerId('')
+                    setName(planningName)
+                  } else if (section.isPlanningSection) {
+                    setName('')
+                  } else {
+                    setName(section.name)
+                  }
+                }}
+                disabled={isSaving}
+                className='grid gap-2'
+              >
                 <Label
-                  htmlFor='editIsPlanningSection'
-                  className='text-sm font-semibold'
+                  htmlFor='edit-section-type-normal'
+                  className='cursor-pointer rounded-md border p-3 font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-muted/40'
                 >
-                  Is this a planning section?
+                  <div className='flex items-center gap-3'>
+                    <RadioGroupItem
+                      value='normal'
+                      id='edit-section-type-normal'
+                    />
+                    <span className='font-medium'>Normal section</span>
+                  </div>
+                  <p className='mt-0.5 pl-7 text-xs text-muted-foreground'>
+                    Supervisors report to the section manager.
+                  </p>
                 </Label>
-              </div>
-              <p className='pl-6 text-xs text-muted-foreground'>
-                Supervisors report directly to the Assistant Commissioner.
-              </p>
+                <Label
+                  htmlFor='edit-section-type-planning'
+                  className='cursor-pointer rounded-md border p-3 font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-muted/40'
+                >
+                  <div className='flex items-center gap-3'>
+                    <RadioGroupItem
+                      value='planning'
+                      id='edit-section-type-planning'
+                    />
+                    <span className='font-medium'>Planning section</span>
+                  </div>
+                  <p className='mt-0.5 pl-7 text-xs text-muted-foreground'>
+                    Supervisors report directly to the Assistant Commissioner.
+                    Name is inferred from the division.
+                  </p>
+                </Label>
+              </RadioGroup>
             </div>
             <div className='space-y-2'>
               <Label htmlFor='editSectionName' required>
@@ -158,28 +204,31 @@ export function EditSectionDialog({
               </Label>
               <Input
                 id='editSectionName'
-                value={name}
+                value={isPlanningSection ? planningName : name}
                 onChange={e => setName(e.target.value)}
-                disabled={isSaving}
+                disabled={isSaving || isPlanningSection}
                 required
               />
+              <AnimatedExpand open={isPlanningSection} className='pt-1'>
+                <p className='text-xs text-muted-foreground'>
+                  Inferred as {planningName}.
+                </p>
+              </AnimatedExpand>
             </div>
-            {!isPlanningSection ? (
-              <div className='space-y-2'>
-                <Label htmlFor='editSectionManager' required>
-                  Manager
-                </Label>
-                <ManagerSwitcher
-                  managers={managers}
-                  value={managerId}
-                  onChange={id => setManagerId(id || '')}
-                  disabled={isSaving}
-                  placeholder='Select or create manager'
-                  divisionId={divisionId}
-                  currentSectionId={section._id}
-                />
-              </div>
-            ) : null}
+            <AnimatedExpand open={!isPlanningSection} className='space-y-2'>
+              <Label htmlFor='editSectionManager' required>
+                Manager
+              </Label>
+              <ManagerSwitcher
+                managers={managers}
+                value={managerId}
+                onChange={id => setManagerId(id || '')}
+                disabled={isSaving}
+                placeholder='Select or create manager'
+                divisionId={divisionId}
+                currentSectionId={section._id}
+              />
+            </AnimatedExpand>
             {canEditContractAlignment ? (
               <div className='space-y-2'>
                 <Label htmlFor='editContractAlignment'>

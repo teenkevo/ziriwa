@@ -69,12 +69,16 @@ import { useFinancialYear } from '@/contexts/financial-year-context'
 import type { SectionAccess, WorkContextMode } from '@/lib/section-access'
 import {
   canCreateSelfServiceDelegation,
-  DELEGATION_MAX_DAYS,
+  canRedelegatePlanningContractWork,
+  isPlanningContractSupportAssignment,
   type DelegationCandidate,
 } from '@/lib/role-delegation'
 import { useRegisterDelegationSidebar } from '@/contexts/delegation-sidebar-context'
 import { WorkContextNavigationProvider } from '@/contexts/work-context-navigation-context'
 import { SelfServiceDelegationDialog } from '@/features/delegation/self-service-delegation-dialog'
+import { PlanningContractSupportDialog } from '@/features/delegation/planning-contract-support-dialog'
+import { PlanningContractDelegatedAction } from '@/features/delegation/planning-contract-delegation-panel'
+import { PlanningContractSupportEditorDialog } from '@/features/delegation/planning-contract-support-editor-dialog'
 import { WorkContextBar } from '@/features/delegation/work-context-bar'
 import {
   scopeSprintsForViewer,
@@ -88,6 +92,7 @@ import { SupervisorCascadeImportDialog } from './components/supervisor-cascade-i
 import { OfficerCascadeImportDialog } from './components/officer-cascade-import-dialog'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
+import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
 import { OnboardOfficerContractDialog } from './components/onboard-officer-contract-dialog'
 import { ContractExportDownloadButton } from './components/contract-export-download-button'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
@@ -116,7 +121,12 @@ type Section = {
   _id: string
   name: string
   slug?: { current: string }
-  division?: { _id: string; name: string; slug?: { current: string } }
+  division?: {
+    _id: string
+    name: string
+    acronym?: string
+    slug?: { current: string }
+  }
   manager?: { _id: string; fullName?: string }
   isPlanningSection?: boolean
 }
@@ -138,6 +148,9 @@ export interface SectionPageContentProps {
   supervisorContract?: SupervisorContract | null
   supervisorContractForCascade?: SupervisorContract | null
   officerContract?: OfficerContract | null
+  /** AC division contract — for planning contract-support editors. */
+  divisionContract?: DivisionContract | null
+  canManageAcDivisionContract?: boolean
   stakeholderEngagement: StakeholderEngagement | null
   staffOptions: StaffOption[]
   supervisors: SectionStaff[]
@@ -173,6 +186,8 @@ export function SectionPageContent({
   supervisorContract = null,
   supervisorContractForCascade = null,
   officerContract = null,
+  divisionContract = null,
+  canManageAcDivisionContract = false,
   stakeholderEngagement,
   staffOptions,
   supervisors,
@@ -201,32 +216,42 @@ export function SectionPageContent({
   const [showEditSection, setShowEditSection] = useState(false)
   const [showDeleteSection, setShowDeleteSection] = useState(false)
   const [deletingSection, setDeletingSection] = useState(false)
-  const [delegateOpen, setDelegateOpen] = useState(false)
+  const [leaveOpen, setLeaveOpen] = useState(false)
+  const [contractSupportOpen, setContractSupportOpen] = useState(false)
 
-  const canSelfServiceDelegate = canCreateSelfServiceDelegation({
-    roleAllowsDelegation: sectionAccess.canSelfServiceDelegate,
-    workContext,
+  const canRedelegatePlanningContract = canRedelegatePlanningContractWork({
+    isPlanningSection: sectionAccess.isPlanningSection,
+    isPermanentSupervisor: sectionAccess.isPermanentSupervisor,
     assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
-    assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
   })
-  const openDelegate = React.useCallback(() => setDelegateOpen(true), [])
-  useRegisterDelegationSidebar(canSelfServiceDelegate, openDelegate)
-
-  const isPlanningAcDelegate =
+  const isPlanningAc =
     sectionAccess.isPlanningSection && sectionAccess.isPermanentManager
-  const delegateTitle = isPlanningAcDelegate
-    ? 'Delegate contract work'
-    : undefined
-  const delegateDescription = isPlanningAcDelegate
-    ? `Choose the planning supervisor to onboard the contract and add items for you, for up to ${DELEGATION_MAX_DAYS} days.`
-    : undefined
-  const actingRoleLabel = isPlanningAcDelegate
-    ? 'contract'
-    : sectionAccess.isPermanentOfficer
-      ? 'officer'
-      : sectionAccess.isPermanentSupervisor
-        ? 'supervisor'
-        : 'manager'
+  const canSelfServiceLeave =
+    !isPlanningAc &&
+    canCreateSelfServiceDelegation({
+      roleAllowsDelegation: sectionAccess.canSelfServiceDelegate,
+      workContext,
+      assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
+      assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
+    })
+  const openLeave = React.useCallback(() => setLeaveOpen(true), [])
+  const openContractSupport = React.useCallback(
+    () => setContractSupportOpen(true),
+    [],
+  )
+  useRegisterDelegationSidebar(
+    canSelfServiceLeave || canRedelegatePlanningContract,
+    canRedelegatePlanningContract ? openContractSupport : openLeave,
+  )
+
+  const hasPlanningContractAction =
+    sectionAccess.isPlanningSection &&
+    sectionAccess.delegation.assignmentAsDelegatee?.actingRole === 'manager'
+  const leaveActingRoleLabel = sectionAccess.isPermanentOfficer
+    ? 'officer'
+    : sectionAccess.isPermanentSupervisor
+      ? 'supervisor'
+      : 'manager'
 
   const [activeTab, setActiveTab] = useState<SectionTab>(() =>
     resolveSectionTabFromQuery(searchParams.get('tab')),
@@ -275,6 +300,8 @@ export function SectionPageContent({
     setPanelPortalNode(node)
   }, [])
   const [onboardOpen, setOnboardOpen] = useState(false)
+  const [contractSupportEditorOpen, setContractSupportEditorOpen] =
+    useState(false)
   const [cascadeImportOpen, setCascadeImportOpen] = useState(false)
   const manager = section.manager
   const isPlanningSection = Boolean(
@@ -426,17 +453,57 @@ export function SectionPageContent({
             sectionAccess.delegation.assignmentAsDelegatee
           }
           assignmentAsAbsent={sectionAccess.delegation.assignmentAsAbsent}
+          hideActingSwitcher={isPlanningContractSupportAssignment(
+            sectionAccess.isPlanningSection,
+            sectionAccess.delegation.assignmentAsDelegatee,
+          )}
         />
         <SelfServiceDelegationDialog
-          open={delegateOpen}
-          onOpenChange={setDelegateOpen}
-          actingRoleLabel={actingRoleLabel}
+          open={leaveOpen}
+          onOpenChange={setLeaveOpen}
+          actingRoleLabel={leaveActingRoleLabel}
           candidates={delegationCandidates}
           createPayload={{ sectionId: section._id }}
-          title={delegateTitle}
-          description={delegateDescription}
           onSuccess={() => router.refresh()}
         />
+        <PlanningContractSupportDialog
+          open={contractSupportOpen}
+          onOpenChange={setContractSupportOpen}
+          candidates={delegationCandidates}
+          sectionId={section._id}
+          mode='supervisor-to-officer'
+          parentWindow={
+            sectionAccess.delegation.assignmentAsDelegatee
+              ? {
+                  startDate:
+                    sectionAccess.delegation.assignmentAsDelegatee.startDate,
+                  endDate:
+                    sectionAccess.delegation.assignmentAsDelegatee.endDate,
+                }
+              : null
+          }
+          onSuccess={() => router.refresh()}
+        />
+        {hasPlanningContractAction &&
+        sectionAccess.delegation.assignmentAsDelegatee &&
+        section.division?._id ? (
+          <PlanningContractSupportEditorDialog
+            open={contractSupportEditorOpen}
+            onOpenChange={setContractSupportEditorOpen}
+            divisionId={section.division._id}
+            divisionName={
+              section.division.name || section.name
+            }
+            divisionContract={divisionContract}
+            assistantCommissionerId={
+              sectionAccess.delegation.assignmentAsDelegatee.fromStaffId
+            }
+            assistantCommissionerName={
+              sectionAccess.delegation.assignmentAsDelegatee.fromStaffName
+            }
+            canManageContract={canManageAcDivisionContract}
+          />
+        ) : null}
         <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>
       {/* Main column: scrolls independently; shell height is capped (h-svh + flex chain) */}
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
@@ -483,6 +550,8 @@ export function SectionPageContent({
               onOpenChange={setShowEditSection}
               section={section}
               divisionId={section.division._id}
+              divisionName={section.division.name}
+              divisionAcronym={section.division.acronym}
               managers={managers}
               canEditContractAlignment={isSuperadmin}
             />
@@ -544,6 +613,22 @@ export function SectionPageContent({
             ))}
           </TabsList>
           <TabsContent value='dashboard' className='space-y-4'>
+            {hasPlanningContractAction &&
+            workContext === 'own' &&
+            sectionAccess.delegation.assignmentAsDelegatee ? (
+              <PlanningContractDelegatedAction
+                fromStaffName={
+                  sectionAccess.delegation.assignmentAsDelegatee
+                    .fromStaffName
+                }
+                endDate={
+                  sectionAccess.delegation.assignmentAsDelegatee.endDate
+                }
+                canRedelegate={canRedelegatePlanningContract}
+                onWorkOnContract={() => setContractSupportEditorOpen(true)}
+                onRedelegate={openContractSupport}
+              />
+            ) : null}
             {!activeContract ? (
               usesOfficerContract ? (
                 <div className='space-y-4'>
@@ -634,6 +719,22 @@ export function SectionPageContent({
             )}
           </TabsContent>
           <TabsContent value='contract' className='space-y-4'>
+            {hasPlanningContractAction &&
+            workContext === 'own' &&
+            sectionAccess.delegation.assignmentAsDelegatee ? (
+              <PlanningContractDelegatedAction
+                fromStaffName={
+                  sectionAccess.delegation.assignmentAsDelegatee
+                    .fromStaffName
+                }
+                endDate={
+                  sectionAccess.delegation.assignmentAsDelegatee.endDate
+                }
+                canRedelegate={canRedelegatePlanningContract}
+                onWorkOnContract={() => setContractSupportEditorOpen(true)}
+                onRedelegate={openContractSupport}
+              />
+            ) : null}
             <Card>
               <CardContent className='pt-6'>
                 {activeContract ? (

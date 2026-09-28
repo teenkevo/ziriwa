@@ -9,8 +9,10 @@ import {
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
+import { getActiveDelegationAsDelegatee } from '@/lib/section-delegation.server'
 import { canManageAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
 import { client } from '@/sanity/lib/client'
+import { resolveSectionDelegationPurpose } from '@/lib/role-delegation'
 
 export async function getDivisionIdFromContract(
   contractId: string,
@@ -48,6 +50,43 @@ export async function resolveAssistantCommissionerStaffRefForDivision(
     `,
     { viewerStaffId, divisionId },
   )
+}
+
+function isContractSupportManagerAssignment(
+  assignment: { actingRole?: string; purpose?: string } | null,
+): boolean {
+  if (assignment?.actingRole !== 'manager') return false
+  // Legacy planning AC handoffs predate the purpose field.
+  if (assignment.purpose == null || assignment.purpose === '') return true
+  return resolveSectionDelegationPurpose(assignment.purpose) === 'contract_support'
+}
+
+/**
+ * DIP-Planning staff covering AC contract support may edit the division
+ * contract for the planning section's division.
+ */
+export async function canManageDivisionContractViaPlanningSupport(
+  divisionId: string,
+  viewerStaffId: string,
+): Promise<boolean> {
+  const planningSection = await client.fetch<{
+    _id: string
+  } | null>(
+    /* groq */ `*[
+      _type == "section"
+      && division._ref == $divisionId
+      && coalesce(isPlanningSection, false) == true
+      && !defined(project._ref)
+    ] | order(name asc)[0]{ _id }`,
+    { divisionId },
+  )
+  if (!planningSection?._id) return false
+
+  const assignment = await getActiveDelegationAsDelegatee(
+    viewerStaffId,
+    planningSection._id,
+  )
+  return isContractSupportManagerAssignment(assignment)
 }
 
 export async function canManageDivisionContract(
@@ -111,6 +150,15 @@ export async function canManageDivisionContract(
       divisionId,
     })
     if (acting) return true
+
+    if (
+      await canManageDivisionContractViaPlanningSupport(
+        divisionId,
+        viewerStaffId,
+      )
+    ) {
+      return true
+    }
   }
 
   if (await canManageAssistantCommissionerDivision(divisionId)) return true

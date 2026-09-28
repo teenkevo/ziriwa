@@ -1,5 +1,6 @@
 import type { AppRole } from '@/lib/app-role'
-import type { WorkContextMode } from '@/lib/section-access'
+
+type WorkContextMode = 'own' | 'acting'
 
 /** Roles that can be covered via section-scoped leave delegation (phase 1). */
 export const SECTION_ACTING_ROLES = [
@@ -37,6 +38,73 @@ export const SECTION_DELEGATION_TARGETS: Record<
   officer: ['officer'],
   supervisor: ['officer', 'supervisor'],
   manager: ['supervisor'],
+}
+
+/** Section delegation purpose — leave coverage vs contract-entry support. */
+export const SECTION_DELEGATION_PURPOSES = [
+  'leave',
+  'contract_support',
+] as const
+
+export type SectionDelegationPurpose =
+  (typeof SECTION_DELEGATION_PURPOSES)[number]
+
+export function isSectionDelegationPurpose(
+  value: unknown,
+): value is SectionDelegationPurpose {
+  return (
+    typeof value === 'string' &&
+    (SECTION_DELEGATION_PURPOSES as readonly string[]).includes(value)
+  )
+}
+
+export function resolveSectionDelegationPurpose(
+  value: unknown,
+): SectionDelegationPurpose {
+  return isSectionDelegationPurpose(value) ? value : 'leave'
+}
+
+/**
+ * Planning contract handoff: supervisor covering AC manager duties may
+ * redelegate that contract work to a planning officer.
+ */
+export const PLANNING_CONTRACT_REDELEGATION_TARGETS: readonly AppRole[] = [
+  'officer',
+]
+
+export function canStaffReceivePlanningContractRedelegation(
+  toStaffRole: string | undefined,
+): boolean {
+  if (!toStaffRole) return false
+  return PLANNING_CONTRACT_REDELEGATION_TARGETS.includes(
+    toStaffRole as AppRole,
+  )
+}
+
+export function canRedelegatePlanningContractWork(input: {
+  isPlanningSection: boolean
+  isPermanentSupervisor: boolean
+  assignmentAsDelegatee: { actingRole?: string } | null | undefined
+}): boolean {
+  return (
+    input.isPlanningSection &&
+    input.isPermanentSupervisor &&
+    input.assignmentAsDelegatee?.actingRole === 'manager'
+  )
+}
+
+/** Active contract-support handoff (not leave) covering manager contract duties. */
+export function isPlanningContractSupportAssignment(
+  isPlanningSection: boolean,
+  assignment:
+    | { actingRole?: string; purpose?: string }
+    | null
+    | undefined,
+): boolean {
+  if (!isPlanningSection || assignment?.actingRole !== 'manager') return false
+  // Legacy planning AC handoffs predate the purpose field.
+  if (assignment.purpose == null || assignment.purpose === '') return true
+  return resolveSectionDelegationPurpose(assignment.purpose) === 'contract_support'
 }
 
 export function delegationDayCount(startDate: string, endDate: string): number {

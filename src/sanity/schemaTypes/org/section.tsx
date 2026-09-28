@@ -49,7 +49,9 @@ export const section = defineType({
         Rule.custom((division, context) => {
           const parent = context.parent as { project?: unknown }
           if (parent?.project) return true
-          return division ? true : 'Division is required for mainstream sections'
+          return division
+            ? true
+            : 'Division is required for mainstream sections'
         }),
     }),
     defineField({

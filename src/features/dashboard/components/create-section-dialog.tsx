@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +15,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { buildPlanningSectionName } from '@/lib/planning-section-name'
+import { AnimatedExpand } from './animated-expand'
 import { ManagerSwitcher } from './manager-switcher'
 
 export type Section = {
@@ -40,6 +42,7 @@ interface CreateSectionDialogProps {
   /** Department owning the division (optional; used for labels / future use). */
   departmentId?: string
   divisionName: string
+  divisionAcronym?: string
   managers: StaffMember[]
   onSuccess?: (section: Section) => void
 }
@@ -49,6 +52,7 @@ export function CreateSectionDialog({
   onOpenChange,
   divisionId,
   divisionName,
+  divisionAcronym,
   managers,
   onSuccess,
 }: CreateSectionDialogProps) {
@@ -58,6 +62,15 @@ export function CreateSectionDialog({
   const [managerId, setManagerId] = React.useState<string>('')
   const [isPlanningSection, setIsPlanningSection] = React.useState(false)
 
+  const planningName = React.useMemo(
+    () =>
+      buildPlanningSectionName({
+        acronym: divisionAcronym,
+        name: divisionName,
+      }),
+    [divisionAcronym, divisionName],
+  )
+
   React.useEffect(() => {
     if (!open) return
     setName('')
@@ -65,8 +78,9 @@ export function CreateSectionDialog({
     setIsPlanningSection(false)
   }, [open])
 
+  const effectiveName = isPlanningSection ? planningName : name
   const canSubmit =
-    Boolean(name.trim()) && (isPlanningSection || Boolean(managerId))
+    Boolean(effectiveName.trim()) && (isPlanningSection || Boolean(managerId))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,7 +92,7 @@ export function CreateSectionDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
+          name: effectiveName.trim(),
           divisionId,
           managerId: isPlanningSection ? undefined : managerId,
           isPlanningSection,
@@ -115,28 +129,46 @@ export function CreateSectionDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>
-            <div className='space-y-1'>
-              <div className='flex items-center space-x-2'>
-                <Checkbox
-                  id='isPlanningSection'
-                  checked={isPlanningSection}
-                  onCheckedChange={v => {
-                    const checked = v === true
-                    setIsPlanningSection(checked)
-                    if (checked) setManagerId('')
-                  }}
-                  disabled={isCreating}
-                />
+            <div className='space-y-3'>
+              <Label>Section type</Label>
+              <RadioGroup
+                value={isPlanningSection ? 'planning' : 'normal'}
+                onValueChange={value => {
+                  const planning = value === 'planning'
+                  setIsPlanningSection(planning)
+                  if (planning) setManagerId('')
+                }}
+                disabled={isCreating}
+                className='grid gap-2'
+              >
                 <Label
-                  htmlFor='isPlanningSection'
-                  className='text-sm font-medium'
+                  htmlFor='section-type-normal'
+                  className='cursor-pointer rounded-md border p-3 font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-muted/40'
                 >
-                  Are you creating a planning section?
+                  <div className='flex items-center gap-3'>
+                    <RadioGroupItem value='normal' id='section-type-normal' />
+                    <span className='font-medium'>Normal section</span>
+                  </div>
+                  <p className='mt-0.5 pl-7 text-xs text-muted-foreground'>
+                    Supervisors report to the section manager.
+                  </p>
                 </Label>
-              </div>
-              <p className='pl-6 text-xs text-muted-foreground'>
-                Supervisors report directly to the Assistant Commissioner.
-              </p>
+                <Label
+                  htmlFor='section-type-planning'
+                  className='cursor-pointer rounded-md border p-3 font-normal has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-muted/40'
+                >
+                  <div className='flex items-center gap-3'>
+                    <RadioGroupItem
+                      value='planning'
+                      id='section-type-planning'
+                    />
+                    <span className='font-medium'>Planning section</span>
+                  </div>
+                  <p className='mt-0.5 pl-7 text-xs text-muted-foreground'>
+                    Supervisors report directly to the Assistant Commissioner.
+                  </p>
+                </Label>
+              </RadioGroup>
             </div>
             <div className='space-y-2'>
               <Label htmlFor='sectionName' required>
@@ -145,27 +177,30 @@ export function CreateSectionDialog({
               <Input
                 id='sectionName'
                 placeholder='e.g. Data Science, Data Engineering'
-                value={name}
+                value={isPlanningSection ? planningName : name}
                 onChange={e => setName(e.target.value)}
-                disabled={isCreating}
+                disabled={isCreating || isPlanningSection}
                 required
               />
+              <AnimatedExpand open={isPlanningSection} className='pt-1'>
+                <p className='text-xs text-muted-foreground'>
+                  Inferred as {planningName}.
+                </p>
+              </AnimatedExpand>
             </div>
-            {!isPlanningSection ? (
-              <div className='space-y-2'>
-                <Label htmlFor='manager' required>
-                  Manager
-                </Label>
-                <ManagerSwitcher
-                  managers={managers}
-                  value={managerId}
-                  onChange={setManagerId}
-                  divisionId={divisionId}
-                  disabled={isCreating}
-                  placeholder='Select or create manager'
-                />
-              </div>
-            ) : null}
+            <AnimatedExpand open={!isPlanningSection} className='space-y-2'>
+              <Label htmlFor='manager' required>
+                Manager
+              </Label>
+              <ManagerSwitcher
+                managers={managers}
+                value={managerId}
+                onChange={setManagerId}
+                divisionId={divisionId}
+                disabled={isCreating}
+                placeholder='Select or create manager'
+              />
+            </AnimatedExpand>
           </div>
           <DialogFooter>
             <Button

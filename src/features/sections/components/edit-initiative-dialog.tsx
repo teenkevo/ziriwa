@@ -27,6 +27,7 @@ import {
 import { cn } from '@/lib/utils'
 import {
   buildInitiativeFormSchema,
+  initiativeCodeMatchesObjective,
   type InitiativeFormValues,
 } from '@/lib/contract-code-validation'
 import { Input } from '@/components/ui/input'
@@ -82,12 +83,23 @@ function EditInitiativeFormInner({
 
   const isSaving = form.formState.isSubmitting
   const oc = objectiveCode.trim() || '—'
+  const codeValue = form.watch('code')
 
   React.useEffect(() => {
     onSubmittingChange(isSaving)
   }, [isSaving, onSubmittingChange])
 
   const onSubmit = async (values: InitiativeFormValues) => {
+    const parsed = initiativeSchema.safeParse(values)
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const path = issue.path[0]
+        if (path === 'code' || path === 'title') {
+          form.setError(path, { message: issue.message })
+        }
+      }
+      return
+    }
     try {
       const res = await fetch(`${apiBase}/${sectionContractId}`, {
         method: 'PATCH',
@@ -97,8 +109,8 @@ function EditInitiativeFormInner({
           payload: {
             objectiveIndex,
             initiativeIndex,
-            code: values.code.trim(),
-            title: values.title.trim(),
+            code: parsed.data.code.trim(),
+            title: parsed.data.title.trim(),
           },
         }),
       })
@@ -186,7 +198,14 @@ function EditInitiativeFormInner({
           >
             Cancel
           </Button>
-          <Button type='submit' disabled={isSaving || !form.formState.isValid}>
+          <Button
+            type='submit'
+            disabled={
+              isSaving ||
+              !form.formState.isValid ||
+              !initiativeCodeMatchesObjective(codeValue ?? '', objectiveCode)
+            }
+          >
             {isSaving ? (
               <>
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />

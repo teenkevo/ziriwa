@@ -2,8 +2,13 @@ import 'server-only'
 
 import { computeSectionDashboardMetrics } from '@/lib/section-dashboard-metrics'
 import type {
+  AtRiskActivity,
   AtRiskPeriodDeliverable,
+  AtRiskSprintTask,
   LateEngagement,
+  StakeholderActionTrackerItem,
+  UpcomingMeasurableActivity,
+  UpcomingPeriodDeliverable,
 } from '@/lib/section-dashboard-metrics'
 import type { WorkContextMode } from '@/lib/section-access'
 import {
@@ -27,6 +32,7 @@ import type { ContractOversightSummary } from '@/lib/contract-oversight'
 import { isCurrentWeekSprint } from '@/lib/sprint-report-readiness'
 import { computeSprintVelocitySummary } from '@/lib/sprint-velocity'
 import type { SprintVelocitySummary } from '@/lib/sprint-velocity'
+import { computeManagerSprintPulse } from '@/lib/sprint-dashboard-pulse'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 
@@ -34,7 +40,40 @@ type AcSection = {
   _id: string
   name: string
   slug?: { current?: string }
+  supervisorCount?: number
 }
+
+export type AcSectionRef = {
+  sectionId: string
+  sectionName: string
+  sectionSlug?: string
+}
+
+export type AcFocusItems = {
+  upcomingActivities: (UpcomingMeasurableActivity & AcSectionRef)[]
+  upcomingPeriodDeliverables: (UpcomingPeriodDeliverable & AcSectionRef)[]
+  overdueActivities: (AtRiskActivity & AcSectionRef)[]
+  overduePeriodDeliverables: (AtRiskPeriodDeliverable & AcSectionRef)[]
+  pendingReviewTasks: (AtRiskSprintTask & AcSectionRef)[]
+  revisionRequestedTasks: (AtRiskSprintTask & AcSectionRef)[]
+  lateEngagements: (LateEngagement & AcSectionRef)[]
+}
+
+export type AcSectionSprintMetrics = AcSectionRef & {
+  weekLabel?: string
+  planned: { count: number; max: number }
+  inReview: { tasks: number; sprints: number }
+  acceptedReady: { count: number; max: number }
+  atRisk: number
+  done: number
+  total: number
+}
+
+export type AcActionTrackerItem = StakeholderActionTrackerItem &
+  AcSectionRef & {
+    /** Person responsible (assignee), surfaced for AC oversight. */
+    responsibleLabel: string
+  }
 
 export type AssistantCommissionerDashboardData = {
   acWorkspace: AssistantCommissionerWorkspaceContext
@@ -75,12 +114,39 @@ export type AssistantCommissionerDashboardData = {
     bySectionId: Record<string, SprintVelocitySummary>
   }
   boardActionsOversight: BoardActionsOversightSummary
+  focusItems: AcFocusItems
+  sectionSprintMetrics: AcSectionSprintMetrics[]
+  actionTracker: {
+    total: number
+    overdue: number
+    dueSoon: number
+    items: AcActionTrackerItem[]
+  }
+  /** @deprecated Prefer focusItems; kept for commissioner panel compatibility. */
   overdue: {
     stakeholderEngagements: LateEngagement[]
     periodDeliverables: AtRiskPeriodDeliverable[]
-    boardActions: { _key: string; title: string; dueDate: string; daysOverdue: number }[]
+    boardActions: {
+      _key: string
+      title: string
+      dueDate: string
+      daysOverdue: number
+    }[]
     memos: { _key: string; title: string; dueDate: string; daysOverdue: number }[]
   }
+}
+
+function tagSection<T extends { _key: string }>(
+  items: T[],
+  section: AcSection,
+): (T & AcSectionRef)[] {
+  const sectionSlug = section.slug?.current
+  return items.map(item => ({
+    ...item,
+    sectionId: section._id,
+    sectionName: section.name,
+    sectionSlug,
+  }))
 }
 
 export async function loadAssistantCommissionerDashboardData(options?: {
@@ -99,7 +165,8 @@ export async function loadAssistantCommissionerDashboardData(options?: {
       *[_type == "section" && division._ref == $divisionId] | order(order asc, name asc) {
         _id,
         name,
-        slug
+        slug,
+        "supervisorCount": count(*[_type == "staff" && role == "supervisor" && coalesce(status, "active") != "inactive" && section._ref == ^._id])
       }
     `,
     { divisionId: division._id },
@@ -148,8 +215,12 @@ export async function loadAssistantCommissionerDashboardData(options?: {
 
   const activeSprintSections = sectionResults
     .filter(
-      (result): result is typeof result & {
-        metrics: { activeSprint: NonNullable<(typeof result.metrics)['activeSprint']> }
+      (
+        result,
+      ): result is typeof result & {
+        metrics: {
+          activeSprint: NonNullable<(typeof result.metrics)['activeSprint']>
+        }
       } => result.metrics.activeSprint != null,
     )
     .map(result => {
@@ -193,18 +264,15 @@ export async function loadAssistantCommissionerDashboardData(options?: {
     sections.length,
   )
 
-  const divisionName =
-    division.fullName || division.acronym || division.name
+  const divisionName = division.fullName || division.acronym || division.name
 
-  const weeklyReportSections = sectionResults.flatMap(
-    result => {
-      const sprint = result.sprints.find(candidate =>
-        isCurrentWeekSprint(candidate, today),
-      )
-      if (!sprint) return []
-      return [{ sectionName: result.section.name, sprint }]
-    },
-  )
+  const weeklyReportSections = sectionResults.flatMap(result => {
+    const sprint = result.sprints.find(candidate =>
+      isCurrentWeekSprint(candidate, today),
+    )
+    if (!sprint) return []
+    return [{ sectionName: result.section.name, sprint }]
+  })
 
   const weeklyReport = {
     divisionName,
@@ -257,13 +325,106 @@ export async function loadAssistantCommissionerDashboardData(options?: {
     }))
     .sort((a, b) => b.daysOverdue - a.daysOverdue)
 
-  const stakeholderEngagements = sectionMetrics
-    .flatMap(metric => metric.lateEngagements)
-    .sort((a, b) => b.daysLate - a.daysLate)
+  const focusItems: AcFocusItems = {
+    upcomingActivities: [],
+    upcomingPeriodDeliverables: [],
+    overdueActivities: [],
+    overduePeriodDeliverables: [],
+    pendingReviewTasks: [],
+    revisionRequestedTasks: [],
+    lateEngagements: [],
+  }
 
-  const periodDeliverables = sectionMetrics
-    .flatMap(metric => metric.overduePeriodDeliverables)
-    .sort((a, b) => b.daysOverdue - a.daysOverdue)
+  const actionTrackerItems: AcActionTrackerItem[] = []
+  const sectionSprintMetrics: AcSectionSprintMetrics[] = []
+
+  for (const result of sectionResults) {
+    const { section, metrics, sprints } = result
+    const tagged = {
+      upcomingActivities: tagSection(metrics.upcomingActivities, section),
+      upcomingPeriodDeliverables: tagSection(
+        metrics.upcomingPeriodDeliverables,
+        section,
+      ),
+      overdueActivities: tagSection(metrics.overdueActivities, section),
+      overduePeriodDeliverables: tagSection(
+        metrics.overduePeriodDeliverables,
+        section,
+      ),
+      pendingReviewTasks: tagSection(metrics.pendingReviewTasks, section),
+      revisionRequestedTasks: tagSection(
+        metrics.revisionRequestedTasks,
+        section,
+      ),
+      lateEngagements: tagSection(metrics.lateEngagements, section),
+    }
+    focusItems.upcomingActivities.push(...tagged.upcomingActivities)
+    focusItems.upcomingPeriodDeliverables.push(
+      ...tagged.upcomingPeriodDeliverables,
+    )
+    focusItems.overdueActivities.push(...tagged.overdueActivities)
+    focusItems.overduePeriodDeliverables.push(
+      ...tagged.overduePeriodDeliverables,
+    )
+    focusItems.pendingReviewTasks.push(...tagged.pendingReviewTasks)
+    focusItems.revisionRequestedTasks.push(...tagged.revisionRequestedTasks)
+    focusItems.lateEngagements.push(...tagged.lateEngagements)
+
+    for (const item of metrics.actionTracker.items) {
+      actionTrackerItems.push({
+        ...item,
+        sectionId: section._id,
+        sectionName: section.name,
+        sectionSlug: section.slug?.current,
+        responsibleLabel:
+          item.assigneeName?.trim() || section.name || 'Unassigned',
+      })
+    }
+
+    const pulse = computeManagerSprintPulse({
+      sprints,
+      today,
+      supervisorCount: Math.max(0, section.supervisorCount ?? 0),
+    })
+    sectionSprintMetrics.push({
+      sectionId: section._id,
+      sectionName: section.name,
+      sectionSlug: section.slug?.current,
+      weekLabel: pulse.weekLabel ?? metrics.activeSprint?.weekLabel,
+      planned: pulse.planned,
+      inReview: pulse.inReview,
+      acceptedReady: pulse.acceptedReady,
+      atRisk: pulse.atRisk,
+      done: metrics.activeSprint?.done ?? 0,
+      total: metrics.activeSprint?.total ?? 0,
+    })
+  }
+
+  focusItems.upcomingActivities.sort(
+    (a, b) => a.daysUntilDue - b.daysUntilDue,
+  )
+  focusItems.upcomingPeriodDeliverables.sort(
+    (a, b) => a.daysUntilDue - b.daysUntilDue,
+  )
+  focusItems.overdueActivities.sort((a, b) => b.daysOverdue - a.daysOverdue)
+  focusItems.overduePeriodDeliverables.sort(
+    (a, b) => b.daysOverdue - a.daysOverdue,
+  )
+  focusItems.lateEngagements.sort((a, b) => b.daysLate - a.daysLate)
+
+  actionTrackerItems.sort((a, b) => {
+    if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
+    return a.daysUntilDue - b.daysUntilDue
+  })
+
+  const actionTracker = {
+    total: actionTrackerItems.length,
+    overdue: actionTrackerItems.filter(i => i.isOverdue).length,
+    dueSoon: actionTrackerItems.filter(
+      i => !i.isOverdue && i.daysUntilDue <= 7,
+    ).length,
+    items: actionTrackerItems,
+  }
 
   return {
     acWorkspace,
@@ -276,9 +437,12 @@ export async function loadAssistantCommissionerDashboardData(options?: {
     monthlyOversight,
     teamVelocity,
     boardActionsOversight,
+    focusItems,
+    sectionSprintMetrics,
+    actionTracker,
     overdue: {
-      stakeholderEngagements,
-      periodDeliverables,
+      stakeholderEngagements: focusItems.lateEngagements,
+      periodDeliverables: focusItems.overduePeriodDeliverables,
       boardActions: overdueBoardActions,
       memos: [],
     },

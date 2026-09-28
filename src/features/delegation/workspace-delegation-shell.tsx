@@ -12,11 +12,13 @@ import type { DelegationCandidate } from '@/lib/role-delegation'
 import type { OrgDelegationRecord } from '@/lib/org-role-delegation.server'
 import {
   canCreateSelfServiceDelegation,
-  DELEGATION_MAX_DAYS,
+  canRedelegatePlanningContractWork,
+  isPlanningContractSupportAssignment,
 } from '@/lib/role-delegation'
 import type { WorkContextMode } from '@/lib/section-access'
 import { useRegisterDelegationSidebar } from '@/contexts/delegation-sidebar-context'
 import { SelfServiceDelegationDialog } from '@/features/delegation/self-service-delegation-dialog'
+import { PlanningContractSupportDialog } from '@/features/delegation/planning-contract-support-dialog'
 import { WorkContextBar } from '@/features/delegation/work-context-bar'
 
 type WorkspaceData = SectionPageContentProps & {
@@ -41,10 +43,7 @@ interface WorkspaceDelegationShellProps extends WorkspaceData {
   orgActingAsDelegatee?: OrgDelegationRecord | null
 }
 
-function actingRoleLabel(access: WorkspaceData['sectionAccess']) {
-  if (access.isPlanningSection && access.isPermanentManager) {
-    return 'contract'
-  }
+function leaveActingRoleLabel(access: WorkspaceData['sectionAccess']) {
   if (access.isPermanentOfficer) return 'officer'
   if (access.isPermanentSupervisor) return 'supervisor'
   if (access.isPermanentManager) return 'manager'
@@ -65,20 +64,39 @@ export function WorkspaceDelegationShell({
   ...rest
 }: WorkspaceDelegationShellProps) {
   const router = useRouter()
-  const [delegateOpen, setDelegateOpen] = React.useState(false)
+  const [leaveOpen, setLeaveOpen] = React.useState(false)
+  const [contractSupportOpen, setContractSupportOpen] = React.useState(false)
 
   const refresh = () => router.refresh()
-  const openDelegate = React.useCallback(() => setDelegateOpen(true), [])
+  const openLeave = React.useCallback(() => setLeaveOpen(true), [])
+  const openContractSupport = React.useCallback(
+    () => setContractSupportOpen(true),
+    [],
+  )
 
-  const canSelfServiceDelegate = canCreateSelfServiceDelegation({
-    roleAllowsDelegation: sectionAccess.canSelfServiceDelegate,
-    workContext,
+  const canRedelegatePlanningContract = canRedelegatePlanningContractWork({
+    isPlanningSection: sectionAccess.isPlanningSection,
+    isPermanentSupervisor: sectionAccess.isPermanentSupervisor,
     assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
-    assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
-    hasOtherScopeActingAssignment: Boolean(orgActingAsDelegatee),
   })
 
-  useRegisterDelegationSidebar(canSelfServiceDelegate, openDelegate)
+  // Planning AC uses org leave + AC contract-page support — not section leave.
+  const isPlanningAc =
+    sectionAccess.isPlanningSection && sectionAccess.isPermanentManager
+  const canSelfServiceLeave =
+    !isPlanningAc &&
+    canCreateSelfServiceDelegation({
+      roleAllowsDelegation: sectionAccess.canSelfServiceDelegate,
+      workContext,
+      assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
+      assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
+      hasOtherScopeActingAssignment: Boolean(orgActingAsDelegatee),
+    })
+
+  useRegisterDelegationSidebar(
+    canSelfServiceLeave || canRedelegatePlanningContract,
+    canRedelegatePlanningContract ? openContractSupport : openLeave,
+  )
 
   const crossWorkspaceActingHref = React.useMemo(() => {
     if (!orgActingAsDelegatee || sectionAccess.workContext !== 'own') {
@@ -115,24 +133,37 @@ export function WorkspaceDelegationShell({
             assignmentAsAbsent={sectionAccess.delegation.assignmentAsAbsent}
             crossWorkspaceActingHref={crossWorkspaceActingHref}
             crossWorkspaceActingLabel={crossWorkspaceActingLabel}
+            hideActingSwitcher={isPlanningContractSupportAssignment(
+              sectionAccess.isPlanningSection,
+              sectionAccess.delegation.assignmentAsDelegatee,
+            )}
           />
         </Suspense>
 
         <SelfServiceDelegationDialog
-          open={delegateOpen}
-          onOpenChange={setDelegateOpen}
-          actingRoleLabel={actingRoleLabel(sectionAccess)}
+          open={leaveOpen}
+          onOpenChange={setLeaveOpen}
+          actingRoleLabel={leaveActingRoleLabel(sectionAccess)}
           candidates={delegationCandidates}
           createPayload={{ sectionId: section._id }}
-          title={
-            sectionAccess.isPlanningSection && sectionAccess.isPermanentManager
-              ? 'Delegate contract work'
-              : undefined
-          }
-          description={
-            sectionAccess.isPlanningSection && sectionAccess.isPermanentManager
-              ? `Choose the planning supervisor to onboard the contract and add items for you, for up to ${DELEGATION_MAX_DAYS} days.`
-              : undefined
+          onSuccess={refresh}
+        />
+
+        <PlanningContractSupportDialog
+          open={contractSupportOpen}
+          onOpenChange={setContractSupportOpen}
+          candidates={delegationCandidates}
+          sectionId={section._id}
+          mode='supervisor-to-officer'
+          parentWindow={
+            sectionAccess.delegation.assignmentAsDelegatee
+              ? {
+                  startDate:
+                    sectionAccess.delegation.assignmentAsDelegatee.startDate,
+                  endDate:
+                    sectionAccess.delegation.assignmentAsDelegatee.endDate,
+                }
+              : null
           }
           onSuccess={refresh}
         />
@@ -141,11 +172,15 @@ export function WorkspaceDelegationShell({
           {...rest}
           section={section}
           sectionAccess={sectionAccess}
+          workContext={workContext}
           view={view}
           workspaceBasePath={workspaceBasePath}
           sprintView={sprintView}
           sprintReviewLabel={sprintReviewLabel}
           hideSprintReviewTab={hideSprintReviewTab}
+          onOpenPlanningContractDelegate={
+            canRedelegatePlanningContract ? openContractSupport : undefined
+          }
         />
       </WorkContextNavigationProvider>
     </div>

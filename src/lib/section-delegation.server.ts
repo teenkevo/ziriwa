@@ -1,16 +1,21 @@
 import 'server-only'
 
-import type { SectionActingRole } from '@/lib/role-delegation'
+import type {
+  SectionActingRole,
+  SectionDelegationPurpose,
+} from '@/lib/role-delegation'
 import {
   computeDelegationStatus,
   datesOverlap,
   isSectionActingRole,
+  resolveSectionDelegationPurpose,
 } from '@/lib/role-delegation'
 import { client } from '@/sanity/lib/client'
 
 export interface SectionDelegationRecord {
   _id: string
   actingRole: SectionActingRole
+  purpose: SectionDelegationPurpose
   fromStaffId: string
   fromStaffName: string
   toStaffId: string
@@ -38,6 +43,7 @@ function todayIso() {
 const delegationProjection = /* groq */ `{
   _id,
   actingRole,
+  purpose,
   startDate,
   endDate,
   status,
@@ -48,6 +54,16 @@ const delegationProjection = /* groq */ `{
   "toStaffName": coalesce(toStaff->fullName, toStaff->firstName + " " + toStaff->lastName),
   "sectionId": section._ref
 }`
+
+function normalizeDelegationRecord(
+  row: SectionDelegationRecord | null,
+): SectionDelegationRecord | null {
+  if (!row || !isSectionActingRole(row.actingRole)) return null
+  return {
+    ...row,
+    purpose: resolveSectionDelegationPurpose(row.purpose),
+  }
+}
 
 export async function getActiveDelegationsForStaff(
   staffId: string,
@@ -98,10 +114,13 @@ export async function getActiveDelegationAsDelegatee(
       statuses: [...ACTIVE_STATUSES],
     },
   )
-  if (!row || !isSectionActingRole(row.actingRole)) return null
-  return row
+  return normalizeDelegationRecord(row)
 }
 
+/**
+ * Outgoing leave coverage only. Contract-support handoffs are not leave —
+ * they must not mark the AC as absent.
+ */
 export async function getOutgoingActiveDelegation(
   staffId: string,
   sectionId: string,
@@ -114,11 +133,31 @@ export async function getOutgoingActiveDelegation(
       && status in $statuses
       && startDate <= $date
       && endDate >= $date
+      && coalesce(purpose, "leave") == "leave"
     ] | order(startDate asc)[0] ${delegationProjection}`,
     { staffId, sectionId, date, statuses: [...ACTIVE_STATUSES] },
   )
-  if (!row || !isSectionActingRole(row.actingRole)) return null
-  return row
+  return normalizeDelegationRecord(row)
+}
+
+/** Active contract-support handoff the viewer created (AC → planning supervisor). */
+export async function getOutgoingContractSupportDelegation(
+  staffId: string,
+  sectionId: string,
+): Promise<SectionDelegationRecord | null> {
+  const date = todayIso()
+  const row = await client.fetch<SectionDelegationRecord | null>(
+    /* groq */ `*[_type == "sectionDelegation"
+      && fromStaff._ref == $staffId
+      && section._ref == $sectionId
+      && status in $statuses
+      && startDate <= $date
+      && endDate >= $date
+      && coalesce(purpose, "leave") == "contract_support"
+    ] | order(startDate asc)[0] ${delegationProjection}`,
+    { staffId, sectionId, date, statuses: [...ACTIVE_STATUSES] },
+  )
+  return normalizeDelegationRecord(row)
 }
 
 export async function findOverlappingDelegationAsDelegatee(
@@ -141,11 +180,11 @@ export async function findOverlappingDelegationAsDelegatee(
   )
 
   return (
-    rows.find(
-      d =>
-        isSectionActingRole(d.actingRole) &&
-        datesOverlap(startDate, endDate, d.startDate, d.endDate),
-    ) ?? null
+    rows
+      .map(r => normalizeDelegationRecord(r))
+      .find(
+        d => d && datesOverlap(startDate, endDate, d.startDate, d.endDate),
+      ) ?? null
   )
 }
 
@@ -154,26 +193,29 @@ export async function findOverlappingDelegationAsAbsent(
   startDate: string,
   endDate: string,
   excludeId?: string,
+  purpose: SectionDelegationPurpose = 'leave',
 ): Promise<SectionDelegationRecord | null> {
   const rows = await client.fetch<SectionDelegationRecord[]>(
     /* groq */ `*[_type == "sectionDelegation"
       && fromStaff._ref == $fromStaffId
       && status in $statuses
+      && coalesce(purpose, "leave") == $purpose
       && (!defined($excludeId) || _id != $excludeId)
     ] ${delegationProjection}`,
     {
       fromStaffId,
       excludeId: excludeId ?? null,
+      purpose,
       statuses: [...ACTIVE_STATUSES],
     },
   )
 
   return (
-    rows.find(
-      d =>
-        isSectionActingRole(d.actingRole) &&
-        datesOverlap(startDate, endDate, d.startDate, d.endDate),
-    ) ?? null
+    rows
+      .map(r => normalizeDelegationRecord(r))
+      .find(
+        d => d && datesOverlap(startDate, endDate, d.startDate, d.endDate),
+      ) ?? null
   )
 }
 

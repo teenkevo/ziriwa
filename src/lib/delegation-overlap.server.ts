@@ -59,6 +59,7 @@ export async function findOverlappingDelegationAsAbsentAnyScope(
   startDate: string,
   endDate: string,
   exclude?: { sectionId?: string; orgId?: string },
+  purpose: 'leave' | 'contract_support' = 'leave',
 ): Promise<AnyDelegationOverlap | null> {
   const [section, org] = await Promise.all([
     findOverlappingDelegationAsAbsent(
@@ -66,13 +67,17 @@ export async function findOverlappingDelegationAsAbsentAnyScope(
       startDate,
       endDate,
       exclude?.sectionId,
+      purpose,
     ),
-    findOverlappingOrgDelegationAsAbsent(
-      fromStaffId,
-      startDate,
-      endDate,
-      exclude?.orgId,
-    ),
+    // Org delegations are leave-only; skip for contract support.
+    purpose === 'leave'
+      ? findOverlappingOrgDelegationAsAbsent(
+          fromStaffId,
+          startDate,
+          endDate,
+          exclude?.orgId,
+        )
+      : Promise.resolve(null),
   ])
 
   if (section) return { kind: 'section', record: section }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
 import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
+import { buildPlanningSectionName } from '@/lib/planning-section-name'
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,12 +24,6 @@ export async function POST(req: NextRequest) {
       isPlanningSection?: boolean
     }
 
-    if (!name || typeof name !== 'string') {
-      return NextResponse.json(
-        { error: 'Section name is required' },
-        { status: 400 },
-      )
-    }
     if (!divisionId || typeof divisionId !== 'string') {
       return NextResponse.json(
         { error: 'Division is required' },
@@ -37,6 +32,12 @@ export async function POST(req: NextRequest) {
     }
 
     const planning = isPlanningSection === true
+    if (!planning && (!name || typeof name !== 'string')) {
+      return NextResponse.json(
+        { error: 'Section name is required' },
+        { status: 400 },
+      )
+    }
     if (!planning && (!managerId || typeof managerId !== 'string')) {
       return NextResponse.json(
         { error: 'Manager is required' },
@@ -44,7 +45,32 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const baseSlug = name
+    let sectionName = typeof name === 'string' ? name.trim() : ''
+    if (planning) {
+      const division = await writeClient.fetch<{
+        name?: string
+        acronym?: string
+      } | null>(
+        /* groq */ `*[_type == "division" && _id == $divisionId][0]{ name, acronym }`,
+        { divisionId },
+      )
+      if (!division) {
+        return NextResponse.json(
+          { error: 'Division not found' },
+          { status: 404 },
+        )
+      }
+      sectionName = buildPlanningSectionName(division)
+    }
+
+    if (!sectionName) {
+      return NextResponse.json(
+        { error: 'Section name is required' },
+        { status: 400 },
+      )
+    }
+
+    const baseSlug = sectionName
       .toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9-]/g, '')
@@ -53,7 +79,7 @@ export async function POST(req: NextRequest) {
 
     const doc = {
       _type: 'section',
-      name: name.trim(),
+      name: sectionName,
       slug: { _type: 'slug', current: slug },
       division: { _type: 'reference', _ref: divisionId },
       isPlanningSection: planning,
@@ -75,7 +101,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         id: result._id,
-        name: name.trim(),
+        name: sectionName,
         slug,
         isPlanningSection: planning,
       },

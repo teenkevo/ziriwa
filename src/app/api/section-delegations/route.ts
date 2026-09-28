@@ -5,12 +5,16 @@ import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
 import {
   canStaffReceiveDelegation,
+  canStaffReceivePlanningContractRedelegation,
   computeDelegationStatus,
   DELEGATION_MAX_DAYS,
   isDelegationWithinMaxDays,
   isSectionActingRole,
+  isSectionDelegationPurpose,
+  resolveSectionDelegationPurpose,
   staffRoleMatchesActingRole,
   type SectionActingRole,
+  type SectionDelegationPurpose,
 } from '@/lib/role-delegation'
 import {
   findOverlappingDelegationAsAbsentAnyScope,
@@ -24,7 +28,11 @@ import {
   projectDelegationDenied,
 } from '@/lib/project-delegation.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
-import { syncDelegationStatuses } from '@/lib/section-delegation.server'
+import {
+  getActiveDelegationAsDelegatee,
+  syncDelegationStatuses,
+} from '@/lib/section-delegation.server'
+import { isPlanningContractRedelegationFrom } from '@/lib/section-delegation-candidates.server'
 import { audit } from '@/lib/audit-log/events'
 
 export async function POST(req: NextRequest) {
@@ -33,7 +41,8 @@ export async function POST(req: NextRequest) {
     if (authResult instanceof NextResponse) return authResult
 
     const body = await req.json()
-    const { sectionId, toStaffId, startDate, endDate, note } = body
+    const { sectionId, toStaffId, startDate, endDate, note, purpose: purposeRaw } =
+      body
 
     if (!sectionId || !toStaffId || !startDate || !endDate) {
       return NextResponse.json(
@@ -45,10 +54,39 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (
+      purposeRaw !== undefined &&
+      purposeRaw !== null &&
+      !isSectionDelegationPurpose(purposeRaw)
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid delegation purpose' },
+        { status: 400 },
+      )
+    }
+
     if (!isDelegationWithinMaxDays(startDate, endDate)) {
       return NextResponse.json(
         {
-          error: `Leave delegation cannot exceed ${DELEGATION_MAX_DAYS} calendar days`,
+          error: `Delegation cannot exceed ${DELEGATION_MAX_DAYS} calendar days`,
+        },
+        { status: 400 },
+      )
+    }
+
+    const now = new Date()
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-')
+    if (startDate < today) {
+      return NextResponse.json(
+        {
+          error:
+            purposeRaw === 'contract_support'
+              ? 'Support from cannot be in the past'
+              : 'Start date cannot be in the past',
         },
         { status: 400 },
       )
@@ -66,7 +104,13 @@ export async function POST(req: NextRequest) {
 
     const fromStaffId = viewerStaffId
 
-    if (await hasActiveDelegationAsDelegateeAnyScope(fromStaffId)) {
+    const isPlanningContractRedelegation =
+      await isPlanningContractRedelegationFrom(sectionId, fromStaffId)
+
+    if (
+      !isPlanningContractRedelegation &&
+      (await hasActiveDelegationAsDelegateeAnyScope(fromStaffId))
+    ) {
       return NextResponse.json(
         {
           error:
@@ -136,6 +180,9 @@ export async function POST(req: NextRequest) {
 
     let actingRole: SectionActingRole | string | undefined = fromStaff.role
     let isPlanningAcDelegation = false
+    let isPlanningSupervisorRedelegation = false
+    let purpose: SectionDelegationPurpose =
+      resolveSectionDelegationPurpose(purposeRaw)
 
     if (
       sectionMeta?.isPlanningSection &&
@@ -143,7 +190,18 @@ export async function POST(req: NextRequest) {
       !isProjectManagerDelegation
     ) {
       const isPermanentAc =
-        fromStaffId === sectionMeta.assistantCommissionerId
+        fromStaffId === sectionMeta.assistantCommissionerId ||
+        (fromStaff.role === 'assistant_commissioner' &&
+          (await writeClient.fetch<boolean>(
+            /* groq */ `count(*[
+              _type == "staff"
+              && _id == $staffId
+              && role == "assistant_commissioner"
+              && division._ref == $divisionId
+              && status == "active"
+            ]) > 0`,
+            { staffId: fromStaffId, divisionId: sectionMeta.divisionId },
+          )))
       const actingAsAc = isPermanentAc
         ? null
         : await getActiveOrgDelegationAsDelegatee(fromStaffId, {
@@ -153,6 +211,11 @@ export async function POST(req: NextRequest) {
       if (isPermanentAc || actingAsAc) {
         isPlanningAcDelegation = true
         actingRole = 'manager'
+        purpose = 'contract_support'
+      } else if (isPlanningContractRedelegation) {
+        isPlanningSupervisorRedelegation = true
+        actingRole = 'manager'
+        purpose = 'contract_support'
       }
     }
 
@@ -194,6 +257,46 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         )
       }
+    } else if (isPlanningSupervisorRedelegation) {
+      if (!toStaff?.sectionId || toStaff.sectionId !== sectionId) {
+        return NextResponse.json(
+          { error: 'Acting staff must belong to this planning section' },
+          { status: 400 },
+        )
+      }
+      if (!canStaffReceivePlanningContractRedelegation(toStaff.role)) {
+        return NextResponse.json(
+          {
+            error:
+              'Planning supervisors can only redelegate contract work to a planning officer',
+          },
+          { status: 400 },
+        )
+      }
+      const parentSupport = await getActiveDelegationAsDelegatee(
+        fromStaffId,
+        sectionId,
+      )
+      if (!parentSupport) {
+        return NextResponse.json(
+          {
+            error:
+              'No active Assistant Commissioner support window to redelegate from',
+          },
+          { status: 403 },
+        )
+      }
+      if (
+        startDate < parentSupport.startDate ||
+        endDate > parentSupport.endDate
+      ) {
+        return NextResponse.json(
+          {
+            error: `Support dates must fall within the Assistant Commissioner's window (${parentSupport.startDate} → ${parentSupport.endDate})`,
+          },
+          { status: 400 },
+        )
+      }
     } else {
       if (!fromStaff?.sectionId || fromStaff.sectionId !== sectionId) {
         return NextResponse.json(
@@ -227,10 +330,17 @@ export async function POST(req: NextRequest) {
       fromStaffId,
       startDate,
       endDate,
+      undefined,
+      purpose,
     )
     if (overlapAbsent) {
       return NextResponse.json(
-        { error: 'You already have a delegation scheduled for this period' },
+        {
+          error:
+            purpose === 'contract_support'
+              ? 'You already have contract support scheduled for this period'
+              : 'You already have a leave delegation scheduled for this period',
+        },
         { status: 409 },
       )
     }
@@ -258,6 +368,7 @@ export async function POST(req: NextRequest) {
       fromStaff: { _type: 'reference', _ref: fromStaffId },
       toStaff: { _type: 'reference', _ref: toStaffId },
       actingRole,
+      purpose,
       startDate,
       endDate,
       status,
@@ -269,12 +380,14 @@ export async function POST(req: NextRequest) {
 
     audit.sectionDelegation.created(
       doc._id,
-      `${toStaff.fullName ?? 'Staff'} acting as ${actingRole}`,
+      purpose === 'contract_support'
+        ? `${toStaff.fullName ?? 'Staff'} supporting contract as ${actingRole}`
+        : `${toStaff.fullName ?? 'Staff'} acting as ${actingRole}`,
       sectionId,
-      { fromStaffId, toStaffId, actingRole, startDate, endDate },
+      { fromStaffId, toStaffId, actingRole, purpose, startDate, endDate },
     )
 
-    return NextResponse.json({ id: doc._id, status }, { status: 201 })
+    return NextResponse.json({ id: doc._id, status, purpose }, { status: 201 })
   } catch (error) {
     console.error('POST section-delegations', error)
     return NextResponse.json(

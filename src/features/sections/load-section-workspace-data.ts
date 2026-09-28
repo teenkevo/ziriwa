@@ -22,7 +22,7 @@ import {
   shouldScopeSprintsToSupervisor,
   shouldUseOfficerContract,
 } from '@/lib/sprint-workspace-scope'
-import { canCreateSelfServiceDelegation } from '@/lib/role-delegation'
+import { canCreateSelfServiceDelegation, isPlanningContractSupportAssignment } from '@/lib/role-delegation'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { getDelegationCandidatesForStaff } from '@/lib/section-delegation-candidates.server'
 import { getSectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
@@ -34,6 +34,9 @@ import { getSupervisorContract } from '@/sanity/lib/supervisor-contracts/get-sup
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import { getOfficerContractForViewer } from '@/sanity/lib/officer-contracts/get-officer-contract-for-viewer'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
+import { getDivisionContractByDivision } from '@/sanity/lib/division-contracts/get-division-contract-by-division'
+import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
+import { canManageDivisionContract } from '@/lib/division-contract-access.server'
 
 export type WorkspaceSection = {
   _id: string
@@ -302,12 +305,29 @@ export async function loadSectionWorkspaceData(
       ? await buildSupervisorSprintInitiativesByStaffId(section._id, sprints)
       : {}
 
+  const divisionId = section.division?._id ?? null
+  const hasPlanningContractSupport = isPlanningContractSupportAssignment(
+    Boolean(section.isPlanningSection || sectionAccess.isPlanningSection),
+    sectionAccess.delegation.assignmentAsDelegatee,
+  )
+
+  let divisionContract: DivisionContract | null = null
+  let canManageAcDivisionContract = false
+  if (divisionId && hasPlanningContractSupport) {
+    ;[divisionContract, canManageAcDivisionContract] = await Promise.all([
+      getDivisionContractByDivision(divisionId),
+      canManageDivisionContract(divisionId),
+    ])
+  }
+
   return {
     section,
     sectionContract,
     supervisorContract,
     supervisorContractForCascade,
     officerContract,
+    divisionContract,
+    canManageAcDivisionContract,
     stakeholderEngagement,
     staffOptions,
     supervisors,

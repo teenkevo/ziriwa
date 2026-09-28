@@ -48,6 +48,14 @@ import type { SectionContract } from '@/sanity/lib/section-contracts/get-section
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 import { ContractExportDownloadButton } from '@/features/sections/components/contract-export-download-button'
+import {
+  PlanningContractDelegatedAction,
+} from '@/features/delegation/planning-contract-delegation-panel'
+import { PlanningContractSupportEditorDialog } from '@/features/delegation/planning-contract-support-editor-dialog'
+import {
+  canRedelegatePlanningContractWork,
+} from '@/lib/role-delegation'
+import type { WorkContextMode } from '@/lib/section-access'
 
 type ManagerWorkspaceView =
   | 'dashboard'
@@ -65,6 +73,8 @@ type ManagerWorkspaceContentProps = WorkspaceData & {
   sprintReviewLabel?: string
   hideSprintReviewTab?: boolean
   workspaceBasePath?: WorkspaceBasePath
+  workContext?: WorkContextMode
+  onOpenPlanningContractDelegate?: () => void
 }
 
 export function ManagerWorkspaceContent({
@@ -72,6 +82,8 @@ export function ManagerWorkspaceContent({
   sprintView,
   sprintReviewLabel = 'In review',
   workspaceBasePath = '/manager',
+  workContext = 'own',
+  onOpenPlanningContractDelegate,
   section,
   isProjectManagerWorkspace = false,
   isDeputyProjectManagerWorkspace = false,
@@ -82,6 +94,8 @@ export function ManagerWorkspaceContent({
   supervisorContract = null,
   supervisorContractForCascade = null,
   officerContract = null,
+  divisionContract = null,
+  canManageAcDivisionContract = false,
   stakeholderEngagement,
   staffOptions,
   supervisors,
@@ -199,6 +213,8 @@ export function ManagerWorkspaceContent({
   const [panelPortalNode, setPanelPortalNode] =
     React.useState<HTMLDivElement | null>(null)
   const [onboardOpen, setOnboardOpen] = React.useState(false)
+  const [contractSupportEditorOpen, setContractSupportEditorOpen] =
+    React.useState(false)
   const [cascadeImportOpen, setCascadeImportOpen] = React.useState(false)
   const [expandAllSignal, setExpandAllSignal] = React.useState(0)
   const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
@@ -234,7 +250,20 @@ export function ManagerWorkspaceContent({
     sectionContract?.financialYearLabel ??
     activeFY.label
   const manager = section.manager
+  const isPlanningSection = Boolean(
+    section.isPlanningSection || sectionAccess.isPlanningSection,
+  )
   const hasManager = !!manager?._id
+  const contractOwnerId = isPlanningSection
+    ? (sectionAccess.viewerStaffId ?? '')
+    : (manager?._id ?? '')
+  const contractOwnerName = isPlanningSection
+    ? 'Assistant Commissioner'
+    : (manager?.fullName ?? '—')
+  const canOnboardSectionContract =
+    sectionAccess.canOnboardContract &&
+    Boolean(contractOwnerId) &&
+    (hasManager || isPlanningSection)
   const showRightRail = view === 'contract' || view === 'sprints'
   const actingAssignment = sectionAccess.delegation.assignmentAsDelegatee
   const title =
@@ -242,12 +271,59 @@ export function ManagerWorkspaceContent({
       ? `${pageTitle} (acting for ${actingAssignment.fromStaffName})`
       : pageTitle
 
+  const canRedelegatePlanningContract = canRedelegatePlanningContractWork({
+    isPlanningSection: sectionAccess.isPlanningSection,
+    isPermanentSupervisor: sectionAccess.isPermanentSupervisor,
+    assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
+  })
+  const hasPlanningContractAction =
+    sectionAccess.isPlanningSection &&
+    sectionAccess.delegation.assignmentAsDelegatee?.actingRole === 'manager'
+  const showPlanningDelegatedAction =
+    hasPlanningContractAction &&
+    workContext === 'own' &&
+    Boolean(sectionAccess.delegation.assignmentAsDelegatee)
+  const planningSupportAssignment =
+    sectionAccess.delegation.assignmentAsDelegatee
+  const planningSupportOwnerId =
+    planningSupportAssignment?.fromStaffId ?? ''
+  const planningSupportOwnerName =
+    planningSupportAssignment?.fromStaffName ?? 'Assistant Commissioner'
+
+  const planningDelegatedAction = showPlanningDelegatedAction &&
+  planningSupportAssignment ? (
+    <PlanningContractDelegatedAction
+      fromStaffName={planningSupportAssignment.fromStaffName}
+      endDate={planningSupportAssignment.endDate}
+      canRedelegate={canRedelegatePlanningContract}
+      onWorkOnContract={() => setContractSupportEditorOpen(true)}
+      onRedelegate={onOpenPlanningContractDelegate}
+    />
+  ) : null
+
+  const planningContractSupportEditor =
+    showPlanningDelegatedAction &&
+    planningSupportAssignment &&
+    section.division?._id ? (
+      <PlanningContractSupportEditorDialog
+        open={contractSupportEditorOpen}
+        onOpenChange={setContractSupportEditorOpen}
+        divisionId={section.division._id}
+        divisionName={section.division.name || section.name}
+        divisionContract={divisionContract}
+        assistantCommissionerId={planningSupportOwnerId}
+        assistantCommissionerName={planningSupportOwnerName}
+        canManageContract={canManageAcDivisionContract}
+      />
+    ) : null
+
   const content = (() => {
     if (view === 'dashboard') {
       if (!activeContract) {
         if (usesOfficerContract) {
           return (
             <div className='space-y-4'>
+              {planningDelegatedAction}
               <OnboardOfficerContractDialog
                 open={onboardOpen}
                 onOpenChange={setOnboardOpen}
@@ -291,6 +367,7 @@ export function ManagerWorkspaceContent({
         if (usesSupervisorContract) {
           return (
             <div className='space-y-4'>
+              {planningDelegatedAction}
               <OnboardSupervisorContractDialog
                 open={onboardOpen}
                 onOpenChange={setOnboardOpen}
@@ -387,22 +464,28 @@ export function ManagerWorkspaceContent({
         }
         return (
           <div className='space-y-4'>
+            {planningDelegatedAction}
             <OnboardContractDialog
               open={onboardOpen}
               onOpenChange={setOnboardOpen}
               sectionId={section._id}
-              managerId={manager?._id ?? ''}
+              managerId={contractOwnerId}
               sectionName={section.name}
-              managerName={manager?.fullName ?? '—'}
+              managerName={contractOwnerName}
+              ownerLabel={
+                isPlanningSection ? 'Assistant Commissioner' : 'Manager'
+              }
               onSuccess={() => setOnboardOpen(false)}
             />
             <ContractOnboardEmptyState
               financialYearLabel={currentFY}
               description='Add SSMARTA objectives, initiatives, and KPIs to unlock your dashboard.'
-              canOnboard={sectionAccess.canOnboardContract && hasManager}
+              canOnboard={canOnboardSectionContract}
               onOnboard={() => setOnboardOpen(true)}
               missingAssigneeMessage={
-                sectionAccess.canOnboardContract && !hasManager
+                sectionAccess.canOnboardContract &&
+                !hasManager &&
+                !isPlanningSection
                   ? `Assign a manager to this ${scopeLabels.unit} before onboarding a contract.`
                   : undefined
               }
@@ -411,25 +494,30 @@ export function ManagerWorkspaceContent({
         )
       }
       return (
-        <SectionDashboardContent
-          sectionId={section._id}
-          sectionName={section.name}
-          sectionSlug={section.slug?.current}
-          contract={activeContract as SectionContract | null}
-          sprints={safeSprints}
-          sectionAccess={sectionAccess}
-          workspaceBasePath={workspaceBasePath}
-          workspaceScope={scopeLabels.kind}
-          engagement={stakeholderEngagement}
-          today={today}
-          supervisorCount={supervisors.length}
-        />
+        <div className='space-y-4'>
+          {planningDelegatedAction}
+          <SectionDashboardContent
+            sectionId={section._id}
+            sectionName={section.name}
+            sectionSlug={section.slug?.current}
+            contract={activeContract as SectionContract | null}
+            sprints={safeSprints}
+            sectionAccess={sectionAccess}
+            workspaceBasePath={workspaceBasePath}
+            workspaceScope={scopeLabels.kind}
+            engagement={stakeholderEngagement}
+            today={today}
+            supervisorCount={supervisors.length}
+          />
+        </div>
       )
     }
 
     if (view === 'contract') {
       return (
-        <Card>
+        <div className='space-y-4'>
+          {planningDelegatedAction}
+          <Card>
           <CardContent className='pt-6'>
             {activeContract ? (
               <div className='space-y-4'>
@@ -712,18 +800,23 @@ export function ManagerWorkspaceContent({
                   open={onboardOpen}
                   onOpenChange={setOnboardOpen}
                   sectionId={section._id}
-                  managerId={manager?._id ?? ''}
+                  managerId={contractOwnerId}
                   sectionName={section.name}
-                  managerName={manager?.fullName ?? '—'}
+                  managerName={contractOwnerName}
+                  ownerLabel={
+                    isPlanningSection ? 'Assistant Commissioner' : 'Manager'
+                  }
                   onSuccess={() => setOnboardOpen(false)}
                 />
                 <ContractOnboardEmptyState
                   financialYearLabel={currentFY}
                   description='Add SSMARTA objectives, initiatives, and KPIs.'
-                  canOnboard={sectionAccess.canOnboardContract && hasManager}
+                  canOnboard={canOnboardSectionContract}
                   onOnboard={() => setOnboardOpen(true)}
                   missingAssigneeMessage={
-                    sectionAccess.canOnboardContract && !hasManager
+                    sectionAccess.canOnboardContract &&
+                    !hasManager &&
+                    !isPlanningSection
                       ? `Assign a manager to this ${scopeLabels.unit} before onboarding a contract.`
                       : undefined
                   }
@@ -732,6 +825,7 @@ export function ManagerWorkspaceContent({
             )}
           </CardContent>
         </Card>
+        </div>
       )
     }
 
@@ -834,7 +928,9 @@ export function ManagerWorkspaceContent({
   })()
 
   return (
-    <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>
+    <>
+      {planningContractSupportEditor}
+      <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
         <div className='flex flex-col gap-2'>
           <h1 className='text-2xl font-bold'>{title}</h1>
@@ -870,5 +966,6 @@ export function ManagerWorkspaceContent({
         </div>
       ) : null}
     </div>
+    </>
   )
 }

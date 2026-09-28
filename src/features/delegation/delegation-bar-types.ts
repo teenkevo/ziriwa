@@ -4,4 +4,6 @@ export interface DelegationBarRecord {
   fromStaffName: string
   toStaffName: string
   endDate: string
+  /** When `contract_support`, work-context switcher is hidden. */
+  purpose?: string
 }

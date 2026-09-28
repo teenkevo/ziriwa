@@ -45,19 +45,33 @@ import {
 import { SprintRevisionTaskCard } from '@/features/sections/components/dashboard/sprint-revision-task-card'
 import { PendingReviewTasksSection } from '@/features/sections/components/dashboard/pending-review-tasks-section'
 
+/** Optional owning section — used on AC (and similar) multi-section dashboards. */
+export type FocusItemOwner = {
+  sectionName?: string
+  sectionSlug?: string
+  sectionId?: string
+}
+
+type Owned<T> = T & FocusItemOwner
+
 interface OverduePanelProps {
-  upcomingActivities: UpcomingMeasurableActivity[]
-  upcomingPeriodDeliverables: UpcomingPeriodDeliverable[]
-  overdueActivities: AtRiskActivity[]
-  overduePeriodDeliverables: AtRiskPeriodDeliverable[]
-  pendingReviewTasks: AtRiskSprintTask[]
-  revisionRequestedTasks: AtRiskSprintTask[]
-  lateEngagements: LateEngagement[]
+  upcomingActivities: Owned<UpcomingMeasurableActivity>[]
+  upcomingPeriodDeliverables: Owned<UpcomingPeriodDeliverable>[]
+  overdueActivities: Owned<AtRiskActivity>[]
+  overduePeriodDeliverables: Owned<AtRiskPeriodDeliverable>[]
+  pendingReviewTasks: Owned<AtRiskSprintTask>[]
+  revisionRequestedTasks: Owned<AtRiskSprintTask>[]
+  lateEngagements: Owned<LateEngagement>[]
   sectionSlug?: string
   onNavigateToTab?: (
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
   workspaceBasePath?: WorkspaceBasePath
+  /**
+   * When true, each row highlights the responsible section (owning party).
+   * Also shows both manager and supervisor sprint focus categories.
+   */
+  showOwningParty?: boolean
 }
 
 type AttentionTab = 'contract' | 'stakeholder-engagements' | 'weekly-sprint'
@@ -84,6 +98,8 @@ type AttentionRow = {
   daysUntilDue?: number
   context?: string
   detailHref?: string
+  ownerLabel?: string
+  ownerHref?: string
 }
 
 const CATEGORIES: {
@@ -181,7 +197,11 @@ const UPCOMING_PRIORITY: CategoryId[] = [
 function isCategoryVisibleForDashboard(
   categoryId: CategoryId,
   workspaceBasePath: WorkspaceBasePath,
+  showOwningParty = false,
 ): boolean {
+  if (showOwningParty || workspaceBasePath === '/assistant-commissioner') {
+    return true
+  }
   if (categoryId === 'review') {
     return isManagerDashboardBasePath(workspaceBasePath)
   }
@@ -189,6 +209,31 @@ function isCategoryVisibleForDashboard(
     return isSupervisorDashboardBasePath(workspaceBasePath)
   }
   return true
+}
+
+function ownerFromItem(item: FocusItemOwner): {
+  ownerLabel?: string
+  ownerHref?: string
+} {
+  const label = item.sectionName?.trim()
+  if (!label) return {}
+  const slug = item.sectionSlug?.trim() || item.sectionId?.trim()
+  return {
+    ownerLabel: label,
+    ownerHref: slug ? `/sections/${slug}` : undefined,
+  }
+}
+
+function resolveItemSlug(
+  item: FocusItemOwner,
+  fallbackSlug?: string,
+): string | undefined {
+  return item.sectionSlug?.trim() || fallbackSlug?.trim() || undefined
+}
+
+function rowKey(prefix: string, item: FocusItemOwner & { _key: string }): string {
+  const section = item.sectionId?.trim()
+  return section ? `${prefix}-${section}-${item._key}` : `${prefix}-${item._key}`
 }
 
 function fmtDate(iso: string | undefined): string {
@@ -219,16 +264,16 @@ function daysUntilLabel(n: number): string {
 }
 
 function buildAttentionRows(
-  upcomingActivities: UpcomingMeasurableActivity[],
-  upcomingPeriodDeliverables: UpcomingPeriodDeliverable[],
-  overdueActivities: AtRiskActivity[],
-  overduePeriodDeliverables: AtRiskPeriodDeliverable[],
+  upcomingActivities: Owned<UpcomingMeasurableActivity>[],
+  upcomingPeriodDeliverables: Owned<UpcomingPeriodDeliverable>[],
+  overdueActivities: Owned<AtRiskActivity>[],
+  overduePeriodDeliverables: Owned<AtRiskPeriodDeliverable>[],
   sectionSlug?: string,
 ): AttentionRow[] {
   const rows: AttentionRow[] = []
-  const slug = sectionSlug?.trim()
 
   for (const item of upcomingActivities) {
+    const slug = resolveItemSlug(item, sectionSlug)
     const detailHref =
       slug &&
       item.contractId &&
@@ -246,9 +291,11 @@ function buildAttentionRows(
         ? 'KPI'
         : item.activityType === 'cross-cutting'
           ? 'CC'
-          : ''
+          : item.activityType === 'core'
+            ? 'Core'
+            : ''
     rows.push({
-      key: `ua-${item._key}`,
+      key: rowKey('ua', item),
       categoryId: 'upcoming-activities',
       tab: 'contract',
       title: item.title,
@@ -258,12 +305,13 @@ function buildAttentionRows(
       daysUntilDue: item.daysUntilDue,
       context: [activityTypeTag, initiativeLabel].filter(Boolean).join(' · '),
       detailHref,
+      ...ownerFromItem(item),
     })
   }
 
   for (const item of upcomingPeriodDeliverables) {
     rows.push({
-      key: `ud-${item._key}`,
+      key: rowKey('ud', item),
       categoryId: 'upcoming-deliverables',
       tab: 'contract',
       title: item.title,
@@ -272,10 +320,12 @@ function buildAttentionRows(
       statusVariant: item.daysUntilDue < 10 ? 'destructive' : 'secondary',
       daysUntilDue: item.daysUntilDue,
       context: item.activityTitle,
+      ...ownerFromItem(item),
     })
   }
 
   for (const item of overdueActivities) {
+    const slug = resolveItemSlug(item, sectionSlug)
     const detailHref =
       slug &&
       item.contractId &&
@@ -294,13 +344,15 @@ function buildAttentionRows(
         ? 'KPI'
         : item.activityType === 'cross-cutting'
           ? 'CC'
-          : ''
+          : item.activityType === 'core'
+            ? 'Core'
+            : ''
     const activityLabel =
       activityTypeTag && item.activityTitle?.trim()
         ? `${activityTypeTag} · ${item.activityTitle.trim()}`
         : item.activityTitle?.trim() || activityTypeTag
     rows.push({
-      key: `a-${item._key}`,
+      key: rowKey('a', item),
       categoryId: 'activities',
       tab: 'contract',
       title: item.title,
@@ -309,12 +361,13 @@ function buildAttentionRows(
       statusVariant: 'destructive',
       context: [activityLabel, initiativeLabel].filter(Boolean).join(' · '),
       detailHref,
+      ...ownerFromItem(item),
     })
   }
 
   for (const item of overduePeriodDeliverables) {
     rows.push({
-      key: `d-${item._key}`,
+      key: rowKey('d', item),
       categoryId: 'deliverables',
       tab: 'contract',
       title: item.title,
@@ -322,6 +375,7 @@ function buildAttentionRows(
       statusPill: daysOverdueLabel(item.daysOverdue),
       statusVariant: 'destructive',
       context: item.activityTitle,
+      ...ownerFromItem(item),
     })
   }
 
@@ -362,11 +416,13 @@ function formatEngagementMode(mode?: string): string {
 function StakeholderLateTable({
   items,
   onNavigateToTab,
+  showOwningParty = false,
 }: {
-  items: LateEngagement[]
+  items: Owned<LateEngagement>[]
   onNavigateToTab?: (
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
+  showOwningParty?: boolean
 }) {
   if (items.length === 0) {
     return (
@@ -381,7 +437,14 @@ function StakeholderLateTable({
       <Table>
         <TableHeader>
           <TableRow className='border-b hover:bg-transparent'>
-            <TableHead className='pl-3'>Stakeholder</TableHead>
+            {showOwningParty ? (
+              <TableHead className='pl-3 whitespace-nowrap'>
+                Owning party
+              </TableHead>
+            ) : null}
+            <TableHead className={showOwningParty ? undefined : 'pl-3'}>
+              Stakeholder
+            </TableHead>
             <TableHead className='w-[1%] whitespace-nowrap text-center'>
               Power
             </TableHead>
@@ -397,69 +460,151 @@ function StakeholderLateTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map(entry => (
-            <TableRow
-              key={entry._key}
-              className={cn(onNavigateToTab && 'cursor-pointer')}
-              onClick={
-                onNavigateToTab
-                  ? () => onNavigateToTab('stakeholder-engagements')
-                  : undefined
-              }
-            >
-              <TableCell className='pl-3'>
-                <div className='font-medium leading-snug text-foreground'>
-                  {entry.name}
-                </div>
-                {entry.designation?.trim() ? (
-                  <div className='mt-0.5 text-xs text-muted-foreground'>
-                    {entry.designation}
-                  </div>
+          {items.map(entry => {
+            const owner = ownerFromItem(entry)
+            const sectionHref = owner.ownerHref
+              ? `${owner.ownerHref}?tab=stakeholder-engagements`
+              : undefined
+            return (
+              <TableRow
+                key={rowKey('eng', entry)}
+                className={cn(
+                  (onNavigateToTab || sectionHref) && 'cursor-pointer',
+                )}
+                onClick={
+                  sectionHref
+                    ? undefined
+                    : onNavigateToTab
+                      ? () => onNavigateToTab('stakeholder-engagements')
+                      : undefined
+                }
+              >
+                {showOwningParty ? (
+                  <TableCell className='pl-3'>
+                    {sectionHref ? (
+                      <Link href={sectionHref} prefetch={false}>
+                        <Badge
+                          variant='secondary'
+                          className='max-w-[9rem] truncate text-[10px] font-semibold uppercase tracking-wide'
+                        >
+                          {owner.ownerLabel ?? '—'}
+                        </Badge>
+                      </Link>
+                    ) : (
+                      <Badge
+                        variant='secondary'
+                        className='max-w-[9rem] truncate text-[10px] font-semibold uppercase tracking-wide'
+                      >
+                        {owner.ownerLabel ?? '—'}
+                      </Badge>
+                    )}
+                  </TableCell>
                 ) : null}
-              </TableCell>
-              <TableCell className='text-center'>
-                {hmlCell(entry.power)}
-              </TableCell>
-              <TableCell className='text-center'>
-                {hmlCell(entry.interest)}
-              </TableCell>
-              <TableCell className='text-center'>
-                {hmlCell(entry.priority)}
-              </TableCell>
-              <TableCell className='max-w-[10rem] text-sm'>
-                {formatEngagementMode(entry.modeOfEngagement) || '—'}
-              </TableCell>
-              <TableCell>{fmtDate(entry.proposedDate)}</TableCell>
-              <TableCell className='pr-3 text-right'>
-                <Badge
-                  variant='destructive'
-                  className='rounded-md px-2 py-0 text-[11px] font-semibold tabular-nums'
-                >
-                  {daysLateLabel(entry.daysLate)}
-                </Badge>
-              </TableCell>
-            </TableRow>
-          ))}
+                <TableCell className={showOwningParty ? undefined : 'pl-3'}>
+                  {sectionHref ? (
+                    <Link href={sectionHref} prefetch={false} className='block'>
+                      <div className='font-medium leading-snug text-foreground'>
+                        {entry.name}
+                      </div>
+                      {entry.designation?.trim() ? (
+                        <div className='mt-0.5 text-xs text-muted-foreground'>
+                          {entry.designation}
+                        </div>
+                      ) : null}
+                    </Link>
+                  ) : (
+                    <>
+                      <div className='font-medium leading-snug text-foreground'>
+                        {entry.name}
+                      </div>
+                      {entry.designation?.trim() ? (
+                        <div className='mt-0.5 text-xs text-muted-foreground'>
+                          {entry.designation}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </TableCell>
+                <TableCell className='text-center'>
+                  {hmlCell(entry.power)}
+                </TableCell>
+                <TableCell className='text-center'>
+                  {hmlCell(entry.interest)}
+                </TableCell>
+                <TableCell className='text-center'>
+                  {hmlCell(entry.priority)}
+                </TableCell>
+                <TableCell className='max-w-[10rem] text-sm'>
+                  {formatEngagementMode(entry.modeOfEngagement) || '—'}
+                </TableCell>
+                <TableCell>{fmtDate(entry.proposedDate)}</TableCell>
+                <TableCell className='pr-3 text-right'>
+                  <Badge
+                    variant='destructive'
+                    className='rounded-md px-2 py-0 text-[11px] font-semibold tabular-nums'
+                  >
+                    {daysLateLabel(entry.daysLate)}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>
   )
 }
 
+function OwningPartyBadge({
+  label,
+  href,
+}: {
+  label?: string
+  href?: string
+}) {
+  if (!label?.trim()) return null
+  const badge = (
+    <Badge
+      variant='secondary'
+      className='max-w-[10rem] truncate text-[10px] font-semibold uppercase tracking-wide'
+    >
+      {label}
+    </Badge>
+  )
+  if (!href) return badge
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      onClick={e => e.stopPropagation()}
+      className='shrink-0'
+    >
+      {badge}
+    </Link>
+  )
+}
+
 function FocusRow({
   row,
   onNavigateToTab,
+  showOwningParty = false,
 }: {
   row: AttentionRow
   onNavigateToTab?: (
     tab: 'contract' | 'stakeholder-engagements' | 'weekly-sprint',
   ) => void
+  showOwningParty?: boolean
 }) {
   const isUpcoming = row.daysUntilDue != null
 
   const inner = (
     <>
       <div className='min-w-0 flex-1 space-y-1'>
+        {showOwningParty && row.ownerLabel ? (
+          <div className='mb-0.5'>
+            <OwningPartyBadge label={row.ownerLabel} href={row.ownerHref} />
+          </div>
+        ) : null}
         <span className='text-sm font-medium text-foreground'>{row.title}</span>
         {row.context ? (
           <p className='truncate text-xs text-muted-foreground'>
@@ -506,6 +651,18 @@ function FocusRow({
     )
   }
 
+  if (row.ownerHref) {
+    return (
+      <Link
+        href={`${row.ownerHref}?tab=${row.tab === 'stakeholder-engagements' ? 'stakeholder-engagements' : row.tab === 'weekly-sprint' ? 'weekly-sprint' : 'contract'}`}
+        prefetch={false}
+        className={className}
+      >
+        {inner}
+      </Link>
+    )
+  }
+
   if (onNavigateToTab) {
     return (
       <button
@@ -534,15 +691,24 @@ export function OverduePanel({
   sectionSlug,
   onNavigateToTab,
   workspaceBasePath = '/manager',
+  showOwningParty = false,
 }: OverduePanelProps) {
   const pathname = usePathname()
 
   const buildReviseTaskHref = React.useCallback(
-    (sprintId: string, taskKey: string) => {
-      if (pathname.startsWith('/sections/')) {
-        return buildSectionSprintReviseHref(pathname, sprintId, taskKey)
+    (task: Owned<AtRiskSprintTask>) => {
+      const ownedSlug = resolveItemSlug(task)
+      if (ownedSlug) {
+        return buildSectionSprintReviseHref(
+          `/sections/${ownedSlug}`,
+          task.sprintId,
+          task._key,
+        )
       }
-      return buildSprintReviseHref(workspaceBasePath, sprintId, taskKey)
+      if (pathname.startsWith('/sections/')) {
+        return buildSectionSprintReviseHref(pathname, task.sprintId, task._key)
+      }
+      return buildSprintReviseHref(workspaceBasePath, task.sprintId, task._key)
     },
     [pathname, workspaceBasePath],
   )
@@ -550,9 +716,13 @@ export function OverduePanel({
   const visibleCategories = React.useMemo(
     () =>
       CATEGORIES.filter(cat =>
-        isCategoryVisibleForDashboard(cat.id, workspaceBasePath),
+        isCategoryVisibleForDashboard(
+          cat.id,
+          workspaceBasePath,
+          showOwningParty,
+        ),
       ),
-    [workspaceBasePath],
+    [workspaceBasePath, showOwningParty],
   )
 
   const counts = {
@@ -588,7 +758,11 @@ export function OverduePanel({
       sectionSlug,
     )
     return rows.filter(row =>
-      isCategoryVisibleForDashboard(row.categoryId, workspaceBasePath),
+      isCategoryVisibleForDashboard(
+        row.categoryId,
+        workspaceBasePath,
+        showOwningParty,
+      ),
     )
   }, [
     upcomingActivities,
@@ -597,6 +771,7 @@ export function OverduePanel({
     overduePeriodDeliverables,
     sectionSlug,
     workspaceBasePath,
+    showOwningParty,
   ])
 
   const [mode, setMode] = React.useState<FocusMode>(() =>
@@ -637,6 +812,7 @@ export function OverduePanel({
     counts.revisionRequestedTasks,
     counts.lateEngagements,
     workspaceBasePath,
+    showOwningParty,
   ])
 
   function selectMode(next: FocusMode) {
@@ -792,31 +968,71 @@ export function OverduePanel({
                     <StakeholderLateTable
                       items={lateEngagements}
                       onNavigateToTab={onNavigateToTab}
+                      showOwningParty={showOwningParty}
                     />
                   </div>
                 ) : isRevisionTasks ? (
                   <ul className='space-y-4 p-3'>
-                    {revisionRequestedTasks.map(task => (
-                      <li key={`${task.sprintId}-${task._key}`}>
-                        <SprintRevisionTaskCard
-                          task={task}
-                          reviseHref={buildReviseTaskHref(
-                            task.sprintId,
-                            task._key,
-                          )}
-                        />
-                      </li>
-                    ))}
+                    {revisionRequestedTasks.map(task => {
+                      const owner = ownerFromItem(task)
+                      return (
+                        <li key={rowKey('rev', task)}>
+                          {showOwningParty && owner.ownerLabel ? (
+                            <div className='mb-2'>
+                              <OwningPartyBadge
+                                label={owner.ownerLabel}
+                                href={
+                                  owner.ownerHref
+                                    ? `${owner.ownerHref}?tab=weekly-sprint`
+                                    : undefined
+                                }
+                              />
+                            </div>
+                          ) : null}
+                          <SprintRevisionTaskCard
+                            task={task}
+                            reviseHref={buildReviseTaskHref(task)}
+                          />
+                        </li>
+                      )
+                    })}
                   </ul>
                 ) : isPendingReviewTasks ? (
-                  <div className='p-3'>
-                    <PendingReviewTasksSection tasks={pendingReviewTasks} />
+                  <div className='space-y-4 p-3'>
+                    {showOwningParty ? (
+                      pendingReviewTasks.map(task => {
+                        const owner = ownerFromItem(task)
+                        return (
+                          <div key={rowKey('revw', task)}>
+                            {owner.ownerLabel ? (
+                              <div className='mb-2'>
+                                <OwningPartyBadge
+                                  label={owner.ownerLabel}
+                                  href={
+                                    owner.ownerHref
+                                      ? `${owner.ownerHref}?tab=weekly-sprint`
+                                      : undefined
+                                  }
+                                />
+                              </div>
+                            ) : null}
+                            <PendingReviewTasksSection tasks={[task]} />
+                          </div>
+                        )
+                      })
+                    ) : (
+                      <PendingReviewTasksSection tasks={pendingReviewTasks} />
+                    )}
                   </div>
                 ) : (
                   <ul>
                     {filteredRows.map(row => (
                       <li key={row.key}>
-                        <FocusRow row={row} onNavigateToTab={onNavigateToTab} />
+                        <FocusRow
+                          row={row}
+                          onNavigateToTab={onNavigateToTab}
+                          showOwningParty={showOwningParty}
+                        />
                       </li>
                     ))}
                   </ul>

@@ -1,5 +1,8 @@
 import type { AppRole } from '@/lib/app-role'
-import type { SectionActingRole } from '@/lib/role-delegation'
+import {
+  isPlanningContractSupportAssignment,
+  type SectionActingRole,
+} from '@/lib/role-delegation'
 import type { SectionDelegationRecord } from '@/lib/section-delegation.server'
 
 export type WorkContextMode = 'own' | 'acting'
@@ -217,6 +220,10 @@ export function buildSectionAccessForWorkContext(
     permanent.isPermanentManager ||
     permanent.isPermanentSupervisor ||
     permanent.isPermanentOfficer
+  const hasContractSupport = isPlanningContractSupportAssignment(
+    isPlanningSection,
+    assignment,
+  )
 
   const roleFlags = {
     isSectionManager,
@@ -231,6 +238,8 @@ export function buildSectionAccessForWorkContext(
     isProjectWorkstream: input.isProjectWorkstream,
   }
 
+  const capabilities = capabilitiesFromRoles(roleFlags)
+
   return {
     viewerStaffId: input.viewerStaffId,
     workContext: 'own',
@@ -238,7 +247,12 @@ export function buildSectionAccessForWorkContext(
     ...permanent,
     ...roleFlags,
     isPlanningSection,
-    ...capabilitiesFromRoles(roleFlags),
+    ...capabilities,
+    // Contract support grants section-contract access without leave-style acting.
+    canManageContract:
+      capabilities.canManageContract || hasContractSupport,
+    canOnboardContract:
+      capabilities.canOnboardContract || hasContractSupport,
     canSelfServiceDelegate,
     isGlobalAdmin: false,
   }

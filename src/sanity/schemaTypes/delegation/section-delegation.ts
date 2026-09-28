@@ -43,6 +43,20 @@ export const sectionDelegation = defineType({
       validation: Rule => Rule.required(),
     }),
     defineField({
+      name: 'purpose',
+      title: 'Purpose',
+      type: 'string',
+      description:
+        'Leave coverage vs contract-entry support (AC → planning supervisor, not absence).',
+      options: {
+        list: [
+          { title: 'Leave coverage', value: 'leave' },
+          { title: 'Contract support', value: 'contract_support' },
+        ],
+      },
+      initialValue: 'leave',
+    }),
+    defineField({
       name: 'startDate',
       title: 'Start date',
       type: 'date',

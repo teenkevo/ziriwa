@@ -12,6 +12,7 @@ import {
   parseContractAlignment,
   type ContractAlignment,
 } from '@/lib/contract-alignment'
+import { buildPlanningSectionName } from '@/lib/planning-section-name'
 
 const staffRef = (id: string) => ({ _type: 'reference' as const, _ref: id })
 
@@ -97,15 +98,34 @@ export async function PATCH(
     let didPatch = false
     const unsetPaths: string[] = []
 
-    if (typeof name === 'string' && name.trim() && name.trim() !== current.name) {
-      const trimmed = name.trim()
-      const baseSlug = trimmed
+    let nextName =
+      typeof name === 'string' && name.trim() ? name.trim() : current.name
+
+    if (nextIsPlanning) {
+      const divisionRef =
+        typeof divisionId === 'string' ? divisionId : current.division?._id
+      if (divisionRef) {
+        const division = await writeClient.fetch<{
+          name?: string
+          acronym?: string
+        } | null>(
+          /* groq */ `*[_type == "division" && _id == $divisionId][0]{ name, acronym }`,
+          { divisionId: divisionRef },
+        )
+        if (division) {
+          nextName = buildPlanningSectionName(division)
+        }
+      }
+    }
+
+    if (nextName !== current.name) {
+      const baseSlug = nextName
         .toLowerCase()
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9-]/g, '')
       newSlug = await generateUniqueSlug(baseSlug, 'section', id)
       patch.set({
-        name: trimmed,
+        name: nextName,
         slug: { _type: 'slug', current: newSlug },
       })
       didPatch = true

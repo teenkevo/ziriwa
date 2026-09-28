@@ -334,6 +334,7 @@ export function DivisionPageContent({
             divisionId={division._id}
             departmentId={division.department?._id ?? ''}
             divisionName={division.name}
+            divisionAcronym={division.acronym}
             managers={managers}
           />
         )}
@@ -353,6 +354,8 @@ export function DivisionPageContent({
             onOpenChange={open => !open && setEditingSection(null)}
             section={editingSection}
             divisionId={division._id}
+            divisionName={division.name}
+            divisionAcronym={division.acronym}
             managers={managers}
             canEditContractAlignment={isSuperadmin}
           />

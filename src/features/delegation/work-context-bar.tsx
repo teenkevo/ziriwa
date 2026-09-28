@@ -17,6 +17,8 @@ interface WorkContextBarProps {
   cancelApiBase?: string
   crossWorkspaceActingHref?: string | null
   crossWorkspaceActingLabel?: string | null
+  /** Hide My work / Acting switcher (e.g. contract support is not leave). */
+  hideActingSwitcher?: boolean
 }
 
 export function WorkContextBar({
@@ -26,6 +28,7 @@ export function WorkContextBar({
   cancelApiBase = '/api/section-delegations',
   crossWorkspaceActingHref,
   crossWorkspaceActingLabel,
+  hideActingSwitcher = false,
 }: WorkContextBarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -37,7 +40,7 @@ export function WorkContextBar({
   const isSwitching = navigation?.isSwitching ?? false
 
   const hasActing = Boolean(assignmentAsDelegatee)
-  const showSwitcher = hasActing
+  const showSwitcher = hasActing && !hideActingSwitcher
 
   function switchContext(mode: WorkContextMode) {
     if (navigation) {

@@ -4,8 +4,8 @@ import { z } from 'zod'
 export const INITIATIVE_CODE_REGEX = /^\d+\.\d+\.\d+$/
 
 /**
- * Initiative codes must nest under their SSMARTA objective code prefix.
- * Example: objective `4.1` → initiatives `4.1.1`, `4.1.2` — not `4.2.1` or `4.3.1`.
+ * Initiative codes must be exactly `{objectiveCode}.{n}` (one extra numeric segment).
+ * Example: objective `1.1` → `1.1.1`, `1.1.2` — not `2.1.4`, `1.2.1`, or `1.10.1` via loose prefix.
  *
  * @param objectiveCode Stored objective code, or fallback like `String(objectiveIndex + 1)` when empty.
  */
@@ -17,7 +17,10 @@ export function initiativeCodeMatchesObjective(
   if (!INITIATIVE_CODE_REGEX.test(t)) return false
   const oc = objectiveCode.trim()
   if (!oc) return false
-  return t.startsWith(`${oc}.`)
+  const prefix = `${oc}.`
+  if (!t.startsWith(prefix)) return false
+  // Require a single trailing segment so `1.1` does not accept `1.10.4` or `1.1.2.3`.
+  return /^\d+$/.test(t.slice(prefix.length))
 }
 
 /**
@@ -86,7 +89,7 @@ export function buildInitiativeFormSchema(objectiveCode: string) {
       )
       .refine(
         c => initiativeCodeMatchesObjective(c, oc),
-        `Code must nest under this objective (e.g. "${oc}.1"), not another branch like 4.2.x when the objective is 4.1.`,
+        `Code must match format ${oc}.1, ${oc}.2, ${oc}.3 under this objective`,
       ),
     title: z.string().min(1, 'Initiative is required'),
   })

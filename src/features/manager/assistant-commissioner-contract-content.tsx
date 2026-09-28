@@ -1,7 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { ChevronsDown, ChevronsUp, FileText, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,6 +12,11 @@ import { useFinancialYear } from '@/contexts/financial-year-context'
 import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
 import { OnboardDivisionContractDialog } from '@/features/sections/components/onboard-division-contract-dialog'
 import { ContractOnboardEmptyState } from '@/features/sections/components/contract-onboard-empty-state'
+import {
+  PlanningContractDelegateCta,
+  PlanningContractSupportStatus,
+} from '@/features/delegation/planning-contract-delegation-panel'
+import { PlanningContractSupportDialog } from '@/features/delegation/planning-contract-support-dialog'
 import type { AssistantCommissionerContractPageData } from './load-assistant-commissioner-contract'
 
 export function AssistantCommissionerContractContent({
@@ -18,8 +25,12 @@ export function AssistantCommissionerContractContent({
   assistantCommissioner,
   assistantCommissionerStaffIdForOnboarding,
   canManageContract,
+  planningContractSupport,
 }: AssistantCommissionerContractPageData) {
+  const router = useRouter()
   const [onboardOpen, setOnboardOpen] = React.useState(false)
+  const [delegateOpen, setDelegateOpen] = React.useState(false)
+  const [isCancellingSupport, setIsCancellingSupport] = React.useState(false)
   const [expandAllSignal, setExpandAllSignal] = React.useState(0)
   const [collapseAllSignal, setCollapseAllSignal] = React.useState(0)
   const [treeBulkExpanded, setTreeBulkExpanded] = React.useState(false)
@@ -31,6 +42,7 @@ export function AssistantCommissionerContractContent({
   const assistantCommissionerRefId =
     assistantCommissioner?._id ?? assistantCommissionerStaffIdForOnboarding ?? ''
   const hasAssistantCommissionerRef = Boolean(assistantCommissionerRefId)
+  const activeSupport = planningContractSupport?.activeSupport ?? null
 
   useRegisterPageBreadcrumbs(
     React.useMemo(
@@ -45,6 +57,28 @@ export function AssistantCommissionerContractContent({
     ),
   )
 
+  async function cancelContractSupport() {
+    if (!activeSupport?._id) return
+    setIsCancellingSupport(true)
+    try {
+      const res = await fetch(`/api/section-delegations/${activeSupport._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to cancel')
+      }
+      toast.success('Contract support cancelled')
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel')
+    } finally {
+      setIsCancellingSupport(false)
+    }
+  }
+
   return (
     <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden'>
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
@@ -55,6 +89,38 @@ export function AssistantCommissionerContractContent({
             for {divisionName}.
           </p>
         </div>
+
+        {planningContractSupport ? (
+          <>
+            {activeSupport ? (
+              <PlanningContractSupportStatus
+                toStaffName={activeSupport.toStaffName}
+                endDate={activeSupport.endDate}
+                onCancel={cancelContractSupport}
+                isCancelling={isCancellingSupport}
+              />
+            ) : (
+              <PlanningContractDelegateCta
+                onDelegate={() => setDelegateOpen(true)}
+                disabled={
+                  !planningContractSupport.sectionId ||
+                  planningContractSupport.candidates.length === 0
+                }
+                unavailableReason={planningContractSupport.unavailableReason}
+              />
+            )}
+            {planningContractSupport.sectionId ? (
+              <PlanningContractSupportDialog
+                open={delegateOpen}
+                onOpenChange={setDelegateOpen}
+                candidates={planningContractSupport.candidates}
+                sectionId={planningContractSupport.sectionId}
+                mode='ac-to-supervisor'
+                onSuccess={() => router.refresh()}
+              />
+            ) : null}
+          </>
+        ) : null}
 
         <Card>
           <CardContent className='pt-6'>
@@ -118,7 +184,8 @@ export function AssistantCommissionerContractContent({
                   assistantCommissionerId={assistantCommissionerRefId}
                   divisionName={divisionName}
                   assistantCommissionerName={
-                    assistantCommissioner?.fullName ?? 'You (assistant commissioner)'
+                    assistantCommissioner?.fullName ??
+                    'You (assistant commissioner)'
                   }
                   onSuccess={() => setOnboardOpen(false)}
                 />
