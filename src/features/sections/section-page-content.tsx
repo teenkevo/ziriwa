@@ -944,7 +944,8 @@ export function SectionPageContent({
 
       {activeTab === 'stakeholder-engagements' ||
       activeTab === 'staff' ||
-      activeTab === 'dashboard' ? null : (
+      activeTab === 'dashboard' ||
+      activeTab === 'contract' ? null : (
         <div className='hidden h-full min-h-0 shrink-0 border-l bg-muted/20 lg:flex'>
           {activeTab === 'weekly-sprint' &&
           (sprintSubTab === 'ready' || !showSprintSubTabs) ? (

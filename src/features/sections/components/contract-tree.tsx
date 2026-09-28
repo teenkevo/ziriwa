@@ -2,16 +2,8 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +17,7 @@ import {
 import {
   departmentMeasurableActivityNumber,
   measurableActivityNumber,
+  resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { isPmsAlignment } from '@/lib/contract-alignment'
@@ -33,7 +26,12 @@ import { AddInitiativeDialog } from '@/features/sections/components/add-initiati
 import { AddMeasurableActivityDialog } from '@/features/sections/components/add-measurable-activity-dialog'
 import { EditObjectiveDialog } from '@/features/sections/components/edit-objective-dialog'
 import { EditInitiativeDialog } from '@/features/sections/components/edit-initiative-dialog'
-import { ContractColumnBrowser, type ContractColumnObjective } from '@/features/sections/components/contract-column-browser'
+import {
+  ContractColumnAddButton,
+  ContractColumnBrowser,
+  contractInitiativeActivityHref,
+  type ContractColumnObjective,
+} from '@/features/sections/components/contract-column-browser'
 import { EditMeasurableActivityDialog } from '@/features/sections/components/edit-measurable-activity-dialog'
 
 interface ContractTreeProps {
@@ -44,37 +42,6 @@ interface ContractTreeProps {
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
   onAddObjectiveRequestConsumed?: () => void
-}
-
-function SectionActivityAddMenu({
-  onAdd,
-}: {
-  onAdd: (type: 'kpi' | 'cross-cutting') => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type='button'
-          variant='default'
-          size='icon'
-          className='h-7 w-7 shrink-0'
-          aria-label='Add measurable activity'
-          title='Add measurable activity'
-        >
-          <Plus className='h-4 w-4' />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='end'>
-        <DropdownMenuItem onSelect={() => onAdd('kpi')}>
-          Core KPI Task
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onAdd('cross-cutting')}>
-          Cross-cutting activity
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
 }
 
 function buildSectionColumnObjectives(input: {
@@ -89,11 +56,7 @@ function buildSectionColumnObjectives(input: {
   onDeleteInitiative: (objIdx: number, initIdx: number) => void
   onDeleteActivity: (objIdx: number, initIdx: number, actIdx: number) => void
   onEditActivity: (objIdx: number, initIdx: number, actIdx: number) => void
-  onAddActivity: (
-    objIdx: number,
-    initIdx: number,
-    type: 'kpi' | 'cross-cutting',
-  ) => void
+  onAddActivity: (objIdx: number, initIdx: number) => void
   onOpenInitiative: (objIdx: number, initIdx: number) => void
   onOpenActivity: (objIdx: number, initIdx: number, actIdx: number) => void
 }): ContractColumnObjective[] {
@@ -150,13 +113,14 @@ function buildSectionColumnObjectives(input: {
         const activities = init.measurableActivities ?? []
         const children = activities.flatMap((act, actIdx) => {
           if (!act?.title || !String(act.title).trim()) return []
-          const sameTypeBefore = activities
-            .slice(0, actIdx)
-            .filter(item => item.activityType === act.activityType).length
-          const actOrder = sameTypeBefore + 1
+          const numberingKind = resolveActivityNumberingType(act)
+          const actOrder =
+            activities.slice(0, actIdx).filter(
+              item => resolveActivityNumberingType(item) === numberingKind,
+            ).length + 1
           const actNum =
-            act.activityType === 'kpi' || act.activityType === 'cross-cutting'
-              ? measurableActivityNumber(initNum, act.activityType, actOrder)
+            numberingKind === 'kpi' || numberingKind === 'cross-cutting'
+              ? measurableActivityNumber(initNum, numberingKind, actOrder)
               : departmentMeasurableActivityNumber(initNum, actOrder)
           return [
             {
@@ -164,6 +128,13 @@ function buildSectionColumnObjectives(input: {
               title: act.title,
               code: actNum,
               status: act.status,
+              href: contractInitiativeActivityHref({
+                sectionSlug,
+                contractId: sectionContract._id,
+                objectiveIndex: objIdx,
+                initiativeIndex: initIdx,
+                activityKey: act._key,
+              }),
               onOpen: sectionSlug
                 ? () => onOpenActivity(objIdx, initIdx, actIdx)
                 : undefined,
@@ -184,8 +155,9 @@ function buildSectionColumnObjectives(input: {
           opensNextColumn: true,
           childEmptyLabel: 'No measurable activities yet.',
           childHeaderAction: canManage ? (
-            <SectionActivityAddMenu
-              onAdd={type => onAddActivity(objIdx, initIdx, type)}
+            <ContractColumnAddButton
+              label='Add measurable activity'
+              onClick={() => onAddActivity(objIdx, initIdx)}
             />
           ) : undefined,
           onEdit: canManage
@@ -244,7 +216,6 @@ export function ContractTree({
   const [activityDialogParams, setActivityDialogParams] = React.useState<{
     objIdx: number
     initIdx: number
-    type: 'kpi' | 'cross-cutting'
   } | null>(null)
 
   const objectives = sectionContract.objectives ?? []
@@ -283,8 +254,8 @@ export function ContractTree({
           setEditingActivity({ objIdx, initIdx, actIdx })
           setEditActivityOpen(true)
         },
-        onAddActivity: (objIdx, initIdx, type) => {
-          setActivityDialogParams({ objIdx, initIdx, type })
+        onAddActivity: (objIdx, initIdx) => {
+          setActivityDialogParams({ objIdx, initIdx })
           setActivityDialogOpen(true)
         },
         onOpenInitiative: (objIdx, initIdx) => {
@@ -295,8 +266,14 @@ export function ContractTree({
         },
         onOpenActivity: (objIdx, initIdx, actIdx) => {
           if (!sectionSlug) return
+          const activityKey =
+            sectionContract.objectives?.[objIdx]?.initiatives?.[initIdx]
+              ?.measurableActivities?.[actIdx]?._key
+          const activityQuery = activityKey
+            ? `?activityKey=${encodeURIComponent(activityKey)}`
+            : ''
           router.push(
-            `/sections/${sectionSlug}/activity/${sectionContract._id}/${objIdx}/${initIdx}/${actIdx}`,
+            `/sections/${sectionSlug}/initiative/${sectionContract._id}/${objIdx}/${initIdx}${activityQuery}`,
           )
         },
       }),
@@ -576,19 +553,18 @@ export function ContractTree({
             ]?.code ??
             `${objectives[activityDialogParams.objIdx]?.code ?? String(activityDialogParams.objIdx + 1)}.${activityDialogParams.initIdx + 1}`
           }
-          activityType={activityDialogParams.type}
-          nextOrder={
-            activityDialogParams.type === 'kpi'
-              ? (objectives[activityDialogParams.objIdx]?.initiatives?.[
-                  activityDialogParams.initIdx
-                ]?.measurableActivities?.filter(a => a.activityType === 'kpi')
-                  .length ?? 0) + 1
-              : (objectives[activityDialogParams.objIdx]?.initiatives?.[
-                  activityDialogParams.initIdx
-                ]?.measurableActivities?.filter(
-                  a => a.activityType === 'cross-cutting',
-                ).length ?? 0) + 1
-          }
+          nextOrderForType={type => {
+            const kind = type === 'cross-cutting' ? 'cross-cutting' : 'kpi'
+            const activities =
+              objectives[activityDialogParams.objIdx]?.initiatives?.[
+                activityDialogParams.initIdx
+              ]?.measurableActivities ?? []
+            return (
+              activities.filter(
+                activity => resolveActivityNumberingType(activity) === kind,
+              ).length + 1
+            )
+          }}
         />
       )}
       {editingActivity && activityBeingEdited ? (

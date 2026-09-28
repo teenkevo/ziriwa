@@ -162,6 +162,9 @@ export function AddPmsMeasurableActivityDialog({
                   <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
                 </SelectContent>
               </Select>
+              <p className='text-xs text-muted-foreground'>
+                Choose Core or Cross-cutting.
+              </p>
             </div>
             <div className='space-y-2'>
               <Label htmlFor='pms-activity-due' required>

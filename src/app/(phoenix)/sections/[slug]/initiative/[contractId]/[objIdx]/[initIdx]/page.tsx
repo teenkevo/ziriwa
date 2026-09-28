@@ -1,8 +1,7 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionAccessForViewer } from '@/lib/section-access.server'
 import { contractBackHrefForViewer } from '@/lib/contract-activity-back-href'
-import { isPmsAlignment } from '@/lib/contract-alignment'
 import {
   contractsApiForActivityContract,
   getContractForActivityPage,
@@ -55,11 +54,6 @@ export default async function InitiativePage({
     getSectionAccessForViewer(section._id),
   ])
   if (!contract) notFound()
-
-  // ITIL contracts still use the activity (detailed tasks) route.
-  if (!isPmsAlignment(contract.contractAlignment)) {
-    redirect(`/sections/${slug}`)
-  }
 
   const initiative = getInitiativeFromContract(contract, objIndex, initIndex)
   if (!initiative) notFound()

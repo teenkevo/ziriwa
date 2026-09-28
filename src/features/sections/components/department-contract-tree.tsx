@@ -34,6 +34,8 @@ import { EditInitiativeDialog } from '@/features/sections/components/edit-initia
 import {
   ContractColumnAddButton,
   ContractColumnBrowser,
+  contractDetailedTaskHref,
+  contractInitiativeActivityHref,
   type ContractColumnObjective,
 } from '@/features/sections/components/contract-column-browser'
 import { EditMeasurableActivityDialog } from '@/features/sections/components/edit-measurable-activity-dialog'
@@ -159,6 +161,14 @@ function buildDepartmentColumnObjectives(input: {
                     id: `task:${act._key}:${taskKey}`,
                     title,
                     code: departmentDetailedTaskNumber(initNum, officerTaskOrder),
+                    href: contractDetailedTaskHref({
+                      sectionSlug,
+                      contractId: contract._id,
+                      objectiveIndex: objIdx,
+                      initiativeIndex: initIdx,
+                      activityIndex: actIdx,
+                      taskKey,
+                    }),
                     onOpen: sectionSlug
                       ? () => onOpenActivity(objIdx, initIdx, actIdx, taskKey)
                       : undefined,
@@ -183,6 +193,13 @@ function buildDepartmentColumnObjectives(input: {
                   title: act.title,
                   code: leadershipActivityNumber(initNum, act, actOrder),
                   status: act.status,
+                  href: contractInitiativeActivityHref({
+                    sectionSlug,
+                    contractId: contract._id,
+                    objectiveIndex: objIdx,
+                    initiativeIndex: initIdx,
+                    activityKey: act._key,
+                  }),
                   onOpen: sectionSlug
                     ? () => onOpenActivity(objIdx, initIdx, actIdx)
                     : undefined,
@@ -314,10 +331,20 @@ export function DepartmentContractTree({
         },
         onOpenActivity: (objIdx, initIdx, actIdx, taskKey) => {
           if (!sectionSlug) return
-          const taskQs =
-            taskKey != null ? `?taskKey=${encodeURIComponent(taskKey)}` : ''
+          if (taskKey != null) {
+            router.push(
+              `/sections/${sectionSlug}/activity/${departmentContract._id}/${objIdx}/${initIdx}/${actIdx}?taskKey=${encodeURIComponent(taskKey)}`,
+            )
+            return
+          }
+          const activityKey =
+            departmentContract.objectives?.[objIdx]?.initiatives?.[initIdx]
+              ?.measurableActivities?.[actIdx]?._key
+          const activityQuery = activityKey
+            ? `?activityKey=${encodeURIComponent(activityKey)}`
+            : ''
           router.push(
-            `/sections/${sectionSlug}/activity/${departmentContract._id}/${objIdx}/${initIdx}/${actIdx}${taskQs}`,
+            `/sections/${sectionSlug}/initiative/${departmentContract._id}/${objIdx}/${initIdx}${activityQuery}`,
           )
         },
       }),
@@ -608,11 +635,18 @@ export function DepartmentContractTree({
             ]?.code ??
             `${objectives[activityDialogParams.objIdx]?.code ?? String(activityDialogParams.objIdx + 1)}.${activityDialogParams.initIdx + 1}`
           }
-          nextOrder={
-            (objectives[activityDialogParams.objIdx]?.initiatives?.[
-              activityDialogParams.initIdx
-            ]?.measurableActivities?.length ?? 0) + 1
-          }
+          nextOrderForType={type => {
+            const kind = type === 'cross-cutting' ? 'cross-cutting' : 'kpi'
+            const activities =
+              objectives[activityDialogParams.objIdx]?.initiatives?.[
+                activityDialogParams.initIdx
+              ]?.measurableActivities ?? []
+            return (
+              activities.filter(
+                activity => resolveActivityNumberingType(activity) === kind,
+              ).length + 1
+            )
+          }}
         />
       )}
       {editingActivity && activityBeingEdited ? (

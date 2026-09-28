@@ -14,12 +14,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   contractsApiBase,
   type ContractsApiResource,
 } from '@/lib/contracts-api'
+
+type MeasurableActivityKind = 'core' | 'cross-cutting'
 
 interface AddDepartmentMeasurableActivityDialogProps {
   open: boolean
@@ -28,7 +37,7 @@ interface AddDepartmentMeasurableActivityDialogProps {
   objectiveIndex: number
   initiativeIndex: number
   initiativeCode?: string
-  nextOrder: number
+  nextOrderForType: (type: MeasurableActivityKind) => number
   contractsApi?: Extract<
     ContractsApiResource,
     | 'department-contracts'
@@ -48,19 +57,30 @@ export function AddDepartmentMeasurableActivityDialog({
   objectiveIndex,
   initiativeIndex,
   initiativeCode,
-  nextOrder,
+  nextOrderForType,
   contractsApi = 'department-contracts',
   onSuccess,
 }: AddDepartmentMeasurableActivityDialogProps) {
   const router = useRouter()
   const [isCreating, setIsCreating] = React.useState(false)
   const [title, setTitle] = React.useState('')
+  const [activityType, setActivityType] = React.useState<
+    MeasurableActivityKind | ''
+  >('')
   const [targetDate, setTargetDate] = React.useState('')
   const apiBase = contractsApiBase(contractsApi)
+
+  React.useEffect(() => {
+    if (!open) return
+    setTitle('')
+    setActivityType('')
+    setTargetDate('')
+  }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
+    if (activityType !== 'core' && activityType !== 'cross-cutting') return
     setIsCreating(true)
     try {
       const res = await fetch(`${apiBase}/${departmentContractId}`, {
@@ -71,9 +91,9 @@ export function AddDepartmentMeasurableActivityDialog({
           payload: {
             objectiveIndex,
             initiativeIndex,
-            activityType: 'measurable',
+            activityType,
             title: title.trim(),
-            order: nextOrder,
+            order: nextOrderForType(activityType),
             targetDate: targetDate || undefined,
           },
         }),
@@ -82,8 +102,6 @@ export function AddDepartmentMeasurableActivityDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to add measurable activity')
       }
-      setTitle('')
-      setTargetDate('')
       onOpenChange(false)
       router.refresh()
       onSuccess?.()
@@ -112,16 +130,43 @@ export function AddDepartmentMeasurableActivityDialog({
           <div className='space-y-4 py-2 pb-4'>
             <div className='space-y-2'>
               <Label htmlFor='dept-act-title' required>
-                Title
+                Measurable activity
               </Label>
-              <Input
+              <Textarea
                 id='dept-act-title'
                 placeholder='Describe the measurable activity'
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 disabled={isCreating}
                 required
+                rows={4}
+                className='min-h-[6rem] resize-y'
               />
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='dept-act-type' required>
+                Type
+              </Label>
+              <Select
+                value={activityType || undefined}
+                onValueChange={value =>
+                  setActivityType(
+                    value === 'cross-cutting' ? 'cross-cutting' : 'core',
+                  )
+                }
+                disabled={isCreating}
+              >
+                <SelectTrigger id='dept-act-type'>
+                  <SelectValue placeholder='Select type' />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='core'>Core</SelectItem>
+                  <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className='text-xs text-muted-foreground'>
+                Choose Core or Cross-cutting.
+              </p>
             </div>
             <div className='space-y-2'>
               <Label htmlFor='dept-act-targetDate'>Due date</Label>
@@ -143,7 +188,14 @@ export function AddDepartmentMeasurableActivityDialog({
             >
               Cancel
             </Button>
-            <Button type='submit' disabled={isCreating || !title.trim()}>
+            <Button
+              type='submit'
+              disabled={
+                isCreating ||
+                !title.trim() ||
+                (activityType !== 'core' && activityType !== 'cross-cutting')
+              }
+            >
               {isCreating ? (
                 <>
                   <Loader2 className='mr-2 h-4 w-4 animate-spin' />

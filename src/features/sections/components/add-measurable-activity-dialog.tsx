@@ -14,8 +14,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+type MeasurableActivityKind = 'core' | 'cross-cutting'
 
 interface AddMeasurableActivityDialogProps {
   open: boolean
@@ -24,8 +33,7 @@ interface AddMeasurableActivityDialogProps {
   objectiveIndex: number
   initiativeIndex: number
   initiativeCode?: string
-  activityType: 'kpi' | 'cross-cutting'
-  nextOrder: number
+  nextOrderForType: (type: MeasurableActivityKind) => number
   onSuccess?: () => void
 }
 
@@ -36,23 +44,34 @@ export function AddMeasurableActivityDialog({
   objectiveIndex,
   initiativeIndex,
   initiativeCode,
-  activityType,
-  nextOrder,
+  nextOrderForType,
   onSuccess,
 }: AddMeasurableActivityDialogProps) {
   const router = useRouter()
   const [isCreating, setIsCreating] = React.useState(false)
   const [title, setTitle] = React.useState('')
+  const [activityType, setActivityType] = React.useState<
+    MeasurableActivityKind | ''
+  >('')
   const [aim, setAim] = React.useState('')
   const [targetDate, setTargetDate] = React.useState('')
 
-  const isKPI = activityType === 'kpi'
+  React.useEffect(() => {
+    if (!open) return
+    setTitle('')
+    setActivityType('')
+    setAim('')
+    setTargetDate('')
+  }, [open])
+
+  const isCore = activityType === 'core'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
-    if (isKPI && !aim.trim()) {
-      alert('AIM is required for KPI measurable activities')
+    if (activityType !== 'core' && activityType !== 'cross-cutting') return
+    if (isCore && !aim.trim()) {
+      alert('AIM is required for core measurable activities')
       return
     }
     setIsCreating(true)
@@ -62,10 +81,10 @@ export function AddMeasurableActivityDialog({
         initiativeIndex,
         activityType,
         title: title.trim(),
-        order: nextOrder,
+        order: nextOrderForType(activityType),
         targetDate: targetDate || undefined,
       }
-      if (isKPI && aim.trim()) {
+      if (isCore && aim.trim()) {
         payload.aim = aim.trim()
       }
       const res = await fetch(`/api/section-contracts/${sectionContractId}`, {
@@ -77,9 +96,6 @@ export function AddMeasurableActivityDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to add measurable activity')
       }
-      setTitle('')
-      setAim('')
-      setTargetDate('')
       onOpenChange(false)
       router.refresh()
       onSuccess?.()
@@ -99,29 +115,54 @@ export function AddMeasurableActivityDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent disableClose={isCreating}>
         <DialogHeader>
-          <DialogTitle>
-            Add {isKPI ? 'KPI' : 'Cross-cutting'} Measurable Activity
-          </DialogTitle>
+          <DialogTitle>Add measurable activity</DialogTitle>
           <DialogDescription>
-            {isKPI
-              ? `For initiative ${initiativeCode ?? initiativeIndex}`
-              : `For initiative ${initiativeCode ?? initiativeIndex}`}
+            For initiative {initiativeCode ?? initiativeIndex}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>
             <div className='space-y-2'>
-              <Label htmlFor='title' required>Title</Label>
-              <Input
+              <Label htmlFor='title' required>
+                Measurable activity
+              </Label>
+              <Textarea
                 id='title'
-                placeholder='e.g. Submit completed forms to HR'
+                placeholder='e.g. Submit completed forms to HR and confirm they were received'
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 disabled={isCreating}
                 required
+                rows={4}
+                className='min-h-[6rem] resize-y'
               />
             </div>
-            {isKPI && (
+            <div className='space-y-2'>
+              <Label htmlFor='activity-type' required>
+                Type
+              </Label>
+              <Select
+                value={activityType || undefined}
+                onValueChange={value =>
+                  setActivityType(
+                    value === 'cross-cutting' ? 'cross-cutting' : 'core',
+                  )
+                }
+                disabled={isCreating}
+              >
+                <SelectTrigger id='activity-type'>
+                  <SelectValue placeholder='Select type' />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='core'>Core</SelectItem>
+                  <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className='text-xs text-muted-foreground'>
+                Choose Core or Cross-cutting.
+              </p>
+            </div>
+            {isCore && (
               <div className='space-y-2'>
                 <Label htmlFor='aim' required>AIM</Label>
                 <textarea
@@ -156,7 +197,12 @@ export function AddMeasurableActivityDialog({
             </Button>
             <Button
               type='submit'
-              disabled={isCreating || !title.trim() || (isKPI && !aim.trim())}
+              disabled={
+                isCreating ||
+                !title.trim() ||
+                (activityType !== 'core' && activityType !== 'cross-cutting') ||
+                (isCore && !aim.trim())
+              }
             >
               {isCreating ? (
                 <>

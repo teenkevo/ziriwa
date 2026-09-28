@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import {
   ChevronRight,
   File,
@@ -28,9 +29,49 @@ export interface ContractColumnLeaf {
   subtitle?: string
   detail?: string
   status?: string
+  /** Navigates away from the column view. */
+  href?: string
   onOpen?: () => void
   onEdit?: () => void
   onDelete?: () => void
+}
+
+/** Initiative page where evidence for a measurable activity is submitted. */
+export function contractInitiativeActivityHref(input: {
+  sectionSlug?: string
+  contractId: string
+  objectiveIndex: number
+  initiativeIndex: number
+  activityKey?: string
+}): string | undefined {
+  const { sectionSlug, contractId, objectiveIndex, initiativeIndex, activityKey } =
+    input
+  if (!sectionSlug) return undefined
+  const query = activityKey
+    ? `?activityKey=${encodeURIComponent(activityKey)}`
+    : ''
+  return `/sections/${sectionSlug}/initiative/${contractId}/${objectiveIndex}/${initiativeIndex}${query}`
+}
+
+/** Detailed-task page for an officer contract row. */
+export function contractDetailedTaskHref(input: {
+  sectionSlug?: string
+  contractId: string
+  objectiveIndex: number
+  initiativeIndex: number
+  activityIndex: number
+  taskKey: string
+}): string | undefined {
+  const {
+    sectionSlug,
+    contractId,
+    objectiveIndex,
+    initiativeIndex,
+    activityIndex,
+    taskKey,
+  } = input
+  if (!sectionSlug) return undefined
+  return `/sections/${sectionSlug}/activity/${contractId}/${objectiveIndex}/${initiativeIndex}/${activityIndex}?taskKey=${encodeURIComponent(taskKey)}`
 }
 
 export interface ContractColumnInitiative {
@@ -75,6 +116,7 @@ interface ColumnRowModel {
   hasChildren?: boolean
   branchSelected?: boolean
   leafSelected?: boolean
+  href?: string
   onSelect: () => void
   onEdit?: () => void
   onDelete?: () => void
@@ -178,6 +220,31 @@ function ColumnRowMenu({
   )
 }
 
+function ColumnRowActivator({
+  row,
+  children,
+}: {
+  row: ColumnRowModel
+  children: React.ReactNode
+}) {
+  const className = 'flex min-w-0 flex-1 items-start gap-2 px-2 py-1.5 text-left'
+  const title = row.code ? `${row.code} ${row.title}` : row.title
+
+  if (row.href) {
+    return (
+      <Link href={row.href} className={className} title={title}>
+        {children}
+      </Link>
+    )
+  }
+
+  return (
+    <button type='button' onClick={row.onSelect} className={className} title={title}>
+      {children}
+    </button>
+  )
+}
+
 function ColumnRow({ row }: { row: ColumnRowModel }) {
   return (
     <div
@@ -189,12 +256,7 @@ function ColumnRow({ row }: { row: ColumnRowModel }) {
         !row.leafSelected && !row.branchSelected && 'hover:bg-muted/80',
       )}
     >
-      <button
-        type='button'
-        onClick={row.onSelect}
-        className='flex min-w-0 flex-1 items-start gap-2 px-2 py-1.5 text-left'
-        title={row.code ? `${row.code} ${row.title}` : row.title}
-      >
+      <ColumnRowActivator row={row}>
         <span className='min-w-0 flex-1'>
           <span
             className={cn(
@@ -222,7 +284,7 @@ function ColumnRow({ row }: { row: ColumnRowModel }) {
             </span>
           ) : null}
         </span>
-      </button>
+      </ColumnRowActivator>
       <div className='shrink-0 pt-1.5'>
         <div className='flex h-5 items-center'>
           <ColumnRowMenu row={row} />
@@ -420,8 +482,10 @@ export function ContractColumnBrowser({
         subtitle: leaf.subtitle,
         detail: leaf.detail,
         status: leaf.status,
-        leafSelected: leaf.id === selectedLeafId,
+        href: leaf.href,
+        leafSelected: !leaf.href && leaf.id === selectedLeafId,
         onSelect: () => {
+          if (leaf.href) return
           setSelectedLeafId(leaf.id)
           leaf.onOpen?.()
         },

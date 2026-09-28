@@ -259,7 +259,7 @@ export function ManagerWorkspaceContent({
     sectionAccess.canOnboardContract &&
     Boolean(contractOwnerId) &&
     (hasManager || isPlanningSection)
-  const showRightRail = view === 'contract' || view === 'sprints'
+  const showRightRail = view === 'sprints'
   const actingAssignment = sectionAccess.delegation.assignmentAsDelegatee
   const title =
     sectionAccess.workContext === 'acting' && actingAssignment
