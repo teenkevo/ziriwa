@@ -131,7 +131,7 @@ export function SectionLeadershipSidebarNav({
               }
             >
               <Handshake />
-              <span>Stakeholders</span>
+              <span>Engagements</span>
             </SidebarContractGatedItem>
             <SidebarContractGatedItem
               unlocked={contractUnlocked}

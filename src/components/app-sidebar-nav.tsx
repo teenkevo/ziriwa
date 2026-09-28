@@ -282,7 +282,7 @@ export function AppSidebarNav({
                 }
               >
                 <Handshake />
-                <span>Stakeholders</span>
+                <span>Engagements</span>
               </SidebarContractGatedItem>
               <SidebarContractGatedItem
                 unlocked={contractUnlocked}
@@ -528,7 +528,7 @@ export function AppSidebarNav({
                 }
               >
                 <Handshake />
-                <span>Stakeholder engagements</span>
+                <span>Engagements</span>
               </SidebarContractGatedItem>
             </SidebarMenu>
           </SidebarGroupContent>
@@ -655,7 +655,7 @@ export function AppSidebarNav({
                 }
               >
                 <Handshake />
-                <span>Stakeholder engagements</span>
+                <span>Engagements</span>
               </SidebarContractGatedItem>
             </SidebarMenu>
           </SidebarGroupContent>
