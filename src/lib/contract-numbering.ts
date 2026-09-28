@@ -36,6 +36,9 @@ type ActivityNumberingInput = {
 export function resolveActivityNumberingType(
   activity: ActivityNumberingInput,
 ): 'kpi' | 'cross-cutting' | 'measurable' {
+  if (activity.activityType === 'core') {
+    return 'kpi'
+  }
   if (activity.activityType === 'kpi' || activity.activityType === 'cross-cutting') {
     return activity.activityType
   }

@@ -484,6 +484,7 @@ export function SectionPageContent({
               section={section}
               divisionId={section.division._id}
               managers={managers}
+              canEditContractAlignment={isSuperadmin}
             />
             <AlertDialog
               open={showDeleteSection}

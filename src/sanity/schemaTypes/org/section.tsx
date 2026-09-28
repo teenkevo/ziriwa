@@ -61,6 +61,21 @@ export const section = defineType({
         'Planning sections have no manager. Supervisors report directly to the Assistant Commissioner.',
     }),
     defineField({
+      name: 'contractAlignment',
+      title: 'Contract Alignment',
+      type: 'string',
+      initialValue: 'itil4',
+      options: {
+        list: [
+          { title: 'ITIL 4-Aligned', value: 'itil4' },
+          { title: 'PMS-Aligned', value: 'pms' },
+        ],
+        layout: 'radio',
+      },
+      description:
+        'Controls contract hierarchy for new financial-year contracts. ITIL 4 uses detailed tasks under measurable activities; PMS stops at measurable activities (core / cross-cutting). Superadmin only.',
+    }),
+    defineField({
       name: 'manager',
       title: 'Manager',
       type: 'reference',

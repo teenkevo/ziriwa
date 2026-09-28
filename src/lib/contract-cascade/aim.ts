@@ -13,11 +13,16 @@ interface ManagerCascadeActivityLike {
   aim?: string | null
 }
 
-/** Project PM measurable activities cascade on title; mainstream manager KPIs need AIM. */
+/** Project PM measurable activities cascade on title; mainstream manager KPIs need AIM.
+ * PMS core / cross-cutting activities cascade on title (no detailed tasks). */
 export function managerActivityCanCascade(
   activity: ManagerCascadeActivityLike,
 ): boolean {
-  if (activity.activityType === 'measurable') {
+  if (
+    activity.activityType === 'measurable' ||
+    activity.activityType === 'core' ||
+    activity.activityType === 'cross-cutting'
+  ) {
     return Boolean(activity.title?.trim())
   }
   if (activity.activityType === 'kpi') {
@@ -30,7 +35,11 @@ export function managerActivityCanCascade(
 export function managerActivityCascadeDetail(
   activity: ManagerCascadeActivityLike,
 ): string {
-  if (activity.activityType === 'measurable') {
+  if (
+    activity.activityType === 'measurable' ||
+    activity.activityType === 'core' ||
+    activity.activityType === 'cross-cutting'
+  ) {
     return activity.title?.trim() ?? ''
   }
   return activity.aim?.trim() ?? ''

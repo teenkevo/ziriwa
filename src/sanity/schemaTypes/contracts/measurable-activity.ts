@@ -20,6 +20,7 @@ export const measurableActivity = defineType({
           { title: 'KPI', value: 'kpi' },
           { title: 'Cross-cutting', value: 'cross-cutting' },
           { title: 'Measurable', value: 'measurable' },
+          { title: 'Core', value: 'core' },
         ],
         layout: 'dropdown',
       },
@@ -85,19 +86,57 @@ export const measurableActivity = defineType({
       name: 'evidence',
       title: 'Evidence / Uploads',
       type: 'array',
-      of: [{ type: 'file' }, { type: 'image' }],
-      description: 'Uploads for KPI activities',
-      hidden: ({ parent }) => {
-        const t = (parent as { activityType?: string })?.activityType
-        return t !== 'kpi'
-      },
+      of: [
+        {
+          type: 'object',
+          name: 'evidenceItem',
+          title: 'Evidence item',
+          fields: [
+            defineField({
+              name: 'label',
+              title: 'Label',
+              type: 'string',
+              description: 'Short name for this evidence item',
+            }),
+            defineField({
+              name: 'file',
+              title: 'File',
+              type: 'file',
+            }),
+            defineField({
+              name: 'image',
+              title: 'Image',
+              type: 'image',
+            }),
+            defineField({
+              name: 'notes',
+              title: 'Notes',
+              type: 'text',
+              rows: 2,
+            }),
+          ],
+          preview: {
+            select: { title: 'label', media: 'image' },
+            prepare({ title, media }) {
+              return {
+                title: title || 'Evidence item',
+                media,
+              }
+            },
+          },
+        },
+        { type: 'file' },
+        { type: 'image' },
+      ],
+      description:
+        'Evidence uploads. Prefer structured evidence items (label + file). Legacy file/image entries remain supported.',
     }),
     defineField({
       name: 'tasks',
       title: 'Detailed Tasks',
       type: 'array',
       of: [{ type: 'detailedTask' }],
-      description: 'Tasks for KPIs and CRC activities',
+      description: 'Tasks for KPIs and CRC activities (ITIL 4 alignment)',
     }),
     defineField({
       name: 'cascadeKind',
@@ -120,7 +159,14 @@ export const measurableActivity = defineType({
   preview: {
     select: { title: 'title', activityType: 'activityType' },
     prepare({ title, activityType }) {
-      const type = activityType === 'kpi' ? 'KPI' : 'CC'
+      const type =
+        activityType === 'kpi'
+          ? 'KPI'
+          : activityType === 'core'
+            ? 'Core'
+            : activityType === 'cross-cutting'
+              ? 'CC'
+              : 'Measurable'
       return { title: title || 'Activity', subtitle: type }
     },
   },

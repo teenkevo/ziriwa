@@ -3,7 +3,15 @@ import { writeClient } from '@/sanity/lib/write-client'
 import { purgeSectionCascade } from '@/sanity/lib/cascade-delete'
 import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
 import { audit } from '@/lib/audit-log/events'
-import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
+import {
+  assertAuth,
+  assertPermission,
+  isSuperadmin,
+} from '@/lib/authz/guards.server'
+import {
+  parseContractAlignment,
+  type ContractAlignment,
+} from '@/lib/contract-alignment'
 
 const staffRef = (id: string) => ({ _type: 'reference' as const, _ref: id })
 
@@ -11,6 +19,7 @@ type SectionDoc = {
   _id: string
   name: string
   isPlanningSection?: boolean
+  contractAlignment?: string
   division?: { _id: string }
   manager?: { _id: string }
 }
@@ -31,12 +40,20 @@ export async function PATCH(
 
     const { id } = await params
     const body = await req.json()
-    const { name, managerId, divisionId, order, isPlanningSection } = body as {
+    const {
+      name,
+      managerId,
+      divisionId,
+      order,
+      isPlanningSection,
+      contractAlignment: contractAlignmentRaw,
+    } = body as {
       name?: string
       managerId?: string | null
       divisionId?: string
       order?: number
       isPlanningSection?: boolean
+      contractAlignment?: ContractAlignment
     }
 
     const current = await writeClient.fetch<SectionDoc | null>(
@@ -44,6 +61,7 @@ export async function PATCH(
         _id,
         name,
         isPlanningSection,
+        contractAlignment,
         division->{ _id },
         manager->{ _id }
       }`,
@@ -134,6 +152,23 @@ export async function PATCH(
       didPatch = true
     }
 
+    if (contractAlignmentRaw === 'itil4' || contractAlignmentRaw === 'pms') {
+      const nextAlignment = parseContractAlignment(contractAlignmentRaw)
+      if (nextAlignment !== parseContractAlignment(current.contractAlignment)) {
+        if (!(await isSuperadmin())) {
+          return NextResponse.json(
+            {
+              error:
+                'Only superadmins can change contract alignment (ITIL 4 vs PMS)',
+            },
+            { status: 403 },
+          )
+        }
+        patch.set({ contractAlignment: nextAlignment })
+        didPatch = true
+      }
+    }
+
     const previousManagerId = current.manager?._id ?? null
     let nextManagerId: string | null | undefined = undefined
     let clearManager = false
@@ -190,6 +225,7 @@ export async function PATCH(
       divisionId,
       order,
       isPlanningSection,
+      contractAlignment: contractAlignmentRaw,
     })
 
     return NextResponse.json({

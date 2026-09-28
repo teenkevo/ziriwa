@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { getSectionContractAlignment } from '@/lib/contract-alignment.server'
 import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import {
   assertOfficerContractManageAllowed,
@@ -53,10 +54,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const contractAlignment = await getSectionContractAlignment(sectionId)
+
     const result = await writeClient.create({
       _type: 'officerContract',
       section: { _type: 'reference', _ref: sectionId },
       financialYearLabel: currentFY.label,
+      contractAlignment,
       officer: { _type: 'reference', _ref: officerId },
       status: 'draft',
     })

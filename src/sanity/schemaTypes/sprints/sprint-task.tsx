@@ -40,16 +40,16 @@ export const sprintTask = defineType({
     }),
     defineField({
       name: 'contractTaskKey',
-      title: 'Contract detailed task key',
+      title: 'Contract detailed task / measurable key',
       type: 'string',
       description:
-        'The _key of the linked detailed task on the contract measurable activity (for appraisal traceability)',
+        'ITIL 4: _key of the linked detailed task. PMS: typically the measurable activity _key (or empty when only initiative + activity are linked).',
     }),
     defineField({
       name: 'contractTaskTitle',
-      title: 'Contract detailed task title',
+      title: 'Contract detailed task / measurable title',
       type: 'string',
-      description: 'Denormalized detailed task label for display',
+      description: 'Denormalized label for display',
     }),
     defineField({
       name: 'activityCategory',

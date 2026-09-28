@@ -30,6 +30,7 @@ import {
 } from '@/lib/contract-numbering'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { TreeRenderItemParams } from '@/components/tree-view'
+import { isPmsAlignment } from '@/lib/contract-alignment'
 import { AddObjectiveDialog } from '@/features/sections/components/add-objective-dialog'
 import { AddInitiativeDialog } from '@/features/sections/components/add-initiative-dialog'
 import { AddMeasurableActivityDialog } from '@/features/sections/components/add-measurable-activity-dialog'
@@ -62,7 +63,9 @@ const nodeMeta = new Map<
 
 function sectionContractToTreeData(
   sectionContract: SectionContract,
+  options?: { pmsMode?: boolean },
 ): TreeDataItem[] {
+  const pmsMode = options?.pmsMode === true
   nodeMeta.clear()
   const objectives = sectionContract.objectives ?? []
   const items: TreeDataItem[] = [
@@ -91,6 +94,16 @@ function sectionContractToTreeData(
       const init = initiatives[initIdx]
       const initNum = init.code ?? `${objNum}.${initIdx + 1}`
       nodeMeta.set(init._key, { code: initNum, objIdx, initIdx })
+
+      // PMS: measurable activities live on the initiative page, not in the tree.
+      if (pmsMode) {
+        initiativeChildren.push({
+          id: init._key,
+          name: init.title,
+        })
+        continue
+      }
+
       const activities = init.measurableActivities ?? []
 
       const activityChildren: TreeDataItem[] = [
@@ -187,6 +200,7 @@ export function ContractTree({
   } | null>(null)
 
   const objectives = sectionContract.objectives ?? []
+  const pmsMode = isPmsAlignment(sectionContract.contractAlignment)
 
   React.useEffect(() => {
     if (addObjectiveSignal === 0 || !canManageContract) return
@@ -194,8 +208,8 @@ export function ContractTree({
   }, [addObjectiveSignal, canManageContract])
 
   const treeData = React.useMemo(
-    () => sectionContractToTreeData(sectionContract),
-    [sectionContract],
+    () => sectionContractToTreeData(sectionContract, { pmsMode }),
+    [sectionContract, pmsMode],
   )
 
   const handleDeleteObjective = React.useCallback(async () => {
@@ -298,8 +312,22 @@ export function ContractTree({
     (item: { id: string } | undefined) => {
       if (!item || !sectionSlug) return
       const meta = nodeMeta.get(item.id)
+      if (!meta) return
+
+      if (pmsMode) {
+        if (
+          typeof meta.objIdx === 'number' &&
+          typeof meta.initIdx === 'number' &&
+          typeof meta.actIdx !== 'number'
+        ) {
+          router.push(
+            `/sections/${sectionSlug}/initiative/${sectionContract._id}/${meta.objIdx}/${meta.initIdx}`,
+          )
+        }
+        return
+      }
+
       if (
-        meta &&
         typeof meta.objIdx === 'number' &&
         typeof meta.initIdx === 'number' &&
         typeof meta.actIdx === 'number'
@@ -309,7 +337,7 @@ export function ContractTree({
         )
       }
     },
-    [sectionSlug, sectionContract._id, router],
+    [sectionSlug, sectionContract._id, router, pmsMode],
   )
 
   const renderItem = React.useCallback(
@@ -320,7 +348,9 @@ export function ContractTree({
         const hint = item.id.startsWith('label-objectives')
           ? '(Click an objective below to see its initiatives)'
           : item.id.startsWith('label-initiatives')
-            ? '(Click an initiative below to see its measurable activities)'
+            ? pmsMode
+              ? '(Click an initiative below to manage measurable activities)'
+              : '(Click an initiative below to see its measurable activities)'
             : item.id.startsWith('label-activities')
               ? '(Click a measurable activity below to manage its detailed tasks)'
               : undefined
@@ -502,6 +532,7 @@ export function ContractTree({
                     </DropdownMenuContent>
                   </DropdownMenu>
 
+                  {!pmsMode ? (
                   <DropdownMenu
                     open={openMenu === `${item.id}:add-activity`}
                     onOpenChange={open =>
@@ -558,6 +589,7 @@ export function ContractTree({
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  ) : null}
                 </>
               )}
               {isActivityRow && canManageContract && (
@@ -612,7 +644,7 @@ export function ContractTree({
         </div>
       )
     },
-    [openMenu, canManageContract],
+    [openMenu, canManageContract, pmsMode],
   )
 
   return (

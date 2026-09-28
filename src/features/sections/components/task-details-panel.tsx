@@ -106,7 +106,7 @@ interface TaskDetailsPanelProps {
   task: TaskRow | null
   officers: Officer[]
   sectionId: string
-  activityType?: 'kpi' | 'cross-cutting' | 'measurable'
+  activityType?: 'kpi' | 'cross-cutting' | 'measurable' | 'core'
   onUpdate: (updates: Partial<TaskRow>) => void
   onAddInputs: (file: File) => Promise<void>
   onApproveInputs: (reason?: string) => void

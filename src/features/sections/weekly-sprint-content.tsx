@@ -30,6 +30,7 @@ import {
   SprintViewEmptyState,
   getSprintViewEmptyCopy,
 } from '@/features/sections/components/sprint-view-empty-state'
+import { isPmsAlignment, type ContractAlignment } from '@/lib/contract-alignment'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -162,6 +163,8 @@ interface WeeklySprintContentProps {
   workspaceScope?: WorkspaceScopeKind
   presentation?: 'tabs' | 'single-view'
   singleView?: 'ready' | 'in-review' | 'draft'
+  /** Snapshot from the active FY contract — PMS skips detailed-task links. */
+  contractAlignment?: ContractAlignment | string
 }
 
 type WeekOption = {
@@ -489,7 +492,11 @@ function SprintTaskDescriptionEditor({
 function draftTaskLinkOptions(
   initiatives: InitiativeWithActivities[],
   task: Pick<DraftTask, 'initiativeKey' | 'activityKey'>,
+  options?: { pmsMode?: boolean },
 ) {
+  if (options?.pmsMode) {
+    return { activityHasDetailedTasks: false }
+  }
   const activity = findContractActivity(
     initiatives,
     task.initiativeKey,
@@ -554,6 +561,7 @@ function SprintTaskContractLinkFields({
   task,
   initiatives,
   disabled = false,
+  pmsMode = false,
   onFieldChange,
 }: {
   contractPhrase: string
@@ -563,6 +571,7 @@ function SprintTaskContractLinkFields({
   >
   initiatives: InitiativeWithActivities[]
   disabled?: boolean
+  pmsMode?: boolean
   onFieldChange: (field: ContractLinkField, value: string) => void
 }) {
   if (!task.activityCategory) {
@@ -646,7 +655,7 @@ function SprintTaskContractLinkFields({
           </SelectContent>
         </Select>
       </div>
-      {task.activityKey ? (
+      {task.activityKey && !pmsMode ? (
         detailedTasks.length > 0 ? (
           <div className='w-[100%] space-y-1 overflow-hidden p-1'>
             <Label className='text-xs' required>
@@ -699,6 +708,7 @@ export function WeeklySprintContent({
   workspaceScope = 'mainstream',
   presentation = 'tabs',
   singleView = 'ready',
+  contractAlignment,
 }: WeeklySprintContentProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -706,6 +716,7 @@ export function WeeklySprintContent({
   const { active: activeFY, isHistorical } = useFinancialYear()
   const scopeLabels = scopeLabelsFromKind(workspaceScope)
   const isProjectSprint = isProjectSprintScope(workspaceScope)
+  const pmsMode = isPmsAlignment(contractAlignment)
   const activityCategoryOptions =
     getSprintActivityCategoryOptions(workspaceScope)
   const contractPhrase = theContractPhrase(scopeLabels)
@@ -2128,6 +2139,7 @@ export function WeeklySprintContent({
                             </Select>
                           </div>
                           <SprintTaskContractLinkFields
+                            pmsMode={pmsMode}
                             contractPhrase={contractPhrase}
                             task={task}
                             initiatives={initiatives}
@@ -2275,6 +2287,7 @@ export function WeeklySprintContent({
               ) : null}
 
               <SprintTaskContractLinkFields
+                pmsMode={pmsMode}
                 contractPhrase={contractPhrase}
                 task={extraTaskDraft}
                 initiatives={extraTaskInitiatives}
@@ -2496,6 +2509,7 @@ export function WeeklySprintContent({
                   </Select>
                 </div>
                 <SprintTaskContractLinkFields
+                  pmsMode={pmsMode}
                   contractPhrase={contractPhrase}
                   task={reviseTaskDraft}
                   initiatives={reviseInitiatives}

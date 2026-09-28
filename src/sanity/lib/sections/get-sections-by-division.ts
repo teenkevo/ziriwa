@@ -8,6 +8,7 @@ export type Section = {
   division?: { _id: string; name: string }
   manager?: { _id: string; fullName: string }
   isPlanningSection?: boolean
+  contractAlignment?: 'itil4' | 'pms'
   order?: number
   /** Active staff tied to this section (manager, supervisors, officers). */
   staffCount?: number
@@ -24,6 +25,7 @@ export async function getSectionsByDivision(
       division->{ _id, "name": coalesce(acronym, fullName, name) },
       manager->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
       isPlanningSection,
+      contractAlignment,
       order,
       "staffCount": count(*[_type == "staff" && status == "active" && section._ref == ^._id]),
     }

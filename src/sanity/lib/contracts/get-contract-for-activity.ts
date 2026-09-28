@@ -14,7 +14,10 @@ export type ActivityPageContractType =
   | 'supervisorContract'
   | 'officerContract'
 
-export type ActivityPageContract = Pick<SectionContract, '_id' | 'objectives'> & {
+export type ActivityPageContract = Pick<
+  SectionContract,
+  '_id' | 'objectives' | 'contractAlignment'
+> & {
   _type: ActivityPageContractType
   /** Present on officer contracts — default assignee for cascaded detailed tasks. */
   officer?: { _id: string; fullName?: string; staffId?: string }
@@ -50,6 +53,7 @@ export async function getContractForActivityPage(
     ][0] {
       _id,
       _type,
+      contractAlignment,
       officer->{
         _id,
         "fullName": coalesce(fullName, firstName + " " + lastName),
@@ -82,6 +86,17 @@ export async function getContractForActivityPage(
     console.error('Error fetching contract for activity page', error)
     return null
   }
+}
+
+export function getInitiativeFromContract(
+  contract: ActivityPageContract,
+  objectiveIndex: number,
+  initiativeIndex: number,
+) {
+  return (
+    contract.objectives?.[objectiveIndex]?.initiatives?.[initiativeIndex] ??
+    null
+  )
 }
 
 export function getActivityFromContract(

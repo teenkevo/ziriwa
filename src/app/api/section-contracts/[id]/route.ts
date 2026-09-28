@@ -466,12 +466,12 @@ export async function PATCH(
         typeof initiativeIndex !== 'number' ||
         !title ||
         typeof title !== 'string' ||
-        !['kpi', 'cross-cutting'].includes(activityType)
+        !['kpi', 'cross-cutting', 'core', 'measurable'].includes(activityType)
       ) {
         return NextResponse.json(
           {
             error:
-              'objectiveIndex, initiativeIndex, title, and activityType (kpi|cross-cutting) are required',
+              'objectiveIndex, initiativeIndex, title, and activityType (kpi|cross-cutting|core|measurable) are required',
           },
           { status: 400 },
         )
@@ -487,9 +487,11 @@ export async function PATCH(
         status: 'not_started',
         // KPI optional due dates use free-form targetDate; periodic cycles are for CC.
         reportingFrequency:
-          activityType === 'kpi' || targetDate ? 'n/a' : 'monthly',
+          activityType === 'kpi' || activityType === 'core' || targetDate
+            ? 'n/a'
+            : 'monthly',
       }
-      if (activityType === 'kpi' && aim?.trim()) {
+      if ((activityType === 'kpi' || activityType === 'core') && aim?.trim()) {
         doc.aim = aim.trim()
       }
       await writeClient
@@ -516,6 +518,7 @@ export async function PATCH(
         targetDate,
         status,
         reportingFrequency,
+        evidence,
       } = payload
       if (
         typeof objectiveIndex !== 'number' ||
@@ -553,6 +556,27 @@ export async function PATCH(
         ['weekly', 'monthly', 'quarterly', 'n/a'].includes(reportingFrequency)
       ) {
         setPayload[`${basePath}.reportingFrequency`] = reportingFrequency
+      }
+      if (Array.isArray(evidence)) {
+        setPayload[`${basePath}.evidence`] = evidence.map(
+          (item: Record<string, unknown>) => ({
+            _type: 'evidenceItem',
+            _key:
+              typeof item._key === 'string' && item._key
+                ? item._key
+                : crypto.randomUUID(),
+            label:
+              typeof item.label === 'string' ? item.label.trim() : undefined,
+            notes:
+              typeof item.notes === 'string' ? item.notes.trim() : undefined,
+            ...(item.file && typeof item.file === 'object'
+              ? { file: item.file }
+              : {}),
+            ...(item.image && typeof item.image === 'object'
+              ? { image: item.image }
+              : {}),
+          }),
+        )
       }
       if (Object.keys(setPayload).length > 0) {
         await writeClient.patch(id).set(setPayload).commit()

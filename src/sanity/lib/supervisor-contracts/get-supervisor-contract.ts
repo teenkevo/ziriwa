@@ -12,6 +12,7 @@ export type SupervisorContract = {
   section?: { _id: string; name?: string }
   supervisor?: { _id: string; fullName?: string }
   financialYearLabel?: string
+  contractAlignment?: 'itil4' | 'pms'
   status?: string
   objectives?: SsmartaObjective[]
 }
@@ -34,6 +35,7 @@ export async function getSupervisorContract(
       section->{ _id, name },
       supervisor->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
       financialYearLabel,
+      contractAlignment,
       status,
       objectives[] {
         _key,

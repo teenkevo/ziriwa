@@ -12,6 +12,7 @@ export type OfficerContract = {
   section?: { _id: string; name?: string }
   officer?: { _id: string; fullName?: string }
   financialYearLabel?: string
+  contractAlignment?: 'itil4' | 'pms'
   status?: string
   objectives?: SsmartaObjective[]
 }
@@ -34,6 +35,7 @@ export async function getOfficerContract(
       section->{ _id, name },
       officer->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
       financialYearLabel,
+      contractAlignment,
       status,
       objectives[] {
         _key,

@@ -753,6 +753,7 @@ export function ManagerWorkspaceContent({
           workspaceScope={scopeLabels.kind}
           presentation='single-view'
           singleView={activeSprintView}
+          contractAlignment={activeContract?.contractAlignment}
         />
       )
     }

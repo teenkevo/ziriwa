@@ -85,7 +85,7 @@ export interface ManagerCascadeKpiOption {
   activityKey: string
   title: string
   aim: string
-  activityType: 'kpi' | 'measurable' | 'cross-cutting'
+  activityType: 'kpi' | 'measurable' | 'cross-cutting' | 'core'
   hasAim: boolean
   canCascade: boolean
   alreadyImported: boolean

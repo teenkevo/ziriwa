@@ -14,7 +14,7 @@ import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-sectio
 import type { ContractExportDownloadButtonProps } from './contract-export-download-button'
 
 type ContractExportActivityRow = {
-  activityType?: 'kpi' | 'cross-cutting' | 'measurable'
+  activityType?: 'kpi' | 'cross-cutting' | 'measurable' | 'core'
   measurableActivity: string
   expectedCompletionDate: string
   target: string

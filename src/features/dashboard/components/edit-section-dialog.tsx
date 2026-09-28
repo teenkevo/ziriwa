@@ -16,6 +16,18 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  CONTRACT_ALIGNMENT_LABELS,
+  parseContractAlignment,
+  type ContractAlignment,
+} from '@/lib/contract-alignment'
 import { ManagerSwitcher } from './manager-switcher'
 
 export type StaffMember = {
@@ -33,9 +45,12 @@ interface EditSectionDialogProps {
     slug?: { current: string }
     manager?: { _id: string }
     isPlanningSection?: boolean
+    contractAlignment?: ContractAlignment | string
   }
   divisionId: string
   managers: StaffMember[]
+  /** Superadmin-only: change ITIL 4 vs PMS alignment for future FY contracts. */
+  canEditContractAlignment?: boolean
 }
 
 export function EditSectionDialog({
@@ -44,20 +59,22 @@ export function EditSectionDialog({
   section,
   divisionId,
   managers,
+  canEditContractAlignment = false,
 }: EditSectionDialogProps) {
   const router = useRouter()
   const [isSaving, setIsSaving] = React.useState(false)
   const [name, setName] = React.useState('')
   const [managerId, setManagerId] = React.useState('')
   const [isPlanningSection, setIsPlanningSection] = React.useState(false)
+  const [contractAlignment, setContractAlignment] =
+    React.useState<ContractAlignment>('itil4')
 
   React.useEffect(() => {
     if (!open) return
     setName(section.name)
     setIsPlanningSection(Boolean(section.isPlanningSection))
-    setManagerId(
-      section.isPlanningSection ? '' : (section.manager?._id ?? ''),
-    )
+    setManagerId(section.isPlanningSection ? '' : (section.manager?._id ?? ''))
+    setContractAlignment(parseContractAlignment(section.contractAlignment))
   }, [open, section])
 
   const canSubmit =
@@ -76,6 +93,7 @@ export function EditSectionDialog({
           name: name.trim(),
           isPlanningSection,
           managerId: isPlanningSection ? null : managerId,
+          ...(canEditContractAlignment ? { contractAlignment } : {}),
         }),
       })
       if (!res.ok) {
@@ -104,6 +122,9 @@ export function EditSectionDialog({
           <DialogTitle>Edit section</DialogTitle>
           <DialogDescription>
             Update the section name, type, and manager.
+            {canEditContractAlignment
+              ? ' Contract alignment applies to newly onboarded financial-year contracts.'
+              : null}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -157,6 +178,36 @@ export function EditSectionDialog({
                   divisionId={divisionId}
                   currentSectionId={section._id}
                 />
+              </div>
+            ) : null}
+            {canEditContractAlignment ? (
+              <div className='space-y-2'>
+                <Label htmlFor='editContractAlignment'>
+                  Contract alignment
+                </Label>
+                <Select
+                  value={contractAlignment}
+                  onValueChange={v =>
+                    setContractAlignment(parseContractAlignment(v))
+                  }
+                  disabled={isSaving}
+                >
+                  <SelectTrigger id='editContractAlignment'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='itil4'>
+                      {CONTRACT_ALIGNMENT_LABELS.itil4}
+                    </SelectItem>
+                    <SelectItem value='pms'>
+                      {CONTRACT_ALIGNMENT_LABELS.pms}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className='text-xs text-muted-foreground'>
+                  ITIL 4 contracts are aligned to the ITIL 4 framework. PMS
+                  contracts are aligned to the newly developed PMS.
+                </p>
               </div>
             ) : null}
           </div>

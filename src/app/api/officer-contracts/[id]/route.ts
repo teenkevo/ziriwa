@@ -470,12 +470,12 @@ export async function PATCH(
         typeof initiativeIndex !== 'number' ||
         !title ||
         typeof title !== 'string' ||
-        activityType !== 'measurable'
+        !['measurable', 'core', 'cross-cutting'].includes(activityType)
       ) {
         return NextResponse.json(
           {
             error:
-              'objectiveIndex, initiativeIndex, title, and activityType "measurable" are required',
+              'objectiveIndex, initiativeIndex, title, and activityType (measurable|core|cross-cutting) are required',
           },
           { status: 400 },
         )
@@ -484,12 +484,16 @@ export async function PATCH(
       const doc: Record<string, unknown> = {
         _type: 'measurableActivity',
         _key: crypto.randomUUID(),
-        activityType: 'measurable',
+        activityType,
         title: title.trim(),
         order: typeof order === 'number' ? order : undefined,
         targetDate: targetDate || undefined,
         status: 'not_started',
-        reportingFrequency: 'monthly',
+        reportingFrequency:
+          activityType === 'core' || targetDate ? 'n/a' : 'monthly',
+      }
+      if (typeof aim === 'string' && aim.trim()) {
+        doc.aim = aim.trim()
       }
       await writeClient
         .patch(id)

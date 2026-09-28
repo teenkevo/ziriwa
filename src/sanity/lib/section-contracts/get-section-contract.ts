@@ -128,16 +128,45 @@ export type DetailedTask = {
   deliverable?: DeliverableItem[]
 }
 
+export type MeasurableEvidenceItem = {
+  _key?: string
+  _type?: string
+  label?: string
+  notes?: string
+  file?: {
+    asset?: {
+      _id?: string
+      url?: string
+      originalFilename?: string
+      size?: number
+      mimeType?: string
+    }
+  }
+  image?: {
+    asset?: {
+      _id?: string
+      url?: string
+      originalFilename?: string
+    }
+  }
+  /** Legacy bare file/image asset shape */
+  asset?: {
+    _id?: string
+    url?: string
+    originalFilename?: string
+  }
+}
+
 export type MeasurableActivity = {
   _key: string
-  activityType: 'kpi' | 'cross-cutting' | 'measurable'
+  activityType: 'kpi' | 'cross-cutting' | 'measurable' | 'core'
   title: string
   aim?: string
   order?: number
   targetDate?: string
   status?: string
   reportingFrequency?: 'weekly' | 'monthly' | 'quarterly' | 'n/a'
-  evidence?: { asset?: { url?: string } }[]
+  evidence?: MeasurableEvidenceItem[]
   tasks?: (DetailedTask | string)[]
   cascadeSource?: { nodeRole?: string }
 }
@@ -162,6 +191,7 @@ export type SectionContract = {
   _id: string
   section?: { _id: string; name: string }
   financialYearLabel?: string
+  contractAlignment?: 'itil4' | 'pms'
   manager?: { _id: string; fullName?: string }
   status?: string
   objectives?: SsmartaObjective[]
@@ -195,6 +225,7 @@ export async function getSectionContract(
       _id,
       section->{ _id, name },
       financialYearLabel,
+      contractAlignment,
       manager->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },
       status,
       objectives[] {

@@ -20,9 +20,11 @@ export function getSupervisorUpstreamContractNoun(
 }
 
 export function getCascadeActivityTypeLabel(
-  activityType: 'kpi' | 'measurable' | 'cross-cutting',
+  activityType: 'kpi' | 'measurable' | 'cross-cutting' | 'core',
   isProjectWorkstream: boolean,
 ): string {
+  if (activityType === 'cross-cutting') return 'CC'
+  if (activityType === 'core') return 'Core'
   if (activityType === 'measurable' || isProjectWorkstream) return 'MA'
   return 'KPI'
 }

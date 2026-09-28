@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { getActiveFinancialYear } from '@/lib/financial-year.server'
+import { getSectionContractAlignment } from '@/lib/contract-alignment.server'
 import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import {
   assertContractOnboardAllowed,
@@ -31,7 +32,6 @@ export async function POST(req: NextRequest) {
 
     const currentFY = await getActiveFinancialYear()
 
-    // One contract per section per FY
     const existing = await getSectionContract(sectionId, currentFY.label)
     if (existing) {
       return NextResponse.json(
@@ -43,10 +43,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const contractAlignment = await getSectionContractAlignment(sectionId)
+
     const doc = {
       _type: 'sectionContract',
       section: { _type: 'reference', _ref: sectionId },
       financialYearLabel: currentFY.label,
+      contractAlignment,
       manager: { _type: 'reference', _ref: managerId },
       status: 'draft',
     }
