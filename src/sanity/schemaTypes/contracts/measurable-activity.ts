@@ -132,6 +132,14 @@ export const measurableActivity = defineType({
         'Evidence uploads. Prefer structured evidence items (label + file). Legacy file/image entries remain supported.',
     }),
     defineField({
+      name: 'assignees',
+      title: 'Assignees',
+      type: 'array',
+      of: [{ type: 'reference', to: [{ type: 'staff' }] }],
+      description:
+        'Staff one level below who receive this measurable activity when it is cascaded.',
+    }),
+    defineField({
       name: 'tasks',
       title: 'Detailed Tasks',
       type: 'array',

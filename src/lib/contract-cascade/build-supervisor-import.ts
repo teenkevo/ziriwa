@@ -1,4 +1,4 @@
-import { managerActivityCanCascade, normalizeAim } from './aim'
+import { managerActivityCanCascade } from './aim'
 import { buildCascadeSource } from './cascade-fields'
 import { nextInitiativeCode, nextObjectiveCode } from './allocate-codes'
 import type {
@@ -285,18 +285,12 @@ export function buildSupervisorImport(
       if (!managerActivityCanCascade(managerActivity)) {
         skipped.push({
           activityKey,
-          reason:
-            managerActivity.activityType === 'kpi'
-              ? 'Manager KPI has no AIM — cannot cascade'
-              : 'Activity has no title — cannot cascade',
+          reason: 'Activity has no title — cannot cascade',
         })
         continue
       }
 
       const rewrite = rewrites?.[activityKey]
-      const isPmsActivity =
-        managerActivity.activityType === 'core' ||
-        managerActivity.activityType === 'cross-cutting'
       const isProjectCascade =
         upstreamIsProjectContract ||
         managerActivity.activityType === 'measurable'
@@ -364,64 +358,8 @@ export function buildSupervisorImport(
         ),
       }
 
-      if (isProjectCascade) {
-        // Workstream leads define their own measurables on the contract page.
-        supervisorInitiative.measurableActivities = []
-      } else if (isPmsActivity) {
-        // PMS: cascade the measurable itself (core / cross-cutting), no detailed tasks.
-        const supervisorMeasurable: SupervisorActivity = {
-          _type: 'measurableActivity',
-          _key: crypto.randomUUID(),
-          activityType: managerActivity.activityType,
-          title: rewrite?.measurableTitle ?? managerMeasurableTitle,
-          order: 0,
-          targetDate: managerActivity.targetDate,
-          status: 'not_started',
-          reportingFrequency: managerActivity.reportingFrequency ?? 'monthly',
-          tasks: [],
-          cascadeKind: 'cascaded',
-          cascadeSource: buildCascadeSource(
-            {
-              sectionContractId,
-              initiativeKey: selection.initiativeKey,
-              activityKey,
-              nodeRole: 'managerAimAsMeasurable',
-            },
-            cascadeRevision,
-          ),
-        }
-        supervisorInitiative.measurableActivities = [supervisorMeasurable]
-      } else {
-        const supervisorMeasurable: SupervisorActivity = {
-          _type: 'measurableActivity',
-          _key: crypto.randomUUID(),
-          activityType: 'measurable',
-          title:
-            rewrite?.measurableTitle ?? normalizeAim(managerActivity.aim),
-          order: 0,
-          targetDate: managerActivity.targetDate,
-          status: 'not_started',
-          reportingFrequency: managerActivity.reportingFrequency ?? 'monthly',
-          tasks: resolveSupervisorTasks(
-            rewrite,
-            managerActivity.tasks,
-            sectionContractId,
-            activityKey,
-            cascadeRevision,
-          ),
-          cascadeKind: 'cascaded',
-          cascadeSource: buildCascadeSource(
-            {
-              sectionContractId,
-              initiativeKey: selection.initiativeKey,
-              activityKey,
-              nodeRole: 'managerAimAsMeasurable',
-            },
-            cascadeRevision,
-          ),
-        }
-        supervisorInitiative.measurableActivities = [supervisorMeasurable]
-      }
+      // The cascadee writes their own measurable activities, then cascades those.
+      supervisorInitiative.measurableActivities = []
       initiatives.push(supervisorInitiative)
       objectiveForKpi.initiatives = initiatives
 

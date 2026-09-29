@@ -8,6 +8,7 @@ import {
   getInitiativeFromContract,
 } from '@/sanity/lib/contracts/get-contract-for-activity'
 import { InitiativePageContent } from '@/features/sections/initiative-page-content'
+import { loadCascadeAssigneeOptions } from '@/lib/contract-cascade/assign-measurable-activity.server'
 
 function canManageActivityContract(
   contractType: 'sectionContract' | 'supervisorContract' | 'officerContract',
@@ -60,6 +61,16 @@ export default async function InitiativePage({
 
   const objective = contract.objectives?.[objIndex]
   const backHref = contractBackHrefForViewer(sectionAccess, slug)
+  const assigneeOptions = await loadCascadeAssigneeOptions({
+    contractType: contract._type,
+    sectionId: section._id,
+  })
+  const assigneeEmptyLabel =
+    contract._type === 'sectionContract'
+      ? 'No supervisors in this section yet.'
+      : contract._type === 'supervisorContract'
+        ? 'No officers in this section yet.'
+        : undefined
 
   return (
     <InitiativePageContent
@@ -74,6 +85,8 @@ export default async function InitiativePage({
       canManage={canManageActivityContract(contract._type, sectionAccess)}
       backHref={backHref}
       initialActivityKey={initialActivityKey}
+      assigneeOptions={assigneeOptions}
+      assigneeEmptyLabel={assigneeEmptyLabel}
     />
   )
 }

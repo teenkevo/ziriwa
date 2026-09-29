@@ -168,6 +168,7 @@ export type MeasurableActivity = {
   reportingFrequency?: 'weekly' | 'monthly' | 'quarterly' | 'n/a'
   evidence?: MeasurableEvidenceItem[]
   tasks?: (DetailedTask | string)[]
+  assignees?: { _id: string; fullName?: string }[]
   cascadeSource?: { nodeRole?: string }
 }
 

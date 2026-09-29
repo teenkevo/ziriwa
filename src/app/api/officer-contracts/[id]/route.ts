@@ -330,58 +330,13 @@ export async function PATCH(
     }
 
     if (op === 'addObjective') {
-      const { code, title, order } = payload
-      if (!code || typeof code !== 'string') {
-        return NextResponse.json({ error: 'code is required' }, { status: 400 })
-      }
-      const trimmedCode = code.trim()
-      if (!/^\d+\.\d+$/.test(trimmedCode)) {
-        return NextResponse.json(
-          { error: 'code must match format 1.1, 1.2, 2.1' },
-          { status: 400 },
-        )
-      }
-      if (!title || typeof title !== 'string') {
-        return NextResponse.json(
-          { error: 'title is required' },
-          { status: 400 },
-        )
-      }
-      const contract = await writeClient.fetch<{
-        objectives?: { code?: string }[]
-      }>(`*[_id == $id][0]{ objectives[] { code } }`, { id })
-      const existingCodes = (contract?.objectives ?? [])
-        .map(o => o.code?.trim())
-        .filter(Boolean)
-      if (existingCodes.includes(trimmedCode)) {
-        return NextResponse.json(
-          {
-            error: `SSMARTA objective with code "${trimmedCode}" already exists`,
-          },
-          { status: 409 },
-        )
-      }
-      await writeClient
-        .patch(id)
-        .setIfMissing({ objectives: [] })
-        .append('objectives', [
-          {
-            _type: 'ssmartaObjective',
-            _key: crypto.randomUUID(),
-            code: code.trim(),
-            title: title.trim(),
-            order: typeof order === 'number' ? order : undefined,
-            initiatives: [],
-          },
-        ])
-        .commit()
-      audit.sectionContract.updated(
-        id,
-        contractLabel ?? 'Section contract',
-        op,
-        sectionId,
+      return NextResponse.json(
+        {
+          error:
+            'SSMARTA objectives are cascaded onto this contract and cannot be created here.',
+        },
+        { status: 403 },
       )
-      return NextResponse.json({ ok: true })
     }
 
     if (op === 'addInitiative') {

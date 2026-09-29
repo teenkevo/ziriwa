@@ -270,7 +270,6 @@ export function buildOfficerImport(
   const {
     supervisorObjectives,
     supervisorContractId,
-    officerStaffId,
     cascadeRevision,
     selections,
     existingObjectives,
@@ -303,8 +302,7 @@ export function buildOfficerImport(
     const { initiative: supervisorInitiative } = located
 
     for (const activitySelection of expandOfficerCascadeActivities(selection)) {
-      const { activityKey, taskKeys } = activitySelection
-      const selectedTaskKeys = new Set(taskKeys)
+      const { activityKey } = activitySelection
 
       const supervisorMeasurable = supervisorInitiative.measurableActivities?.find(
         a => a._key === activityKey,
@@ -323,68 +321,20 @@ export function buildOfficerImport(
         supervisorMeasurable.title?.trim() ??
         'Measurable activity'
 
-      const existing = findExistingInitiativeByMeasurable(
-        objectives,
-        supervisorContractId,
-        activityKey,
+      const alreadyImported = objectives.some(objective =>
+        ((objective.initiatives ?? []) as OfficerInitiative[]).some(
+          initiative =>
+            initiative.cascadeSource?.supervisorContractId ===
+              supervisorContractId &&
+            initiative.cascadeSource?.activityKey === activityKey &&
+            initiative.cascadeSource?.nodeRole ===
+              'supervisorMeasurableAsInitiative',
+        ),
       )
-
-      if (existing) {
-        const tasksToAdd = resolveOfficerTasks(
-          rewrite,
-          supervisorMeasurable.tasks,
-          supervisorContractId,
-          officerStaffId,
-          activityKey,
-          cascadeRevision,
-          selectedTaskKeys,
-        ).filter(task => {
-          const supervisorTaskKey = task.cascadeSource?.taskKey
-          if (!supervisorTaskKey) return true
-          return !officerTaskAlreadyExists(
-            existing.measurable,
-            supervisorContractId,
-            activityKey,
-            supervisorTaskKey,
-          )
-        })
-
-        if (tasksToAdd.length === 0) {
-          skipped.push({
-            activityKey,
-            reason: 'Selected tasks are already on this officer contract',
-          })
-          continue
-        }
-
-        existing.measurable.tasks = [
-          ...(existing.measurable.tasks ?? []),
-          ...tasksToAdd,
-        ]
-        for (const task of tasksToAdd) {
-          const key = task.cascadeSource?.taskKey
-          if (key) importedTaskKeys.push(key)
-        }
-        if (!importedActivityKeys.includes(activityKey)) {
-          importedActivityKeys.push(activityKey)
-        }
-        continue
-      }
-
-      const newTasks = resolveOfficerTasks(
-        rewrite,
-        supervisorMeasurable.tasks,
-        supervisorContractId,
-        officerStaffId,
-        activityKey,
-        cascadeRevision,
-        selectedTaskKeys,
-      )
-
-      if (newTasks.length === 0) {
+      if (alreadyImported) {
         skipped.push({
           activityKey,
-          reason: 'No selected tasks found on supervisor measurable',
+          reason: 'Already imported on this officer contract',
         })
         continue
       }
@@ -449,29 +399,12 @@ export function buildOfficerImport(
         ),
       }
 
-      const officerMeasurable: OfficerActivity = {
-        _type: 'measurableActivity',
-        _key: crypto.randomUUID(),
-        activityType: 'measurable',
-        title: measurableTitle,
-        order: 0,
-        targetDate: supervisorMeasurable.targetDate,
-        status: 'not_started',
-        reportingFrequency:
-          supervisorMeasurable.reportingFrequency ?? 'monthly',
-        tasks: newTasks,
-        cascadeKind: 'cascaded',
-      }
-
-      officerInitiative.measurableActivities = [officerMeasurable]
+      // Officers add their own measurable activities and do not cascade further.
+      officerInitiative.measurableActivities = []
       initiatives.push(officerInitiative)
       objectiveForMeasurable.initiatives = initiatives
 
       importedActivityKeys.push(activityKey)
-      for (const task of newTasks) {
-        const key = task.cascadeSource?.taskKey
-        if (key) importedTaskKeys.push(key)
-      }
     }
   }
 

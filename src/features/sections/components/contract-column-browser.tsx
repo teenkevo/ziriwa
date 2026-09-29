@@ -104,6 +104,8 @@ export interface ContractColumnObjective {
 interface ContractColumnBrowserProps {
   objectives: ContractColumnObjective[]
   onAddObjective?: () => void
+  /** Shown in the empty SSMARTA objectives column when objectives are cascaded in. */
+  emptyObjectivesMessage?: string
 }
 
 interface ColumnRowModel {
@@ -128,7 +130,159 @@ interface ColumnModel {
   title: string
   emptyLabel: string
   headerAction?: React.ReactNode
+  emptyAction?: React.ReactNode
   rows: ColumnRowModel[]
+}
+
+type ColumnIllustrationKind = 'objectives' | 'initiatives' | 'activities' | 'tasks'
+
+function ColumnIllustration({ kind }: { kind: ColumnIllustrationKind }) {
+  const frame = 'h-24 w-[8.2rem]'
+
+  if (kind === 'objectives') {
+    return (
+      <svg viewBox='0 0 120 88' className={frame} aria-hidden>
+        <ellipse cx='60' cy='78' rx='28' ry='3' className='fill-foreground/10' />
+        <circle cx='60' cy='40' r='30' className='fill-foreground/10' />
+        <circle cx='60' cy='40' r='20' className='fill-foreground/22' />
+        <circle cx='60' cy='40' r='10' className='fill-foreground/45' />
+        <circle cx='60' cy='40' r='4' className='fill-foreground/80' />
+      </svg>
+    )
+  }
+
+  if (kind === 'initiatives') {
+    return (
+      <svg viewBox='0 0 120 88' className={frame} aria-hidden>
+        <ellipse cx='60' cy='82' rx='36' ry='3' className='fill-foreground/10' />
+        <rect x='42' y='6' width='36' height='16' rx='5' className='fill-foreground/45' />
+        <path
+          d='M60 22v10M60 32H28v8M60 32h32v8'
+          fill='none'
+          className='stroke-foreground/40'
+          strokeWidth='2'
+          strokeLinecap='round'
+        />
+        <rect x='10' y='40' width='36' height='28' rx='6' className='fill-foreground/18' />
+        <rect x='74' y='40' width='36' height='28' rx='6' className='fill-foreground/30' />
+      </svg>
+    )
+  }
+
+  if (kind === 'tasks') {
+    return (
+      <svg viewBox='0 0 120 88' className={frame} aria-hidden>
+        <ellipse cx='60' cy='82' rx='30' ry='3' className='fill-foreground/10' />
+        <rect x='36' y='8' width='48' height='8' rx='3' className='fill-foreground/45' />
+        <rect x='28' y='14' width='64' height='58' rx='8' className='fill-foreground/12' />
+        <rect x='38' y='28' width='44' height='6' rx='3' className='fill-foreground/35' />
+        <rect x='38' y='40' width='36' height='6' rx='3' className='fill-foreground/25' />
+        <rect x='38' y='52' width='28' height='6' rx='3' className='fill-foreground/18' />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox='0 0 120 88' className={frame} aria-hidden>
+      <ellipse cx='60' cy='82' rx='32' ry='3' className='fill-foreground/10' />
+      <rect x='30' y='8' width='60' height='66' rx='10' className='fill-foreground/12' />
+      <rect x='40' y='20' width='12' height='12' rx='3' className='fill-foreground/55' />
+      <path
+        d='M43 26.2 45.4 28.6 49.6 24'
+        fill='none'
+        className='stroke-background'
+        strokeWidth='1.6'
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+      <rect x='58' y='24' width='22' height='4' rx='2' className='fill-foreground/40' />
+      <rect x='40' y='38' width='12' height='12' rx='3' className='fill-foreground/28' />
+      <rect x='58' y='42' width='18' height='4' rx='2' className='fill-foreground/28' />
+      <rect x='40' y='56' width='12' height='12' rx='3' className='fill-foreground/18' />
+      <rect x='58' y='60' width='14' height='4' rx='2' className='fill-foreground/20' />
+    </svg>
+  )
+}
+
+function ColumnEmptyPlaceholder({
+  title,
+  message,
+  illustration,
+}: {
+  title: string
+  message?: string
+  illustration: ColumnIllustrationKind
+}) {
+  return (
+    <div
+      role='status'
+      aria-label={message ? `${title}. ${message}` : title}
+      className='flex w-full max-w-full flex-col items-center gap-4 px-1 text-center'
+    >
+      <ColumnIllustration kind={illustration} />
+      <div className='space-y-1'>
+        <p className='text-balance text-lg font-semibold tracking-tight text-foreground'>
+          {title}
+        </p>
+        {message ? (
+          <p className='text-balance text-xs leading-relaxed text-muted-foreground'>
+            {message}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function ObjectivesWaitingPlaceholder({ message }: { message: string }) {
+  return (
+    <ColumnEmptyPlaceholder
+      title='No SSMARTA objectives yet'
+      message={message}
+      illustration='objectives'
+    />
+  )
+}
+
+function placeholderCopy(
+  emptyLabel: string,
+): { title: string; message: string; illustration: ColumnIllustrationKind } | null {
+  if (emptyLabel === 'Select a SSMARTA objective.') {
+    return {
+      title: 'No initiatives yet',
+      message: 'Select a SSMARTA objective to see its initiatives.',
+      illustration: 'initiatives',
+    }
+  }
+  if (emptyLabel === 'No initiatives yet.') {
+    return {
+      title: 'No initiatives yet',
+      message: 'Initiatives for this objective will show up here.',
+      illustration: 'initiatives',
+    }
+  }
+  if (emptyLabel === 'Select an initiative.') {
+    return {
+      title: 'No measurable activities yet',
+      message: 'Select an initiative to see its measurable activities.',
+      illustration: 'activities',
+    }
+  }
+  if (emptyLabel === 'No measurable activities yet.') {
+    return {
+      title: 'No measurable activities yet',
+      message: 'Measurable activities for this initiative will show up here.',
+      illustration: 'activities',
+    }
+  }
+  if (emptyLabel === 'No detailed tasks yet.') {
+    return {
+      title: 'No detailed tasks yet',
+      message: 'Detailed tasks for this initiative will show up here.',
+      illustration: 'tasks',
+    }
+  }
+  return null
 }
 
 export function ContractColumnAddButton({
@@ -318,6 +472,11 @@ function ColumnPane({
     showSearch && query.trim() && column.rows.length > 0
       ? 'No matches.'
       : column.emptyLabel
+  const showEmptyAction = visibleRows.length === 0 && column.emptyAction != null
+  const emptyCopy =
+    visibleRows.length === 0 && !showEmptyAction
+      ? placeholderCopy(emptyLabel)
+      : null
 
   return (
     <section
@@ -325,7 +484,7 @@ function ColumnPane({
       className='flex h-full min-w-0 flex-1 flex-col border-r border-border last:border-r-0'
     >
       <header className='flex h-12 shrink-0 items-center gap-2 px-3'>
-        <h3 className='min-w-0 flex-1 truncate text-sm font-medium text-primary'>
+        <h3 className='min-w-0 flex-1 truncate text-base font-semibold text-primary'>
           {column.title}
         </h3>
         {column.headerAction}
@@ -345,16 +504,30 @@ function ColumnPane({
           </div>
         </div>
       ) : null}
-      <div className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden'>
-        <div role='listbox' aria-label={column.title} className='space-y-0.5 px-2 py-1.5'>
-          {visibleRows.length === 0 ? (
-            <p className='px-2 py-8 text-center text-xs text-muted-foreground'>
-              {emptyLabel}
-            </p>
-          ) : (
-            visibleRows.map(row => <ColumnRow key={row.id} row={row} />)
-          )}
-        </div>
+      <div className='flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden'>
+        {visibleRows.length === 0 ? (
+          <div className='flex min-h-full w-full items-center justify-center px-3 py-6'>
+            {showEmptyAction ? (
+              column.emptyAction
+            ) : emptyCopy ? (
+              <ColumnEmptyPlaceholder
+                title={emptyCopy.title}
+                message={emptyCopy.message}
+                illustration={emptyCopy.illustration}
+              />
+            ) : (
+              <p className='px-2 text-center text-xs text-muted-foreground'>
+                {emptyLabel}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div role='listbox' aria-label={column.title} className='space-y-0.5 px-2 py-1.5'>
+            {visibleRows.map(row => (
+              <ColumnRow key={row.id} row={row} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
@@ -367,6 +540,7 @@ function ColumnPane({
 export function ContractColumnBrowser({
   objectives,
   onAddObjective,
+  emptyObjectivesMessage,
 }: ContractColumnBrowserProps) {
   const [selectedObjectiveId, setSelectedObjectiveId] = React.useState<
     string | null
@@ -395,12 +569,34 @@ export function ContractColumnBrowser({
       id: 'objectives',
       title: 'SSMARTA objectives',
       emptyLabel: 'No SSMARTA objectives yet.',
-      headerAction: onAddObjective ? (
-        <ContractColumnAddButton
-          label='Add SSMARTA objective'
-          onClick={onAddObjective}
-        />
-      ) : undefined,
+      headerAction:
+        onAddObjective && objectives.length > 0 ? (
+          <ContractColumnAddButton
+            label='Add SSMARTA objective'
+            onClick={onAddObjective}
+          />
+        ) : undefined,
+      emptyAction:
+        objectives.length > 0
+          ? undefined
+          : onAddObjective
+            ? (
+                <Button
+                  type='button'
+                  className='h-auto max-w-full whitespace-normal px-3 py-2 text-center'
+                  onClick={onAddObjective}
+                >
+                  <Plus className='h-4 w-4' />
+                  Add SSMARTA objective
+                </Button>
+              )
+            : emptyObjectivesMessage
+              ? (
+                  <ObjectivesWaitingPlaceholder
+                    message={emptyObjectivesMessage}
+                  />
+                )
+              : undefined,
       rows: objectives.map(objective => ({
         id: objective.id,
         title: objective.title,
@@ -505,6 +701,7 @@ export function ContractColumnBrowser({
   }, [
     objectives,
     onAddObjective,
+    emptyObjectivesMessage,
     selectedObjective,
     selectedInitiative,
     selectedLeafId,
@@ -535,7 +732,7 @@ export function ContractColumnBrowser({
       {columns.map(column => {
         const key = queryKey(column.id)
         const hasList =
-          key === 'objectives' ||
+          (key === 'objectives' && column.rows.length > 0) ||
           (key === 'initiatives' && selectedObjective != null) ||
           (key === 'activities' && selectedInitiative?.opensNextColumn === true)
         return (

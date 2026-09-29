@@ -140,7 +140,7 @@ export function AddDepartmentMeasurableActivityDialog({
                 disabled={isCreating}
                 required
                 rows={4}
-                className='min-h-[6rem] resize-y'
+                className='min-h-[6rem] max-h-40 resize-y overflow-y-auto'
               />
             </div>
             <div className='space-y-2'>
@@ -165,7 +165,7 @@ export function AddDepartmentMeasurableActivityDialog({
                 </SelectContent>
               </Select>
               <p className='text-xs text-muted-foreground'>
-                Choose Core or Cross-cutting.
+                Choose from Core or Cross-cutting.
               </p>
             </div>
             <div className='space-y-2'>

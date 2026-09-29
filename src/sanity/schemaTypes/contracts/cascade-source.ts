@@ -7,6 +7,12 @@ export const cascadeSource = defineType({
   type: 'object',
   fields: [
     defineField({
+      name: 'divisionContractId',
+      title: 'Division contract',
+      type: 'string',
+      description: 'Assistant commissioner contract id (cascade to a manager)',
+    }),
+    defineField({
       name: 'sectionContractId',
       title: 'Manager section contract',
       type: 'string',
@@ -42,6 +48,14 @@ export const cascadeSource = defineType({
       type: 'string',
       options: {
         list: [
+          {
+            title: 'Assistant commissioner initiative → Manager objective',
+            value: 'divisionInitiativeAsObjective',
+          },
+          {
+            title: 'Assistant commissioner activity → Manager initiative',
+            value: 'divisionActivityAsInitiative',
+          },
           {
             title: 'Manager initiative → Supervisor objective',
             value: 'managerInitiativeAsObjective',

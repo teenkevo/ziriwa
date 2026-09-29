@@ -1,4 +1,11 @@
+export interface CascadeAssigneeOption {
+  _id: string
+  fullName: string
+}
+
 export type CascadeNodeRole =
+  | 'divisionInitiativeAsObjective'
+  | 'divisionActivityAsInitiative'
   | 'managerInitiativeAsObjective'
   | 'managerKpiAsInitiative'
   | 'managerAimAsMeasurable'
@@ -10,6 +17,7 @@ export type CascadeNodeRole =
 export interface CascadeSource {
   sectionContractId?: string
   supervisorContractId?: string
+  divisionContractId?: string
   initiativeKey?: string
   activityKey?: string
   taskKey?: string

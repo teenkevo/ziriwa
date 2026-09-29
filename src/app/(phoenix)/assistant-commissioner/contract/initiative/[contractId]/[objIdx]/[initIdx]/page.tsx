@@ -1,0 +1,101 @@
+import { notFound } from 'next/navigation'
+
+import { InitiativePageContent } from '@/features/sections/initiative-page-content'
+import { ensureAssistantCommissionerPageAccess } from '@/features/manager/assistant-commissioner-workspace-page'
+import { loadCascadeAssigneeOptions } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import {
+  canManageDivisionContract,
+  getDivisionIdFromContract,
+} from '@/lib/division-contract-access.server'
+import { sanityFetch } from '@/sanity/lib/client'
+import { MEASURABLE_ACTIVITIES_WITH_TASKS_PROJECTION } from '@/sanity/lib/contracts/measurable-activities-projection'
+import type {
+  ContractInitiative,
+  SsmartaObjective,
+} from '@/sanity/lib/section-contracts/get-section-contract'
+
+export default async function AssistantCommissionerInitiativePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ contractId: string; objIdx: string; initIdx: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  await ensureAssistantCommissionerPageAccess()
+  const { contractId, objIdx, initIdx } = await params
+  const sp = await searchParams
+  const rawKey = sp.activityKey
+  const initialActivityKey =
+    typeof rawKey === 'string'
+      ? rawKey
+      : Array.isArray(rawKey)
+        ? rawKey[0]
+        : undefined
+
+  const objectiveIndex = parseInt(objIdx, 10)
+  const initiativeIndex = parseInt(initIdx, 10)
+  if (Number.isNaN(objectiveIndex) || Number.isNaN(initiativeIndex)) notFound()
+
+  const divisionId = await getDivisionIdFromContract(contractId)
+  if (!divisionId) notFound()
+  if (!(await canManageDivisionContract(divisionId))) notFound()
+
+  const contract = (await sanityFetch({
+    query: /* groq */ `*[_type == "divisionContract" && _id == $contractId][0]{
+      _id,
+      "divisionName": coalesce(division->fullName, division->name, "Division"),
+      objectives[] {
+        _key,
+        code,
+        title,
+        order,
+        initiatives[] {
+          _key,
+          code,
+          title,
+          order,
+          ${MEASURABLE_ACTIVITIES_WITH_TASKS_PROJECTION}
+        },
+      },
+    }`,
+    params: { contractId },
+    revalidate: 0,
+  })) as {
+    _id: string
+    divisionName?: string
+    objectives?: SsmartaObjective[]
+  } | null
+  if (!contract) notFound()
+
+  const objective = contract.objectives?.[objectiveIndex]
+  const initiative = objective?.initiatives?.[initiativeIndex] as
+    | ContractInitiative
+    | undefined
+  if (!initiative) notFound()
+
+  const assigneeOptions = await loadCascadeAssigneeOptions({
+    contractType: 'divisionContract',
+    divisionId,
+  })
+
+  return (
+    <InitiativePageContent
+      section={{
+        _id: divisionId,
+        name: contract.divisionName ?? 'Division',
+      }}
+      contractId={contract._id}
+      contractApiResource='division-contracts'
+      objectiveIndex={objectiveIndex}
+      initiativeIndex={initiativeIndex}
+      objectiveCode={objective?.code}
+      objectiveTitle={objective?.title}
+      initiative={initiative}
+      canManage
+      backHref='/assistant-commissioner/contract'
+      initialActivityKey={initialActivityKey}
+      assigneeOptions={assigneeOptions ?? []}
+      assigneeEmptyLabel='No managers in this division yet.'
+    />
+  )
+}

@@ -75,6 +75,10 @@ export const MEASURABLE_ACTIVITIES_WITH_TASKS_PROJECTION = /* groq */ `
     order,
     targetDate,
     status,
+    "assignees": assignees[]->{
+      _id,
+      "fullName": coalesce(fullName, firstName + " " + lastName),
+    },
     "reportingFrequency": coalesce(reportingFrequency, "n/a"),
     evidence,
     tasks[] | {

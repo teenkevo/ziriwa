@@ -11,6 +11,7 @@ import {
   getDivisionIdFromContract,
 } from '@/lib/division-contract-access.server'
 import { client } from '@/sanity/lib/client'
+import { setMeasurableActivityAssignees } from '@/lib/contract-cascade/assign-measurable-activity.server'
 
 /**
  * PATCH /api/division-contracts/[id] - Add objective, initiative, or activity
@@ -44,6 +45,26 @@ export async function PATCH(
       `coalesce(*[_type == "divisionContract" && _id == $id][0].financialYearLabel, "Division contract")`,
       { id },
     )
+
+    if (op === 'setActivityAssignees') {
+      const result = await setMeasurableActivityAssignees({
+        contractId: id,
+        objectiveIndex: payload.objectiveIndex,
+        initiativeIndex: payload.initiativeIndex,
+        activityIndex: payload.activityIndex,
+        assigneeIds: Array.isArray(payload.assigneeIds) ? payload.assigneeIds : [],
+      })
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.status })
+      }
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Division contract',
+        op,
+        divisionId,
+      )
+      return NextResponse.json({ ok: true, warnings: result.warnings })
+    }
 
     if (op === 'updateObjective') {
       const { objectiveIndex, code, title } = payload

@@ -51,6 +51,11 @@ interface DepartmentContractTreeProps {
   departmentContract: LeadershipContract
   /** When set, measurable activity rows navigate to the detailed tasks page. */
   sectionSlug?: string
+  /**
+   * Opens the initiative details page at `{base}/initiative/{contractId}/...`
+   * instead of a section activity URL. Used by the assistant commissioner contract.
+   */
+  activityPageBasePath?: string
   contractsApi?: Extract<
     ContractsApiResource,
     | 'department-contracts'
@@ -84,6 +89,19 @@ function contractTreeShowsTasksOnly(
   return contractsApi === 'officer-contracts'
 }
 
+function cascadedObjectivesWaitingMessage(
+  contractsApi: DepartmentContractTreeProps['contractsApi'],
+): string | undefined {
+  if (contractsApi === 'division-contracts') return undefined
+  if (contractsApi === 'supervisor-contracts') {
+    return 'Waiting for manager to cascade activities.'
+  }
+  if (contractsApi === 'officer-contracts') {
+    return 'Waiting for supervisor to cascade activities.'
+  }
+  return 'Waiting for objectives to be cascaded.'
+}
+
 function taskLabel(task: { task?: string } | string): string {
   if (typeof task === 'string') return task.trim()
   return task.task?.trim() ?? ''
@@ -92,6 +110,7 @@ function taskLabel(task: { task?: string } | string): string {
 function buildDepartmentColumnObjectives(input: {
   contract: LeadershipContract
   sectionSlug: string
+  activityPageBasePath?: string
   canManage: boolean
   showTasksOnly: boolean
   onEditObjective: (objIdx: number) => void
@@ -112,6 +131,7 @@ function buildDepartmentColumnObjectives(input: {
   const {
     contract,
     sectionSlug,
+    activityPageBasePath,
     canManage,
     showTasksOnly,
     onEditObjective,
@@ -193,13 +213,19 @@ function buildDepartmentColumnObjectives(input: {
                   title: act.title,
                   code: leadershipActivityNumber(initNum, act, actOrder),
                   status: act.status,
-                  href: contractInitiativeActivityHref({
-                    sectionSlug,
-                    contractId: contract._id,
-                    objectiveIndex: objIdx,
-                    initiativeIndex: initIdx,
-                    activityKey: act._key,
-                  }),
+                  href: activityPageBasePath
+                    ? `${activityPageBasePath}/initiative/${contract._id}/${objIdx}/${initIdx}${
+                        act._key
+                          ? `?activityKey=${encodeURIComponent(act._key)}`
+                          : ''
+                      }`
+                    : contractInitiativeActivityHref({
+                        sectionSlug,
+                        contractId: contract._id,
+                        objectiveIndex: objIdx,
+                        initiativeIndex: initIdx,
+                        activityKey: act._key,
+                      }),
                   onOpen: sectionSlug
                     ? () => onOpenActivity(objIdx, initIdx, actIdx)
                     : undefined,
@@ -243,6 +269,7 @@ function buildDepartmentColumnObjectives(input: {
 export function DepartmentContractTree({
   departmentContract,
   sectionSlug = '',
+  activityPageBasePath,
   contractsApi = 'department-contracts',
   canManageContract = false,
   addObjectiveSignal = 0,
@@ -253,6 +280,7 @@ export function DepartmentContractTree({
   const showActivityAim = contractTreeShowsActivityAim(contractsApi)
   const showTasksOnlyUnderMeasurable =
     contractTreeShowsTasksOnly(contractsApi)
+  const canCreateObjectives = contractsApi === 'division-contracts'
   const [objectiveDialogOpen, setObjectiveDialogOpen] = React.useState(false)
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
   const [initiativeDialogObjIdx, setInitiativeDialogObjIdx] =
@@ -293,15 +321,18 @@ export function DepartmentContractTree({
   const objectives = departmentContract.objectives ?? []
 
   React.useEffect(() => {
-    if (addObjectiveSignal === 0 || !canManageContract) return
+    if (addObjectiveSignal === 0 || !canManageContract || !canCreateObjectives) {
+      return
+    }
     setObjectiveDialogOpen(true)
-  }, [addObjectiveSignal, canManageContract])
+  }, [addObjectiveSignal, canManageContract, canCreateObjectives])
 
   const columnObjectives = React.useMemo(
     () =>
       buildDepartmentColumnObjectives({
         contract: departmentContract,
         sectionSlug,
+        activityPageBasePath,
         canManage: canManageContract,
         showTasksOnly: showTasksOnlyUnderMeasurable,
         onEditObjective: objIdx => {
@@ -351,6 +382,7 @@ export function DepartmentContractTree({
     [
       departmentContract,
       sectionSlug,
+      activityPageBasePath,
       canManageContract,
       showTasksOnlyUnderMeasurable,
       router,
@@ -668,8 +700,11 @@ export function DepartmentContractTree({
       <ContractColumnBrowser
         objectives={columnObjectives}
         onAddObjective={
-          canManageContract ? () => setObjectiveDialogOpen(true) : undefined
+          canCreateObjectives && canManageContract
+            ? () => setObjectiveDialogOpen(true)
+            : undefined
         }
+        emptyObjectivesMessage={cascadedObjectivesWaitingMessage(contractsApi)}
       />
     </>
   )

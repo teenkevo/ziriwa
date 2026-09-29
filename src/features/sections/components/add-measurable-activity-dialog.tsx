@@ -134,7 +134,7 @@ export function AddMeasurableActivityDialog({
                 disabled={isCreating}
                 required
                 rows={4}
-                className='min-h-[6rem] resize-y'
+                className='min-h-[6rem] max-h-40 resize-y overflow-y-auto'
               />
             </div>
             <div className='space-y-2'>

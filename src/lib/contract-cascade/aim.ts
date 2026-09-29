@@ -1,4 +1,4 @@
-/** Manager KPI AIM is required to cascade (AIM becomes supervisor measurable title). */
+/** Kept for callers that still inspect AIM text. Cascade no longer copies AIM downward. */
 export function managerKpiHasCascadeAim(aim: string | undefined | null): boolean {
   return Boolean(aim?.trim())
 }
@@ -13,20 +13,17 @@ interface ManagerCascadeActivityLike {
   aim?: string | null
 }
 
-/** Project PM measurable activities cascade on title; mainstream manager KPIs need AIM.
- * PMS core / cross-cutting activities cascade on title (no detailed tasks). */
+/** A measurable activity cascades on its title. The next level writes its own activities. */
 export function managerActivityCanCascade(
   activity: ManagerCascadeActivityLike,
 ): boolean {
   if (
     activity.activityType === 'measurable' ||
     activity.activityType === 'core' ||
-    activity.activityType === 'cross-cutting'
+    activity.activityType === 'cross-cutting' ||
+    activity.activityType === 'kpi'
   ) {
     return Boolean(activity.title?.trim())
-  }
-  if (activity.activityType === 'kpi') {
-    return managerKpiHasCascadeAim(activity.aim)
   }
   return false
 }

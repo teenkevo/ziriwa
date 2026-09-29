@@ -14,6 +14,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { format, parseISO } from 'date-fns'
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,7 +26,13 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -53,6 +60,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import type { MeasurableActivity } from '@/sanity/lib/section-contracts/get-section-contract'
 
 const ACTIVITY_TYPES = [
@@ -72,6 +80,96 @@ function typeLabel(value: string | undefined) {
   return ACTIVITY_TYPES.find(t => t.value === value)?.label ?? value ?? '—'
 }
 
+function ActivityAssigneesCell({
+  activity,
+  options,
+  emptyLabel,
+  disabled,
+  onChange,
+}: {
+  activity: MeasurableActivityRow
+  options: CascadeAssigneeOption[]
+  emptyLabel: string
+  disabled: boolean
+  onChange: (assigneeIds: string[]) => void
+}) {
+  const selectedIds = (activity.assignees ?? [])
+    .map(person => person._id)
+    .filter(Boolean)
+  const known = new Map(options.map(person => [person._id, person.fullName]))
+  for (const person of activity.assignees ?? []) {
+    if (person._id && !known.has(person._id)) {
+      known.set(person._id, person.fullName?.trim() || 'Staff')
+    }
+  }
+  const choices = [...known.entries()].map(([id, fullName]) => ({
+    _id: id,
+    fullName,
+  }))
+  const label =
+    selectedIds.length === 0
+      ? 'Assign'
+      : selectedIds
+          .map(id => known.get(id) ?? 'Staff')
+          .join(', ')
+
+  if (disabled) {
+    return (
+      <span className='block max-w-[14rem] text-xs text-muted-foreground'>
+        {selectedIds.length === 0 ? '—' : label}
+      </span>
+    )
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          className='h-9 max-w-[14rem] justify-start truncate text-xs font-normal'
+          onClick={event => event.stopPropagation()}
+        >
+          <span className='truncate'>{label}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align='start'
+        className='w-64 p-2'
+        onClick={event => event.stopPropagation()}
+      >
+        {choices.length === 0 ? (
+          <p className='px-2 py-1.5 text-xs text-muted-foreground'>{emptyLabel}</p>
+        ) : (
+          <div className='flex max-h-56 flex-col gap-1 overflow-y-auto'>
+            {choices.map(person => {
+              const checked = selectedIds.includes(person._id)
+              return (
+                <label
+                  key={person._id}
+                  className='flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={value => {
+                      const next = value
+                        ? [...selectedIds, person._id]
+                        : selectedIds.filter(id => id !== person._id)
+                      onChange([...new Set(next)])
+                    }}
+                  />
+                  <span className='min-w-0 truncate'>{person.fullName}</span>
+                </label>
+              )
+            })}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function statusLabel(value: string | undefined) {
   return (
     ACTIVITY_STATUSES.find(s => s.value === value)?.label ??
@@ -79,9 +177,14 @@ function statusLabel(value: string | undefined) {
   )
 }
 
-export type MeasurableActivityRow = MeasurableActivity & {
-  evidenceCount?: number
+function formatActivityDueDate(value: string | undefined) {
+  if (!value?.trim()) return '—'
+  const parsed = parseISO(value)
+  if (Number.isNaN(parsed.getTime())) return '—'
+  return format(parsed, 'dd MMM yyyy')
 }
+
+export type MeasurableActivityRow = MeasurableActivity
 
 interface MeasurableActivitiesTableProps {
   activities: MeasurableActivityRow[]
@@ -92,6 +195,10 @@ interface MeasurableActivitiesTableProps {
     updates: Partial<Pick<MeasurableActivity, 'title' | 'status' | 'activityType'>>,
   ) => void
   onRemoveActivity: (key: string) => void | Promise<void>
+  /** Staff one level below. Null hides the column (officer contracts). */
+  assigneeOptions?: CascadeAssigneeOption[] | null
+  assigneeEmptyLabel?: string
+  onAssigneesChange?: (key: string, assigneeIds: string[]) => void
   isSaving: boolean
   canManage: boolean
 }
@@ -102,6 +209,9 @@ export function MeasurableActivitiesTable({
   onSelectActivity,
   onUpdateActivity,
   onRemoveActivity,
+  assigneeOptions = null,
+  assigneeEmptyLabel = 'No staff on the level below yet.',
+  onAssigneesChange,
   isSaving,
   canManage,
 }: MeasurableActivitiesTableProps) {
@@ -158,6 +268,26 @@ export function MeasurableActivitiesTable({
         filterFn: (row, id, value) => value.includes(row.getValue(id)),
         accessorFn: row => row.activityType,
       },
+      ...(assigneeOptions
+        ? [
+            {
+              id: 'assignees',
+              header: ({ column }) => (
+                <DataTableColumnHeader column={column} title='Assignees' />
+              ),
+              cell: ({ row }) => (
+                <ActivityAssigneesCell
+                  activity={row.original}
+                  options={assigneeOptions}
+                  emptyLabel={assigneeEmptyLabel}
+                  disabled={isSaving || !canManage}
+                  onChange={ids => onAssigneesChange?.(row.original._key, ids)}
+                />
+              ),
+              enableSorting: false,
+            } satisfies ColumnDef<MeasurableActivityRow>,
+          ]
+        : []),
       {
         accessorKey: 'status',
         header: ({ column }) => (
@@ -190,16 +320,15 @@ export function MeasurableActivitiesTable({
         accessorFn: row => row.status || 'not_started',
       },
       {
-        id: 'evidence',
+        accessorKey: 'targetDate',
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title='Evidence' />
+          <DataTableColumnHeader column={column} title='Due date' />
         ),
         cell: ({ row }) => (
-          <span className='text-xs text-muted-foreground tabular-nums'>
-            {row.original.evidenceCount ?? row.original.evidence?.length ?? 0}
+          <span className='whitespace-nowrap text-xs text-muted-foreground'>
+            {formatActivityDueDate(row.original.targetDate)}
           </span>
         ),
-        enableSorting: false,
       },
       ...(canManage
         ? [
@@ -224,7 +353,14 @@ export function MeasurableActivitiesTable({
           ]
         : []),
     ],
-    [canManage, isSaving, onUpdateActivity],
+    [
+      assigneeEmptyLabel,
+      assigneeOptions,
+      canManage,
+      isSaving,
+      onAssigneesChange,
+      onUpdateActivity,
+    ],
   )
 
   const table = useReactTable({

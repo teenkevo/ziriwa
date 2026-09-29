@@ -33,6 +33,7 @@ import {
   normalizeEvidenceDrafts,
   type EvidenceDraft,
 } from '@/features/sections/components/measurable-activity-details-panel'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import type {
   ContractInitiative,
   MeasurableActivity,
@@ -56,6 +57,9 @@ interface InitiativePageContentProps {
   canManage: boolean
   backHref: string
   initialActivityKey?: string
+  /** Null hides assignees (officer contracts). */
+  assigneeOptions?: CascadeAssigneeOption[] | null
+  assigneeEmptyLabel?: string
 }
 
 export function InitiativePageContent({
@@ -70,19 +74,14 @@ export function InitiativePageContent({
   canManage,
   backHref,
   initialActivityKey,
+  assigneeOptions = null,
+  assigneeEmptyLabel,
 }: InitiativePageContentProps) {
   const router = useRouter()
   const isLg = useIsLg()
   const apiBase = contractsApiBase(contractApiResource)
 
-  const activities = React.useMemo(
-    () =>
-      (initiative.measurableActivities ?? []).map(activity => ({
-        ...activity,
-        evidenceCount: activity.evidence?.length ?? 0,
-      })),
-    [initiative.measurableActivities],
-  )
+  const activities = initiative.measurableActivities ?? []
 
   const [selectedKey, setSelectedKey] = React.useState<string | null>(() => {
     if (!initialActivityKey?.trim()) return null
@@ -146,9 +145,37 @@ export function InitiativePageContent({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
       throw new Error(data.error || 'Request failed')
+    }
+    return data as { warnings?: string[] }
+  }
+
+  async function handleAssigneesChange(key: string, assigneeIds: string[]) {
+    const index = activities.findIndex(activity => activity._key === key)
+    if (index < 0) return
+    setIsSaving(true)
+    try {
+      const data = await patchContract({
+        op: 'setActivityAssignees',
+        payload: {
+          objectiveIndex,
+          initiativeIndex,
+          activityIndex: index,
+          assigneeIds,
+        },
+      })
+      if (data.warnings?.length) {
+        toast.warning(data.warnings.join(' '))
+      } else {
+        toast.success('Assignees updated')
+      }
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update assignees')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -383,6 +410,18 @@ export function InitiativePageContent({
         </div>
 
         <div>
+          {(objectiveCode || objectiveTitle) && (
+            <p className='mb-2 text-sm text-muted-foreground'>
+              {[
+                objectiveCode
+                  ? `SSMARTA objective ${objectiveCode}`
+                  : 'SSMARTA objective',
+                objectiveTitle,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
           <div className='max-w-prose'>
             {isEditingTitle ? (
               <div className='space-y-2'>
@@ -440,18 +479,6 @@ export function InitiativePageContent({
               </h1>
             )}
           </div>
-          {(objectiveCode || objectiveTitle) && (
-            <p className='mt-2 text-sm text-muted-foreground'>
-              {[
-                objectiveCode
-                  ? `SSMARTA objective ${objectiveCode}`
-                  : 'SSMARTA objective',
-                objectiveTitle,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          )}
 
           <div className='mt-10 space-y-4 flex-1 min-w-0'>
             <div className='flex items-center justify-between gap-3'>
@@ -474,6 +501,9 @@ export function InitiativePageContent({
               onSelectActivity={setSelectedKey}
               onUpdateActivity={handleUpdateActivity}
               onRemoveActivity={handleRemoveActivity}
+              assigneeOptions={assigneeOptions}
+              assigneeEmptyLabel={assigneeEmptyLabel}
+              onAssigneesChange={handleAssigneesChange}
               isSaving={isSaving}
               canManage={canManage}
             />

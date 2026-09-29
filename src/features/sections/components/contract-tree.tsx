@@ -222,9 +222,9 @@ export function ContractTree({
   const pmsMode = isPmsAlignment(sectionContract.contractAlignment)
 
   React.useEffect(() => {
-    if (addObjectiveSignal === 0 || !canManageContract) return
-    setObjectiveDialogOpen(true)
-  }, [addObjectiveSignal, canManageContract])
+    if (addObjectiveSignal === 0) return
+    onAddObjectiveRequestConsumed?.()
+  }, [addObjectiveSignal, onAddObjectiveRequestConsumed])
 
   const columnObjectives = React.useMemo(
     () =>
@@ -584,9 +584,7 @@ export function ContractTree({
       ) : null}
       <ContractColumnBrowser
         objectives={columnObjectives}
-        onAddObjective={
-          canManageContract ? () => setObjectiveDialogOpen(true) : undefined
-        }
+        emptyObjectivesMessage='Waiting for the Assistant Commissioner to cascade activities.'
       />
     </>
   )

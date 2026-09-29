@@ -116,6 +116,7 @@ export function AssistantCommissionerContractContent({
                 departmentContract={divisionContract}
                 contractsApi='division-contracts'
                 canManageContract={canManageContract}
+                activityPageBasePath='/assistant-commissioner/contract'
               />
             ) : (
               <div className='space-y-4'>
