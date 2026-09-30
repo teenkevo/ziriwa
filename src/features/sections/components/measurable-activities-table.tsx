@@ -35,14 +35,10 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { ActivityAssigneesPicker } from '@/features/sections/components/activity-assignees-picker'
+import { resolveAssigneeNames } from '@/lib/contract-cascade/assignee-names'
 import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   Table,
   TableBody,
@@ -132,80 +128,24 @@ function ActivityAssigneesCell({
   disabled: boolean
   onChange: (assigneeIds: string[]) => void
 }) {
-  const selectedIds = (activity.assignees ?? [])
-    .map(person => person._id)
-    .filter(Boolean)
-  const known = new Map(options.map(person => [person._id, person.fullName]))
-  for (const person of activity.assignees ?? []) {
-    if (person._id && !known.has(person._id)) {
-      known.set(person._id, person.fullName?.trim() || 'Staff')
-    }
-  }
-  const choices = [...known.entries()].map(([id, fullName]) => ({
-    _id: id,
-    fullName,
-  }))
-  const label =
-    selectedIds.length === 0
-      ? unassignedLabel
-      : selectedIds
-          .map(id => known.get(id) ?? 'Staff')
-          .join(', ')
-
   if (disabled) {
+    const names = resolveAssigneeNames(activity.assignees, options)
     return (
       <span className='block max-w-[14rem] text-xs text-muted-foreground'>
-        {label}
+        {names.length === 0 ? unassignedLabel : names.join(', ')}
       </span>
     )
   }
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          className='h-9 max-w-[14rem] justify-start truncate text-xs font-normal'
-          onClick={event => event.stopPropagation()}
-        >
-          <span className='truncate'>{label}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align='start'
-        className='w-64 p-2'
-        onClick={event => event.stopPropagation()}
-      >
-        {choices.length === 0 ? (
-          <p className='px-2 py-1.5 text-xs text-muted-foreground'>{emptyLabel}</p>
-        ) : (
-          <div className='flex max-h-56 flex-col gap-1 overflow-y-auto'>
-            {choices.map(person => {
-              const checked = selectedIds.includes(person._id)
-              return (
-                <label
-                  key={person._id}
-                  className='flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
-                >
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={value => {
-                      const next = value
-                        ? [...selectedIds, person._id]
-                        : selectedIds.filter(id => id !== person._id)
-                      onChange([...new Set(next)])
-                    }}
-                  />
-                  <span className='min-w-0 truncate'>{person.fullName}</span>
-                </label>
-              )
-            })}
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
+    <ActivityAssigneesPicker
+      assignees={activity.assignees}
+      options={options}
+      emptyLabel={emptyLabel}
+      unassignedLabel={unassignedLabel}
+      triggerClassName='max-w-[14rem]'
+      onChange={onChange}
+    />
   )
 }
 

@@ -22,6 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ActivityAssigneesPicker } from '@/features/sections/components/activity-assignees-picker'
+import { resolveAssigneeNames } from '@/lib/contract-cascade/assignee-names'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { cn } from '@/lib/utils'
 import type {
   MeasurableActivity,
@@ -89,6 +92,13 @@ interface MeasurableActivityDetailsPanelProps {
   isSaving: boolean
   /** Non-ITIL 4 contracts keep detailed-task settings on the measurable activity. */
   showTaskSettings?: boolean
+  /** Staff one level below, selectable as assignees. Null hides the section. */
+  assigneeOptions?: CascadeAssigneeOption[] | null
+  /** Shown inside the picker when nobody can be assigned yet. */
+  assigneeEmptyLabel?: string
+  /** Shown while nothing is assigned. Names the role one level below. */
+  unassignedLabel?: string
+  onAssigneesChange?: (assigneeIds: string[]) => void
   title: string
   status: string
   evidenceDrafts: EvidenceDraft[]
@@ -103,6 +113,10 @@ export function MeasurableActivityDetailsPanel({
   canManage,
   isSaving,
   showTaskSettings = false,
+  assigneeOptions = null,
+  assigneeEmptyLabel = 'No staff on the level below yet.',
+  unassignedLabel = 'Assign',
+  onAssigneesChange,
   title,
   status,
   evidenceDrafts,
@@ -278,6 +292,11 @@ export function MeasurableActivityDetailsPanel({
     (evidenceBaselineRef.current !== null &&
       evidenceBaselineRef.current !== evidenceDrafts)
 
+  const assigneeNames = resolveAssigneeNames(
+    activity?.assignees,
+    assigneeOptions ?? [],
+  )
+
   if (!activity) {
     return (
       <aside className='w-full lg:w-[24rem] shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
@@ -375,6 +394,40 @@ export function MeasurableActivityDetailsPanel({
                 : activity.activityType}
           </p>
         </div>
+
+        {assigneeOptions ? (
+          <div className='space-y-2'>
+            <Label className='text-xs text-muted-foreground'>Assignees</Label>
+            {activity.activityType === 'cross-cutting' ? (
+              <p className='text-sm text-muted-foreground'>
+                Owned at this level
+              </p>
+            ) : canManage && onAssigneesChange ? (
+              <ActivityAssigneesPicker
+                assignees={activity.assignees}
+                options={assigneeOptions}
+                emptyLabel={assigneeEmptyLabel}
+                unassignedLabel={unassignedLabel}
+                triggerClassName='w-full'
+                disabled={isSaving}
+                onChange={onAssigneesChange}
+              />
+            ) : assigneeNames.length === 0 ? (
+              <p className='text-sm text-muted-foreground'>Not assigned yet</p>
+            ) : (
+              <div className='flex flex-wrap gap-1.5'>
+                {assigneeNames.map((name, index) => (
+                  <span
+                    key={`${name}-${index}`}
+                    className='inline-flex max-w-full items-center rounded-md bg-muted px-2 py-0.5 text-xs text-foreground'
+                  >
+                    <span className='truncate'>{name}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <div className='space-y-2'>
           <Label className='text-xs text-muted-foreground'>Status</Label>

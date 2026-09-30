@@ -351,6 +351,14 @@ export function InitiativePageContent({
       canManage={canManage && !isCascadedItem(selected)}
       isSaving={isSaving}
       showTaskSettings={showTaskSettings}
+      assigneeOptions={assigneeOptions}
+      assigneeEmptyLabel={assigneeEmptyLabel}
+      unassignedLabel={unassignedLabel}
+      onAssigneesChange={
+        selected
+          ? ids => void handleAssigneesChange(selected._key, ids)
+          : undefined
+      }
       title={panelTitle}
       status={panelStatus}
       evidenceDrafts={evidenceDrafts}
