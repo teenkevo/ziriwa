@@ -42,6 +42,7 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
+import { LeaveSidebarLink } from '@/components/leave-sidebar-link'
 import { ProjectAdminSidebarNav } from '@/components/project-admin-sidebar-nav'
 import { SectionLeadershipSidebarNav } from '@/components/section-leadership-sidebar-nav'
 import { SidebarContractGatedItem } from '@/components/sidebar-contract-gated-item'
@@ -284,6 +285,7 @@ export function AppSidebarNav({
                 <Handshake />
                 <span>Engagements</span>
               </SidebarContractGatedItem>
+              <LeaveSidebarLink pathname={pathname} />
               <SidebarContractGatedItem
                 unlocked={contractUnlocked}
                 href={`${officerBasePath}/board-actions`}
@@ -530,6 +532,7 @@ export function AppSidebarNav({
                 <Handshake />
                 <span>Engagements</span>
               </SidebarContractGatedItem>
+              <LeaveSidebarLink pathname={pathname} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -657,6 +660,7 @@ export function AppSidebarNav({
                 <Handshake />
                 <span>Engagements</span>
               </SidebarContractGatedItem>
+              <LeaveSidebarLink pathname={pathname} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -718,6 +722,13 @@ export function AppSidebarNav({
 
   return (
     <SidebarContent>
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <LeaveSidebarLink pathname={pathname} />
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
       <SidebarGroup>
         <SidebarGroupLabel>Departments</SidebarGroupLabel>
         <SidebarGroupContent>

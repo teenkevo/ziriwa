@@ -27,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { LeaveSidebarLink } from '@/components/leave-sidebar-link'
 import { SidebarContractGatedItem } from '@/components/sidebar-contract-gated-item'
 import { SprintTabSidebarLink } from '@/components/sprint-tab-sidebar-link'
 import { buildSprintTabHref } from '@/lib/sprint-tab-href'
@@ -133,6 +134,7 @@ export function SectionLeadershipSidebarNav({
               <Handshake />
               <span>Engagements</span>
             </SidebarContractGatedItem>
+            <LeaveSidebarLink pathname={pathname} />
             <SidebarContractGatedItem
               unlocked={contractUnlocked}
               href={`${basePath}/board-actions`}

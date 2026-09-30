@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { FolderKanban, Settings2, Users } from 'lucide-react'
 
+import { LeaveSidebarLink } from '@/components/leave-sidebar-link'
+
 import {
   SidebarContent,
   SidebarGroup,
@@ -55,6 +57,7 @@ export function ProjectAdminSidebarNav({
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            <LeaveSidebarLink pathname={pathname} />
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild

@@ -40,6 +40,7 @@ import {
   auditLogEntry,
   boardAction,
   auditQuery,
+  leavePlan,
 } from './platform'
 import {
   assessment,
@@ -52,10 +53,11 @@ import {
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
     // Platform
-    auditLogEntry,
-    auditLogBatch,
-    boardAction,
-    auditQuery,
+  auditLogEntry,
+  auditLogBatch,
+  boardAction,
+  auditQuery,
+  leavePlan,
     // Org structure
     department,
     division,
