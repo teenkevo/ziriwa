@@ -850,11 +850,15 @@ function OwnLeaveList({
   )
 }
 
+const ENTITLEMENT_GREEN = 'hsl(142 76% 45%)'
+const ENTITLEMENT_ORANGE = 'hsl(24 95% 53%)'
+const ENTITLEMENT_RED = 'hsl(var(--destructive))'
+
 function unplannedEntitlementColor(entitlement: LeaveEntitlement): string {
   const { allowance, remaining } = entitlement
-  if (allowance <= 0 || remaining <= 0) return 'hsl(142 76% 45%)'
-  if (remaining / allowance > 0.75) return 'hsl(var(--destructive))'
-  return 'hsl(24 95% 53%)'
+  if (allowance <= 0 || remaining <= 0) return ENTITLEMENT_GREEN
+  if (remaining / allowance > 0.75) return ENTITLEMENT_RED
+  return ENTITLEMENT_ORANGE
 }
 
 function PlannedLeaveEmpty({
@@ -862,38 +866,44 @@ function PlannedLeaveEmpty({
 }: {
   entitlement: LeaveEntitlement | null
 }) {
-  const remaining = entitlement?.remaining ?? null
-  const allowance = entitlement?.allowance ?? 0
-  const leftShare =
-    allowance > 0 && remaining != null ? Math.min(remaining / allowance, 1) : 0
+  if (!entitlement) {
+    return (
+      <div className='mt-4'>
+        <p className='text-sm text-muted-foreground'>No planned leave yet.</p>
+      </div>
+    )
+  }
+
+  const { remaining, allowance, label } = entitlement
+  const color = unplannedEntitlementColor(entitlement)
+  const unplannedShare = allowance > 0 ? Math.min(Math.max(remaining / allowance, 0), 1) : 0
 
   return (
     <div className='mt-4 space-y-4'>
       <p className='text-sm text-muted-foreground'>No planned leave yet.</p>
-      {remaining == null ? null : (
-        <div className='rounded-2xl border border-border/80 bg-gradient-to-b from-muted/50 via-background to-background px-4 py-6 text-center'>
-          <p className='text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground'>
-            Remaining entitlement
-          </p>
-          <p className='mt-3 text-6xl font-semibold tabular-nums leading-none tracking-tight'>
-            {remaining}
-          </p>
-          <p className='mt-3 text-sm text-muted-foreground'>
-            of {allowance} working days
-          </p>
+      <div className='rounded-2xl border border-border/80 bg-gradient-to-b from-muted/50 via-background to-background px-4 py-6 text-center'>
+        <p className='text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground'>
+          Remaining entitlement
+        </p>
+        <p
+          className='mt-3 text-6xl font-semibold tabular-nums leading-none tracking-tight'
+          style={{ color }}
+        >
+          {remaining}
+        </p>
+        <p className='mt-3 text-sm text-muted-foreground'>of {allowance} working days</p>
+        <div
+          className='mx-auto mt-4 h-1.5 w-full max-w-[12rem] overflow-hidden rounded-full bg-muted'
+          role='img'
+          aria-label={`${remaining} of ${allowance} working days left`}
+        >
           <div
-            className='mx-auto mt-4 h-1.5 w-full max-w-[12rem] overflow-hidden rounded-full bg-muted'
-            role='img'
-            aria-label={`${remaining} of ${allowance} working days left`}
-          >
-            <div
-              className='h-full rounded-full bg-foreground/80'
-              style={{ width: `${leftShare * 100}%` }}
-            />
-          </div>
-          <p className='mt-3 text-[11px] text-muted-foreground'>{entitlement?.label}</p>
+            className='h-full rounded-full bg-foreground/80'
+            style={{ width: `${unplannedShare * 100}%` }}
+          />
         </div>
-      )}
+        <p className='mt-3 text-[11px] text-muted-foreground'>{label}</p>
+      </div>
     </div>
   )
 }

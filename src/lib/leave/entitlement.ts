@@ -134,17 +134,9 @@ export function annualLeaveDraftNote(
   kind: string,
 ): string | null {
   if (kind !== 'annual') return null
-  const years = financialYearsTouched(startDate, endDate)
-  if (years.length === 0) return null
-  const counts = years.map(fy => workingDaysInYear(startDate, endDate, fy))
-  if (counts.every(count => count === 0)) {
-    return 'Weekends are not counted, so this uses no annual leave.'
-  }
-  const parts = years.map((fy, index) => {
-    const days = counts[index] ?? 0
-    return `${days} working ${days === 1 ? 'day' : 'days'} in ${fy.label}`
-  })
-  return `${parts.join(' · ')}. Weekends are not counted.`
+  if (!isDateKey(startDate) || !isDateKey(endDate) || endDate < startDate) return null
+  const days = countWorkingDays(startDate, endDate)
+  return `${days} working ${days === 1 ? 'day' : 'days'}`
 }
 
 export function annualEntitlementError(input: {
