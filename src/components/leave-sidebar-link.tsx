@@ -13,10 +13,10 @@ export function LeaveSidebarLink({ pathname }: { pathname: string }) {
 
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive} tooltip='Leave'>
+      <SidebarMenuButton asChild isActive={isActive} tooltip='Leave Management'>
         <Link href='/leave'>
           <CalendarDays />
-          <span>Leave</span>
+          <span>Leave Management</span>
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>

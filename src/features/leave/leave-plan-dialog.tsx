@@ -27,6 +27,8 @@ import {
   outsideFinancialYearMessage,
   OWN_LEAVE_TAKEN_MESSAGE,
   parseDateKey,
+  RELIEF_ON_LEAVE_MESSAGE,
+  staffIdsOnLeave,
   type LeaveKind,
   toDateKey,
   validateLeaveRange,
@@ -36,7 +38,7 @@ import {
   annualLeaveDraftNote,
   type LeaveEntitlement,
 } from '@/lib/leave/entitlement'
-import type { LeaveReliefOption } from '@/lib/leave/types'
+import type { LeavePlan, LeaveReliefOption } from '@/lib/leave/types'
 
 const ROLE_LABELS: Record<string, string> = {
   commissioner_general: 'Commissioner General',
@@ -61,6 +63,7 @@ interface LeavePlanDialogProps {
   initial: LeavePlanDraft
   reliefOptions: LeaveReliefOption[]
   reliefHint: string
+  teamPlans: LeavePlan[]
   entitlements: LeaveEntitlement[]
   editingAnnual?: { startDate: string; endDate: string; kind: string } | null
   blockedDates?: string[]
@@ -80,6 +83,7 @@ export function LeavePlanDialog({
   initial,
   reliefOptions,
   reliefHint,
+  teamPlans,
   entitlements,
   editingAnnual = null,
   blockedDates = [],
@@ -100,6 +104,14 @@ export function LeavePlanDialog({
     !rangeError &&
     !yearError &&
     blockedDates.some(date => date >= draft.startDate && date <= draft.endDate)
+  const reliefOnLeaveIds = staffIdsOnLeave(
+    teamPlans,
+    draft.startDate,
+    draft.endDate,
+  )
+  const reliefOnLeave = Boolean(
+    draft.reliefStaffId && reliefOnLeaveIds.has(draft.reliefStaffId),
+  )
   const reliefMissing = !draft.reliefStaffId
   const entitlementError = annualLeaveDraftError({
     startDate: draft.startDate,
@@ -117,6 +129,7 @@ export function LeavePlanDialog({
     rangeError ??
     yearError ??
     (taken ? OWN_LEAVE_TAKEN_MESSAGE : null) ??
+    (reliefOnLeave ? RELIEF_ON_LEAVE_MESSAGE : null) ??
     entitlementError
 
   React.useEffect(() => {
@@ -180,11 +193,14 @@ export function LeavePlanDialog({
                 <SelectValue placeholder='Select relief person' />
               </SelectTrigger>
               <SelectContent>
-                {reliefOptions.map(option => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {reliefLabel(option)}
-                  </SelectItem>
-                ))}
+                {reliefOptions.map(option => {
+                  const onLeave = reliefOnLeaveIds.has(option.id)
+                  return (
+                    <SelectItem key={option.id} value={option.id} disabled={onLeave}>
+                      {onLeave ? `${reliefLabel(option)} · On leave` : reliefLabel(option)}
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
             <p className='text-xs text-muted-foreground'>

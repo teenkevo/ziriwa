@@ -84,6 +84,8 @@ export async function POST(request: NextRequest) {
     const reliefError = await reliefStaffError({
       staffId,
       reliefStaffId: body.data.reliefStaffId,
+      startDate: body.data.startDate,
+      endDate: body.data.endDate,
     })
     if (reliefError) {
       return NextResponse.json({ error: reliefError }, { status: 400 })

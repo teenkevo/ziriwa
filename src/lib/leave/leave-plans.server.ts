@@ -1,7 +1,11 @@
 import 'server-only'
 
-import type { LeaveKind, LeaveStatus } from '@/lib/leave/dates'
-import { isDateKey } from '@/lib/leave/dates'
+import {
+  isDateKey,
+  RELIEF_ON_LEAVE_MESSAGE,
+  type LeaveKind,
+  type LeaveStatus,
+} from '@/lib/leave/dates'
 import {
   annualEntitlementError,
   annualLeaveAllowance,
@@ -359,11 +363,19 @@ export async function listReliefStaffOptions(staffId: string | null): Promise<{
 export async function reliefStaffError(input: {
   staffId: string
   reliefStaffId: string
+  startDate: string
+  endDate: string
 }): Promise<string | null> {
   const { options } = await listReliefStaffOptions(input.staffId)
   if (!options.some(option => option.id === input.reliefStaffId)) {
     return 'Choose a relief person from your reporting line.'
   }
+  const onLeave = await staffLeaveOverlaps({
+    staffId: input.reliefStaffId,
+    startDate: input.startDate,
+    endDate: input.endDate,
+  })
+  if (onLeave) return RELIEF_ON_LEAVE_MESSAGE
   return null
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { addMonths, endOfMonth, format, startOfMonth } from 'date-fns'
+import { addMonths, format, startOfMonth } from 'date-fns'
 import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -16,18 +16,23 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
 import { LeaveMonthCalendar } from '@/features/leave/leave-month-calendar'
+import { LeaveYearCalendar } from '@/features/leave/leave-year-calendar'
 import {
   LeavePlanDialog,
   type LeavePlanDraft,
 } from '@/features/leave/leave-plan-dialog'
 import { cn } from '@/lib/utils'
-import {
-  getCurrentFinancialYear,
-  getFinancialYearForDate,
-} from '@/lib/financial-year'
+import { getCurrentFinancialYear } from '@/lib/financial-year'
 import { countWorkingDays, type LeaveEntitlement } from '@/lib/leave/entitlement'
 import {
   datesCoveredByPlans,
@@ -37,13 +42,14 @@ import {
   parseDateKey,
   rangeHitsPlans,
   rangesOverlap,
+  staffIdsOnLeave,
   toDateKey,
   visibleMonthBounds,
   type LeaveKind,
 } from '@/lib/leave/dates'
 import type { LeavePlan, LeaveReliefOption } from '@/lib/leave/types'
 
-type StatusFilter = 'all' | 'planned' | 'confirmed'
+type CalendarView = 'month' | 'year'
 
 interface LeavePageContentProps {
   viewerStaffId: string | null
@@ -53,7 +59,6 @@ interface LeavePageContentProps {
   reliefOptions: LeaveReliefOption[]
   reliefHint: string
   initialEntitlements: LeaveEntitlement[]
-  reporteeIds: string[]
   initialOwnPlans: LeavePlan[]
 }
 
@@ -90,10 +95,9 @@ export function LeavePageContent({
   reliefOptions,
   reliefHint,
   initialEntitlements,
-  reporteeIds,
   initialOwnPlans,
 }: LeavePageContentProps) {
-  useRegisterPageBreadcrumbs([{ label: 'Leave' }])
+  useRegisterPageBreadcrumbs([{ label: 'Leave Management' }])
   const financialYear = React.useMemo(() => getCurrentFinancialYear(), [])
   const firstMonth = startOfMonth(parseDateKey(financialYear.startDate))
   const lastMonth = startOfMonth(parseDateKey(financialYear.endDate))
@@ -101,7 +105,7 @@ export function LeavePageContent({
   const [plans, setPlans] = React.useState(initialPlans)
   const [ownPlans, setOwnPlans] = React.useState(initialOwnPlans)
   const [entitlements, setEntitlements] = React.useState(initialEntitlements)
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all')
+  const [calendarView, setCalendarView] = React.useState<CalendarView>('month')
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
@@ -112,20 +116,16 @@ export function LeavePageContent({
     | null
   >(null)
 
-  const monthKey = toDateKey(month)
-  const loadedKey = React.useRef(monthKey)
+  const loadedKey = React.useRef('')
   const requestId = React.useRef(0)
 
-  const loadMonth = React.useCallback(async (nextMonth: Date) => {
+  const loadBounds = React.useCallback(async (from: string, to: string) => {
     if (!viewerStaffId) return
-    const bounds = visibleMonthBounds(nextMonth)
     const request = requestId.current + 1
     requestId.current = request
     setIsLoading(true)
     try {
-      const response = await fetch(
-        `/api/leave-plans?from=${bounds.from}&to=${bounds.to}`,
-      )
+      const response = await fetch(`/api/leave-plans?from=${from}&to=${to}`)
       if (!response.ok) {
         throw new Error(await readError(response, 'Failed to load leave'))
       }
@@ -145,38 +145,30 @@ export function LeavePageContent({
   }, [viewerStaffId])
 
   React.useEffect(() => {
-    if (loadedKey.current === monthKey) return
-    loadedKey.current = monthKey
-    void loadMonth(month)
-  }, [loadMonth, month, monthKey])
+    const key = `year:${financialYear.label}`
+    if (loadedKey.current === key) return
+    loadedKey.current = key
+    void loadBounds(financialYear.startDate, financialYear.endDate)
+  }, [
+    financialYear.endDate,
+    financialYear.label,
+    financialYear.startDate,
+    loadBounds,
+  ])
 
   const bounds = visibleMonthBounds(month)
   const monthPlans = plans.filter(plan =>
     rangesOverlap(plan.startDate, plan.endDate, bounds.from, bounds.to),
   )
-  const visiblePlans = monthPlans.filter(plan => {
-    if (statusFilter !== 'all' && plan.status !== statusFilter) return false
-    return true
-  })
+  const visiblePlans = calendarView === 'year' ? plans : monthPlans
   const selected =
     plans.find(plan => plan.id === selectedId) ??
     ownPlans.find(plan => plan.id === selectedId) ??
     null
-  const monthEntitlement = entitlements.find(
-    item => item.label === getFinancialYearForDate(month).label,
-  )
-  const reporteeIdSet = React.useMemo(() => new Set(reporteeIds), [reporteeIds])
-  const monthStart = toDateKey(startOfMonth(month))
-  const monthEnd = toDateKey(endOfMonth(month))
-  const reporteePlans = plans.filter(
-    plan =>
-      reporteeIdSet.has(plan.staffId) &&
-      rangesOverlap(plan.startDate, plan.endDate, monthStart, monthEnd),
-  )
-  const plannedCount = reporteePlans.filter(plan => plan.status === 'planned').length
-  const confirmedCount = reporteePlans.filter(plan => plan.status === 'confirmed').length
   const plannedOwn = ownPlans.filter(plan => plan.status === 'planned')
   const confirmedOwn = ownPlans.filter(plan => plan.status === 'confirmed')
+  const currentEntitlement =
+    entitlements.find(item => item.label === financialYear.label) ?? null
 
   function replaceOwnPlan(plan: LeavePlan) {
     setOwnPlans(current => {
@@ -185,6 +177,12 @@ export function LeavePageContent({
         : [...current, plan]
       return next.sort((left, right) => left.startDate.localeCompare(right.startDate))
     })
+  }
+
+  function openMonth(nextMonth: Date, planId?: string) {
+    setCalendarView('month')
+    setMonth(startOfMonth(nextMonth))
+    if (planId) setSelectedId(planId)
   }
 
   function selectOwnPlan(plan: LeavePlan) {
@@ -318,6 +316,36 @@ export function LeavePageContent({
     }
   }
 
+  async function setRelief(planId: string, reliefStaffId: string) {
+    setIsSaving(true)
+    try {
+      const response = await fetch(`/api/leave-plans/${planId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reliefStaffId }),
+      })
+      if (!response.ok) {
+        throw new Error(await readError(response, 'Failed to set the relief person'))
+      }
+      const data = (await response.json()) as {
+        plan: LeavePlan
+        entitlements?: LeaveEntitlement[]
+      }
+      setPlans(current =>
+        current.map(plan => (plan.id === data.plan.id ? data.plan : plan)),
+      )
+      replaceOwnPlan(data.plan)
+      setEntitlements(current => mergeEntitlements(current, data.entitlements))
+      toast.success('Relief person set')
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to set the relief person',
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   async function setStatus(planId: string, status: 'planned' | 'confirmed') {
     setIsSaving(true)
     try {
@@ -395,7 +423,7 @@ export function LeavePageContent({
     <div className='flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
       <div className='mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between'>
         <div className='space-y-1'>
-          <h1 className='text-2xl font-bold'>Leave</h1>
+          <h1 className='text-2xl font-bold'>Leave Management</h1>
           <p className='max-w-2xl text-sm text-muted-foreground'>
             Manage your leave
           </p>
@@ -417,79 +445,79 @@ export function LeavePageContent({
         </p>
       ) : null}
 
-      <div className='mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between'>
-        <div className='flex flex-wrap items-center gap-2'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={() => setMonth(startOfMonth(new Date()))}
-          >
-            Today
-          </Button>
-          <div className='flex items-center gap-1'>
-            <Button
-              type='button'
-              variant='outline'
-              size='icon'
-              className='h-8 w-8'
-              aria-label='Previous month'
-              disabled={startOfMonth(month) <= firstMonth}
-              onClick={() =>
-                setMonth(current => {
-                  const next = addMonths(current, -1)
-                  return next < firstMonth ? firstMonth : next
-                })
-              }
-            >
-              <ChevronLeft className='h-4 w-4' />
-            </Button>
-            <p className='min-w-40 text-center text-sm font-semibold'>
-              {format(month, 'MMMM yyyy')}
-            </p>
-            <Button
-              type='button'
-              variant='outline'
-              size='icon'
-              className='h-8 w-8'
-              aria-label='Next month'
-              disabled={startOfMonth(month) >= lastMonth}
-              onClick={() =>
-                setMonth(current => {
-                  const next = addMonths(current, 1)
-                  return next > lastMonth ? lastMonth : next
-                })
-              }
-            >
-              <ChevronRight className='h-4 w-4' />
-            </Button>
-          </div>
-          <p className='text-xs text-muted-foreground'>
-            {plannedCount} planned · {confirmedCount} confirmed below you
-          </p>
-          {monthEntitlement ? (
-            <p className='text-xs text-muted-foreground'>
-              {monthEntitlement.label}: {monthEntitlement.remaining} of{' '}
-              {monthEntitlement.allowance} working days left
-            </p>
-          ) : null}
-        </div>
-        <div className='flex flex-wrap gap-2'>
-          <FilterGroup
-            value={statusFilter}
-            options={[
-              { value: 'all', label: 'All' },
-              { value: 'planned', label: 'Planned' },
-              { value: 'confirmed', label: 'Confirmed' },
-            ]}
-            onChange={setStatusFilter}
-          />
-        </div>
-      </div>
-
       <div className='grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]'>
         <div className='space-y-2'>
+          <div className='grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2'>
+            <p className='text-xl font-normal leading-none'>
+              {calendarView === 'year' ? financialYear.label : format(month, 'MMMM yyyy')}
+            </p>
+            {calendarView === 'month' ? (
+              <div className='flex items-center gap-1'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='icon'
+                  className='h-8 w-8'
+                  aria-label='Previous month'
+                  disabled={startOfMonth(month) <= firstMonth}
+                  onClick={() =>
+                    setMonth(current => {
+                      const next = addMonths(current, -1)
+                      return next < firstMonth ? firstMonth : next
+                    })
+                  }
+                >
+                  <ChevronLeft className='h-4 w-4' />
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => openMonth(new Date())}
+                >
+                  Today
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='icon'
+                  className='h-8 w-8'
+                  aria-label='Next month'
+                  disabled={startOfMonth(month) >= lastMonth}
+                  onClick={() =>
+                    setMonth(current => {
+                      const next = addMonths(current, 1)
+                      return next > lastMonth ? lastMonth : next
+                    })
+                  }
+                >
+                  <ChevronRight className='h-4 w-4' />
+                </Button>
+              </div>
+            ) : (
+              <div />
+            )}
+            <div className='justify-self-end'>
+              <FilterGroup
+                value={calendarView}
+                options={[
+                  { value: 'month', label: 'Month' },
+                  { value: 'year', label: 'Year' },
+                ]}
+                onChange={setCalendarView}
+              />
+            </div>
+          </div>
           <div className='relative'>
+            {calendarView === 'year' ? (
+              <LeaveYearCalendar
+                financialYear={financialYear}
+                plans={visiblePlans}
+                viewerStaffId={viewerStaffId}
+                selectedId={selectedId}
+                onOpenMonth={openMonth}
+              />
+            ) : (
             <LeaveMonthCalendar
               month={month}
               plans={visiblePlans}
@@ -505,6 +533,7 @@ export function LeavePageContent({
                 void shiftPlan(planId, startDate, endDate)
               }}
             />
+            )}
             {isLoading ? (
               <div
                 className='absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-background/55'
@@ -517,9 +546,9 @@ export function LeavePageContent({
             ) : null}
           </div>
           <p className='text-xs text-muted-foreground'>
-            Drag across open days to plan. Days you already have leave on stay closed
-            for you. Drag a planned bar to move it, or drag either end to change the
-            length. Confirmed leave stays fixed.
+            {calendarView === 'year'
+              ? 'The year runs from July to June. Select a month or a marked day to open it.'
+              : 'Drag across open days to plan. Days you already have leave on stay closed for you. Drag a planned bar to move it, or drag either end to change the length. Confirmed leave stays fixed.'}
           </p>
         </div>
 
@@ -536,12 +565,19 @@ export function LeavePageContent({
                 </TabsTrigger>
               </TabsList>
               <TabsContent value='planned'>
+                {plannedOwn.length === 0 ? (
+                  <PlannedLeaveEmpty entitlement={currentEntitlement} />
+                ) : (
                 <OwnLeaveList
                   plans={plannedOwn}
                   selectedId={selectedId}
                   emptyLabel='No planned leave yet.'
                   isSaving={isSaving}
+                  reliefOptions={reliefOptions}
+                  reliefHint={reliefHint}
+                  teamPlans={plans}
                   onSelect={selectOwnPlan}
+                  onSetRelief={(plan, reliefStaffId) => void setRelief(plan.id, reliefStaffId)}
                   onConfirm={plan => void setStatus(plan.id, 'confirmed')}
                   onEdit={plan =>
                     setEditor({
@@ -561,6 +597,7 @@ export function LeavePageContent({
                     setDeleteOpen(true)
                   }}
                 />
+                )}
               </TabsContent>
               <TabsContent value='confirmed'>
                 <OwnLeaveList
@@ -581,6 +618,7 @@ export function LeavePageContent({
         initial={editorInitial}
         reliefOptions={dialogReliefOptions}
         reliefHint={reliefHint}
+        teamPlans={plans}
         entitlements={entitlements}
         editingAnnual={
           editor?.mode === 'edit'
@@ -629,7 +667,11 @@ function OwnLeaveList({
   selectedId,
   emptyLabel,
   isSaving = false,
+  reliefOptions = [],
+  reliefHint = '',
+  teamPlans = [],
   onSelect,
+  onSetRelief,
   onConfirm,
   onEdit,
   onRemove,
@@ -638,19 +680,28 @@ function OwnLeaveList({
   selectedId: string | null
   emptyLabel: string
   isSaving?: boolean
+  reliefOptions?: LeaveReliefOption[]
+  reliefHint?: string
+  teamPlans?: LeavePlan[]
   onSelect: (plan: LeavePlan) => void
+  onSetRelief?: (plan: LeavePlan, reliefStaffId: string) => void
   onConfirm?: (plan: LeavePlan) => void
   onEdit?: (plan: LeavePlan) => void
   onRemove?: (plan: LeavePlan) => void
 }) {
   if (plans.length === 0) {
-    return <p className='text-sm text-muted-foreground'>{emptyLabel}</p>
+    return <p className='mt-4 text-sm text-muted-foreground'>{emptyLabel}</p>
   }
   return (
     <ul className='max-h-[28rem] space-y-2 overflow-y-auto pr-0.5'>
       {plans.map(plan => {
         const workingDays = countWorkingDays(plan.startDate, plan.endDate)
         const reliefName = plan.reliefStaffName?.trim() || null
+        const canSetRelief = Boolean(onSetRelief) && !reliefName
+        const reliefOnLeaveIds = staffIdsOnLeave(teamPlans, plan.startDate, plan.endDate)
+        const availableRelief = reliefOptions.filter(
+          option => !reliefOnLeaveIds.has(option.id),
+        )
         const selected = selectedId === plan.id
         return (
           <li key={plan.id}>
@@ -680,40 +731,67 @@ function OwnLeaveList({
                     ? 'No working days'
                     : `${workingDays} working ${workingDays === 1 ? 'day' : 'days'}`}
                 </p>
-                <div className='mt-3 flex items-center gap-2'>
-                  <span
-                    className={cn(
-                      'flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold',
-                      reliefName
-                        ? 'bg-primary/15 text-primary'
-                        : 'bg-amber-500/15 text-amber-700 dark:text-amber-200',
-                    )}
-                    aria-hidden
-                  >
-                    {reliefInitials(reliefName)}
-                  </span>
-                  <span className='min-w-0'>
-                    <span className='block text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
-                      Relief
+                {canSetRelief ? null : (
+                  <div className='mt-3 flex items-center gap-2'>
+                    <ReliefAvatar assigned={Boolean(reliefName)} />
+                    <span className='min-w-0'>
+                      <span className='block text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
+                        Relief
+                      </span>
+                      <span
+                        className={cn(
+                          'block truncate text-xs',
+                          reliefName
+                            ? 'font-medium text-foreground'
+                            : 'text-amber-700 dark:text-amber-200',
+                        )}
+                      >
+                        {reliefName ?? 'Not set'}
+                      </span>
                     </span>
-                    <span
-                      className={cn(
-                        'block truncate text-xs',
-                        reliefName
-                          ? 'font-medium text-foreground'
-                          : 'text-amber-700 dark:text-amber-200',
-                      )}
-                    >
-                      {reliefName ?? 'Not set'}
-                    </span>
-                  </span>
-                </div>
+                  </div>
+                )}
                 {plan.note ? (
                   <p className='mt-2 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground'>
                     {plan.note}
                   </p>
                 ) : null}
               </button>
+              {canSetRelief ? (
+                <div className='space-y-1.5 px-3 pb-2.5'>
+                  <span className='block text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
+                    Relief
+                  </span>
+                  <Select
+                    value={plan.reliefStaffId || undefined}
+                    onValueChange={reliefStaffId => onSetRelief?.(plan, reliefStaffId)}
+                    disabled={isSaving || reliefOptions.length === 0}
+                  >
+                    <SelectTrigger className='h-8 text-xs' aria-label='Select relief person'>
+                      <SelectValue placeholder='Select relief person' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {reliefOptions.map(option => {
+                        const onLeave = reliefOnLeaveIds.has(option.id)
+                        return (
+                          <SelectItem key={option.id} value={option.id} disabled={onLeave}>
+                            {onLeave ? `${option.name} · On leave` : option.name}
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {reliefOptions.length === 0 ? (
+                    <p className='text-[11px] text-muted-foreground'>
+                      {reliefHint || 'No one in your reporting line can cover this leave.'}
+                    </p>
+                  ) : availableRelief.length === 0 ? (
+                    <p className='text-[11px] text-muted-foreground'>
+                      Everyone who can cover you is also on leave for these dates.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               {onConfirm && onEdit && onRemove ? (
                 <div className='flex items-center gap-1 border-t border-border/60 px-2 py-1.5'>
                   <Button
@@ -762,14 +840,82 @@ function OwnLeaveList({
   )
 }
 
-function reliefInitials(name: string | null): string {
-  if (!name) return '?'
-  const letters = name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase() ?? '')
-    .join('')
-  return letters || '?'
+function PlannedLeaveEmpty({
+  entitlement,
+}: {
+  entitlement: LeaveEntitlement | null
+}) {
+  const remaining = entitlement?.remaining ?? null
+  const allowance = entitlement?.allowance ?? 0
+  const leftShare =
+    allowance > 0 && remaining != null ? Math.min(remaining / allowance, 1) : 0
+
+  return (
+    <div className='mt-4 space-y-4'>
+      <p className='text-sm text-muted-foreground'>No planned leave yet.</p>
+      {remaining == null ? null : (
+        <div className='rounded-2xl border border-border/80 bg-gradient-to-b from-muted/50 via-background to-background px-4 py-6 text-center'>
+          <p className='text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground'>
+            Remaining entitlement
+          </p>
+          <p className='mt-3 text-6xl font-semibold tabular-nums leading-none tracking-tight'>
+            {remaining}
+          </p>
+          <p className='mt-3 text-sm text-muted-foreground'>
+            of {allowance} working days
+          </p>
+          <div
+            className='mx-auto mt-4 h-1.5 w-full max-w-[12rem] overflow-hidden rounded-full bg-muted'
+            role='img'
+            aria-label={`${remaining} of ${allowance} working days left`}
+          >
+            <div
+              className='h-full rounded-full bg-foreground/80'
+              style={{ width: `${leftShare * 100}%` }}
+            />
+          </div>
+          <p className='mt-3 text-[11px] text-muted-foreground'>{entitlement?.label}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReliefAvatar({ assigned }: { assigned: boolean }) {
+  const gradientId = React.useId().replace(/:/g, '')
+  return (
+    <span
+      className={cn(
+        'relative size-7 shrink-0 overflow-hidden rounded-full',
+        assigned
+          ? 'bg-gradient-to-b from-slate-200 to-white dark:from-white/30 dark:to-white/5'
+          : 'bg-gradient-to-b from-amber-100 to-amber-50 dark:from-amber-100/25 dark:to-amber-100/5',
+        '[--avatar-top:#334155] [--avatar-bottom:#94a3b8]',
+        'dark:[--avatar-top:#ffffff] dark:[--avatar-bottom:#ffffff73]',
+      )}
+      aria-hidden
+    >
+      <svg viewBox='0 0 32 32' className='size-full'>
+        <defs>
+          <linearGradient
+            id={gradientId}
+            x1='16'
+            y1='6'
+            x2='16'
+            y2='32'
+            gradientUnits='userSpaceOnUse'
+          >
+            <stop offset='0%' stopColor='var(--avatar-top)' />
+            <stop offset='100%' stopColor='var(--avatar-bottom)' />
+          </linearGradient>
+        </defs>
+        <g fill={`url(#${gradientId})`}>
+          <circle cx='16' cy='11.5' r='5.2' />
+          <path d='M4.2 26.4C6 21.2 10.2 18.4 16 18.4s10 2.8 11.8 8V34H4.2Z' />
+        </g>
+      </svg>
+    </span>
+  )
 }
 
 function FilterGroup<T extends string>({

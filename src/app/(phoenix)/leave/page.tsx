@@ -8,22 +8,20 @@ import {
   listLeavePlans,
   listOwnLeavePlans,
   listReliefStaffOptions,
-  listReporteeStaffIds,
 } from '@/lib/leave/leave-plans.server'
 
 export default async function LeavePage() {
   const viewer = await getViewerContext()
   const month = startOfMonth(new Date())
   const bounds = visibleMonthBounds(month)
-  const [plans, relief, entitlements, reporteeIds, ownPlans] = viewer.effectiveStaffId
+  const [plans, relief, entitlements, ownPlans] = viewer.effectiveStaffId
     ? await Promise.all([
         listLeavePlans(bounds.from, bounds.to),
         listReliefStaffOptions(viewer.effectiveStaffId),
         listLeaveEntitlements(viewer.effectiveStaffId, bounds.from, bounds.to),
-        listReporteeStaffIds(viewer.effectiveStaffId),
         listOwnLeavePlans(viewer.effectiveStaffId),
       ])
-    : [[], { options: [], hint: '' }, [], [], []]
+    : [[], { options: [], hint: '' }, [], []]
 
   return (
     <LeavePageContent
@@ -34,7 +32,6 @@ export default async function LeavePage() {
       reliefOptions={relief.options}
       reliefHint={relief.hint}
       initialEntitlements={entitlements}
-      reporteeIds={reporteeIds}
       initialOwnPlans={ownPlans}
     />
   )

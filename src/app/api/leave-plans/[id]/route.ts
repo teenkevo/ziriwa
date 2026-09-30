@@ -73,16 +73,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Check the leave details' }, { status: 400 })
     }
 
-    if (body.data.reliefStaffId) {
-      const reliefError = await reliefStaffError({
-        staffId,
-        reliefStaffId: body.data.reliefStaffId,
-      })
-      if (reliefError) {
-        return NextResponse.json({ error: reliefError }, { status: 400 })
-      }
-    }
-
     const nextStatus = body.data.status ?? existing.status
     const nextRelief = body.data.reliefStaffId ?? existing.reliefStaffId
     if (nextStatus === 'confirmed' && !nextRelief) {
@@ -105,6 +95,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     )
     if (yearError) {
       return NextResponse.json({ error: yearError }, { status: 400 })
+    }
+
+    if (nextRelief) {
+      const reliefError = await reliefStaffError({
+        staffId,
+        reliefStaffId: nextRelief,
+        startDate,
+        endDate,
+      })
+      if (reliefError) {
+        return NextResponse.json({ error: reliefError }, { status: 400 })
+      }
     }
 
     const overlaps = await staffLeaveOverlaps({

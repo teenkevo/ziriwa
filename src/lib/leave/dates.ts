@@ -55,6 +55,23 @@ export function rangesOverlap(
   return aStart <= bEnd && bStart <= aEnd
 }
 
+export const RELIEF_ON_LEAVE_MESSAGE =
+  'This person is also on leave for those dates.'
+
+export function staffIdsOnLeave(
+  plans: { staffId: string; startDate: string; endDate: string }[],
+  startDate: string,
+  endDate: string,
+): Set<string> {
+  const ids = new Set<string>()
+  for (const plan of plans) {
+    if (rangesOverlap(plan.startDate, plan.endDate, startDate, endDate)) {
+      ids.add(plan.staffId)
+    }
+  }
+  return ids
+}
+
 export function overlapBounds(
   aStart: string,
   aEnd: string,
