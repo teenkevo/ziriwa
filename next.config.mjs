@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    turbopackUseSystemTlsCerts: true,
+  },
   async redirects() {
     return [
       {
@@ -10,5 +13,6 @@ const nextConfig = {
     ]
   },
 }
+
 
 export default nextConfig
