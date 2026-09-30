@@ -554,7 +554,17 @@ export function LeavePageContent({
 
         <aside className='space-y-4 rounded-xl border border-border/80 bg-gradient-to-br from-muted/30 via-background to-muted/10 p-4'>
           <section className='space-y-3'>
-            <h2 className='text-sm font-semibold'>Your leave</h2>
+            <div className='flex items-baseline justify-between gap-3'>
+              <h2 className='text-sm font-semibold'>Your leave</h2>
+              {plannedOwn.length > 0 && currentEntitlement ? (
+                <p
+                  className='text-right text-xs'
+                  style={{ color: unplannedEntitlementColor(currentEntitlement) }}
+                >
+                  {currentEntitlement.remaining} of {currentEntitlement.allowance} days unplanned
+                </p>
+              ) : null}
+            </div>
             <Tabs defaultValue='planned'>
               <TabsList className='grid h-auto w-full grid-cols-2'>
                 <TabsTrigger value='planned' className='text-xs'>
@@ -838,6 +848,13 @@ function OwnLeaveList({
       })}
     </ul>
   )
+}
+
+function unplannedEntitlementColor(entitlement: LeaveEntitlement): string {
+  const { allowance, remaining } = entitlement
+  if (allowance <= 0 || remaining <= 0) return 'hsl(142 76% 45%)'
+  if (remaining / allowance > 0.75) return 'hsl(var(--destructive))'
+  return 'hsl(24 95% 53%)'
 }
 
 function PlannedLeaveEmpty({
