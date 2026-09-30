@@ -29,6 +29,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Loader2,
   Search,
   Trash2,
   X,
@@ -113,22 +114,33 @@ function typeLabel(value: string | undefined) {
   return ACTIVITY_TYPES.find(t => t.value === value)?.label ?? value ?? '—'
 }
 
+function CellSavingSpinner({ label }: { label: string }) {
+  return (
+    <Loader2
+      className='h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground'
+      aria-label={label}
+    />
+  )
+}
+
 function ActivityAssigneesCell({
   activity,
   options,
   emptyLabel,
   unassignedLabel,
-  disabled,
+  readOnly,
+  saving,
   onChange,
 }: {
   activity: MeasurableActivityRow
   options: CascadeAssigneeOption[]
   emptyLabel: string
   unassignedLabel: string
-  disabled: boolean
+  readOnly: boolean
+  saving: boolean
   onChange: (assigneeIds: string[]) => void
 }) {
-  if (disabled) {
+  if (readOnly) {
     const names = resolveAssigneeNames(activity.assignees, options)
     return (
       <span className='block max-w-[14rem] text-xs text-muted-foreground'>
@@ -138,14 +150,18 @@ function ActivityAssigneesCell({
   }
 
   return (
-    <ActivityAssigneesPicker
-      assignees={activity.assignees}
-      options={options}
-      emptyLabel={emptyLabel}
-      unassignedLabel={unassignedLabel}
-      triggerClassName='max-w-[14rem]'
-      onChange={onChange}
-    />
+    <div className='flex items-center gap-2' aria-busy={saving}>
+      <ActivityAssigneesPicker
+        assignees={activity.assignees}
+        options={options}
+        emptyLabel={emptyLabel}
+        unassignedLabel={unassignedLabel}
+        triggerClassName='max-w-[14rem]'
+        disabled={saving}
+        onChange={onChange}
+      />
+      {saving ? <CellSavingSpinner label='Saving assignees' /> : null}
+    </div>
   )
 }
 
@@ -172,14 +188,17 @@ interface MeasurableActivitiesTableProps {
   onUpdateActivity: (
     key: string,
     updates: Partial<Pick<MeasurableActivity, 'title' | 'status' | 'activityType'>>,
-  ) => void
+  ) => void | Promise<void>
   onRemoveActivity: (key: string) => void | Promise<void>
   /** Staff one level below. Null hides the column (officer contracts). */
   assigneeOptions?: CascadeAssigneeOption[] | null
   assigneeEmptyLabel?: string
   /** Shown on an unassigned core activity. Names the role one level below. */
   unassignedLabel?: string
-  onAssigneesChange?: (key: string, assigneeIds: string[]) => void
+  onAssigneesChange?: (
+    key: string,
+    assigneeIds: string[],
+  ) => void | Promise<void>
   isSaving: boolean
   canManage: boolean
 }
@@ -202,6 +221,47 @@ export function MeasurableActivitiesTable({
     [],
   )
   const [deleteKey, setDeleteKey] = React.useState<string | null>(null)
+  /** Which cell is mid-save, so only that row shows a spinner. */
+  const [pendingEdit, setPendingEdit] = React.useState<{
+    key: string
+    field: 'activityType' | 'status' | 'assignees'
+  } | null>(null)
+
+  const isPending = React.useCallback(
+    (key: string, field: 'activityType' | 'status' | 'assignees') =>
+      pendingEdit?.key === key && pendingEdit.field === field,
+    [pendingEdit],
+  )
+
+  const runUpdate = React.useCallback(
+    async (
+      key: string,
+      field: 'activityType' | 'status',
+      updates: Partial<
+        Pick<MeasurableActivity, 'status' | 'activityType'>
+      >,
+    ) => {
+      setPendingEdit({ key, field })
+      try {
+        await onUpdateActivity(key, updates)
+      } finally {
+        setPendingEdit(null)
+      }
+    },
+    [onUpdateActivity],
+  )
+
+  const runAssigneesUpdate = React.useCallback(
+    async (key: string, assigneeIds: string[]) => {
+      setPendingEdit({ key, field: 'assignees' })
+      try {
+        await onAssigneesChange?.(key, assigneeIds)
+      } finally {
+        setPendingEdit(null)
+      }
+    },
+    [onAssigneesChange],
+  )
 
   const columns = React.useMemo<ColumnDef<MeasurableActivityRow>[]>(
     () => [
@@ -225,36 +285,40 @@ export function MeasurableActivitiesTable({
           const typeLocked =
             (row.original.assignees?.length ?? 0) > 0 &&
             row.original.activityType !== 'cross-cutting'
+          const saving = isPending(row.original._key, 'activityType')
           return (
-          <Select
-            value={row.original.activityType}
-            onValueChange={v =>
-              onUpdateActivity(row.original._key, {
-                activityType: v as MeasurableActivity['activityType'],
-              })
-            }
-            disabled={
-              isSaving ||
-              !canManage ||
-              isCascadedItem(row.original) ||
-              typeLocked
-            }
-          >
-            <SelectTrigger
-              className='h-9 w-[140px] text-xs'
-              onClick={e => e.stopPropagation()}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className='text-xs'>
-              <SelectItem value='core' className='text-xs'>
-                Core
-              </SelectItem>
-              <SelectItem value='cross-cutting' className='text-xs'>
-                Cross-cutting
-              </SelectItem>
-            </SelectContent>
-          </Select>
+            <div className='flex items-center gap-2' aria-busy={saving}>
+              <Select
+                value={row.original.activityType}
+                onValueChange={v =>
+                  void runUpdate(row.original._key, 'activityType', {
+                    activityType: v as MeasurableActivity['activityType'],
+                  })
+                }
+                disabled={
+                  isSaving ||
+                  !canManage ||
+                  isCascadedItem(row.original) ||
+                  typeLocked
+                }
+              >
+                <SelectTrigger
+                  className='h-9 w-[140px] text-xs'
+                  onClick={e => e.stopPropagation()}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className='text-xs'>
+                  <SelectItem value='core' className='text-xs'>
+                    Core
+                  </SelectItem>
+                  <SelectItem value='cross-cutting' className='text-xs'>
+                    Cross-cutting
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {saving ? <CellSavingSpinner label='Saving type' /> : null}
+            </div>
           )
         },
         filterFn: (row, id, value) => value.includes(row.getValue(id)),
@@ -278,11 +342,10 @@ export function MeasurableActivitiesTable({
                     options={assigneeOptions}
                     emptyLabel={assigneeEmptyLabel}
                     unassignedLabel={unassignedLabel}
-                    disabled={
-                      isSaving || !canManage || isCascadedItem(row.original)
-                    }
+                    readOnly={!canManage || isCascadedItem(row.original)}
+                    saving={isPending(row.original._key, 'assignees')}
                     onChange={ids =>
-                      onAssigneesChange?.(row.original._key, ids)
+                      void runAssigneesUpdate(row.original._key, ids)
                     }
                   />
                 ),
@@ -295,29 +358,39 @@ export function MeasurableActivitiesTable({
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title='Status' />
         ),
-        cell: ({ row }) => (
-          <Select
-            value={row.original.status || 'not_started'}
-            onValueChange={v =>
-              onUpdateActivity(row.original._key, { status: v })
-            }
-            disabled={isSaving || !canManage || isCascadedItem(row.original)}
-          >
-            <SelectTrigger
-              className='h-9 w-[130px] text-xs'
-              onClick={e => e.stopPropagation()}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className='text-xs'>
-              {ACTIVITY_STATUSES.map(s => (
-                <SelectItem key={s.value} value={s.value} className='text-xs'>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ),
+        cell: ({ row }) => {
+          const saving = isPending(row.original._key, 'status')
+          return (
+            <div className='flex items-center gap-2' aria-busy={saving}>
+              <Select
+                value={row.original.status || 'not_started'}
+                onValueChange={v =>
+                  void runUpdate(row.original._key, 'status', { status: v })
+                }
+                disabled={isSaving || !canManage || isCascadedItem(row.original)}
+              >
+                <SelectTrigger
+                  className='h-9 w-[130px] text-xs'
+                  onClick={e => e.stopPropagation()}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className='text-xs'>
+                  {ACTIVITY_STATUSES.map(s => (
+                    <SelectItem
+                      key={s.value}
+                      value={s.value}
+                      className='text-xs'
+                    >
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {saving ? <CellSavingSpinner label='Saving status' /> : null}
+            </div>
+          )
+        },
         filterFn: (row, id, value) => value.includes(row.getValue(id)),
         accessorFn: row => row.status || 'not_started',
       },
@@ -372,8 +445,9 @@ export function MeasurableActivitiesTable({
       assigneeOptions,
       canManage,
       isSaving,
-      onAssigneesChange,
-      onUpdateActivity,
+      isPending,
+      runAssigneesUpdate,
+      runUpdate,
     ],
   )
 
