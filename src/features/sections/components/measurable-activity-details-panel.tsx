@@ -44,6 +44,7 @@ type ReportingFrequency = 'weekly' | 'monthly' | 'quarterly' | 'n/a'
 export type MeasurableActivityPanelUpdate = {
   title?: string
   status?: string
+  activityType?: 'core' | 'cross-cutting'
   targetDate?: string
   reportingFrequency?: ReportingFrequency
   priority?: MeasurableActivity['priority']
@@ -386,13 +387,38 @@ export function MeasurableActivityDetailsPanel({
 
         <div className='space-y-2'>
           <Label className='text-xs text-muted-foreground'>Type</Label>
-          <p className='text-sm'>
-            {activity.activityType === 'cross-cutting'
-              ? 'Cross-cutting'
-              : activity.activityType === 'core'
-                ? 'Core'
-                : activity.activityType}
-          </p>
+          <Select
+            value={
+              activity.activityType === 'core' ||
+              activity.activityType === 'cross-cutting'
+                ? activity.activityType
+                : undefined
+            }
+            onValueChange={value => {
+              if (value !== 'core' && value !== 'cross-cutting') return
+              void saveActivity({ activityType: value })
+            }}
+            disabled={
+              !canManage ||
+              isSaving ||
+              ((activity.assignees?.length ?? 0) > 0 &&
+                activity.activityType !== 'cross-cutting')
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder='Select type' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='core'>Core</SelectItem>
+              <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
+            </SelectContent>
+          </Select>
+          {(activity.assignees?.length ?? 0) > 0 &&
+          activity.activityType !== 'cross-cutting' ? (
+            <p className='text-xs text-muted-foreground'>
+              Remove assignees before changing this activity type.
+            </p>
+          ) : null}
         </div>
 
         {assigneeOptions ? (

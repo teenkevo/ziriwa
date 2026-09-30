@@ -1,6 +1,9 @@
 'use client'
 
+import { ChevronDown } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
+import { dropdownSurfaceClassName } from '@/components/ui/dropdown-surface'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Popover,
@@ -58,13 +61,15 @@ export function ActivityAssigneesPicker({
           variant='outline'
           size='sm'
           className={cn(
-            'h-9 justify-start truncate text-xs font-normal',
+            'h-9 justify-between gap-2 truncate text-xs font-normal',
+            dropdownSurfaceClassName,
             triggerClassName,
           )}
           disabled={disabled}
           onClick={event => event.stopPropagation()}
         >
-          <span className='truncate'>{label}</span>
+          <span className='min-w-0 truncate'>{label}</span>
+          <ChevronDown className='h-4 w-4 shrink-0 opacity-50' />
         </Button>
       </PopoverTrigger>
       <PopoverContent

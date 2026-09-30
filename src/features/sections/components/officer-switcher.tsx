@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { dropdownSurfaceClassName } from '@/components/ui/dropdown-surface'
 import {
   Command,
   CommandEmpty,
@@ -126,8 +127,9 @@ export function OfficerSwitcher({
             aria-label={multiple ? 'Select officers' : 'Select officer'}
             disabled={disabled}
             className={cn(
-              'w-full min-w-0 justify-between gap-1.5',
-              compact && 'h-9 max-w-[148px] text-xs font-normal',
+              'w-full min-w-0 justify-between gap-1.5 font-normal',
+              dropdownSurfaceClassName,
+              compact && 'h-9 max-w-[148px] text-xs',
             )}
           >
             <User

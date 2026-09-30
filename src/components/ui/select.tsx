@@ -4,6 +4,7 @@ import * as React from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 
+import { dropdownSurfaceClassName } from '@/components/ui/dropdown-surface'
 import { cn } from '@/lib/utils'
 
 const Select = SelectPrimitive.Root
@@ -19,7 +20,8 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-9 w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 [&>span]:min-w-0 [&>span]:truncate dark:border-white/10 dark:bg-gradient-to-br dark:from-muted/60 dark:via-background dark:to-muted/25 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)] dark:hover:border-white/15 dark:hover:from-muted/70 dark:hover:to-muted/35 dark:data-[state=open]:border-white/20',
+      'flex h-9 w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
+      dropdownSurfaceClassName,
       className,
     )}
     {...props}
