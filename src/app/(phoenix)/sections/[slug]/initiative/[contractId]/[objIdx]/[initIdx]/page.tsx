@@ -8,7 +8,11 @@ import {
   getInitiativeFromContract,
 } from '@/sanity/lib/contracts/get-contract-for-activity'
 import { InitiativePageContent } from '@/features/sections/initiative-page-content'
-import { loadCascadeAssigneeOptions } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import { isPmsAlignment } from '@/lib/contract-alignment'
+import {
+  loadCascadeAssigneeOptions,
+  releaseAssignedCrossCuttingActivities,
+} from '@/lib/contract-cascade/assign-measurable-activity.server'
 
 function canManageActivityContract(
   contractType: 'sectionContract' | 'supervisorContract' | 'officerContract',
@@ -59,6 +63,14 @@ export default async function InitiativePage({
   const initiative = getInitiativeFromContract(contract, objIndex, initIndex)
   if (!initiative) notFound()
 
+  const canManage = canManageActivityContract(contract._type, sectionAccess)
+  if (canManage && contract._type !== 'officerContract') {
+    await releaseAssignedCrossCuttingActivities({
+      contractId: contract._id,
+      objectives: contract.objectives,
+    })
+  }
+
   const objective = contract.objectives?.[objIndex]
   const backHref = contractBackHrefForViewer(sectionAccess, slug)
   const assigneeOptions = await loadCascadeAssigneeOptions({
@@ -71,6 +83,12 @@ export default async function InitiativePage({
       : contract._type === 'supervisorContract'
         ? 'No officers in this section yet.'
         : undefined
+  const unassignedLabel =
+    contract._type === 'sectionContract'
+      ? 'Assign a supervisor'
+      : contract._type === 'supervisorContract'
+        ? 'Assign an officer'
+        : undefined
 
   return (
     <InitiativePageContent
@@ -82,11 +100,13 @@ export default async function InitiativePage({
       objectiveCode={objective?.code}
       objectiveTitle={objective?.title}
       initiative={initiative}
-      canManage={canManageActivityContract(contract._type, sectionAccess)}
+      canManage={canManage}
       backHref={backHref}
       initialActivityKey={initialActivityKey}
       assigneeOptions={assigneeOptions}
       assigneeEmptyLabel={assigneeEmptyLabel}
+      unassignedLabel={unassignedLabel}
+      showTaskSettings={isPmsAlignment(contract.contractAlignment)}
     />
   )
 }

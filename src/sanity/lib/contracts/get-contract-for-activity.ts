@@ -61,11 +61,13 @@ export async function getContractForActivityPage(
       },
       objectives[] {
         _key,
+        cascadeKind,
         code,
         title,
         order,
         initiatives[] {
           _key,
+          cascadeKind,
           code,
           title,
           order,

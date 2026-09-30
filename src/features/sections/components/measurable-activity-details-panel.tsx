@@ -1,12 +1,20 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Loader2, Trash2, Upload, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { endOfMonth, endOfQuarter, endOfWeek, format } from 'date-fns'
+import { Check, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -14,12 +22,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import type {
   MeasurableActivity,
   MeasurableEvidenceItem,
 } from '@/sanity/lib/section-contracts/get-section-contract'
+
+const ACTIVITY_PRIORITIES = [
+  { label: 'Highest', value: 'highest' },
+  { label: 'High', value: 'high' },
+  { label: 'Medium', value: 'medium' },
+  { label: 'Low', value: 'low' },
+  { label: 'Lowest', value: 'lowest' },
+] as const
+
+type ReportingFrequency = 'weekly' | 'monthly' | 'quarterly' | 'n/a'
+
+export type MeasurableActivityPanelUpdate = {
+  title?: string
+  status?: string
+  targetDate?: string
+  reportingFrequency?: ReportingFrequency
+  priority?: MeasurableActivity['priority']
+  expectedDeliverable?: string
+  reportingPeriodStart?: string
+  evidence?: EvidenceDraft[]
+}
 
 export type EvidenceDraft = {
   _key: string
@@ -59,61 +87,177 @@ interface MeasurableActivityDetailsPanelProps {
   activity: MeasurableActivity | null
   canManage: boolean
   isSaving: boolean
+  /** Non-ITIL 4 contracts keep detailed-task settings on the measurable activity. */
+  showTaskSettings?: boolean
   title: string
   status: string
   evidenceDrafts: EvidenceDraft[]
-  onTitleChange: (value: string) => void
-  onStatusChange: (value: string) => void
   onEvidenceChange: (drafts: EvidenceDraft[]) => void
-  onSave: () => void
-  onDelete: () => void
+  onActivityChange: (
+    updates: MeasurableActivityPanelUpdate,
+  ) => void | Promise<void>
 }
 
 export function MeasurableActivityDetailsPanel({
   activity,
   canManage,
   isSaving,
+  showTaskSettings = false,
   title,
   status,
   evidenceDrafts,
-  onTitleChange,
-  onStatusChange,
   onEvidenceChange,
-  onSave,
-  onDelete,
+  onActivityChange,
 }: MeasurableActivityDetailsPanelProps) {
   const [isEditingTitle, setIsEditingTitle] = React.useState(false)
   const [titleDraft, setTitleDraft] = React.useState(title)
+  const [evidenceDraft, setEvidenceDraft] = React.useState('')
+  const [dueDate, setDueDate] = React.useState(activity?.targetDate ?? '')
+  const [reportingFrequency, setReportingFrequency] =
+    React.useState<ReportingFrequency>(activity?.reportingFrequency ?? 'n/a')
+  const [priority, setPriority] = React.useState(activity?.priority ?? 'medium')
+  const [periodStart, setPeriodStart] = React.useState(
+    activity?.reportingPeriodStart ?? '',
+  )
+  const [editingEvidenceKey, setEditingEvidenceKey] = React.useState<
+    string | null
+  >(null)
+  const [editingEvidenceLabel, setEditingEvidenceLabel] = React.useState('')
+  const [isComposingEvidence, setIsComposingEvidence] = React.useState(false)
   const titleEditRef = React.useRef<HTMLDivElement>(null)
+  const skipEvidenceCommitRef = React.useRef(false)
+  const evidenceBaselineRef = React.useRef<EvidenceDraft[] | null>(null)
 
   React.useEffect(() => {
     setTitleDraft(title)
     setIsEditingTitle(false)
   }, [activity?._key, title])
 
-  async function uploadEvidenceFile(draftKey: string, file: File) {
-    const form = new FormData()
-    form.append('file', file)
-    const res = await fetch('/api/sanity/upload', { method: 'POST', body: form })
-    if (!res.ok) throw new Error('Upload failed')
-    const data = (await res.json()) as {
-      asset?: { _id?: string; url?: string; originalFilename?: string }
+  React.useEffect(() => {
+    setEvidenceDraft('')
+    setEditingEvidenceKey(null)
+    setEditingEvidenceLabel('')
+    setIsComposingEvidence(false)
+    evidenceBaselineRef.current = null
+  }, [activity?._key])
+
+  React.useEffect(() => {
+    setDueDate(activity?.targetDate ?? '')
+    setReportingFrequency(activity?.reportingFrequency ?? 'n/a')
+    setPriority(activity?.priority ?? 'medium')
+    setPeriodStart(activity?.reportingPeriodStart ?? '')
+  }, [
+    activity?._key,
+    activity?.targetDate,
+    activity?.reportingFrequency,
+    activity?.priority,
+    activity?.reportingPeriodStart,
+  ])
+
+  async function saveActivity(updates: MeasurableActivityPanelUpdate) {
+    await onActivityChange(updates)
+  }
+
+  function beginComposingEvidence() {
+    if (isComposingEvidence) return
+    evidenceBaselineRef.current = evidenceDrafts
+    setIsComposingEvidence(true)
+  }
+
+  function addEvidenceItem() {
+    const label = evidenceDraft.trim()
+    if (!label || !canManage || isSaving) return
+    onEvidenceChange([
+      ...evidenceDrafts,
+      { _key: crypto.randomUUID(), label, notes: '' },
+    ])
+    setEvidenceDraft('')
+  }
+
+  function removeEvidenceItem(key: string) {
+    if (editingEvidenceKey === key) {
+      setEditingEvidenceKey(null)
+      setEditingEvidenceLabel('')
     }
-    const assetId = data.asset?._id
-    if (!assetId) throw new Error('Upload returned no asset')
+    onEvidenceChange(evidenceDrafts.filter(row => row._key !== key))
+  }
+
+  function startEditingEvidence(item: EvidenceDraft) {
+    if (!canManage || isSaving) return
+    beginComposingEvidence()
+    setEditingEvidenceKey(item._key)
+    setEditingEvidenceLabel(item.label)
+  }
+
+  function commitEditingEvidence() {
+    if (skipEvidenceCommitRef.current) {
+      skipEvidenceCommitRef.current = false
+      return
+    }
+    if (!editingEvidenceKey) return
+    const label = editingEvidenceLabel.trim()
+    const key = editingEvidenceKey
+    setEditingEvidenceKey(null)
+    setEditingEvidenceLabel('')
+    if (!label) return
     onEvidenceChange(
-      evidenceDrafts.map(item =>
-        item._key === draftKey
-          ? {
-              ...item,
-              fileAsset: { _type: 'reference', _ref: assetId },
-              fileName: data.asset?.originalFilename || file.name,
-              fileUrl: data.asset?.url,
-            }
-          : item,
-      ),
+      evidenceDrafts.map(row => (row._key === key ? { ...row, label } : row)),
     )
   }
+
+  function cancelEditingEvidence() {
+    skipEvidenceCommitRef.current = true
+    setEditingEvidenceKey(null)
+    setEditingEvidenceLabel('')
+  }
+
+  async function confirmEvidenceComposing() {
+    let next = evidenceDrafts
+    if (editingEvidenceKey) {
+      const label = editingEvidenceLabel.trim()
+      if (label) {
+        next = next.map(row =>
+          row._key === editingEvidenceKey ? { ...row, label } : row,
+        )
+      }
+    }
+    const pending = evidenceDraft.trim()
+    if (pending) {
+      next = [
+        ...next,
+        { _key: crypto.randomUUID(), label: pending, notes: '' },
+      ]
+    }
+    if (next !== evidenceDrafts) onEvidenceChange(next)
+    try {
+      await saveActivity({ evidence: next })
+    } catch {
+      return
+    }
+    skipEvidenceCommitRef.current = true
+    setEditingEvidenceKey(null)
+    setEditingEvidenceLabel('')
+    setEvidenceDraft('')
+    evidenceBaselineRef.current = null
+    setIsComposingEvidence(false)
+  }
+
+  function cancelEvidenceComposing() {
+    skipEvidenceCommitRef.current = true
+    const baseline = evidenceBaselineRef.current
+    if (baseline) onEvidenceChange(baseline)
+    setEvidenceDraft('')
+    setEditingEvidenceKey(null)
+    setEditingEvidenceLabel('')
+    evidenceBaselineRef.current = null
+    setIsComposingEvidence(false)
+  }
+
+  const canConfirmEvidence =
+    evidenceDraft.trim().length > 0 ||
+    (editingEvidenceKey !== null && editingEvidenceLabel.trim().length > 0) ||
+    (evidenceBaselineRef.current !== null &&
+      evidenceBaselineRef.current !== evidenceDrafts)
 
   if (!activity) {
     return (
@@ -158,8 +302,11 @@ export function MeasurableActivityDetailsPanel({
                   size='icon'
                   className='h-8 w-8'
                   onClick={() => {
-                    onTitleChange(titleDraft.trim())
-                    setIsEditingTitle(false)
+                    const next = titleDraft.trim()
+                    if (!next) return
+                    void saveActivity({ title: next })
+                      .then(() => setIsEditingTitle(false))
+                      .catch(() => undefined)
                   }}
                   disabled={isSaving || !titleDraft.trim()}
                 >
@@ -214,7 +361,9 @@ export function MeasurableActivityDetailsPanel({
           <Label className='text-xs text-muted-foreground'>Status</Label>
           <Select
             value={status || 'not_started'}
-            onValueChange={onStatusChange}
+            onValueChange={value => {
+              void saveActivity({ status: value })
+            }}
             disabled={!canManage || isSaving}
           >
             <SelectTrigger>
@@ -228,201 +377,312 @@ export function MeasurableActivityDetailsPanel({
           </Select>
         </div>
 
-        <div className='space-y-3'>
-          <div className='flex items-center justify-between gap-2'>
-            <div>
-              <Label className='text-xs text-muted-foreground'>Evidence</Label>
-              <p className='text-xs text-muted-foreground mt-0.5'>
-                Add one item or many — each has its own label and file.
-              </p>
+        {showTaskSettings ? (
+          <>
+            <div className='space-y-2'>
+              <Label className='text-xs text-muted-foreground'>Due date</Label>
+              {reportingFrequency === 'weekly' ? (
+                <div className='flex h-9 items-center rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground'>
+                  Due end of this week ({format(endOfWeek(new Date()), 'PPP')})
+                </div>
+              ) : (
+                <div className='space-y-1'>
+                  <div className='flex items-center gap-1'>
+                    <DatePicker
+                      className='flex-1'
+                      value={dueDate}
+                      disabled={!canManage || isSaving}
+                      placeholder='Select due date'
+                      onChange={value => {
+                        const previous = dueDate
+                        setDueDate(value)
+                        void saveActivity({ targetDate: value }).catch(() =>
+                          setDueDate(previous),
+                        )
+                      }}
+                    />
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='icon'
+                      className='h-9 w-9 shrink-0 text-muted-foreground'
+                      aria-label='Clear due date'
+                      disabled={!canManage || isSaving || !dueDate}
+                      onClick={() => {
+                        const previous = dueDate
+                        setDueDate('')
+                        void saveActivity({ targetDate: '' }).catch(() =>
+                          setDueDate(previous),
+                        )
+                      }}
+                    >
+                      <X className='h-4 w-4' />
+                    </Button>
+                  </div>
+                  {reportingFrequency === 'monthly' ||
+                  reportingFrequency === 'quarterly' ? (
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='sm'
+                      className='h-8 px-2 text-muted-foreground'
+                      disabled={!canManage || isSaving}
+                      onClick={() => {
+                        const end =
+                          reportingFrequency === 'quarterly'
+                            ? endOfQuarter(new Date())
+                            : endOfMonth(new Date())
+                        const value = format(end, 'yyyy-MM-dd')
+                        const previous = dueDate
+                        setDueDate(value)
+                        void saveActivity({ targetDate: value }).catch(() =>
+                          setDueDate(previous),
+                        )
+                      }}
+                    >
+                      Set to end of period
+                    </Button>
+                  ) : null}
+                </div>
+              )}
             </div>
-            {canManage ? (
-              <Button
-                type='button'
-                size='sm'
-                variant='outline'
-                onClick={() =>
-                  onEvidenceChange([
-                    ...evidenceDrafts,
-                    {
-                      _key: crypto.randomUUID(),
-                      label: `Evidence ${evidenceDrafts.length + 1}`,
-                      notes: '',
-                    },
-                  ])
-                }
+
+            <div className='space-y-2'>
+              <Label className='text-xs text-muted-foreground'>Priority</Label>
+              <Select
+                value={priority}
+                disabled={!canManage || isSaving}
+                onValueChange={value => {
+                  const previous = priority
+                  const next = value as NonNullable<
+                    MeasurableActivity['priority']
+                  >
+                  setPriority(next)
+                  void saveActivity({ priority: next }).catch(() =>
+                    setPriority(previous),
+                  )
+                }}
               >
-                Add
-              </Button>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACTIVITY_PRIORITIES.map(item => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Card>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 p-4'>
+                <div>
+                  <CardTitle className='text-sm font-medium'>
+                    Activity is reported periodically
+                  </CardTitle>
+                  <CardDescription className='mt-1 text-xs'>
+                    Enable if this activity has regular reporting cycles
+                  </CardDescription>
+                </div>
+                <Switch
+                  checked={reportingFrequency !== 'n/a'}
+                  disabled={!canManage || isSaving}
+                  onCheckedChange={checked => {
+                    const previous = reportingFrequency
+                    const next: ReportingFrequency = checked ? 'monthly' : 'n/a'
+                    setReportingFrequency(next)
+                    void saveActivity({ reportingFrequency: next }).catch(() =>
+                      setReportingFrequency(previous),
+                    )
+                  }}
+                />
+              </CardHeader>
+              {reportingFrequency !== 'n/a' ? (
+                <CardContent className='space-y-4 px-4 pb-4 pt-0'>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-muted-foreground'>
+                      Reporting frequency
+                    </Label>
+                    <Select
+                      value={reportingFrequency}
+                      disabled={!canManage || isSaving}
+                      onValueChange={value => {
+                        const previous = reportingFrequency
+                        const next = value as ReportingFrequency
+                        setReportingFrequency(next)
+                        void saveActivity({ reportingFrequency: next }).catch(
+                          () => setReportingFrequency(previous),
+                        )
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='weekly'>Weekly</SelectItem>
+                        <SelectItem value='monthly'>Monthly</SelectItem>
+                        <SelectItem value='quarterly'>Quarterly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-muted-foreground'>
+                      Reporting starts
+                    </Label>
+                    <DatePicker
+                      value={periodStart}
+                      disabled={!canManage || isSaving}
+                      placeholder='Defaults to FY start'
+                      onChange={value => {
+                        const previous = periodStart
+                        setPeriodStart(value)
+                        void saveActivity({
+                          reportingPeriodStart: value,
+                        }).catch(() => setPeriodStart(previous))
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              ) : null}
+            </Card>
+          </>
+        ) : null}
+
+        <div className='space-y-2'>
+          <Label className='text-xs text-muted-foreground'>
+            Expected evidence
+          </Label>
+          <div
+            className={cn(
+              'flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border bg-background px-2 py-1.5',
+              canManage && 'focus-within:ring-1 focus-within:ring-ring',
+            )}
+          >
+            {evidenceDrafts.map(item =>
+              item._key === editingEvidenceKey ? (
+                <input
+                  key={item._key}
+                  autoFocus
+                  value={editingEvidenceLabel}
+                  disabled={isSaving}
+                  aria-label={`Edit ${item.label}`}
+                  onChange={event => setEditingEvidenceLabel(event.target.value)}
+                  onBlur={commitEditingEvidence}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      event.currentTarget.blur()
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault()
+                      cancelEditingEvidence()
+                    }
+                  }}
+                  style={{
+                    width: `${Math.max(editingEvidenceLabel.length, 4) + 2}ch`,
+                  }}
+                  className='h-6 max-w-full rounded-md border bg-background px-1.5 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed'
+                />
+              ) : (
+                <span
+                  key={item._key}
+                  className='inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-foreground'
+                >
+                  {canManage ? (
+                    <button
+                      type='button'
+                      className='max-w-[16rem] truncate text-left'
+                      disabled={isSaving}
+                      onClick={() => startEditingEvidence(item)}
+                    >
+                      {item.label}
+                    </button>
+                  ) : (
+                    <span className='truncate'>{item.label}</span>
+                  )}
+                  {canManage ? (
+                    <button
+                      type='button'
+                      className='shrink-0 rounded-sm text-muted-foreground hover:text-foreground disabled:opacity-50'
+                      aria-label={`Remove ${item.label}`}
+                      disabled={isSaving}
+                      onMouseDown={event => event.preventDefault()}
+                      onClick={() => removeEvidenceItem(item._key)}
+                    >
+                      <X className='h-3 w-3' />
+                    </button>
+                  ) : null}
+                </span>
+              ),
+            )}
+            {canManage ? (
+              <input
+                value={evidenceDraft}
+                disabled={isSaving}
+                onChange={event => {
+                  beginComposingEvidence()
+                  setEvidenceDraft(event.target.value)
+                }}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    beginComposingEvidence()
+                    addEvidenceItem()
+                    return
+                  }
+                  if (
+                    event.key === 'Backspace' &&
+                    evidenceDraft.length === 0 &&
+                    evidenceDrafts.length > 0
+                  ) {
+                    event.preventDefault()
+                    removeEvidenceItem(
+                      evidenceDrafts[evidenceDrafts.length - 1]._key,
+                    )
+                  }
+                }}
+                placeholder={
+                  evidenceDrafts.length === 0
+                    ? 'Type an item and press Enter'
+                    : 'Add another'
+                }
+                className='h-7 min-w-[8rem] flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed'
+              />
+            ) : evidenceDrafts.length === 0 ? (
+              <p className='text-xs text-muted-foreground'>No evidence yet.</p>
             ) : null}
           </div>
-
-          {evidenceDrafts.length === 0 ? (
-            <div className='rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground'>
-              No evidence yet.
+          {canManage && isComposingEvidence ? (
+            <div className='flex gap-1'>
+              <Button
+                type='button'
+                variant='outline'
+                size='icon'
+                className='h-8 w-8'
+                aria-label='Save evidence items'
+                onMouseDown={event => event.preventDefault()}
+                onClick={confirmEvidenceComposing}
+                disabled={isSaving || !canConfirmEvidence}
+              >
+                <Check className='h-4 w-4' />
+              </Button>
+              <Button
+                type='button'
+                variant='outline'
+                size='icon'
+                className='h-8 w-8'
+                aria-label='Cancel evidence items'
+                onMouseDown={event => event.preventDefault()}
+                onClick={cancelEvidenceComposing}
+                disabled={isSaving}
+              >
+                <X className='h-4 w-4' />
+              </Button>
             </div>
-          ) : (
-            <div className='space-y-3'>
-              {evidenceDrafts.map((item, index) => (
-                <div
-                  key={item._key}
-                  className='rounded-lg border bg-background p-3 space-y-3'
-                >
-                  <div className='flex items-start justify-between gap-2'>
-                    <p className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
-                      Item {index + 1}
-                    </p>
-                    {canManage ? (
-                      <Button
-                        type='button'
-                        size='icon'
-                        variant='ghost'
-                        className='h-7 w-7 text-destructive'
-                        onClick={() =>
-                          onEvidenceChange(
-                            evidenceDrafts.filter(row => row._key !== item._key),
-                          )
-                        }
-                      >
-                        <Trash2 className='h-3.5 w-3.5' />
-                      </Button>
-                    ) : null}
-                  </div>
-                  <div className='space-y-2'>
-                    <Label className='text-xs'>Label</Label>
-                    <Input
-                      value={item.label}
-                      disabled={!canManage || isSaving}
-                      onChange={e =>
-                        onEvidenceChange(
-                          evidenceDrafts.map(row =>
-                            row._key === item._key
-                              ? { ...row, label: e.target.value }
-                              : row,
-                          ),
-                        )
-                      }
-                      placeholder='e.g. Signed attendance sheet'
-                    />
-                  </div>
-                  <div className='space-y-2'>
-                    <Label className='text-xs'>Notes</Label>
-                    <Textarea
-                      value={item.notes}
-                      disabled={!canManage || isSaving}
-                      onChange={e =>
-                        onEvidenceChange(
-                          evidenceDrafts.map(row =>
-                            row._key === item._key
-                              ? { ...row, notes: e.target.value }
-                              : row,
-                          ),
-                        )
-                      }
-                      rows={2}
-                      placeholder='Optional context'
-                    />
-                  </div>
-                  <div className='space-y-2'>
-                    <Label className='text-xs'>File</Label>
-                    {item.fileName || item.fileUrl ? (
-                      <div className='flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs'>
-                        <span className='truncate'>
-                          {item.fileUrl ? (
-                            <a
-                              href={item.fileUrl}
-                              target='_blank'
-                              rel='noreferrer'
-                              className='text-primary underline-offset-2 hover:underline'
-                            >
-                              {item.fileName || 'View file'}
-                            </a>
-                          ) : (
-                            item.fileName
-                          )}
-                        </span>
-                        {canManage ? (
-                          <label className='inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground hover:text-foreground'>
-                            <Upload className='h-3.5 w-3.5' />
-                            Replace
-                            <input
-                              type='file'
-                              className='hidden'
-                              onChange={async e => {
-                                const file = e.target.files?.[0]
-                                if (!file) return
-                                try {
-                                  await uploadEvidenceFile(item._key, file)
-                                  toast.success('File uploaded')
-                                } catch (err) {
-                                  toast.error(
-                                    err instanceof Error
-                                      ? err.message
-                                      : 'Upload failed',
-                                  )
-                                }
-                              }}
-                            />
-                          </label>
-                        ) : null}
-                      </div>
-                    ) : canManage ? (
-                      <label className='flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed px-3 py-6 text-xs text-muted-foreground hover:bg-muted/30'>
-                        <Upload className='h-4 w-4' />
-                        Upload evidence file
-                        <input
-                          type='file'
-                          className='hidden'
-                          onChange={async e => {
-                            const file = e.target.files?.[0]
-                            if (!file) return
-                            try {
-                              await uploadEvidenceFile(item._key, file)
-                              toast.success('File uploaded')
-                            } catch (err) {
-                              toast.error(
-                                err instanceof Error
-                                  ? err.message
-                                  : 'Upload failed',
-                              )
-                            }
-                          }}
-                        />
-                      </label>
-                    ) : (
-                      <p className='text-xs text-muted-foreground'>No file</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          ) : null}
         </div>
-
-        {canManage ? (
-          <div className='flex flex-wrap gap-2 pt-2'>
-            <Button onClick={onSave} disabled={isSaving || !title.trim()}>
-              {isSaving ? (
-                <>
-                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Saving…
-                </>
-              ) : (
-                'Save changes'
-              )}
-            </Button>
-            <Button
-              type='button'
-              variant='outline'
-              className='text-destructive hover:bg-destructive/10 hover:text-destructive'
-              onClick={onDelete}
-              disabled={isSaving}
-            >
-              <Trash2 className='mr-2 h-4 w-4' />
-              Delete
-            </Button>
-          </div>
-        ) : null}
       </div>
     </aside>
   )

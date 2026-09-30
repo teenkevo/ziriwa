@@ -6,11 +6,14 @@ import { audit } from '@/lib/audit-log/events'
 import type { ActivityPageContractType } from '@/sanity/lib/contracts/get-contract-for-activity'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
+import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import {
   normalizeOfficerWorkCopies,
   storedTaskAssigneeId,
   type OfficerWorkPersistInput,
 } from '@/lib/normalize-detailed-task-persist'
+
+const CASCADED_TASK_MESSAGE = 'Cascaded items cannot be edited or deleted.'
 
 const CONTRACT_LABEL: Record<ActivityPageContractType, string> = {
   sectionContract: 'Section contract',
@@ -82,6 +85,11 @@ export async function patchContractActivityTasks(
         ? (row as { _key: string })._key
         : `idx-${i}`
     storedTaskByKey.set(key, row as Record<string, unknown>)
+  }
+
+  const cascadedTaskEdit = rejectCascadedTaskEdits(storedTaskByKey, tasks)
+  if (cascadedTaskEdit) {
+    return NextResponse.json({ error: cascadedTaskEdit }, { status: 403 })
   }
 
   const tasksAuthError = assertActivityTasksUpdateAllowed(
@@ -176,4 +184,58 @@ export async function patchContractActivityTasks(
     sectionId,
   )
   return NextResponse.json({ ok: true })
+}
+
+function incomingTaskKey(task: unknown, index: number): string {
+  if (
+    task &&
+    typeof task === 'object' &&
+    '_key' in task &&
+    typeof (task as { _key?: string })._key === 'string'
+  ) {
+    return (task as { _key: string })._key
+  }
+  return `idx-${index}`
+}
+
+function sameOptionalText(left: unknown, right: unknown): boolean {
+  return String(left ?? '').trim() === String(right ?? '').trim()
+}
+
+/** Cascaded tasks can still record progress. Their definition cannot change. */
+function rejectCascadedTaskEdits(
+  storedTaskByKey: Map<string, Record<string, unknown>>,
+  tasks: unknown[],
+): string | null {
+  const incomingByKey = new Map<string, unknown>()
+  tasks.forEach((task, index) => {
+    incomingByKey.set(incomingTaskKey(task, index), task)
+  })
+
+  for (const [key, stored] of storedTaskByKey) {
+    if (!isCascadedItem({ cascadeKind: stored.cascadeKind as string | null })) {
+      continue
+    }
+    const incoming = incomingByKey.get(key)
+    if (!incoming || typeof incoming === 'string') {
+      return CASCADED_TASK_MESSAGE
+    }
+    if (typeof incoming !== 'object') return CASCADED_TASK_MESSAGE
+    const next = incoming as Record<string, unknown>
+    const definitionChanged =
+      !sameOptionalText(next.task, stored.task) ||
+      (next.priority !== undefined &&
+        String(next.priority) !== String(stored.priority ?? 'medium')) ||
+      (next.targetDate !== undefined &&
+        !sameOptionalText(next.targetDate, stored.targetDate)) ||
+      (next.reportingFrequency !== undefined &&
+        String(next.reportingFrequency ?? '') !==
+          String(stored.reportingFrequency ?? '')) ||
+      (next.expectedDeliverable !== undefined &&
+        !sameOptionalText(next.expectedDeliverable, stored.expectedDeliverable)) ||
+      (next.reportingPeriodStart !== undefined &&
+        !sameOptionalText(next.reportingPeriodStart, stored.reportingPeriodStart))
+    if (definitionChanged) return CASCADED_TASK_MESSAGE
+  }
+  return null
 }

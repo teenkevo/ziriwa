@@ -138,15 +138,20 @@ type ColumnIllustrationKind = 'objectives' | 'initiatives' | 'activities' | 'tas
 
 function ColumnIllustration({ kind }: { kind: ColumnIllustrationKind }) {
   const frame = 'h-24 w-[8.2rem]'
+  const shadow = 'fill-primary/15 dark:fill-primary/25'
+  const soft = 'fill-primary/20 dark:fill-primary/35'
+  const mid = 'fill-primary/40 dark:fill-primary/55'
+  const strong = 'fill-primary/70 dark:fill-primary/85'
+  const line = 'stroke-primary/50 dark:stroke-primary/75'
 
   if (kind === 'objectives') {
     return (
       <svg viewBox='0 0 120 88' className={frame} aria-hidden>
-        <ellipse cx='60' cy='78' rx='28' ry='3' className='fill-foreground/10' />
-        <circle cx='60' cy='40' r='30' className='fill-foreground/10' />
-        <circle cx='60' cy='40' r='20' className='fill-foreground/22' />
-        <circle cx='60' cy='40' r='10' className='fill-foreground/45' />
-        <circle cx='60' cy='40' r='4' className='fill-foreground/80' />
+        <ellipse cx='60' cy='78' rx='28' ry='3' className={shadow} />
+        <circle cx='60' cy='40' r='30' className={soft} />
+        <circle cx='60' cy='40' r='20' className={mid} />
+        <circle cx='60' cy='40' r='10' className={strong} />
+        <circle cx='60' cy='40' r='4' className='fill-primary' />
       </svg>
     )
   }
@@ -154,17 +159,17 @@ function ColumnIllustration({ kind }: { kind: ColumnIllustrationKind }) {
   if (kind === 'initiatives') {
     return (
       <svg viewBox='0 0 120 88' className={frame} aria-hidden>
-        <ellipse cx='60' cy='82' rx='36' ry='3' className='fill-foreground/10' />
-        <rect x='42' y='6' width='36' height='16' rx='5' className='fill-foreground/45' />
+        <ellipse cx='60' cy='82' rx='36' ry='3' className={shadow} />
+        <rect x='42' y='6' width='36' height='16' rx='5' className={strong} />
         <path
           d='M60 22v10M60 32H28v8M60 32h32v8'
           fill='none'
-          className='stroke-foreground/40'
+          className={line}
           strokeWidth='2'
           strokeLinecap='round'
         />
-        <rect x='10' y='40' width='36' height='28' rx='6' className='fill-foreground/18' />
-        <rect x='74' y='40' width='36' height='28' rx='6' className='fill-foreground/30' />
+        <rect x='10' y='40' width='36' height='28' rx='6' className={soft} />
+        <rect x='74' y='40' width='36' height='28' rx='6' className={mid} />
       </svg>
     )
   }
@@ -172,34 +177,34 @@ function ColumnIllustration({ kind }: { kind: ColumnIllustrationKind }) {
   if (kind === 'tasks') {
     return (
       <svg viewBox='0 0 120 88' className={frame} aria-hidden>
-        <ellipse cx='60' cy='82' rx='30' ry='3' className='fill-foreground/10' />
-        <rect x='36' y='8' width='48' height='8' rx='3' className='fill-foreground/45' />
-        <rect x='28' y='14' width='64' height='58' rx='8' className='fill-foreground/12' />
-        <rect x='38' y='28' width='44' height='6' rx='3' className='fill-foreground/35' />
-        <rect x='38' y='40' width='36' height='6' rx='3' className='fill-foreground/25' />
-        <rect x='38' y='52' width='28' height='6' rx='3' className='fill-foreground/18' />
+        <ellipse cx='60' cy='82' rx='30' ry='3' className={shadow} />
+        <rect x='36' y='8' width='48' height='8' rx='3' className={strong} />
+        <rect x='28' y='14' width='64' height='58' rx='8' className={soft} />
+        <rect x='38' y='28' width='44' height='6' rx='3' className={mid} />
+        <rect x='38' y='40' width='36' height='6' rx='3' className='fill-primary/30 dark:fill-primary/45' />
+        <rect x='38' y='52' width='28' height='6' rx='3' className='fill-primary/20 dark:fill-primary/35' />
       </svg>
     )
   }
 
   return (
     <svg viewBox='0 0 120 88' className={frame} aria-hidden>
-      <ellipse cx='60' cy='82' rx='32' ry='3' className='fill-foreground/10' />
-      <rect x='30' y='8' width='60' height='66' rx='10' className='fill-foreground/12' />
-      <rect x='40' y='20' width='12' height='12' rx='3' className='fill-foreground/55' />
+      <ellipse cx='60' cy='82' rx='32' ry='3' className={shadow} />
+      <rect x='30' y='8' width='60' height='66' rx='10' className={soft} />
+      <rect x='40' y='20' width='12' height='12' rx='3' className='fill-primary' />
       <path
         d='M43 26.2 45.4 28.6 49.6 24'
         fill='none'
-        className='stroke-background'
+        className='stroke-primary-foreground'
         strokeWidth='1.6'
         strokeLinecap='round'
         strokeLinejoin='round'
       />
-      <rect x='58' y='24' width='22' height='4' rx='2' className='fill-foreground/40' />
-      <rect x='40' y='38' width='12' height='12' rx='3' className='fill-foreground/28' />
-      <rect x='58' y='42' width='18' height='4' rx='2' className='fill-foreground/28' />
-      <rect x='40' y='56' width='12' height='12' rx='3' className='fill-foreground/18' />
-      <rect x='58' y='60' width='14' height='4' rx='2' className='fill-foreground/20' />
+      <rect x='58' y='24' width='22' height='4' rx='2' className={mid} />
+      <rect x='40' y='38' width='12' height='12' rx='3' className='fill-primary/35 dark:fill-primary/50' />
+      <rect x='58' y='42' width='18' height='4' rx='2' className='fill-primary/35 dark:fill-primary/50' />
+      <rect x='40' y='56' width='12' height='12' rx='3' className='fill-primary/25 dark:fill-primary/40' />
+      <rect x='58' y='60' width='14' height='4' rx='2' className='fill-primary/25 dark:fill-primary/40' />
     </svg>
   )
 }
@@ -208,10 +213,12 @@ function ColumnEmptyPlaceholder({
   title,
   message,
   illustration,
+  compact = false,
 }: {
   title: string
   message?: string
   illustration: ColumnIllustrationKind
+  compact?: boolean
 }) {
   return (
     <div
@@ -221,7 +228,13 @@ function ColumnEmptyPlaceholder({
     >
       <ColumnIllustration kind={illustration} />
       <div className='space-y-1'>
-        <p className='text-balance text-lg font-semibold tracking-tight text-foreground'>
+        <p
+          className={
+            compact
+              ? 'text-balance text-sm font-medium leading-relaxed text-muted-foreground'
+              : 'text-balance text-lg font-semibold tracking-tight text-foreground'
+          }
+        >
           {title}
         </p>
         {message ? (
@@ -246,12 +259,17 @@ function ObjectivesWaitingPlaceholder({ message }: { message: string }) {
 
 function placeholderCopy(
   emptyLabel: string,
-): { title: string; message: string; illustration: ColumnIllustrationKind } | null {
+): {
+  title: string
+  message?: string
+  illustration: ColumnIllustrationKind
+  compact?: boolean
+} | null {
   if (emptyLabel === 'Select a SSMARTA objective.') {
     return {
-      title: 'No initiatives yet',
-      message: 'Select a SSMARTA objective to see its initiatives.',
+      title: 'Select a SSMARTA objective to see its initiatives.',
       illustration: 'initiatives',
+      compact: true,
     }
   }
   if (emptyLabel === 'No initiatives yet.') {
@@ -263,9 +281,9 @@ function placeholderCopy(
   }
   if (emptyLabel === 'Select an initiative.') {
     return {
-      title: 'No measurable activities yet',
-      message: 'Select an initiative to see its measurable activities.',
+      title: 'Select an initiative to see its measurable activities.',
       illustration: 'activities',
+      compact: true,
     }
   }
   if (emptyLabel === 'No measurable activities yet.') {
@@ -483,8 +501,8 @@ function ColumnPane({
       aria-label={column.title}
       className='flex h-full min-w-0 flex-1 flex-col border-r border-border last:border-r-0'
     >
-      <header className='flex h-12 shrink-0 items-center gap-2 px-3'>
-        <h3 className='min-w-0 flex-1 truncate text-base font-semibold text-primary'>
+      <header className='flex h-12 shrink-0 items-center gap-2 px-2.5'>
+        <h3 className='min-w-0 flex-1 truncate text-sm font-semibold uppercase tracking-tight text-foreground'>
           {column.title}
         </h3>
         {column.headerAction}
@@ -514,6 +532,7 @@ function ColumnPane({
                 title={emptyCopy.title}
                 message={emptyCopy.message}
                 illustration={emptyCopy.illustration}
+                compact={emptyCopy.compact}
               />
             ) : (
               <p className='px-2 text-center text-xs text-muted-foreground'>
@@ -567,7 +586,7 @@ export function ContractColumnBrowser({
   const columns = React.useMemo<ColumnModel[]>(() => {
     const objectiveColumn: ColumnModel = {
       id: 'objectives',
-      title: 'SSMARTA objectives',
+      title: 'SSMARTA Objectives',
       emptyLabel: 'No SSMARTA objectives yet.',
       headerAction:
         onAddObjective && objectives.length > 0 ? (
@@ -667,7 +686,7 @@ export function ContractColumnBrowser({
       selectedInitiative?.opensNextColumn
         ? {
       id: `children-${selectedInitiative.id}`,
-      title: 'Measurable activities',
+      title: 'Measurable Activities',
       emptyLabel:
         selectedInitiative.childEmptyLabel ?? 'No measurable activities yet.',
       headerAction: selectedInitiative.childHeaderAction,
@@ -692,7 +711,7 @@ export function ContractColumnBrowser({
     }
         : {
             id: 'activities',
-            title: 'Measurable activities',
+            title: 'Measurable Activities',
             emptyLabel: 'Select an initiative.',
             rows: [],
           }

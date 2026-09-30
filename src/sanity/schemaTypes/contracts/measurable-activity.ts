@@ -83,6 +83,38 @@ export const measurableActivity = defineType({
       initialValue: 'monthly',
     }),
     defineField({
+      name: 'priority',
+      title: 'Priority',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Highest', value: 'highest' },
+          { title: 'High', value: 'high' },
+          { title: 'Medium', value: 'medium' },
+          { title: 'Low', value: 'low' },
+          { title: 'Lowest', value: 'lowest' },
+        ],
+        layout: 'dropdown',
+      },
+      initialValue: 'medium',
+      description:
+        'Used when this measurable activity carries detailed-task settings (non-ITIL 4 contracts).',
+    }),
+    defineField({
+      name: 'expectedDeliverable',
+      title: 'Expected Deliverable',
+      type: 'string',
+      description:
+        'What this activity is expected to deliver. Used on non-ITIL 4 contracts, where the activity holds detailed-task settings.',
+    }),
+    defineField({
+      name: 'reportingPeriodStart',
+      title: 'Reporting Period Start',
+      type: 'date',
+      description:
+        'When periodic reporting begins. Defaults to the financial year start.',
+    }),
+    defineField({
       name: 'evidence',
       title: 'Evidence / Uploads',
       type: 'array',

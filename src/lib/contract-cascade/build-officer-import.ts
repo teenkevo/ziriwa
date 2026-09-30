@@ -314,6 +314,14 @@ export function buildOfficerImport(
         })
         continue
       }
+      if (supervisorMeasurable.activityType === 'cross-cutting') {
+        skipped.push({
+          activityKey,
+          reason:
+            'Cross-cutting activities stay on this contract and cannot be cascaded',
+        })
+        continue
+      }
 
       const rewrite = rewrites?.[activityKey]
       const measurableTitle =

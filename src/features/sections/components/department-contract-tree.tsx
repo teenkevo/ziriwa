@@ -21,6 +21,7 @@ import {
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
 import { contractsApiBase, type ContractsApiResource } from '@/lib/contracts-api'
+import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import type { DepartmentContract } from '@/sanity/lib/department-contracts/get-department-contract'
 import type { ProjectContract } from '@/sanity/lib/project-contracts/get-project-contract'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
@@ -70,17 +71,6 @@ interface DepartmentContractTreeProps {
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
   onAddObjectiveRequestConsumed?: () => void
-}
-
-function contractTreeShowsActivityAim(
-  contractsApi: DepartmentContractTreeProps['contractsApi'],
-): boolean {
-  return (
-    contractsApi === 'department-contracts' ||
-    contractsApi === 'division-contracts' ||
-    contractsApi === 'project-contracts' ||
-    contractsApi === 'deputy-project-contracts'
-  )
 }
 
 function contractTreeShowsTasksOnly(
@@ -150,15 +140,18 @@ function buildDepartmentColumnObjectives(input: {
     const objNum = obj.code ?? String(objIdx + 1)
     const initiatives = obj.initiatives ?? []
 
+    const canEditObjective = canManage && !isCascadedItem(obj)
+
     return {
       id: obj._key || `objective-${objIdx}`,
       title: obj.title,
       code: objNum,
-      onEdit: canManage ? () => onEditObjective(objIdx) : undefined,
-      onDelete: canManage ? () => onDeleteObjective(objIdx) : undefined,
+      onEdit: canEditObjective ? () => onEditObjective(objIdx) : undefined,
+      onDelete: canEditObjective ? () => onDeleteObjective(objIdx) : undefined,
       onAddInitiative: canManage ? () => onAddInitiative(objIdx) : undefined,
       initiatives: initiatives.map((init, initIdx) => {
         const initNum = init.code ?? `${objNum}.${initIdx + 1}`
+        const canEditInitiative = canManage && !isCascadedItem(init)
         const activities = init.measurableActivities ?? []
         const children = showTasksOnly
           ? (() => {
@@ -207,6 +200,7 @@ function buildDepartmentColumnObjectives(input: {
                       resolveActivityNumberingType(item) ===
                       resolveActivityNumberingType(act),
                   ).length + 1
+              const canEditActivity = canManage && !isCascadedItem(act)
               return [
                 {
                   id: act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
@@ -229,10 +223,10 @@ function buildDepartmentColumnObjectives(input: {
                   onOpen: sectionSlug
                     ? () => onOpenActivity(objIdx, initIdx, actIdx)
                     : undefined,
-                  onEdit: canManage
+                  onEdit: canEditActivity
                     ? () => onEditActivity(objIdx, initIdx, actIdx)
                     : undefined,
-                  onDelete: canManage
+                  onDelete: canEditActivity
                     ? () => onDeleteActivity(objIdx, initIdx, actIdx)
                     : undefined,
                 },
@@ -253,10 +247,10 @@ function buildDepartmentColumnObjectives(input: {
               onClick={() => onAddActivity(objIdx, initIdx)}
             />
           ) : undefined,
-          onEdit: canManage
+          onEdit: canEditInitiative
             ? () => onEditInitiative(objIdx, initIdx)
             : undefined,
-          onDelete: canManage
+          onDelete: canEditInitiative
             ? () => onDeleteInitiative(objIdx, initIdx)
             : undefined,
           children,
@@ -277,7 +271,6 @@ export function DepartmentContractTree({
 }: DepartmentContractTreeProps) {
   const router = useRouter()
   const apiBase = contractsApiBase(contractsApi)
-  const showActivityAim = contractTreeShowsActivityAim(contractsApi)
   const showTasksOnlyUnderMeasurable =
     contractTreeShowsTasksOnly(contractsApi)
   const canCreateObjectives = contractsApi === 'division-contracts'
@@ -489,9 +482,6 @@ export function DepartmentContractTree({
     ? objectives[editingActivity.objIdx]?.initiatives?.[editingActivity.initIdx]
         ?.measurableActivities?.[editingActivity.actIdx]
     : undefined
-  const activityBeingEditedRequiresAim =
-    activityBeingEdited?.activityType === 'kpi' ||
-    activityBeingEdited?.activityType === 'core'
 
   return (
     <>
@@ -691,10 +681,9 @@ export function DepartmentContractTree({
           initiativeIndex={editingActivity.initIdx}
           activityIndex={editingActivity.actIdx}
           initialTitle={activityBeingEdited.title}
-          initialAim={activityBeingEdited.aim}
+          initialActivityType={activityBeingEdited.activityType}
           initialTargetDate={activityBeingEdited.targetDate}
-          showAim={showActivityAim || activityBeingEditedRequiresAim}
-          requireAim={activityBeingEditedRequiresAim}
+          hasAssignees={(activityBeingEdited.assignees?.length ?? 0) > 0}
         />
       ) : null}
       <ContractColumnBrowser

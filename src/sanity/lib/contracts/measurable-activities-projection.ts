@@ -68,6 +68,7 @@ export const DETAILED_TASK_PROJECTION = /* groq */ `
 export const MEASURABLE_ACTIVITIES_WITH_TASKS_PROJECTION = /* groq */ `
   measurableActivities[] {
     _key,
+    cascadeKind,
     activityType,
     cascadeSource { nodeRole },
     title,
@@ -80,6 +81,9 @@ export const MEASURABLE_ACTIVITIES_WITH_TASKS_PROJECTION = /* groq */ `
       "fullName": coalesce(fullName, firstName + " " + lastName),
     },
     "reportingFrequency": coalesce(reportingFrequency, "n/a"),
+    "priority": coalesce(priority, "medium"),
+    expectedDeliverable,
+    reportingPeriodStart,
     evidence,
     tasks[] | {
       ${DETAILED_TASK_PROJECTION}

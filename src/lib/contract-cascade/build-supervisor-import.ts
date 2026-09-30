@@ -269,16 +269,22 @@ export function buildSupervisorImport(
         skipped.push({ activityKey, reason: 'Upstream activity not found' })
         continue
       }
-      if (
-        managerActivity.activityType !== 'kpi' &&
-        managerActivity.activityType !== 'measurable' &&
-        managerActivity.activityType !== 'core' &&
-        managerActivity.activityType !== 'cross-cutting'
-      ) {
+      if (managerActivity.activityType === 'cross-cutting') {
         skipped.push({
           activityKey,
           reason:
-            'Only KPIs, measurable, core, and cross-cutting activities can be cascaded',
+            'Cross-cutting activities stay on this contract and cannot be cascaded',
+        })
+        continue
+      }
+      if (
+        managerActivity.activityType !== 'kpi' &&
+        managerActivity.activityType !== 'measurable' &&
+        managerActivity.activityType !== 'core'
+      ) {
+        skipped.push({
+          activityKey,
+          reason: 'Only KPIs, measurable, and core activities can be cascaded',
         })
         continue
       }

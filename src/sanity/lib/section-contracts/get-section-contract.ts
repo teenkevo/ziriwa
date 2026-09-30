@@ -159,6 +159,7 @@ export type MeasurableEvidenceItem = {
 
 export type MeasurableActivity = {
   _key: string
+  cascadeKind?: string
   activityType: 'kpi' | 'cross-cutting' | 'measurable' | 'core'
   title: string
   aim?: string
@@ -166,6 +167,9 @@ export type MeasurableActivity = {
   targetDate?: string
   status?: string
   reportingFrequency?: 'weekly' | 'monthly' | 'quarterly' | 'n/a'
+  priority?: 'highest' | 'high' | 'medium' | 'low' | 'lowest'
+  expectedDeliverable?: string
+  reportingPeriodStart?: string
   evidence?: MeasurableEvidenceItem[]
   tasks?: (DetailedTask | string)[]
   assignees?: { _id: string; fullName?: string }[]
@@ -174,6 +178,7 @@ export type MeasurableActivity = {
 
 export type ContractInitiative = {
   _key: string
+  cascadeKind?: string
   code?: string
   title: string
   order?: number
@@ -182,6 +187,7 @@ export type ContractInitiative = {
 
 export type SsmartaObjective = {
   _key: string
+  cascadeKind?: string
   code?: string
   title: string
   order?: number
@@ -231,17 +237,21 @@ export async function getSectionContract(
       status,
       objectives[] {
         _key,
+        cascadeKind,
         code,
         title,
         order,
         initiatives[] {
           _key,
+          cascadeKind,
           code,
           title,
           order,
           measurableActivities[] {
             _key,
+            cascadeKind,
             activityType,
+            "assignees": assignees[]->{ _id },
             title,
             aim,
             order,

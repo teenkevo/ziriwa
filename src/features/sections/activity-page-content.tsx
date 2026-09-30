@@ -44,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import type { ContractsApiResource } from '@/lib/contracts-api'
 import { contractsApiBase } from '@/lib/contracts-api'
 import {
@@ -378,6 +379,7 @@ export function ActivityPageContent({
   const { canSuperviseDetailedTasks } = sectionAccess
   const canManageContract =
     canManageContractProp ?? sectionAccess.canManageContract
+  const canEditActivity = canManageContract && !isCascadedItem(activity)
   const activityKindLabel =
     numberingKind === 'kpi'
       ? 'KPI'
@@ -1663,7 +1665,7 @@ export function ActivityPageContent({
               Back to contract
             </Link>
           </Button>
-          {canManageContract && !isOfficerContract ? (
+          {canEditActivity && !isOfficerContract ? (
             <AlertDialog
               open={deleteDialogOpen}
               onOpenChange={open => {
@@ -1760,9 +1762,9 @@ export function ActivityPageContent({
                   </div>
                 ) : (
                   <h1
-                    className={`text-2xl font-bold rounded px-2 py-1 -mx-2 -my-1 ${canManageContract ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                    className={`text-2xl font-bold rounded px-2 py-1 -mx-2 -my-1 ${canEditActivity ? 'cursor-pointer hover:bg-muted/50' : ''}`}
                     onClick={() => {
-                      if (!canManageContract) return
+                      if (!canEditActivity) return
                       setTitleBeforeEdit(title)
                       setIsEditingTitle(true)
                     }}
@@ -1814,9 +1816,9 @@ export function ActivityPageContent({
                     </div>
                   ) : (
                     <p
-                      className={`text-sm text-muted-foreground rounded px-2 py-1 -mx-2 -my-1 min-h-[2rem] mt-1 ${canManageContract ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                      className={`text-sm text-muted-foreground rounded px-2 py-1 -mx-2 -my-1 min-h-[2rem] mt-1 ${canEditActivity ? 'cursor-pointer hover:bg-muted/50' : ''}`}
                       onClick={() => {
-                        if (!canManageContract) return
+                        if (!canEditActivity) return
                         setAimBeforeEdit(aim)
                         setIsEditingAim(true)
                       }}
@@ -1854,7 +1856,7 @@ export function ActivityPageContent({
                     </div>
                     <Switch
                       checked={reportingFrequency !== 'n/a'}
-                      disabled={isSavingActivity || !canManageContract}
+                      disabled={isSavingActivity || !canEditActivity}
                       onCheckedChange={handlePeriodicReportingToggle}
                     />
                   </CardHeader>
@@ -1865,7 +1867,7 @@ export function ActivityPageContent({
                         <Select
                           value={reportingFrequency}
                           onValueChange={handleReportingFrequencyChange}
-                          disabled={isSavingActivity || !canManageContract}
+                          disabled={isSavingActivity || !canEditActivity}
                         >
                           <SelectTrigger className='h-9 min-w-[140px]'>
                             <SelectValue />
@@ -1908,7 +1910,7 @@ export function ActivityPageContent({
                           disabled={
                             isSavingActivity ||
                             isSavingDate ||
-                            !canManageContract
+                            !canEditActivity
                           }
                         />
                         {isSavingDate ? (
@@ -1922,7 +1924,7 @@ export function ActivityPageContent({
                           variant='ghost'
                           size='sm'
                           className='h-9 text-muted-foreground'
-                          disabled={isSavingActivity || !canManageContract}
+                          disabled={isSavingActivity || !canEditActivity}
                           onClick={() => {
                             const end =
                               dueDateReportingFrequency === 'quarterly'

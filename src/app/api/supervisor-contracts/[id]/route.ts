@@ -13,7 +13,13 @@ import {
   getSectionIdFromSupervisorContract,
 } from '@/lib/supervisor-contract-access.server'
 import { client } from '@/sanity/lib/client'
-import { setMeasurableActivityAssignees } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import {
+  releaseCrossCuttingActivity,
+  setMeasurableActivityAssignees,
+} from '@/lib/contract-cascade/assign-measurable-activity.server'
+import { rejectCascadedContractEdit } from '@/lib/contract-cascade/reject-cascaded-edit.server'
+import { measurableEvidencePatchValue } from '@/lib/measurable-activity-evidence'
+import { measurableActivityConfigPatch } from '@/lib/measurable-activity-config'
 
 /**
  * PATCH /api/supervisor-contracts/[id] - Add objective, initiative, or activity
@@ -44,6 +50,9 @@ export async function PATCH(
       `coalesce(*[_type == "supervisorContract" && _id == $id][0].financialYearLabel, "Supervisor contract")`,
       { id },
     )
+
+    const cascadedEdit = await rejectCascadedContractEdit(id, op, payload)
+    if (cascadedEdit) return cascadedEdit
 
     if (op === 'setActivityAssignees') {
       const result = await setMeasurableActivityAssignees({
@@ -504,6 +513,11 @@ export async function PATCH(
         targetDate,
         status,
         reportingFrequency,
+        activityType,
+        evidence,
+        priority,
+        expectedDeliverable,
+        reportingPeriodStart,
       } = payload
       if (
         typeof objectiveIndex !== 'number' ||
@@ -523,6 +537,12 @@ export async function PATCH(
       if (title !== undefined && typeof title === 'string') {
         setPayload[`${basePath}.title`] = title.trim()
       }
+      if (
+        typeof activityType === 'string' &&
+        ['measurable', 'core', 'cross-cutting'].includes(activityType)
+      ) {
+        setPayload[`${basePath}.activityType`] = activityType
+      }
       // Supervisors do not have AIM on measurable activities (manager KPI AIM becomes title).
       if (targetDate !== undefined) {
         setPayload[`${basePath}.targetDate`] = targetDate || undefined
@@ -539,8 +559,28 @@ export async function PATCH(
       ) {
         setPayload[`${basePath}.reportingFrequency`] = reportingFrequency
       }
+      const evidenceItems = measurableEvidencePatchValue(evidence)
+      if (evidenceItems) {
+        setPayload[`${basePath}.evidence`] = evidenceItems
+      }
+      Object.assign(
+        setPayload,
+        measurableActivityConfigPatch(basePath, {
+          priority,
+          expectedDeliverable,
+          reportingPeriodStart,
+        }),
+      )
       if (Object.keys(setPayload).length > 0) {
         await writeClient.patch(id).set(setPayload).commit()
+      }
+      if (activityType === 'cross-cutting') {
+        await releaseCrossCuttingActivity({
+          contractId: id,
+          objectiveIndex,
+          initiativeIndex,
+          activityIndex,
+        })
       }
       audit.sectionContract.updated(
         id,

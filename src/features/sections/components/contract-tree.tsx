@@ -21,6 +21,7 @@ import {
 } from '@/lib/contract-numbering'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { isPmsAlignment } from '@/lib/contract-alignment'
+import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import { AddObjectiveDialog } from '@/features/sections/components/add-objective-dialog'
 import { AddInitiativeDialog } from '@/features/sections/components/add-initiative-dialog'
 import { AddMeasurableActivityDialog } from '@/features/sections/components/add-measurable-activity-dialog'
@@ -82,26 +83,29 @@ function buildSectionColumnObjectives(input: {
     const objNum = obj.code ?? String(objIdx + 1)
     const initiatives = obj.initiatives ?? []
 
+    const canEditObjective = canManage && !isCascadedItem(obj)
+
     return {
       id: obj._key || `objective-${objIdx}`,
       title: obj.title,
       code: objNum,
-      onEdit: canManage ? () => onEditObjective(objIdx) : undefined,
-      onDelete: canManage ? () => onDeleteObjective(objIdx) : undefined,
+      onEdit: canEditObjective ? () => onEditObjective(objIdx) : undefined,
+      onDelete: canEditObjective ? () => onDeleteObjective(objIdx) : undefined,
       onAddInitiative: canManage ? () => onAddInitiative(objIdx) : undefined,
       initiatives: initiatives.map((init, initIdx) => {
         const initNum = init.code ?? `${objNum}.${initIdx + 1}`
         const initiativeId = init._key || `initiative-${objIdx}-${initIdx}`
+        const canEditInitiative = canManage && !isCascadedItem(init)
 
         if (pmsMode) {
           return {
             id: initiativeId,
             title: init.title,
             code: initNum,
-            onEdit: canManage
+            onEdit: canEditInitiative
               ? () => onEditInitiative(objIdx, initIdx)
               : undefined,
-            onDelete: canManage
+            onDelete: canEditInitiative
               ? () => onDeleteInitiative(objIdx, initIdx)
               : undefined,
             onOpen: sectionSlug
@@ -122,6 +126,7 @@ function buildSectionColumnObjectives(input: {
             numberingKind === 'kpi' || numberingKind === 'cross-cutting'
               ? measurableActivityNumber(initNum, numberingKind, actOrder)
               : departmentMeasurableActivityNumber(initNum, actOrder)
+          const canEditActivity = canManage && !isCascadedItem(act)
           return [
             {
               id: act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
@@ -138,10 +143,10 @@ function buildSectionColumnObjectives(input: {
               onOpen: sectionSlug
                 ? () => onOpenActivity(objIdx, initIdx, actIdx)
                 : undefined,
-              onEdit: canManage
+              onEdit: canEditActivity
                 ? () => onEditActivity(objIdx, initIdx, actIdx)
                 : undefined,
-              onDelete: canManage
+              onDelete: canEditActivity
                 ? () => onDeleteActivity(objIdx, initIdx, actIdx)
                 : undefined,
             },
@@ -160,10 +165,10 @@ function buildSectionColumnObjectives(input: {
               onClick={() => onAddActivity(objIdx, initIdx)}
             />
           ) : undefined,
-          onEdit: canManage
+          onEdit: canEditInitiative
             ? () => onEditInitiative(objIdx, initIdx)
             : undefined,
-          onDelete: canManage
+          onDelete: canEditInitiative
             ? () => onDeleteInitiative(objIdx, initIdx)
             : undefined,
           children,
@@ -380,9 +385,6 @@ export function ContractTree({
     ? objectives[editingActivity.objIdx]?.initiatives?.[editingActivity.initIdx]
         ?.measurableActivities?.[editingActivity.actIdx]
     : undefined
-  const activityBeingEditedRequiresAim =
-    activityBeingEdited?.activityType === 'kpi' ||
-    activityBeingEdited?.activityType === 'core'
 
   return (
     <>
@@ -576,10 +578,9 @@ export function ContractTree({
           initiativeIndex={editingActivity.initIdx}
           activityIndex={editingActivity.actIdx}
           initialTitle={activityBeingEdited.title}
-          initialAim={activityBeingEdited.aim}
+          initialActivityType={activityBeingEdited.activityType}
           initialTargetDate={activityBeingEdited.targetDate}
-          showAim={activityBeingEditedRequiresAim}
-          requireAim={activityBeingEditedRequiresAim}
+          hasAssignees={(activityBeingEdited.assignees?.length ?? 0) > 0}
         />
       ) : null}
       <ContractColumnBrowser

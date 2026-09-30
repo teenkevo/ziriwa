@@ -12,6 +12,9 @@ import {
   getSectionIdFromOfficerContract,
 } from '@/lib/officer-contract-access.server'
 import { client } from '@/sanity/lib/client'
+import { rejectCascadedContractEdit } from '@/lib/contract-cascade/reject-cascaded-edit.server'
+import { measurableEvidencePatchValue } from '@/lib/measurable-activity-evidence'
+import { measurableActivityConfigPatch } from '@/lib/measurable-activity-config'
 
 /**
  * PATCH /api/officer-contracts/[id] - Add objective, initiative, or activity
@@ -50,6 +53,9 @@ export async function PATCH(
       `coalesce(*[_type == "officerContract" && _id == $id][0].financialYearLabel, "Officer contract")`,
       { id },
     )
+
+    const cascadedEdit = await rejectCascadedContractEdit(id, op, payload)
+    if (cascadedEdit) return cascadedEdit
 
     if (op === 'updateObjective') {
       const { objectiveIndex, code, title } = payload
@@ -474,6 +480,11 @@ export async function PATCH(
         targetDate,
         status,
         reportingFrequency,
+        activityType,
+        evidence,
+        priority,
+        expectedDeliverable,
+        reportingPeriodStart,
       } = payload
       if (
         typeof objectiveIndex !== 'number' ||
@@ -492,6 +503,12 @@ export async function PATCH(
       const setPayload: Record<string, unknown> = {}
       if (title !== undefined && typeof title === 'string') {
         setPayload[`${basePath}.title`] = title.trim()
+      }
+      if (
+        typeof activityType === 'string' &&
+        ['measurable', 'core', 'cross-cutting'].includes(activityType)
+      ) {
+        setPayload[`${basePath}.activityType`] = activityType
       }
       if (aim !== undefined) {
         setPayload[`${basePath}.aim`] =
@@ -512,6 +529,18 @@ export async function PATCH(
       ) {
         setPayload[`${basePath}.reportingFrequency`] = reportingFrequency
       }
+      const evidenceItems = measurableEvidencePatchValue(evidence)
+      if (evidenceItems) {
+        setPayload[`${basePath}.evidence`] = evidenceItems
+      }
+      Object.assign(
+        setPayload,
+        measurableActivityConfigPatch(basePath, {
+          priority,
+          expectedDeliverable,
+          reportingPeriodStart,
+        }),
+      )
       if (Object.keys(setPayload).length > 0) {
         await writeClient.patch(id).set(setPayload).commit()
       }

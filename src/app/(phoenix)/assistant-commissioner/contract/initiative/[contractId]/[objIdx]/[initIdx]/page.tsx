@@ -2,7 +2,10 @@ import { notFound } from 'next/navigation'
 
 import { InitiativePageContent } from '@/features/sections/initiative-page-content'
 import { ensureAssistantCommissionerPageAccess } from '@/features/manager/assistant-commissioner-workspace-page'
-import { loadCascadeAssigneeOptions } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import {
+  loadCascadeAssigneeOptions,
+  releaseAssignedCrossCuttingActivities,
+} from '@/lib/contract-cascade/assign-measurable-activity.server'
 import {
   canManageDivisionContract,
   getDivisionIdFromContract,
@@ -46,11 +49,13 @@ export default async function AssistantCommissionerInitiativePage({
       "divisionName": coalesce(division->fullName, division->name, "Division"),
       objectives[] {
         _key,
+        cascadeKind,
         code,
         title,
         order,
         initiatives[] {
           _key,
+          cascadeKind,
           code,
           title,
           order,
@@ -72,6 +77,11 @@ export default async function AssistantCommissionerInitiativePage({
     | ContractInitiative
     | undefined
   if (!initiative) notFound()
+
+  await releaseAssignedCrossCuttingActivities({
+    contractId: contract._id,
+    objectives: contract.objectives,
+  })
 
   const assigneeOptions = await loadCascadeAssigneeOptions({
     contractType: 'divisionContract',
@@ -96,6 +106,8 @@ export default async function AssistantCommissionerInitiativePage({
       initialActivityKey={initialActivityKey}
       assigneeOptions={assigneeOptions ?? []}
       assigneeEmptyLabel='No managers in this division yet.'
+      unassignedLabel='Assign a Manager'
+      showTaskSettings
     />
   )
 }

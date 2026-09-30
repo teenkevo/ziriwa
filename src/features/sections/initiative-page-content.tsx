@@ -32,7 +32,9 @@ import {
   MeasurableActivityDetailsPanel,
   normalizeEvidenceDrafts,
   type EvidenceDraft,
+  type MeasurableActivityPanelUpdate,
 } from '@/features/sections/components/measurable-activity-details-panel'
+import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import type {
   ContractInitiative,
@@ -60,6 +62,10 @@ interface InitiativePageContentProps {
   /** Null hides assignees (officer contracts). */
   assigneeOptions?: CascadeAssigneeOption[] | null
   assigneeEmptyLabel?: string
+  /** Shown on an unassigned core activity. */
+  unassignedLabel?: string
+  /** PMS and other non-ITIL 4 contracts keep task settings on the activity. */
+  showTaskSettings?: boolean
 }
 
 export function InitiativePageContent({
@@ -76,6 +82,8 @@ export function InitiativePageContent({
   initialActivityKey,
   assigneeOptions = null,
   assigneeEmptyLabel,
+  unassignedLabel,
+  showTaskSettings = false,
 }: InitiativePageContentProps) {
   const router = useRouter()
   const isLg = useIsLg()
@@ -154,7 +162,7 @@ export function InitiativePageContent({
 
   async function handleAssigneesChange(key: string, assigneeIds: string[]) {
     const index = activities.findIndex(activity => activity._key === key)
-    if (index < 0) return
+    if (index < 0 || isCascadedItem(activities[index])) return
     setIsSaving(true)
     try {
       const data = await patchContract({
@@ -179,8 +187,11 @@ export function InitiativePageContent({
     }
   }
 
+  const initiativeIsCascaded = isCascadedItem(initiative)
+  const canEditInitiative = canManage && !initiativeIsCascaded
+
   async function handleConfirmTitle() {
-    if (!canManage || !initiativeTitle.trim()) return
+    if (!canEditInitiative || !initiativeTitle.trim()) return
     setIsSavingTitle(true)
     try {
       await patchContract({
@@ -217,7 +228,7 @@ export function InitiativePageContent({
     >,
   ) {
     const index = activities.findIndex(a => a._key === key)
-    if (index < 0) return
+    if (index < 0 || isCascadedItem(activities[index])) return
     setIsSaving(true)
     try {
       await patchContract({
@@ -243,7 +254,7 @@ export function InitiativePageContent({
 
   async function handleRemoveActivity(key: string) {
     const index = activities.findIndex(a => a._key === key)
-    if (index < 0) return
+    if (index < 0 || isCascadedItem(activities[index])) return
     setIsSaving(true)
     try {
       await patchContract({
@@ -264,8 +275,12 @@ export function InitiativePageContent({
     }
   }
 
-  async function handleSaveSelected() {
-    if (!canManage || selectedIndex < 0) return
+  async function handleActivityChange(updates: MeasurableActivityPanelUpdate) {
+    if (!canManage || selectedIndex < 0 || isCascadedItem(selected)) return
+    if (updates.title !== undefined) setPanelTitle(updates.title)
+    if (updates.status !== undefined) setPanelStatus(updates.status)
+    if (updates.evidence) setEvidenceDrafts(updates.evidence)
+    const { evidence, ...rest } = updates
     setIsSaving(true)
     try {
       await patchContract({
@@ -274,34 +289,42 @@ export function InitiativePageContent({
           objectiveIndex,
           initiativeIndex,
           activityIndex: selectedIndex,
-          title: panelTitle.trim(),
-          status: panelStatus,
-          evidence: evidenceDrafts.map(item => ({
-            _key: item._key,
-            label: item.label,
-            notes: item.notes,
-            ...(item.fileAsset
-              ? {
-                  file: {
-                    _type: 'file',
-                    asset: item.fileAsset,
-                  },
-                }
-              : {}),
-          })),
+          ...rest,
+          ...(evidence
+            ? {
+                evidence: evidence.map(item => ({
+                  _key: item._key,
+                  label: item.label,
+                  notes: item.notes,
+                  ...(item.fileAsset
+                    ? {
+                        file: {
+                          _type: 'file',
+                          asset: item.fileAsset,
+                        },
+                      }
+                    : {}),
+                })),
+              }
+            : {}),
         },
       })
-      toast.success('Activity saved')
       router.refresh()
     } catch (err) {
+      if (selected) {
+        setPanelTitle(selected.title ?? '')
+        setPanelStatus(selected.status ?? 'not_started')
+        setEvidenceDrafts(normalizeEvidenceDrafts(selected.evidence))
+      }
       toast.error(err instanceof Error ? err.message : 'Failed to save')
+      throw err
     } finally {
       setIsSaving(false)
     }
   }
 
   async function handleDeleteInitiative() {
-    if (!canManage) return
+    if (!canEditInitiative) return
     setIsDeletingInitiative(true)
     try {
       await patchContract({
@@ -325,18 +348,14 @@ export function InitiativePageContent({
   const detailsPanelEl = (
     <MeasurableActivityDetailsPanel
       activity={selected}
-      canManage={canManage}
+      canManage={canManage && !isCascadedItem(selected)}
       isSaving={isSaving}
+      showTaskSettings={showTaskSettings}
       title={panelTitle}
       status={panelStatus}
       evidenceDrafts={evidenceDrafts}
-      onTitleChange={setPanelTitle}
-      onStatusChange={setPanelStatus}
       onEvidenceChange={setEvidenceDrafts}
-      onSave={handleSaveSelected}
-      onDelete={() => {
-        if (selectedKey) void handleRemoveActivity(selectedKey)
-      }}
+      onActivityChange={handleActivityChange}
     />
   )
 
@@ -355,7 +374,7 @@ export function InitiativePageContent({
               Back to contract
             </Link>
           </Button>
-          {canManage ? (
+          {canEditInitiative ? (
             <AlertDialog
               open={deleteInitiativeOpen}
               onOpenChange={open => {
@@ -461,9 +480,9 @@ export function InitiativePageContent({
               </div>
             ) : (
               <h1
-                className={`text-2xl font-bold rounded px-2 py-1 -mx-2 -my-1 ${canManage ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                className={`text-2xl font-bold rounded px-2 py-1 -mx-2 -my-1 ${canEditInitiative ? 'cursor-pointer hover:bg-muted/50' : ''}`}
                 onClick={() => {
-                  if (!canManage) return
+                  if (!canEditInitiative) return
                   setTitleBeforeEdit(initiativeTitle)
                   setIsEditingTitle(true)
                 }}
@@ -503,6 +522,7 @@ export function InitiativePageContent({
               onRemoveActivity={handleRemoveActivity}
               assigneeOptions={assigneeOptions}
               assigneeEmptyLabel={assigneeEmptyLabel}
+              unassignedLabel={unassignedLabel}
               onAssigneesChange={handleAssigneesChange}
               isSaving={isSaving}
               canManage={canManage}

@@ -13,7 +13,13 @@ import {
   getSectionIdFromContract,
 } from '@/lib/section-access.server'
 import { client } from '@/sanity/lib/client'
-import { setMeasurableActivityAssignees } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import {
+  releaseCrossCuttingActivity,
+  setMeasurableActivityAssignees,
+} from '@/lib/contract-cascade/assign-measurable-activity.server'
+import { rejectCascadedContractEdit } from '@/lib/contract-cascade/reject-cascaded-edit.server'
+import { measurableEvidencePatchValue } from '@/lib/measurable-activity-evidence'
+import { measurableActivityConfigPatch } from '@/lib/measurable-activity-config'
 
 /**
  * PATCH /api/section-contracts/[id] - Add objective, initiative, or activity
@@ -47,6 +53,9 @@ export async function PATCH(
       `coalesce(*[_type == "sectionContract" && _id == $id][0].financialYearLabel, "Section contract")`,
       { id },
     )
+
+    const cascadedEdit = await rejectCascadedContractEdit(id, op, payload)
+    if (cascadedEdit) return cascadedEdit
 
     if (op === 'setActivityAssignees') {
       const result = await setMeasurableActivityAssignees({
@@ -495,6 +504,10 @@ export async function PATCH(
         status,
         reportingFrequency,
         evidence,
+        priority,
+        expectedDeliverable,
+        reportingPeriodStart,
+        activityType,
       } = payload
       if (
         typeof objectiveIndex !== 'number' ||
@@ -513,6 +526,12 @@ export async function PATCH(
       const setPayload: Record<string, unknown> = {}
       if (title !== undefined && typeof title === 'string') {
         setPayload[`${basePath}.title`] = title.trim()
+      }
+      if (
+        typeof activityType === 'string' &&
+        ['kpi', 'cross-cutting', 'core', 'measurable'].includes(activityType)
+      ) {
+        setPayload[`${basePath}.activityType`] = activityType
       }
       if (aim !== undefined) {
         setPayload[`${basePath}.aim`] =
@@ -533,29 +552,28 @@ export async function PATCH(
       ) {
         setPayload[`${basePath}.reportingFrequency`] = reportingFrequency
       }
-      if (Array.isArray(evidence)) {
-        setPayload[`${basePath}.evidence`] = evidence.map(
-          (item: Record<string, unknown>) => ({
-            _type: 'evidenceItem',
-            _key:
-              typeof item._key === 'string' && item._key
-                ? item._key
-                : crypto.randomUUID(),
-            label:
-              typeof item.label === 'string' ? item.label.trim() : undefined,
-            notes:
-              typeof item.notes === 'string' ? item.notes.trim() : undefined,
-            ...(item.file && typeof item.file === 'object'
-              ? { file: item.file }
-              : {}),
-            ...(item.image && typeof item.image === 'object'
-              ? { image: item.image }
-              : {}),
-          }),
-        )
+      const evidenceItems = measurableEvidencePatchValue(evidence)
+      if (evidenceItems) {
+        setPayload[`${basePath}.evidence`] = evidenceItems
       }
+      Object.assign(
+        setPayload,
+        measurableActivityConfigPatch(basePath, {
+          priority,
+          expectedDeliverable,
+          reportingPeriodStart,
+        }),
+      )
       if (Object.keys(setPayload).length > 0) {
         await writeClient.patch(id).set(setPayload).commit()
+      }
+      if (activityType === 'cross-cutting') {
+        await releaseCrossCuttingActivity({
+          contractId: id,
+          objectiveIndex,
+          initiativeIndex,
+          activityIndex,
+        })
       }
       audit.sectionContract.updated(
         id,

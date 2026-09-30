@@ -31,17 +31,21 @@ export async function getProjectContract(
       status,
       objectives[] {
         _key,
+        cascadeKind,
         code,
         title,
         order,
         initiatives[] {
           _key,
+          cascadeKind,
           code,
           title,
           order,
           measurableActivities[] {
             _key,
+            cascadeKind,
             activityType,
+            "assignees": assignees[]->{ _id },
             title,
             aim,
             order,

@@ -53,27 +53,19 @@ export function AddMeasurableActivityDialog({
   const [activityType, setActivityType] = React.useState<
     MeasurableActivityKind | ''
   >('')
-  const [aim, setAim] = React.useState('')
   const [targetDate, setTargetDate] = React.useState('')
 
   React.useEffect(() => {
     if (!open) return
     setTitle('')
     setActivityType('')
-    setAim('')
     setTargetDate('')
   }, [open])
-
-  const isCore = activityType === 'core'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
     if (activityType !== 'core' && activityType !== 'cross-cutting') return
-    if (isCore && !aim.trim()) {
-      alert('AIM is required for core measurable activities')
-      return
-    }
     setIsCreating(true)
     try {
       const payload: Record<string, unknown> = {
@@ -83,9 +75,6 @@ export function AddMeasurableActivityDialog({
         title: title.trim(),
         order: nextOrderForType(activityType),
         targetDate: targetDate || undefined,
-      }
-      if (isCore && aim.trim()) {
-        payload.aim = aim.trim()
       }
       const res = await fetch(`/api/section-contracts/${sectionContractId}`, {
         method: 'PATCH',
@@ -159,22 +148,9 @@ export function AddMeasurableActivityDialog({
                 </SelectContent>
               </Select>
               <p className='text-xs text-muted-foreground'>
-                Choose Core or Cross-cutting.
+                Choose from Core or Cross-cutting.
               </p>
             </div>
-            {isCore && (
-              <div className='space-y-2'>
-                <Label htmlFor='aim' required>AIM</Label>
-                <textarea
-                  id='aim'
-                  className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
-                  placeholder='Scope, design, and validate...'
-                  value={aim}
-                  onChange={e => setAim(e.target.value)}
-                  disabled={isCreating}
-                />
-              </div>
-            )}
             <div className='space-y-2'>
               <Label htmlFor='targetDate'>Due Date</Label>
               <DatePicker
@@ -200,8 +176,7 @@ export function AddMeasurableActivityDialog({
               disabled={
                 isCreating ||
                 !title.trim() ||
-                (activityType !== 'core' && activityType !== 'cross-cutting') ||
-                (isCore && !aim.trim())
+                (activityType !== 'core' && activityType !== 'cross-cutting')
               }
             >
               {isCreating ? (

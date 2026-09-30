@@ -429,7 +429,11 @@ export function DetailedTasksTable({
             onValueChange={v =>
               onUpdateTask(row.original._key ?? '', { priority: v })
             }
-            disabled={isSaving || !canSuperviseDetailedTasks}
+            disabled={
+              isSaving ||
+              !canSuperviseDetailedTasks ||
+              isCascadedDetailedTask(row.original)
+            }
           >
             <SelectTrigger
               className='h-9 w-[120px] text-xs'
@@ -595,7 +599,7 @@ export function DetailedTasksTable({
         id: 'actions',
         header: () => null,
         cell: ({ row }) =>
-          canSuperviseDetailedTasks ? (
+          canSuperviseDetailedTasks && !isCascadedDetailedTask(row.original) ? (
             <Button
               type='button'
               variant='ghost'

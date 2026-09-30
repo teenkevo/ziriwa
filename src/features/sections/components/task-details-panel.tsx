@@ -71,6 +71,7 @@ import { PeriodDeliverableTabs } from './period-deliverable-tabs'
 import {
   canEditTaskAssignee,
   formatAssigneeDisplay,
+  isCascadedDetailedTask,
   hasOfficerContent,
   taskAssigneeIds,
   type ContractOfficer,
@@ -245,11 +246,13 @@ export function TaskDetailsPanel({
   const isKPI = activityType === 'kpi'
   const isDone = (task?.status ?? '') === 'done'
   const taskConfigLocked = task ? hasOfficerContent(task) : false
+  const cascadedTask = task ? isCascadedDetailedTask(task) : false
   const canEditAssignee = task
     ? canEditTaskAssignee(task, canSuperviseDetailedTasks)
     : false
-  const priorityLocked = !canSuperviseDetailedTasks
-  const planningLocked = taskConfigLocked || !canSuperviseDetailedTasks
+  const priorityLocked = !canSuperviseDetailedTasks || cascadedTask
+  const planningLocked =
+    taskConfigLocked || !canSuperviseDetailedTasks || cascadedTask
   const expectedDeliverableSet = !!task?.expectedDeliverable?.trim()
   const inputsApproved = task
     ? ['in_progress', 'delivered', 'in_review', 'done'].includes(
@@ -510,12 +513,12 @@ export function TaskDetailsPanel({
             <p
               className={cn(
                 'text-sm rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]',
-                isDone || !canSuperviseDetailedTasks
+                isDone || !canSuperviseDetailedTasks || cascadedTask
                   ? 'text-muted-foreground cursor-not-allowed'
                   : 'cursor-pointer hover:bg-muted/50',
               )}
               onClick={() => {
-                if (isDone || !canSuperviseDetailedTasks) return
+                if (isDone || !canSuperviseDetailedTasks || cascadedTask) return
                 setTaskEditValue(task.task)
                 setIsEditingTask(true)
               }}

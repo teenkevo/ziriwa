@@ -65,6 +65,7 @@ export function buildOfficerCascadeOptions(
     for (const init of obj.initiatives ?? []) {
       const kpis = []
       for (const act of init.measurableActivities ?? []) {
+        if (act.activityType === 'cross-cutting') continue
         const taskOptions = []
         for (const [index, raw] of (act.tasks ?? []).entries()) {
           const title = taskLabel(raw)

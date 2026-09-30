@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
@@ -84,12 +85,14 @@ function ActivityAssigneesCell({
   activity,
   options,
   emptyLabel,
+  unassignedLabel,
   disabled,
   onChange,
 }: {
   activity: MeasurableActivityRow
   options: CascadeAssigneeOption[]
   emptyLabel: string
+  unassignedLabel: string
   disabled: boolean
   onChange: (assigneeIds: string[]) => void
 }) {
@@ -108,7 +111,7 @@ function ActivityAssigneesCell({
   }))
   const label =
     selectedIds.length === 0
-      ? 'Assign'
+      ? unassignedLabel
       : selectedIds
           .map(id => known.get(id) ?? 'Staff')
           .join(', ')
@@ -116,7 +119,7 @@ function ActivityAssigneesCell({
   if (disabled) {
     return (
       <span className='block max-w-[14rem] text-xs text-muted-foreground'>
-        {selectedIds.length === 0 ? '—' : label}
+        {label}
       </span>
     )
   }
@@ -198,6 +201,8 @@ interface MeasurableActivitiesTableProps {
   /** Staff one level below. Null hides the column (officer contracts). */
   assigneeOptions?: CascadeAssigneeOption[] | null
   assigneeEmptyLabel?: string
+  /** Shown on an unassigned core activity. Names the role one level below. */
+  unassignedLabel?: string
   onAssigneesChange?: (key: string, assigneeIds: string[]) => void
   isSaving: boolean
   canManage: boolean
@@ -211,6 +216,7 @@ export function MeasurableActivitiesTable({
   onRemoveActivity,
   assigneeOptions = null,
   assigneeEmptyLabel = 'No staff on the level below yet.',
+  unassignedLabel = 'Assign',
   onAssigneesChange,
   isSaving,
   canManage,
@@ -239,7 +245,11 @@ export function MeasurableActivitiesTable({
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title='Type' />
         ),
-        cell: ({ row }) => (
+        cell: ({ row }) => {
+          const typeLocked =
+            (row.original.assignees?.length ?? 0) > 0 &&
+            row.original.activityType !== 'cross-cutting'
+          return (
           <Select
             value={row.original.activityType}
             onValueChange={v =>
@@ -247,7 +257,12 @@ export function MeasurableActivitiesTable({
                 activityType: v as MeasurableActivity['activityType'],
               })
             }
-            disabled={isSaving || !canManage}
+            disabled={
+              isSaving ||
+              !canManage ||
+              isCascadedItem(row.original) ||
+              typeLocked
+            }
           >
             <SelectTrigger
               className='h-9 w-[140px] text-xs'
@@ -264,7 +279,8 @@ export function MeasurableActivitiesTable({
               </SelectItem>
             </SelectContent>
           </Select>
-        ),
+          )
+        },
         filterFn: (row, id, value) => value.includes(row.getValue(id)),
         accessorFn: row => row.activityType,
       },
@@ -275,15 +291,25 @@ export function MeasurableActivitiesTable({
               header: ({ column }) => (
                 <DataTableColumnHeader column={column} title='Assignees' />
               ),
-              cell: ({ row }) => (
-                <ActivityAssigneesCell
-                  activity={row.original}
-                  options={assigneeOptions}
-                  emptyLabel={assigneeEmptyLabel}
-                  disabled={isSaving || !canManage}
-                  onChange={ids => onAssigneesChange?.(row.original._key, ids)}
-                />
-              ),
+              cell: ({ row }) =>
+                row.original.activityType === 'cross-cutting' ? (
+                  <span className='block max-w-[14rem] text-xs text-muted-foreground'>
+                    Owned at this level
+                  </span>
+                ) : (
+                  <ActivityAssigneesCell
+                    activity={row.original}
+                    options={assigneeOptions}
+                    emptyLabel={assigneeEmptyLabel}
+                    unassignedLabel={unassignedLabel}
+                    disabled={
+                      isSaving || !canManage || isCascadedItem(row.original)
+                    }
+                    onChange={ids =>
+                      onAssigneesChange?.(row.original._key, ids)
+                    }
+                  />
+                ),
               enableSorting: false,
             } satisfies ColumnDef<MeasurableActivityRow>,
           ]
@@ -299,7 +325,7 @@ export function MeasurableActivitiesTable({
             onValueChange={v =>
               onUpdateActivity(row.original._key, { status: v })
             }
-            disabled={isSaving || !canManage}
+            disabled={isSaving || !canManage || isCascadedItem(row.original)}
           >
             <SelectTrigger
               className='h-9 w-[130px] text-xs'
@@ -334,27 +360,29 @@ export function MeasurableActivitiesTable({
         ? [
             {
               id: 'actions',
-              cell: ({ row }: { row: { original: MeasurableActivityRow } }) => (
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  className='h-8 w-8 text-destructive'
-                  disabled={isSaving}
-                  onClick={e => {
-                    e.stopPropagation()
-                    setDeleteKey(row.original._key)
-                  }}
-                >
-                  <Trash2 className='h-4 w-4' />
-                </Button>
-              ),
+              cell: ({ row }: { row: { original: MeasurableActivityRow } }) =>
+                isCascadedItem(row.original) ? null : (
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 text-destructive'
+                    disabled={isSaving}
+                    onClick={e => {
+                      e.stopPropagation()
+                      setDeleteKey(row.original._key)
+                    }}
+                  >
+                    <Trash2 className='h-4 w-4' />
+                  </Button>
+                ),
             } as ColumnDef<MeasurableActivityRow>,
           ]
         : []),
     ],
     [
       assigneeEmptyLabel,
+      unassignedLabel,
       assigneeOptions,
       canManage,
       isSaving,

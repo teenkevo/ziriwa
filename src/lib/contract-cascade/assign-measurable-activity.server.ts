@@ -108,6 +108,22 @@ export type SetActivityAssigneesResult =
   | { ok: true; warnings: string[] }
   | { ok: false; status: number; error: string }
 
+const CROSS_CUTTING_CASCADE_ERROR =
+  'Cross-cutting activities stay on this contract and cannot be cascaded.'
+
+interface ActivityCascadeContext {
+  _type?: SourceContractType
+  financialYearLabel?: string
+  sectionId?: string
+  divisionId?: string
+  initiativeTitle?: string
+  initiativeKey?: string
+  activityTitle?: string
+  activityKey?: string
+  activityType?: string
+  currentAssigneeIds?: string[]
+}
+
 export async function setMeasurableActivityAssignees(input: {
   contractId: string
   objectiveIndex: number
@@ -136,33 +152,25 @@ export async function setMeasurableActivityAssignees(input: {
 
   const uniqueIds = [...new Set(assigneeIds.map(id => id.trim()))]
 
-  const source = await writeClient.fetch<{
-    _type?: SourceContractType
-    financialYearLabel?: string
-    sectionId?: string
-    divisionId?: string
-    initiativeTitle?: string
-    initiativeKey?: string
-    activityTitle?: string
-    activityKey?: string
-    currentAssigneeIds?: string[]
-  } | null>(
-    /* groq */ `*[_id == $contractId][0]{
-      _type,
-      financialYearLabel,
-      "sectionId": section._ref,
-      "divisionId": division._ref,
-      "initiativeTitle": objectives[$objectiveIndex].initiatives[$initiativeIndex].title,
-      "initiativeKey": objectives[$objectiveIndex].initiatives[$initiativeIndex]._key,
-      "activityTitle": objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities[$activityIndex].title,
-      "activityKey": objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities[$activityIndex]._key,
-      "currentAssigneeIds": objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities[$activityIndex].assignees[]._ref
-    }`,
-    { contractId, objectiveIndex, initiativeIndex, activityIndex },
-  )
+  const source = await loadActivityCascadeContext({
+    contractId,
+    objectiveIndex,
+    initiativeIndex,
+    activityIndex,
+  })
 
   if (!source?._type || !source.activityKey || !source.initiativeKey) {
     return { ok: false, status: 404, error: 'Measurable activity not found' }
+  }
+  if (source.activityType === 'cross-cutting') {
+    await clearActivityCascade({
+      contractId,
+      objectiveIndex,
+      initiativeIndex,
+      activityIndex,
+      source,
+    })
+    return { ok: false, status: 400, error: CROSS_CUTTING_CASCADE_ERROR }
   }
   if (source._type === 'officerContract') {
     return {
@@ -252,6 +260,122 @@ export async function setMeasurableActivityAssignees(input: {
   }
 
   return { ok: true, warnings }
+}
+
+/** Drop downstream copies of cross-cutting activities that were already assigned. */
+export async function releaseAssignedCrossCuttingActivities(input: {
+  contractId: string
+  objectives?: Array<{
+    initiatives?: Array<{
+      measurableActivities?: Array<{
+        activityType?: string
+        assignees?: Array<{ _id?: string } | null> | null
+      } | null> | null
+    } | null> | null
+  } | null> | null
+}): Promise<void> {
+  const objectives = input.objectives ?? []
+  for (let objectiveIndex = 0; objectiveIndex < objectives.length; objectiveIndex++) {
+    const initiatives = objectives[objectiveIndex]?.initiatives ?? []
+    for (
+      let initiativeIndex = 0;
+      initiativeIndex < initiatives.length;
+      initiativeIndex++
+    ) {
+      const activities = initiatives[initiativeIndex]?.measurableActivities ?? []
+      for (let activityIndex = 0; activityIndex < activities.length; activityIndex++) {
+        const activity = activities[activityIndex]
+        if (activity?.activityType !== 'cross-cutting') continue
+        if (!(activity.assignees ?? []).some(person => person?._id)) continue
+        await releaseCrossCuttingActivity({
+          contractId: input.contractId,
+          objectiveIndex,
+          initiativeIndex,
+          activityIndex,
+        })
+      }
+    }
+  }
+}
+
+/** Pull a cross-cutting activity back off downstream contracts. It stays owned here. */
+export async function releaseCrossCuttingActivity(input: {
+  contractId: string
+  objectiveIndex: number
+  initiativeIndex: number
+  activityIndex: number
+}): Promise<void> {
+  const source = await loadActivityCascadeContext(input)
+  if (!source?._type || source.activityType !== 'cross-cutting') return
+  if (source._type === 'officerContract') return
+  await clearActivityCascade({ ...input, source })
+}
+
+async function loadActivityCascadeContext(input: {
+  contractId: string
+  objectiveIndex: number
+  initiativeIndex: number
+  activityIndex: number
+}): Promise<ActivityCascadeContext | null> {
+  return writeClient.fetch<ActivityCascadeContext | null>(
+    /* groq */ `*[_id == $contractId][0]{
+      _type,
+      financialYearLabel,
+      "sectionId": section._ref,
+      "divisionId": division._ref,
+      "initiativeTitle": objectives[$objectiveIndex].initiatives[$initiativeIndex].title,
+      "initiativeKey": objectives[$objectiveIndex].initiatives[$initiativeIndex]._key,
+      "activityTitle": objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities[$activityIndex].title,
+      "activityKey": objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities[$activityIndex]._key,
+      "activityType": objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities[$activityIndex].activityType,
+      "currentAssigneeIds": objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities[$activityIndex].assignees[]._ref
+    }`,
+    input,
+  )
+}
+
+async function clearActivityCascade(input: {
+  contractId: string
+  objectiveIndex: number
+  initiativeIndex: number
+  activityIndex: number
+  source: ActivityCascadeContext
+}) {
+  const { contractId, objectiveIndex, initiativeIndex, activityIndex, source } =
+    input
+  const currentIds = (source.currentAssigneeIds ?? []).filter(Boolean)
+  if (!source._type || source._type === 'officerContract' || !source.activityKey) {
+    return
+  }
+  if (!source.initiativeKey || !source.financialYearLabel) return
+
+  await writeClient
+    .patch(contractId)
+    .set({
+      [`objectives[${objectiveIndex}].initiatives[${initiativeIndex}].measurableActivities[${activityIndex}].assignees`]:
+        [],
+    })
+    .commit()
+
+  if (currentIds.length === 0) return
+  const level = CASCADE_LEVELS[source._type]
+  for (const staffId of currentIds) {
+    const downstreamId = await findDownstreamContractId({
+      contractType: source._type,
+      staffId,
+      financialYearLabel: source.financialYearLabel,
+      sectionId: source.sectionId,
+      divisionId: source.divisionId,
+    })
+    if (!downstreamId) continue
+    await removeDownstreamInitiative({
+      downstreamId,
+      level,
+      upstreamContractId: contractId,
+      initiativeKey: source.initiativeKey,
+      activityKey: source.activityKey,
+    })
+  }
 }
 
 async function staffNames(ids: string[]): Promise<Map<string, string>> {

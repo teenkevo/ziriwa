@@ -17,10 +17,11 @@ interface ManagerCascadeActivityLike {
 export function managerActivityCanCascade(
   activity: ManagerCascadeActivityLike,
 ): boolean {
+  // Cross-cutting work stays with the level that owns it.
+  if (activity.activityType === 'cross-cutting') return false
   if (
     activity.activityType === 'measurable' ||
     activity.activityType === 'core' ||
-    activity.activityType === 'cross-cutting' ||
     activity.activityType === 'kpi'
   ) {
     return Boolean(activity.title?.trim())
@@ -34,8 +35,7 @@ export function managerActivityCascadeDetail(
 ): string {
   if (
     activity.activityType === 'measurable' ||
-    activity.activityType === 'core' ||
-    activity.activityType === 'cross-cutting'
+    activity.activityType === 'core'
   ) {
     return activity.title?.trim() ?? ''
   }

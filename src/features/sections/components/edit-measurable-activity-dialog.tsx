@@ -10,17 +10,25 @@ import { DatePicker } from '@/components/ui/date-picker'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import {
   contractsApiBase,
   type ContractsApiResource,
 } from '@/lib/contracts-api'
+
+type MeasurableActivityKind = 'core' | 'cross-cutting'
 
 interface EditMeasurableActivityDialogProps {
   open: boolean
@@ -31,15 +39,21 @@ interface EditMeasurableActivityDialogProps {
   initiativeIndex: number
   activityIndex: number
   initialTitle: string
-  initialAim?: string
+  initialActivityType?: string
   initialTargetDate?: string
-  showAim?: boolean
-  requireAim?: boolean
+  /** Core activities that already have assignees cannot become cross-cutting. */
+  hasAssignees?: boolean
 }
 
 function dateInputValue(value: string | undefined): string {
   if (!value) return ''
   return value.split(/[T ]/)[0] ?? ''
+}
+
+function initialKind(type: string | undefined): MeasurableActivityKind | '' {
+  if (type === 'cross-cutting') return 'cross-cutting'
+  if (type === 'core') return 'core'
+  return ''
 }
 
 function EditMeasurableActivityForm({
@@ -51,16 +65,17 @@ function EditMeasurableActivityForm({
   initiativeIndex,
   activityIndex,
   initialTitle,
-  initialAim = '',
+  initialActivityType,
   initialTargetDate,
-  showAim = false,
-  requireAim = false,
+  hasAssignees = false,
 }: Omit<EditMeasurableActivityDialogProps, 'open'> & {
   onSubmittingChange: (isSubmitting: boolean) => void
 }) {
   const router = useRouter()
   const [title, setTitle] = React.useState(initialTitle)
-  const [aim, setAim] = React.useState(initialAim)
+  const [activityType, setActivityType] = React.useState<
+    MeasurableActivityKind | ''
+  >(initialKind(initialActivityType))
   const [targetDate, setTargetDate] = React.useState(
     dateInputValue(initialTargetDate),
   )
@@ -70,27 +85,36 @@ function EditMeasurableActivityForm({
     onSubmittingChange(isSaving)
   }, [isSaving, onSubmittingChange])
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const canSubmit =
+    Boolean(title.trim()) &&
+    (activityType === 'core' || activityType === 'cross-cutting')
+  const crossCuttingLocked = hasAssignees && activityType !== 'cross-cutting'
+
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!title.trim()) return
-    if (showAim && requireAim && !aim.trim()) return
+    if (!canSubmit) return
+    if (activityType !== 'core' && activityType !== 'cross-cutting') return
 
     setIsSaving(true)
     try {
-      const payload: Record<string, unknown> = {
-        objectiveIndex,
-        initiativeIndex,
-        activityIndex,
-        title: title.trim(),
-        targetDate: targetDate || undefined,
-      }
-      if (showAim) payload.aim = aim.trim()
-
-      const res = await fetch(`${contractsApiBase(contractsApi)}/${contractId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ op: 'updateActivity', payload }),
-      })
+      const res = await fetch(
+        `${contractsApiBase(contractsApi)}/${contractId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            op: 'updateActivity',
+            payload: {
+              objectiveIndex,
+              initiativeIndex,
+              activityIndex,
+              title: title.trim(),
+              activityType,
+              targetDate: targetDate || undefined,
+            },
+          }),
+        },
+      )
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'Failed to update measurable activity')
@@ -114,31 +138,46 @@ function EditMeasurableActivityForm({
       <div className='space-y-4 py-2 pb-4'>
         <div className='space-y-2'>
           <Label htmlFor='edit-activity-title' required>
-            Title
+            Measurable activity
           </Label>
-          <Input
+          <Textarea
             id='edit-activity-title'
+            placeholder='e.g. Complete quarterly performance review and submit evidence to the supervisor'
             value={title}
             onChange={event => setTitle(event.target.value)}
             disabled={isSaving}
             required
+            rows={4}
+            className='min-h-[6rem] max-h-40 resize-y overflow-y-auto'
           />
         </div>
-        {showAim ? (
-          <div className='space-y-2'>
-            <Label htmlFor='edit-activity-aim' required={requireAim}>
-              AIM
-            </Label>
-            <textarea
-              id='edit-activity-aim'
-              className='flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
-              value={aim}
-              onChange={event => setAim(event.target.value)}
-              disabled={isSaving}
-              required={requireAim}
-            />
-          </div>
-        ) : null}
+        <div className='space-y-2'>
+          <Label htmlFor='edit-activity-type' required>
+            Type
+          </Label>
+          <Select
+            value={activityType || undefined}
+            onValueChange={value =>
+              setActivityType(
+                value === 'cross-cutting' ? 'cross-cutting' : 'core',
+              )
+            }
+            disabled={isSaving || crossCuttingLocked}
+          >
+            <SelectTrigger id='edit-activity-type'>
+              <SelectValue placeholder='Select type' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='core'>Core</SelectItem>
+              <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className='text-xs text-muted-foreground'>
+            {crossCuttingLocked
+              ? 'Remove assignees before changing this activity type.'
+              : 'Choose from Core or Cross-cutting.'}
+          </p>
+        </div>
         <div className='space-y-2'>
           <Label htmlFor='edit-activity-target-date'>Due date</Label>
           <DatePicker
@@ -159,12 +198,7 @@ function EditMeasurableActivityForm({
         >
           Cancel
         </Button>
-        <Button
-          type='submit'
-          disabled={
-            isSaving || !title.trim() || (showAim && requireAim && !aim.trim())
-          }
-        >
+        <Button type='submit' disabled={isSaving || !canSubmit}>
           {isSaving ? (
             <>
               <Loader2 className='mr-2 h-4 w-4 animate-spin' />
@@ -188,10 +222,9 @@ export function EditMeasurableActivityDialog({
   initiativeIndex,
   activityIndex,
   initialTitle,
-  initialAim,
+  initialActivityType,
   initialTargetDate,
-  showAim,
-  requireAim,
+  hasAssignees,
 }: EditMeasurableActivityDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
@@ -200,9 +233,6 @@ export function EditMeasurableActivityDialog({
       <DialogContent disableClose={isSubmitting}>
         <DialogHeader>
           <DialogTitle>Edit measurable activity</DialogTitle>
-          <DialogDescription>
-            Update the title, aim, or due date.
-          </DialogDescription>
         </DialogHeader>
         {open ? (
           <EditMeasurableActivityForm
@@ -215,10 +245,9 @@ export function EditMeasurableActivityDialog({
             initiativeIndex={initiativeIndex}
             activityIndex={activityIndex}
             initialTitle={initialTitle}
-            initialAim={initialAim}
+            initialActivityType={initialActivityType}
             initialTargetDate={initialTargetDate}
-            showAim={showAim}
-            requireAim={requireAim}
+            hasAssignees={hasAssignees}
           />
         ) : null}
       </DialogContent>
