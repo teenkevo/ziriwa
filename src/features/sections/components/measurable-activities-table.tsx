@@ -14,7 +14,16 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { format, parseISO } from 'date-fns'
+import {
+  addDays,
+  endOfDay,
+  endOfMonth,
+  endOfQuarter,
+  format,
+  parseISO,
+  startOfDay,
+  startOfWeek,
+} from 'date-fns'
 import {
   ChevronLeft,
   ChevronRight,
@@ -76,6 +85,33 @@ const ACTIVITY_STATUSES = [
   { label: 'In progress', value: 'in_progress' },
   { label: 'Completed', value: 'completed' },
 ]
+
+const ACTIVITY_DUE_WINDOWS = [
+  { label: 'Due this week', value: 'week' },
+  { label: 'Due this month', value: 'month' },
+  { label: 'Due this quarter', value: 'quarter' },
+]
+
+/**
+ * Windows an activity's due date falls into, cumulatively: anything due this
+ * week is also due this month and this quarter. Undated and overdue activities
+ * match no window. The work week runs Monday to Friday, so dates falling on a
+ * weekend are never "due this week".
+ */
+function activityDueWindows(targetDate: string | undefined): string[] {
+  if (!targetDate?.trim()) return []
+  const parsed = parseISO(targetDate)
+  if (Number.isNaN(parsed.getTime())) return []
+  const now = new Date()
+  const due = startOfDay(parsed)
+  if (due < startOfDay(now)) return []
+  const friday = endOfDay(addDays(startOfWeek(now, { weekStartsOn: 1 }), 4))
+  const windows: string[] = []
+  if (due <= friday) windows.push('week')
+  if (due <= endOfMonth(now)) windows.push('month')
+  if (due <= endOfQuarter(now)) windows.push('quarter')
+  return windows
+}
 
 function typeLabel(value: string | undefined) {
   return ACTIVITY_TYPES.find(t => t.value === value)?.label ?? value ?? '—'
@@ -356,6 +392,16 @@ export function MeasurableActivitiesTable({
           </span>
         ),
       },
+      {
+        id: 'dueWindow',
+        accessorFn: row => activityDueWindows(row.targetDate),
+        getUniqueValues: row => activityDueWindows(row.targetDate),
+        filterFn: (row, id, value: string[]) => {
+          const windows = row.getValue<string[]>(id)
+          return value.some(window => windows.includes(window))
+        },
+        enableSorting: false,
+      },
       ...(canManage
         ? [
             {
@@ -406,6 +452,7 @@ export function MeasurableActivitiesTable({
     getRowId: row => row._key,
     initialState: {
       pagination: { pageSize: 10 },
+      columnVisibility: { dueWindow: false },
     },
   })
 
@@ -446,6 +493,16 @@ export function MeasurableActivitiesTable({
                 options={ACTIVITY_STATUSES.map(s => ({
                   label: s.label,
                   value: s.value,
+                }))}
+              />
+            )}
+            {table.getColumn('dueWindow') && (
+              <DataTableFacetedFilter
+                column={table.getColumn('dueWindow')}
+                title='Filter by Due date'
+                options={ACTIVITY_DUE_WINDOWS.map(w => ({
+                  label: w.label,
+                  value: w.value,
                 }))}
               />
             )}
@@ -514,7 +571,7 @@ export function MeasurableActivitiesTable({
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={table.getAllColumns().length}
+                    colSpan={table.getVisibleFlatColumns().length}
                     className='h-24 text-center text-muted-foreground'
                   >
                     No measurable activities yet.

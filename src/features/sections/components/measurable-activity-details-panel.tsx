@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { endOfMonth, endOfQuarter, endOfWeek, format } from 'date-fns'
-import { Check, X } from 'lucide-react'
+import { Check, Loader2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -124,6 +124,9 @@ export function MeasurableActivityDetailsPanel({
   >(null)
   const [editingEvidenceLabel, setEditingEvidenceLabel] = React.useState('')
   const [isComposingEvidence, setIsComposingEvidence] = React.useState(false)
+  const [reportingSave, setReportingSave] = React.useState<
+    'toggle' | 'frequency' | 'start' | null
+  >(null)
   const titleEditRef = React.useRef<HTMLDivElement>(null)
   const skipEvidenceCommitRef = React.useRef(false)
   const evidenceBaselineRef = React.useRef<EvidenceDraft[] | null>(null)
@@ -139,6 +142,7 @@ export function MeasurableActivityDetailsPanel({
     setEditingEvidenceLabel('')
     setIsComposingEvidence(false)
     evidenceBaselineRef.current = null
+    setReportingSave(null)
   }, [activity?._key])
 
   React.useEffect(() => {
@@ -156,6 +160,21 @@ export function MeasurableActivityDetailsPanel({
 
   async function saveActivity(updates: MeasurableActivityPanelUpdate) {
     await onActivityChange(updates)
+  }
+
+  async function saveReporting(
+    kind: 'toggle' | 'frequency' | 'start',
+    updates: MeasurableActivityPanelUpdate,
+    revert: () => void,
+  ) {
+    setReportingSave(kind)
+    try {
+      await saveActivity(updates)
+    } catch {
+      revert()
+    } finally {
+      setReportingSave(null)
+    }
   }
 
   function beginComposingEvidence() {
@@ -273,7 +292,7 @@ export function MeasurableActivityDetailsPanel({
 
   return (
     <aside className='w-full lg:w-[24rem] shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
-      <div className='p-4 space-y-6 flex-1 min-h-0'>
+      <div className='flex min-h-0 flex-1 flex-col space-y-6 p-4 pb-8'>
         <div>
           <Label className='text-xs text-muted-foreground'>
             Measurable activity
@@ -476,28 +495,42 @@ export function MeasurableActivityDetailsPanel({
               </Select>
             </div>
 
-            <Card>
+            <Card aria-busy={reportingSave !== null}>
               <CardHeader className='flex flex-row items-center justify-between space-y-0 p-4'>
                 <div>
                   <CardTitle className='text-sm font-medium'>
                     Activity is reported periodically
                   </CardTitle>
                   <CardDescription className='mt-1 text-xs'>
-                    Enable if this activity has regular reporting cycles
+                    {reportingSave === 'toggle'
+                      ? 'Changing reporting settings…'
+                      : 'Enable if this activity has regular reporting cycles'}
                   </CardDescription>
                 </div>
-                <Switch
-                  checked={reportingFrequency !== 'n/a'}
-                  disabled={!canManage || isSaving}
-                  onCheckedChange={checked => {
-                    const previous = reportingFrequency
-                    const next: ReportingFrequency = checked ? 'monthly' : 'n/a'
-                    setReportingFrequency(next)
-                    void saveActivity({ reportingFrequency: next }).catch(() =>
-                      setReportingFrequency(previous),
-                    )
-                  }}
-                />
+                <div className='flex items-center gap-2'>
+                  {reportingSave === 'toggle' ? (
+                    <Loader2
+                      className='h-4 w-4 animate-spin text-muted-foreground'
+                      aria-hidden
+                    />
+                  ) : null}
+                  <Switch
+                    checked={reportingFrequency !== 'n/a'}
+                    disabled={!canManage || reportingSave !== null}
+                    onCheckedChange={checked => {
+                      const previous = reportingFrequency
+                      const next: ReportingFrequency = checked
+                        ? 'monthly'
+                        : 'n/a'
+                      setReportingFrequency(next)
+                      void saveReporting(
+                        'toggle',
+                        { reportingFrequency: next },
+                        () => setReportingFrequency(previous),
+                      )
+                    }}
+                  />
+                </div>
               </CardHeader>
               {reportingFrequency !== 'n/a' ? (
                 <CardContent className='space-y-4 px-4 pb-4 pt-0'>
@@ -505,44 +538,66 @@ export function MeasurableActivityDetailsPanel({
                     <Label className='text-xs text-muted-foreground'>
                       Reporting frequency
                     </Label>
-                    <Select
-                      value={reportingFrequency}
-                      disabled={!canManage || isSaving}
-                      onValueChange={value => {
-                        const previous = reportingFrequency
-                        const next = value as ReportingFrequency
-                        setReportingFrequency(next)
-                        void saveActivity({ reportingFrequency: next }).catch(
-                          () => setReportingFrequency(previous),
-                        )
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value='weekly'>Weekly</SelectItem>
-                        <SelectItem value='monthly'>Monthly</SelectItem>
-                        <SelectItem value='quarterly'>Quarterly</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className='flex items-center gap-2'>
+                      <Select
+                        value={reportingFrequency}
+                        disabled={!canManage || reportingSave !== null}
+                        onValueChange={value => {
+                          const previous = reportingFrequency
+                          const next = value as ReportingFrequency
+                          setReportingFrequency(next)
+                          void saveReporting(
+                            'frequency',
+                            { reportingFrequency: next },
+                            () => setReportingFrequency(previous),
+                          )
+                        }}
+                      >
+                        <SelectTrigger className='min-w-0 flex-1'>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='weekly'>Weekly</SelectItem>
+                          <SelectItem value='monthly'>Monthly</SelectItem>
+                          <SelectItem value='quarterly'>Quarterly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {reportingSave === 'toggle' ||
+                      reportingSave === 'frequency' ? (
+                        <Loader2
+                          className='h-4 w-4 shrink-0 animate-spin text-muted-foreground'
+                          aria-label='Changing reporting frequency'
+                        />
+                      ) : null}
+                    </div>
                   </div>
                   <div className='space-y-2'>
                     <Label className='text-xs text-muted-foreground'>
                       Reporting starts
                     </Label>
-                    <DatePicker
-                      value={periodStart}
-                      disabled={!canManage || isSaving}
-                      placeholder='Defaults to FY start'
-                      onChange={value => {
-                        const previous = periodStart
-                        setPeriodStart(value)
-                        void saveActivity({
-                          reportingPeriodStart: value,
-                        }).catch(() => setPeriodStart(previous))
-                      }}
-                    />
+                    <div className='flex items-center gap-2'>
+                      <DatePicker
+                        className='min-w-0 flex-1'
+                        value={periodStart}
+                        disabled={!canManage || reportingSave !== null}
+                        placeholder='Defaults to FY start'
+                        onChange={value => {
+                          const previous = periodStart
+                          setPeriodStart(value)
+                          void saveReporting(
+                            'start',
+                            { reportingPeriodStart: value },
+                            () => setPeriodStart(previous),
+                          )
+                        }}
+                      />
+                      {reportingSave === 'toggle' || reportingSave === 'start' ? (
+                        <Loader2
+                          className='h-4 w-4 shrink-0 animate-spin text-muted-foreground'
+                          aria-label='Changing reporting start'
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 </CardContent>
               ) : null}
