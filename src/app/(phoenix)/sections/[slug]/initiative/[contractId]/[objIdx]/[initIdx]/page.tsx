@@ -7,6 +7,7 @@ import {
   getContractForActivityPage,
   getInitiativeFromContract,
 } from '@/sanity/lib/contracts/get-contract-for-activity'
+import { CascadeHoldNotice } from '@/features/sections/components/contract-finalize-bar'
 import { InitiativePageContent } from '@/features/sections/initiative-page-content'
 import { isPmsAlignment } from '@/lib/contract-alignment'
 import {
@@ -63,7 +64,25 @@ export default async function InitiativePage({
   const initiative = getInitiativeFromContract(contract, objIndex, initIndex)
   if (!initiative) notFound()
 
-  const canManage = canManageActivityContract(contract._type, sectionAccess)
+  const hidden = new Set(contract.hiddenCascadeKeys ?? [])
+  const objective = contract.objectives?.[objIndex]
+  if (
+    (objective?._key && hidden.has(objective._key)) ||
+    (initiative._key && hidden.has(initiative._key))
+  ) {
+    return (
+      <CascadeHoldNotice
+        message={
+          contract.cascadeHoldMessage ||
+          'Waiting for the level above to finalize their contract.'
+        }
+      />
+    )
+  }
+
+  const canManage =
+    canManageActivityContract(contract._type, sectionAccess) &&
+    contract.status !== 'finalized'
   if (canManage && contract._type !== 'officerContract') {
     await releaseAssignedCrossCuttingActivities({
       contractId: contract._id,
@@ -71,7 +90,6 @@ export default async function InitiativePage({
     })
   }
 
-  const objective = contract.objectives?.[objIndex]
   const backHref = contractBackHrefForViewer(sectionAccess, slug)
   const assigneeOptions = await loadCascadeAssigneeOptions({
     contractType: contract._type,

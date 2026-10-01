@@ -3,6 +3,8 @@
 import * as React from 'react'
 import Link from 'next/link'
 import {
+  AlertTriangle,
+  CheckCircle2,
   ChevronRight,
   File,
   MoreVertical,
@@ -24,6 +26,10 @@ import { cn } from '@/lib/utils'
 
 export interface ContractColumnLeaf {
   id: string
+  /** Marks a row that is blocking contract finalization. */
+  attention?: boolean
+  /** Marks a row that already satisfies finalization. */
+  ready?: boolean
   title: string
   code?: string
   subtitle?: string
@@ -76,6 +82,8 @@ export function contractDetailedTaskHref(input: {
 
 export interface ContractColumnInitiative {
   id: string
+  attention?: boolean
+  ready?: boolean
   title: string
   code?: string
   subtitle?: string
@@ -92,6 +100,8 @@ export interface ContractColumnInitiative {
 
 export interface ContractColumnObjective {
   id: string
+  attention?: boolean
+  ready?: boolean
   title: string
   code?: string
   subtitle?: string
@@ -110,6 +120,8 @@ interface ContractColumnBrowserProps {
 
 interface ColumnRowModel {
   id: string
+  attention?: boolean
+  ready?: boolean
   title: string
   code?: string
   subtitle?: string
@@ -439,7 +451,20 @@ function ColumnRow({ row }: { row: ColumnRowModel }) {
             {row.code ? (
               <span className='whitespace-nowrap text-muted-foreground'>{row.code}</span>
             ) : null}
-            <span className='min-w-0'>{row.title}</span>
+            <span className='inline-flex min-w-0 items-start gap-1.5'>
+              {row.attention ? (
+                <AlertTriangle
+                  className='mt-0.5 h-4 w-4 shrink-0 text-destructive'
+                  aria-label='Needs attention before finalize'
+                />
+              ) : row.ready ? (
+                <CheckCircle2
+                  className='mt-0.5 h-4 w-4 shrink-0 fill-green-600 text-white [&_circle]:stroke-green-600'
+                  aria-label='Ready'
+                />
+              ) : null}
+              <span className='min-w-0'>{row.title}</span>
+            </span>
           </span>
           {row.subtitle ? (
             <span
@@ -618,6 +643,8 @@ export function ContractColumnBrowser({
               : undefined,
       rows: objectives.map(objective => ({
         id: objective.id,
+        attention: objective.attention,
+        ready: objective.ready,
         title: objective.title,
         code: objective.code,
         subtitle: objective.subtitle,
@@ -650,6 +677,8 @@ export function ContractColumnBrowser({
         const opensColumn = initiative.opensNextColumn === true
         return {
           id: initiative.id,
+          attention: initiative.attention,
+          ready: initiative.ready,
           title: initiative.title,
           code: initiative.code,
           subtitle: initiative.subtitle,
@@ -692,6 +721,8 @@ export function ContractColumnBrowser({
       headerAction: selectedInitiative.childHeaderAction,
       rows: (selectedInitiative.children ?? []).map(leaf => ({
         id: leaf.id,
+        attention: leaf.attention,
+        ready: leaf.ready,
         title: leaf.title,
         code: leaf.code,
         subtitle: leaf.subtitle,

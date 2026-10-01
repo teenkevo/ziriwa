@@ -1,3 +1,4 @@
+import { gateContractObjectives } from '@/lib/contract-cascade-visibility'
 import { defineQuery } from 'next-sanity'
 
 import { sanityFetch } from '../client'
@@ -41,6 +42,7 @@ export async function getDeputyProjectContract(
             targetDate,
             status,
             "reportingFrequency": coalesce(reportingFrequency, "n/a"),
+            evidence,
           },
         },
       },
@@ -53,7 +55,7 @@ export async function getDeputyProjectContract(
       params: { projectId, financialYearLabel },
       revalidate: 0,
     })
-    return contract || null
+    return gateContractObjectives(contract || null)
   } catch (error) {
     console.error('Error fetching deputy project contract', error)
     return null

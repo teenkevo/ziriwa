@@ -19,6 +19,7 @@ import {
 import { taskHasAssignee } from '@/lib/detailed-task-assignees'
 import { collectSprintEvidenceForContractTask } from '@/lib/contract-task-sprint-evidence'
 import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import { CascadeHoldNotice } from '@/features/sections/components/contract-finalize-bar'
 import { ActivityPageContent } from '@/features/sections/activity-page-content'
 
 function canManageActivityContract(
@@ -80,6 +81,23 @@ export default async function ActivityPage({
     actIndex,
   )
   if (!activity) notFound()
+
+  const hidden = new Set(contract.hiddenCascadeKeys ?? [])
+  const heldObjective = contract.objectives?.[objIndex]
+  const heldInitiative = heldObjective?.initiatives?.[initIndex]
+  if (
+    (heldObjective?._key && hidden.has(heldObjective._key)) ||
+    (heldInitiative?._key && hidden.has(heldInitiative._key))
+  ) {
+    return (
+      <CascadeHoldNotice
+        message={
+          contract.cascadeHoldMessage ||
+          'Waiting for the level above to finalize their contract.'
+        }
+      />
+    )
+  }
 
   let downstreamTaskAssignees:
     | Record<string, { assigneeId: string; assigneeName: string }>
@@ -171,10 +189,10 @@ export default async function ActivityPage({
       sectionContract={contract}
       contractsApi={contractsApiForActivityContract(contract._type)}
       contractBackHref={contractBackHrefForViewer(sectionAccess, sectionSlug)}
-      canManageContract={canManageActivityContract(
-        contract._type,
-        sectionAccess,
-      )}
+      canManageContract={
+        canManageActivityContract(contract._type, sectionAccess) &&
+        contract.status !== 'finalized'
+      }
       activity={activity}
       objectiveIndex={objIndex}
       initiativeIndex={initIndex}

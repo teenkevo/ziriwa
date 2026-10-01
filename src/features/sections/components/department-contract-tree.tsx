@@ -37,10 +37,16 @@ import {
   ContractColumnBrowser,
   contractDetailedTaskHref,
   contractInitiativeActivityHref,
+  type ContractColumnInitiative,
   type ContractColumnObjective,
 } from '@/features/sections/components/contract-column-browser'
 import { EditMeasurableActivityDialog } from '@/features/sections/components/edit-measurable-activity-dialog'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
+import {
+  contractFinalizeAttentionKeys,
+  reviewContractForFinalize,
+} from '@/lib/contract-finalize'
+import { ContractFinalizeBar } from '@/features/sections/components/contract-finalize-bar'
 
 type LeadershipContract =
   | DepartmentContract
@@ -139,21 +145,22 @@ function buildDepartmentColumnObjectives(input: {
     onOpenActivity,
   } = input
   const objectives = contract.objectives ?? []
+  const attention = contractFinalizeAttentionKeys(
+    reviewContractForFinalize(objectives, contract.hiddenCascadeKeys),
+  )
+  const hidden = new Set(contract.hiddenCascadeKeys ?? [])
 
-  return objectives.map((obj, objIdx) => {
+  return objectives.flatMap((obj, objIdx) => {
+    if (obj._key && hidden.has(obj._key)) return []
     const objNum = obj.code ?? String(objIdx + 1)
     const initiatives = obj.initiatives ?? []
 
     const canEditObjective = canManage && !isCascadedItem(obj)
 
-    return {
-      id: obj._key || `objective-${objIdx}`,
-      title: obj.title,
-      code: objNum,
-      onEdit: canEditObjective ? () => onEditObjective(objIdx) : undefined,
-      onDelete: canEditObjective ? () => onDeleteObjective(objIdx) : undefined,
-      onAddInitiative: canManage ? () => onAddInitiative(objIdx) : undefined,
-      initiatives: initiatives.map((init, initIdx) => {
+    const objectiveId = obj._key || `objective-${objIdx}`
+    const initiativeRows: ContractColumnInitiative[] = initiatives.flatMap(
+      (init, initIdx) => {
+        if (init._key && hidden.has(init._key)) return []
         const initNum = init.code ?? `${objNum}.${initIdx + 1}`
         const canEditInitiative = canManage && !isCascadedItem(init)
         const activities = init.measurableActivities ?? []
@@ -208,6 +215,12 @@ function buildDepartmentColumnObjectives(input: {
               return [
                 {
                   id: act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
+                  attention: attention.has(
+                    act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
+                  ),
+                  ready: !attention.has(
+                    act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
+                  ),
                   title: act.title,
                   code: leadershipActivityNumber(initNum, act, actOrder),
                   status: act.status,
@@ -237,8 +250,11 @@ function buildDepartmentColumnObjectives(input: {
               ]
             })
 
-        return {
-          id: init._key || `initiative-${objIdx}-${initIdx}`,
+        const initiativeId = init._key || `initiative-${objIdx}-${initIdx}`
+        return [{
+          id: initiativeId,
+          attention: attention.has(initiativeId),
+          ready: !attention.has(initiativeId),
           title: init.title,
           code: initNum,
           opensNextColumn: true,
@@ -258,9 +274,20 @@ function buildDepartmentColumnObjectives(input: {
             ? () => onDeleteInitiative(objIdx, initIdx)
             : undefined,
           children,
-        }
-      }),
-    }
+        }]
+    })
+    if (initiatives.length > 0 && initiativeRows.length === 0) return []
+    return [{
+      id: objectiveId,
+      attention: attention.has(objectiveId),
+      ready: !attention.has(objectiveId),
+      title: obj.title,
+      code: objNum,
+      onEdit: canEditObjective ? () => onEditObjective(objIdx) : undefined,
+      onDelete: canEditObjective ? () => onDeleteObjective(objIdx) : undefined,
+      onAddInitiative: canManage ? () => onAddInitiative(objIdx) : undefined,
+      initiatives: initiativeRows,
+    }]
   })
 }
 
@@ -321,11 +348,21 @@ export function DepartmentContractTree({
   const objectives = departmentContract.objectives ?? []
 
   React.useEffect(() => {
-    if (addObjectiveSignal === 0 || !canManageContract || !canCreateObjectives) {
+    if (
+      addObjectiveSignal === 0 ||
+      !canManageContract ||
+      departmentContract.status === 'finalized' ||
+      !canCreateObjectives
+    ) {
       return
     }
     setObjectiveDialogOpen(true)
-  }, [addObjectiveSignal, canManageContract, canCreateObjectives])
+  }, [
+    addObjectiveSignal,
+    canManageContract,
+    canCreateObjectives,
+    departmentContract.status,
+  ])
 
   const columnObjectives = React.useMemo(
     () =>
@@ -333,7 +370,8 @@ export function DepartmentContractTree({
         contract: departmentContract,
         sectionSlug,
         activityPageBasePath,
-        canManage: canManageContract,
+        canManage:
+          canManageContract && departmentContract.status !== 'finalized',
         showTasksOnly: showTasksOnlyUnderMeasurable,
         onEditObjective: objIdx => {
           setEditingObjectiveIndex(objIdx)
@@ -491,7 +529,7 @@ export function DepartmentContractTree({
     : undefined
 
   return (
-    <>
+    <div className='space-y-4'>
       <AddObjectiveDialog
         open={objectiveDialogOpen}
         onOpenChange={open => {
@@ -696,15 +734,47 @@ export function DepartmentContractTree({
           hasAssignees={(activityBeingEdited.assignees?.length ?? 0) > 0}
         />
       ) : null}
+      <ContractFinalizeBar
+        contractId={departmentContract._id}
+        status={departmentContract.status}
+        canFinalize={canManageContract}
+        objectives={departmentContract.objectives}
+        holdMessage={departmentContract.cascadeHoldMessage}
+        hiddenKeys={departmentContract.hiddenCascadeKeys}
+        issueHref={issue => {
+          if (issue.objectiveIndex < 0 || issue.initiativeIndex == null) {
+            return undefined
+          }
+          if (activityPageBasePath) {
+            const key = issue.activityKey
+              ? `?activityKey=${encodeURIComponent(issue.activityKey)}`
+              : ''
+            return `${activityPageBasePath}/initiative/${departmentContract._id}/${issue.objectiveIndex}/${issue.initiativeIndex}${key}`
+          }
+          if (!sectionSlug) return undefined
+          return contractInitiativeActivityHref({
+            sectionSlug,
+            contractId: departmentContract._id,
+            objectiveIndex: issue.objectiveIndex,
+            initiativeIndex: issue.initiativeIndex,
+            activityKey: issue.activityKey,
+          })
+        }}
+      />
       <ContractColumnBrowser
         objectives={columnObjectives}
         onAddObjective={
-          canCreateObjectives && canManageContract
+          canCreateObjectives &&
+          canManageContract &&
+          departmentContract.status !== 'finalized'
             ? () => setObjectiveDialogOpen(true)
             : undefined
         }
-        emptyObjectivesMessage={cascadedObjectivesWaitingMessage(contractsApi)}
+        emptyObjectivesMessage={
+          departmentContract.cascadeHoldMessage ||
+          cascadedObjectivesWaitingMessage(contractsApi)
+        }
       />
-    </>
+    </div>
   )
 }

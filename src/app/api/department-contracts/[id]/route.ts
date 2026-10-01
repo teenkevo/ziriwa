@@ -12,6 +12,7 @@ import {
 } from '@/lib/department-contract-access.server'
 import { client } from '@/sanity/lib/client'
 import { rejectCascadedContractEdit } from '@/lib/contract-cascade/reject-cascaded-edit.server'
+import { rejectFinalizedContractMutation } from '@/lib/contract-finalize.server'
 import {
   applyCreatedActivityEvidence,
   measurableEvidencePatchValue,
@@ -51,6 +52,8 @@ export async function PATCH(
       { id },
     )
 
+    const finalizedEdit = await rejectFinalizedContractMutation(id)
+    if (finalizedEdit) return finalizedEdit
     const cascadedEdit = await rejectCascadedContractEdit(id, op, payload)
     if (cascadedEdit) return cascadedEdit
 
@@ -515,8 +518,11 @@ export async function PATCH(
         setPayload[`${basePath}.aim`] =
           typeof aim === 'string' ? aim.trim() : undefined
       }
+      const unsetPaths: string[] = []
       if (targetDate !== undefined) {
-        setPayload[`${basePath}.targetDate`] = targetDate || undefined
+        const next = typeof targetDate === 'string' ? targetDate.trim() : ''
+        if (next) setPayload[`${basePath}.targetDate`] = next
+        else unsetPaths.push(`${basePath}.targetDate`)
       }
       if (
         status !== undefined &&
@@ -542,8 +548,11 @@ export async function PATCH(
           reportingPeriodStart,
         }),
       )
-      if (Object.keys(setPayload).length > 0) {
-        await writeClient.patch(id).set(setPayload).commit()
+      if (Object.keys(setPayload).length > 0 || unsetPaths.length > 0) {
+        let patch = writeClient.patch(id)
+        if (Object.keys(setPayload).length > 0) patch = patch.set(setPayload)
+        if (unsetPaths.length > 0) patch = patch.unset(unsetPaths)
+        await patch.commit()
       }
       audit.sectionContract.updated(
         id,

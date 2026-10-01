@@ -1,3 +1,4 @@
+import { gateContractObjectives } from '@/lib/contract-cascade-visibility'
 import { defineQuery } from 'next-sanity'
 import { sanityFetch } from '../client'
 import { DETAILED_TASK_PROJECTION } from '../contracts/measurable-activities-projection'
@@ -201,6 +202,8 @@ export type SectionContract = {
   contractAlignment?: 'itil4' | 'pms'
   manager?: { _id: string; fullName?: string }
   status?: string
+  cascadeHoldMessage?: string | null
+  hiddenCascadeKeys?: string[]
   objectives?: SsmartaObjective[]
 }
 
@@ -274,7 +277,7 @@ export async function getSectionContract(
       params: { sectionId, financialYearLabel },
       revalidate: 0,
     })
-    return contract || null
+    return gateContractObjectives(contract || null)
   } catch (error) {
     console.error('Error fetching section contract', error)
     return null

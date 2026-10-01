@@ -25,6 +25,8 @@ import {
   startOfWeek,
 } from 'date-fns'
 import {
+  AlertTriangle,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -38,6 +40,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ActivityAssigneesPicker } from '@/features/sections/components/activity-assignees-picker'
 import { resolveAssigneeNames } from '@/lib/contract-cascade/assignee-names'
+import { cn } from '@/lib/utils'
 import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import { Input } from '@/components/ui/input'
 import {
@@ -68,6 +71,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
+import {
+  activityFinalizeFields,
+  type ActivityFinalizeField,
+} from '@/lib/contract-finalize'
 import type { MeasurableActivity } from '@/sanity/lib/section-contracts/get-section-contract'
 
 const ACTIVITY_TYPES = [
@@ -114,6 +121,13 @@ function typeLabel(value: string | undefined) {
   return ACTIVITY_TYPES.find(t => t.value === value)?.label ?? value ?? '—'
 }
 
+function activityNeeds(
+  activity: MeasurableActivityRow,
+  field: ActivityFinalizeField,
+) {
+  return activityFinalizeFields(activity).includes(field)
+}
+
 function CellSavingSpinner({ label }: { label: string }) {
   return (
     <Loader2
@@ -130,6 +144,7 @@ function ActivityAssigneesCell({
   unassignedLabel,
   readOnly,
   saving,
+  attention,
   onChange,
 }: {
   activity: MeasurableActivityRow
@@ -138,12 +153,19 @@ function ActivityAssigneesCell({
   unassignedLabel: string
   readOnly: boolean
   saving: boolean
+  attention?: boolean
   onChange: (assigneeIds: string[]) => void
 }) {
   if (readOnly) {
     const names = resolveAssigneeNames(activity.assignees, options)
     return (
-      <span className='block max-w-[14rem] text-xs text-muted-foreground'>
+      <span
+        className={cn(
+          'block max-w-[14rem] text-xs text-muted-foreground',
+          attention &&
+            'rounded-md border !border-destructive px-2 py-1',
+        )}
+      >
         {names.length === 0 ? unassignedLabel : names.join(', ')}
       </span>
     )
@@ -156,7 +178,10 @@ function ActivityAssigneesCell({
         options={options}
         emptyLabel={emptyLabel}
         unassignedLabel={unassignedLabel}
-        triggerClassName='max-w-[14rem]'
+        triggerClassName={cn(
+          'max-w-[14rem]',
+          attention && '!border-destructive dark:!border-destructive',
+        )}
         disabled={saving}
         onChange={onChange}
       />
@@ -173,9 +198,9 @@ function statusLabel(value: string | undefined) {
 }
 
 function formatActivityDueDate(value: string | undefined) {
-  if (!value?.trim()) return '—'
+  if (!value?.trim()) return 'Set due date'
   const parsed = parseISO(value)
-  if (Number.isNaN(parsed.getTime())) return '—'
+  if (Number.isNaN(parsed.getTime())) return 'Set due date'
   return format(parsed, 'dd MMM yyyy')
 }
 
@@ -263,6 +288,14 @@ export function MeasurableActivitiesTable({
     [onAssigneesChange],
   )
 
+  const blockedActivityKeys = React.useMemo(() => {
+    return new Set(
+      activities
+        .filter(activity => activityFinalizeFields(activity).length > 0)
+        .map(activity => activity._key),
+    )
+  }, [activities])
+
   const columns = React.useMemo<ColumnDef<MeasurableActivityRow>[]>(
     () => [
       {
@@ -270,11 +303,35 @@ export function MeasurableActivitiesTable({
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title='Measurable activity' />
         ),
-        cell: ({ row }) => (
-          <span className='min-w-[200px] text-xs block break-words'>
-            {row.original.title || '—'}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const ready =
+            Boolean(row.original.title?.trim()) &&
+            !blockedActivityKeys.has(row.original._key)
+          return (
+            <span className='inline-flex min-w-[200px] items-start gap-3 text-xs'>
+              {ready ? (
+                <CheckCircle2
+                  className='mt-0.5 h-4 w-4 shrink-0 fill-green-600 text-white [&_circle]:stroke-green-600'
+                  aria-label='Ready'
+                />
+              ) : (
+                <AlertTriangle
+                  className='mt-0.5 h-4 w-4 shrink-0 text-destructive'
+                  aria-label='Needs attention before finalize'
+                />
+              )}
+              <span
+                className={cn(
+                  'break-words',
+                  activityNeeds(row.original, 'title') &&
+                    'rounded-md border !border-destructive px-2 py-0.5',
+                )}
+              >
+                {row.original.title || '—'}
+              </span>
+            </span>
+          )
+        },
       },
       {
         accessorKey: 'activityType',
@@ -303,7 +360,11 @@ export function MeasurableActivitiesTable({
                 }
               >
                 <SelectTrigger
-                  className='h-9 w-[140px] text-xs'
+                  className={cn(
+                    'h-9 w-[140px] text-xs',
+                    activityNeeds(row.original, 'type') &&
+                      '!border-destructive dark:!border-destructive',
+                  )}
                   onClick={e => e.stopPropagation()}
                 >
                   <SelectValue />
@@ -344,6 +405,7 @@ export function MeasurableActivitiesTable({
                     unassignedLabel={unassignedLabel}
                     readOnly={!canManage || isCascadedItem(row.original)}
                     saving={isPending(row.original._key, 'assignees')}
+                    attention={activityNeeds(row.original, 'assignees')}
                     onChange={ids =>
                       void runAssigneesUpdate(row.original._key, ids)
                     }
@@ -400,7 +462,13 @@ export function MeasurableActivitiesTable({
           <DataTableColumnHeader column={column} title='Due date' />
         ),
         cell: ({ row }) => (
-          <span className='whitespace-nowrap text-xs text-muted-foreground'>
+          <span
+            className={cn(
+              'whitespace-nowrap text-xs text-muted-foreground',
+              activityNeeds(row.original, 'dueDate') &&
+                'inline-flex rounded-md border !border-destructive px-2 py-1',
+            )}
+          >
             {formatActivityDueDate(row.original.targetDate)}
           </span>
         ),
@@ -448,6 +516,7 @@ export function MeasurableActivitiesTable({
       isPending,
       runAssigneesUpdate,
       runUpdate,
+      blockedActivityKeys,
     ],
   )
 

@@ -1,3 +1,4 @@
+import { gateContractObjectives } from '@/lib/contract-cascade-visibility'
 import { defineQuery } from 'next-sanity'
 
 import { sanityFetch } from '../client'
@@ -13,6 +14,8 @@ export type ProjectContract = {
   financialYearLabel?: string
   projectManager?: { _id: string; fullName?: string }
   status?: string
+  cascadeHoldMessage?: string | null
+  hiddenCascadeKeys?: string[]
   objectives?: SsmartaObjective[]
 }
 
@@ -53,6 +56,7 @@ export async function getProjectContract(
             status,
             "reportingFrequency": coalesce(reportingFrequency, "n/a"),
             evidence,
+            evidence,
             tasks[] | {
               ${DETAILED_TASK_PROJECTION}
             },
@@ -68,7 +72,7 @@ export async function getProjectContract(
       params: { projectId, financialYearLabel },
       revalidate: 0,
     })
-    return contract || null
+    return gateContractObjectives(contract || null)
   } catch (error) {
     console.error('Error fetching project contract', error)
     return null

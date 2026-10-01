@@ -25,6 +25,7 @@ import {
 import { ActivityAssigneesPicker } from '@/features/sections/components/activity-assignees-picker'
 import { resolveAssigneeNames } from '@/lib/contract-cascade/assignee-names'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
+import { activityFinalizeFields } from '@/lib/contract-finalize'
 import { cn } from '@/lib/utils'
 import type {
   MeasurableActivity,
@@ -99,7 +100,7 @@ interface MeasurableActivityDetailsPanelProps {
   assigneeEmptyLabel?: string
   /** Shown while nothing is assigned. Names the role one level below. */
   unassignedLabel?: string
-  onAssigneesChange?: (assigneeIds: string[]) => void
+  onAssigneesChange?: (assigneeIds: string[]) => void | Promise<void>
   title: string
   status: string
   evidenceDrafts: EvidenceDraft[]
@@ -142,6 +143,8 @@ export function MeasurableActivityDetailsPanel({
   const [reportingSave, setReportingSave] = React.useState<
     'toggle' | 'frequency' | 'start' | null
   >(null)
+  const [savingAssignees, setSavingAssignees] = React.useState(false)
+  const [savingDueDate, setSavingDueDate] = React.useState(false)
   const titleEditRef = React.useRef<HTMLDivElement>(null)
   const skipEvidenceCommitRef = React.useRef(false)
   const evidenceBaselineRef = React.useRef<EvidenceDraft[] | null>(null)
@@ -158,6 +161,8 @@ export function MeasurableActivityDetailsPanel({
     setIsComposingEvidence(false)
     evidenceBaselineRef.current = null
     setReportingSave(null)
+    setSavingAssignees(false)
+    setSavingDueDate(false)
   }, [activity?._key])
 
   React.useEffect(() => {
@@ -175,6 +180,29 @@ export function MeasurableActivityDetailsPanel({
 
   async function saveActivity(updates: MeasurableActivityPanelUpdate) {
     await onActivityChange(updates)
+  }
+
+  async function changeAssignees(assigneeIds: string[]) {
+    if (!onAssigneesChange) return
+    setSavingAssignees(true)
+    try {
+      await onAssigneesChange(assigneeIds)
+    } finally {
+      setSavingAssignees(false)
+    }
+  }
+
+  async function changeDueDate(value: string) {
+    const previous = dueDate
+    setDueDate(value)
+    setSavingDueDate(true)
+    try {
+      await saveActivity({ targetDate: value })
+    } catch {
+      setDueDate(previous)
+    } finally {
+      setSavingDueDate(false)
+    }
   }
 
   async function saveReporting(
@@ -297,6 +325,9 @@ export function MeasurableActivityDetailsPanel({
     activity?.assignees,
     assigneeOptions ?? [],
   )
+  const missingFields = new Set(
+    activity ? activityFinalizeFields(activity) : [],
+  )
 
   if (!activity) {
     return (
@@ -314,7 +345,7 @@ export function MeasurableActivityDetailsPanel({
     <aside className='w-full lg:w-[24rem] shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
       <div className='flex flex-col space-y-6 p-4'>
         <div>
-          <Label className='text-xs text-muted-foreground'>
+          <Label className='text-xs text-muted-foreground' required>
             Measurable activity
           </Label>
           {isEditingTitle ? (
@@ -331,7 +362,12 @@ export function MeasurableActivityDetailsPanel({
                 autoFocus
                 disabled={isSaving || !canManage}
                 rows={3}
-                className='flex min-h-[80px] w-full resize-y rounded-md border-2 border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50'
+                className={cn(
+                  'flex min-h-[80px] w-full resize-y rounded-md border-2 bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50',
+                  missingFields.has('title')
+                    ? '!border-destructive'
+                    : 'border-input',
+                )}
                 placeholder='Activity title'
               />
               <div className='flex gap-1'>
@@ -370,6 +406,7 @@ export function MeasurableActivityDetailsPanel({
             <p
               className={cn(
                 'text-sm rounded px-2 py-2 -mx-2 -my-1 mt-1 min-h-[2.5rem]',
+                missingFields.has('title') && 'border !border-destructive',
                 !canManage
                   ? 'text-muted-foreground cursor-not-allowed'
                   : 'cursor-pointer hover:bg-muted/50',
@@ -386,7 +423,9 @@ export function MeasurableActivityDetailsPanel({
         </div>
 
         <div className='space-y-2'>
-          <Label className='text-xs text-muted-foreground'>Type</Label>
+          <Label className='text-xs text-muted-foreground' required>
+            Type
+          </Label>
           <Select
             value={
               activity.activityType === 'core' ||
@@ -405,7 +444,12 @@ export function MeasurableActivityDetailsPanel({
                 activity.activityType !== 'cross-cutting')
             }
           >
-            <SelectTrigger>
+            <SelectTrigger
+              className={cn(
+                missingFields.has('type') &&
+                  '!border-destructive dark:!border-destructive',
+              )}
+            >
               <SelectValue placeholder='Select type' />
             </SelectTrigger>
             <SelectContent>
@@ -423,25 +467,61 @@ export function MeasurableActivityDetailsPanel({
 
         {assigneeOptions ? (
           <div className='space-y-2'>
-            <Label className='text-xs text-muted-foreground'>Assignees</Label>
+            <Label
+              className='text-xs text-muted-foreground'
+              required={activity.activityType !== 'cross-cutting'}
+            >
+              Assignees
+            </Label>
             {activity.activityType === 'cross-cutting' ? (
               <p className='text-sm text-muted-foreground'>
                 Owned at this level
               </p>
             ) : canManage && onAssigneesChange ? (
-              <ActivityAssigneesPicker
-                assignees={activity.assignees}
-                options={assigneeOptions}
-                emptyLabel={assigneeEmptyLabel}
-                unassignedLabel={unassignedLabel}
-                triggerClassName='w-full'
-                disabled={isSaving}
-                onChange={onAssigneesChange}
-              />
+              <div
+                className='flex items-center gap-2'
+                aria-busy={savingAssignees}
+              >
+                <div className='min-w-0 flex-1'>
+                  <ActivityAssigneesPicker
+                    assignees={activity.assignees}
+                    options={assigneeOptions}
+                    emptyLabel={assigneeEmptyLabel}
+                    unassignedLabel={unassignedLabel}
+                    triggerClassName={cn(
+                      'w-full',
+                      missingFields.has('assignees') &&
+                        '!border-destructive dark:!border-destructive',
+                    )}
+                    disabled={isSaving || savingAssignees}
+                    onChange={ids => void changeAssignees(ids)}
+                  />
+                </div>
+                {savingAssignees ? (
+                  <Loader2
+                    className='h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground'
+                    aria-label='Saving assignees'
+                  />
+                ) : null}
+              </div>
             ) : assigneeNames.length === 0 ? (
-              <p className='text-sm text-muted-foreground'>Not assigned yet</p>
+              <p
+                className={cn(
+                  'text-sm text-muted-foreground',
+                  missingFields.has('assignees') &&
+                    'rounded-md border !border-destructive px-2 py-1.5',
+                )}
+              >
+                Not assigned yet
+              </p>
             ) : (
-              <div className='flex flex-wrap gap-1.5'>
+              <div
+                className={cn(
+                  'flex flex-wrap gap-1.5',
+                  missingFields.has('assignees') &&
+                    'rounded-md border !border-destructive p-1.5',
+                )}
+              >
                 {assigneeNames.map((name, index) => (
                   <span
                     key={`${name}-${index}`}
@@ -478,40 +558,55 @@ export function MeasurableActivityDetailsPanel({
         {showTaskSettings ? (
           <>
             <div className='space-y-2'>
-              <Label className='text-xs text-muted-foreground'>Due date</Label>
+              <Label
+                className='text-xs text-muted-foreground'
+                required={activity.activityType !== 'cross-cutting'}
+              >
+                Due date
+              </Label>
               {reportingFrequency === 'weekly' ? (
-                <div className='flex h-9 items-center rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground'>
+                <div
+                  className={cn(
+                    'flex h-9 items-center rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground',
+                    missingFields.has('dueDate') && '!border-destructive',
+                  )}
+                >
                   Due end of this week ({format(endOfWeek(new Date()), 'PPP')})
                 </div>
               ) : (
                 <div className='space-y-1'>
-                  <div className='flex items-center gap-1'>
+                  <div
+                    className='flex items-center gap-1'
+                    aria-busy={savingDueDate}
+                  >
                     <DatePicker
-                      className='flex-1'
+                      className={cn(
+                        'flex-1',
+                        missingFields.has('dueDate') &&
+                          '!border-destructive dark:!border-destructive',
+                      )}
                       value={dueDate}
-                      disabled={!canManage || isSaving}
+                      disabled={!canManage || isSaving || savingDueDate}
                       placeholder='Select due date'
                       onChange={value => {
-                        const previous = dueDate
-                        setDueDate(value)
-                        void saveActivity({ targetDate: value }).catch(() =>
-                          setDueDate(previous),
-                        )
+                        void changeDueDate(value)
                       }}
                     />
+                    {savingDueDate ? (
+                      <Loader2
+                        className='h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground'
+                        aria-label='Saving due date'
+                      />
+                    ) : null}
                     <Button
                       type='button'
                       variant='ghost'
                       size='icon'
                       className='h-9 w-9 shrink-0 text-muted-foreground'
                       aria-label='Clear due date'
-                      disabled={!canManage || isSaving || !dueDate}
+                      disabled={!canManage || isSaving || savingDueDate || !dueDate}
                       onClick={() => {
-                        const previous = dueDate
-                        setDueDate('')
-                        void saveActivity({ targetDate: '' }).catch(() =>
-                          setDueDate(previous),
-                        )
+                        void changeDueDate('')
                       }}
                     >
                       <X className='h-4 w-4' />
@@ -524,18 +619,13 @@ export function MeasurableActivityDetailsPanel({
                       variant='ghost'
                       size='sm'
                       className='h-8 px-2 text-muted-foreground'
-                      disabled={!canManage || isSaving}
+                      disabled={!canManage || isSaving || savingDueDate}
                       onClick={() => {
                         const end =
                           reportingFrequency === 'quarterly'
                             ? endOfQuarter(new Date())
                             : endOfMonth(new Date())
-                        const value = format(end, 'yyyy-MM-dd')
-                        const previous = dueDate
-                        setDueDate(value)
-                        void saveActivity({ targetDate: value }).catch(() =>
-                          setDueDate(previous),
-                        )
+                        void changeDueDate(format(end, 'yyyy-MM-dd'))
                       }}
                     >
                       Set to end of period
@@ -685,12 +775,15 @@ export function MeasurableActivityDetailsPanel({
         ) : null}
 
         <div className='space-y-2'>
-          <Label className='text-xs text-muted-foreground'>
+          <Label className='text-xs text-muted-foreground' required>
             Expected evidence
           </Label>
           <div
             className={cn(
               'flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border bg-background px-2 py-1.5',
+              missingFields.has('evidence')
+                ? '!border-destructive'
+                : 'border-input',
               canManage && 'focus-within:ring-1 focus-within:ring-ring',
             )}
           >

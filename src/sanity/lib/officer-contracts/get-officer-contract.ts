@@ -1,3 +1,4 @@
+import { gateContractObjectives } from '@/lib/contract-cascade-visibility'
 import { defineQuery } from 'next-sanity'
 
 import { SPRINT_CONTRACT_TASKS_PROJECTION } from '../contracts/sprint-contract-tasks-projection'
@@ -14,6 +15,8 @@ export type OfficerContract = {
   financialYearLabel?: string
   contractAlignment?: 'itil4' | 'pms'
   status?: string
+  cascadeHoldMessage?: string | null
+  hiddenCascadeKeys?: string[]
   objectives?: SsmartaObjective[]
 }
 
@@ -59,6 +62,7 @@ export async function getOfficerContract(
             targetDate,
             status,
             "reportingFrequency": coalesce(reportingFrequency, "n/a"),
+            evidence,
             cascadeSource { nodeRole },
             ${SPRINT_CONTRACT_TASKS_PROJECTION},
           },
@@ -73,7 +77,7 @@ export async function getOfficerContract(
       params: { sectionId, officerStaffId, financialYearLabel },
       revalidate: 0,
     })
-    return contract || null
+    return gateContractObjectives(contract || null)
   } catch (error) {
     console.error('Error fetching officer contract', error)
     return null

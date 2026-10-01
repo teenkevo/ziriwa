@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 
+import { CascadeHoldNotice } from '@/features/sections/components/contract-finalize-bar'
 import { InitiativePageContent } from '@/features/sections/initiative-page-content'
+import { getUnreleasedCascadeKeys } from '@/lib/contract-cascade-visibility'
 import { ensureAssistantCommissionerPageAccess } from '@/features/manager/assistant-commissioner-workspace-page'
 import {
   loadCascadeAssigneeOptions,
@@ -46,6 +48,7 @@ export default async function AssistantCommissionerInitiativePage({
   const contract = (await sanityFetch({
     query: /* groq */ `*[_type == "divisionContract" && _id == $contractId][0]{
       _id,
+      status,
       "divisionName": coalesce(division->fullName, division->name, "Division"),
       objectives[] {
         _key,
@@ -67,6 +70,7 @@ export default async function AssistantCommissionerInitiativePage({
     revalidate: 0,
   })) as {
     _id: string
+    status?: string
     divisionName?: string
     objectives?: SsmartaObjective[]
   } | null
@@ -77,6 +81,22 @@ export default async function AssistantCommissionerInitiativePage({
     | ContractInitiative
     | undefined
   if (!initiative) notFound()
+
+  const hold = await getUnreleasedCascadeKeys(contract._id)
+  const hidden = new Set(hold.hiddenKeys)
+  if (
+    (objective?._key && hidden.has(objective._key)) ||
+    (initiative._key && hidden.has(initiative._key))
+  ) {
+    return (
+      <CascadeHoldNotice
+        message={
+          hold.holdMessage ||
+          'Waiting for the level above to finalize their contract.'
+        }
+      />
+    )
+  }
 
   await releaseAssignedCrossCuttingActivities({
     contractId: contract._id,
@@ -101,7 +121,7 @@ export default async function AssistantCommissionerInitiativePage({
       objectiveCode={objective?.code}
       objectiveTitle={objective?.title}
       initiative={initiative}
-      canManage
+      canManage={contract.status !== 'finalized'}
       backHref='/assistant-commissioner/contract'
       initialActivityKey={initialActivityKey}
       assigneeOptions={assigneeOptions ?? []}

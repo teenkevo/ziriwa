@@ -1,3 +1,4 @@
+import { gateContractObjectives } from '@/lib/contract-cascade-visibility'
 import { defineQuery } from 'next-sanity'
 
 import type { ContractsApiResource } from '@/lib/contracts-api'
@@ -16,7 +17,12 @@ export type ActivityPageContractType =
 
 export type ActivityPageContract = Pick<
   SectionContract,
-  '_id' | 'objectives' | 'contractAlignment'
+  | '_id'
+  | 'objectives'
+  | 'contractAlignment'
+  | 'status'
+  | 'cascadeHoldMessage'
+  | 'hiddenCascadeKeys'
 > & {
   _type: ActivityPageContractType
   /** Present on officer contracts — default assignee for cascaded detailed tasks. */
@@ -53,6 +59,7 @@ export async function getContractForActivityPage(
     ][0] {
       _id,
       _type,
+      status,
       contractAlignment,
       officer->{
         _id,
@@ -83,7 +90,7 @@ export async function getContractForActivityPage(
       params: { contractId, sectionId },
       revalidate: 0,
     })
-    return contract || null
+    return gateContractObjectives(contract || null)
   } catch (error) {
     console.error('Error fetching contract for activity page', error)
     return null

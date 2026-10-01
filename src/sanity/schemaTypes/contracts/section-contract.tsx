@@ -57,6 +57,7 @@ export const sectionContract = defineType({
       options: {
         list: [
           { title: 'Draft', value: 'draft' },
+          { title: 'Finalized', value: 'finalized' },
           { title: 'Active', value: 'active' },
           { title: 'Completed', value: 'completed' },
         ],

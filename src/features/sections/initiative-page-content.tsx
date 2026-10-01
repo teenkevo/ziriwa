@@ -356,7 +356,7 @@ export function InitiativePageContent({
       unassignedLabel={unassignedLabel}
       onAssigneesChange={
         selected
-          ? ids => void handleAssigneesChange(selected._key, ids)
+          ? ids => handleAssigneesChange(selected._key, ids)
           : undefined
       }
       title={panelTitle}
@@ -398,7 +398,7 @@ export function InitiativePageContent({
                   disabled={isDeletingInitiative}
                 >
                   <Trash2 className='mr-2 h-4 w-4' />
-                  Delete activity
+                  Delete initiative
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent disableClose={isDeletingInitiative}>

@@ -46,7 +46,6 @@ import type { ContractsApiResource } from '@/lib/contracts-api'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
-import { ContractExportDownloadButton } from '@/features/sections/components/contract-export-download-button'
 import {
   PlanningContractDelegatedAction,
 } from '@/features/delegation/planning-contract-delegation-panel'
@@ -205,11 +204,6 @@ export function ManagerWorkspaceContent({
       viewerSupervisor?.fullName ??
       rosterSupervisor?.fullName ??
       'Supervisor')
-  const contractResponsibilityCenter = usesOfficerContract
-    ? 'Officer'
-    : usesSupervisorContract
-      ? 'Supervisor'
-      : 'Manager'
   const config = viewConfig[view]
   const [panelPortalNode, setPanelPortalNode] =
     React.useState<HTMLDivElement | null>(null)
@@ -538,10 +532,13 @@ export function ManagerWorkspaceContent({
                     isProjectWorkstream={isProjectWorkstreamWorkspace}
                   />
                 ) : null}
-                <div className='flex flex-wrap items-center justify-end gap-2'>
-                    {usesSupervisorContract &&
-                    canManageActiveContract &&
-                    sectionContract ? (
+                {canManageActiveContract &&
+                ((usesSupervisorContract && sectionContract) ||
+                  (usesOfficerContract &&
+                    supervisorContractForCascade &&
+                    activeContract)) ? (
+                  <div className='flex flex-wrap items-center justify-end gap-2'>
+                    {usesSupervisorContract && sectionContract ? (
                       <Button
                         type='button'
                         size='sm'
@@ -552,11 +549,7 @@ export function ManagerWorkspaceContent({
                           ? 'Cascade from project manager'
                           : 'Cascade from manager'}
                       </Button>
-                    ) : null}
-                    {usesOfficerContract &&
-                    canManageActiveContract &&
-                    supervisorContractForCascade &&
-                    activeContract ? (
+                    ) : (
                       <Button
                         type='button'
                         size='sm'
@@ -567,16 +560,9 @@ export function ManagerWorkspaceContent({
                           ? 'Cascade from workstream lead'
                           : 'Cascade from supervisor'}
                       </Button>
-                    ) : null}
-                    {activeContract ? (
-                      <ContractExportDownloadButton
-                        sectionName={section.name}
-                        financialYearLabel={currentFY}
-                        objectives={activeContract.objectives}
-                        responsibilityCenter={contractResponsibilityCenter}
-                      />
-                    ) : null}
-                </div>
+                    )}
+                  </div>
+                ) : null}
                 {usesLeadershipContract ? (
                   <DepartmentContractTree
                     departmentContract={

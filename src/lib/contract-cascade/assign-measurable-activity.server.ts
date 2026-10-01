@@ -277,34 +277,8 @@ export async function setMeasurableActivityAssignees(input: {
     })
     .commit()
 
-  const names = await staffNames([...uniqueIds, ...currentIds])
   const warnings: string[] = []
   const removed = currentIds.filter(id => !uniqueIds.includes(id))
-
-  for (const staffId of uniqueIds) {
-    const downstreamId = await findDownstreamContractId({
-      contractType: source._type,
-      staffId,
-      financialYearLabel: source.financialYearLabel,
-      sectionId: source.sectionId,
-      divisionId: source.divisionId,
-    })
-    if (!downstreamId) {
-      warnings.push(
-        `${names.get(staffId) ?? 'This person'} has no performance contract for ${source.financialYearLabel}, so nothing was cascaded yet.`,
-      )
-      continue
-    }
-    await upsertDownstreamContract({
-      downstreamId,
-      level,
-      upstreamContractId: contractId,
-      initiativeKey: source.initiativeKey,
-      initiativeTitle: source.initiativeTitle?.trim() || 'Initiative',
-      activityKey: source.activityKey,
-      activityTitle: source.activityTitle?.trim() || 'Measurable activity',
-    })
-  }
 
   for (const staffId of removed) {
     const downstreamId = await findDownstreamContractId({
@@ -640,4 +614,103 @@ async function removeDownstreamInitiative(input: {
   })
 
   await writeClient.patch(input.downstreamId).set({ objectives: next }).commit()
+}
+
+/** Share every assigned core activity once the source contract is finalized. */
+export async function shareFinalizedAssignments(
+  contractId: string,
+): Promise<string[]> {
+  const source = await client.fetch<{
+    _type?: SourceContractType
+    financialYearLabel?: string
+    sectionId?: string
+    divisionId?: string
+    objectives?: Array<{
+      initiatives?: Array<{
+        _key?: string
+        title?: string
+        measurableActivities?: Array<{
+          _key?: string
+          title?: string
+          activityType?: string
+          assigneeIds?: string[]
+        } | null> | null
+      } | null> | null
+    } | null> | null
+  } | null>(
+    /* groq */ `*[_id == $contractId][0]{
+      _type,
+      financialYearLabel,
+      "sectionId": section._ref,
+      "divisionId": division._ref,
+      objectives[]{
+        initiatives[]{
+          _key,
+          title,
+          measurableActivities[]{
+            _key,
+            title,
+            activityType,
+            "assigneeIds": assignees[]._ref
+          }
+        }
+      }
+    }`,
+    { contractId },
+  )
+  if (
+    !source?._type ||
+    source._type === 'officerContract' ||
+    !source.financialYearLabel ||
+    !(source._type in CASCADE_LEVELS)
+  ) {
+    return []
+  }
+
+  const level = CASCADE_LEVELS[source._type]
+  const warnings: string[] = []
+  const warned = new Set<string>()
+
+  for (const objective of source.objectives ?? []) {
+    for (const initiative of objective?.initiatives ?? []) {
+      if (!initiative?._key) continue
+      for (const activity of initiative.measurableActivities ?? []) {
+        if (!activity?._key) continue
+        if (activity.activityType !== 'core' && activity.activityType !== 'kpi') {
+          continue
+        }
+        const assigneeIds = (activity.assigneeIds ?? []).filter(Boolean)
+        for (const staffId of assigneeIds) {
+          const downstreamId = await findDownstreamContractId({
+            contractType: source._type,
+            staffId,
+            financialYearLabel: source.financialYearLabel,
+            sectionId: source.sectionId,
+            divisionId: source.divisionId,
+          })
+          if (!downstreamId) {
+            if (!warned.has(staffId)) {
+              warned.add(staffId)
+              const names = await staffNames([staffId])
+              warnings.push(
+                `${names.get(staffId) ?? 'This person'} has no performance contract for ${source.financialYearLabel}, so their activities will appear after they onboard.`,
+              )
+            }
+            continue
+          }
+          await upsertDownstreamContract({
+            downstreamId,
+            level,
+            upstreamContractId: contractId,
+            initiativeKey: initiative._key,
+            initiativeTitle: initiative.title?.trim() || 'Initiative',
+            activityKey: activity._key,
+            activityTitle: activity.title?.trim() || 'Measurable activity',
+          })
+        }
+      }
+    }
+  }
+
+  return warnings
 }
