@@ -12,6 +12,7 @@ import {
   FileBarChart,
   FilePen,
   FileText,
+  Folder,
   GraduationCap,
   Handshake,
   Landmark,
@@ -559,7 +560,7 @@ export function AppSidebarNav({
                       href={href}
                       isActive={active}
                     >
-                      <Building2 />
+                      <Folder />
                       <span className='truncate'>{section.name}</span>
                     </SidebarContractGatedItem>
                   )

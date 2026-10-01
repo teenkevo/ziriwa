@@ -526,14 +526,14 @@ function ColumnPane({
       aria-label={column.title}
       className='flex h-full min-w-0 flex-1 flex-col border-r border-border last:border-r-0'
     >
-      <header className='flex h-12 shrink-0 items-center gap-2 px-2.5'>
+      <header className='flex h-12 shrink-0 items-center gap-2 border-b border-border px-2.5'>
         <h3 className='min-w-0 flex-1 truncate text-sm font-semibold uppercase tracking-tight text-foreground'>
           {column.title}
         </h3>
         {column.headerAction}
       </header>
       {showSearch ? (
-        <div className='shrink-0 px-3 pb-2'>
+        <div className='shrink-0 px-3 pb-2 pt-3'>
           <div className='relative'>
             <Search className='pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground' />
             <Input
