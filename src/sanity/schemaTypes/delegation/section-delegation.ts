@@ -57,6 +57,13 @@ export const sectionDelegation = defineType({
       initialValue: 'leave',
     }),
     defineField({
+      name: 'financialYearLabel',
+      title: 'Financial year',
+      type: 'string',
+      description:
+        'Workspace financial year this contract-support handoff belongs to. Leave coverage is not year-scoped.',
+    }),
+    defineField({
       name: 'startDate',
       title: 'Start date',
       type: 'date',

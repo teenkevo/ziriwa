@@ -14,6 +14,7 @@ import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
 import {
   getActiveDelegationAsDelegatee,
   getOutgoingActiveDelegation,
+  scopeContractSupportToActiveYear,
   syncDelegationStatuses,
 } from '@/lib/section-delegation.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
@@ -21,6 +22,10 @@ import {
   getProjectWorkstreamOfficerIds,
   getProjectWorkstreamSupervisorIds,
 } from '@/lib/project-member-staff.server'
+import {
+  isWorkspaceFinancialYearWritable,
+  lockSectionAccessForPastYear,
+} from '@/lib/financial-year-access.server'
 import { client } from '@/sanity/lib/client'
 
 export async function getSectionAccessForViewer(
@@ -35,7 +40,7 @@ export async function getSectionAccessForViewer(
 
   if (globalAdmin) {
     const viewerStaffId = await getViewerStaffIdForSection(sectionId)
-    return buildSectionAccessForWorkContext(
+    const access = buildSectionAccessForWorkContext(
       {
         viewerStaffId,
         sectionManagerId: null,
@@ -46,6 +51,8 @@ export async function getSectionAccessForViewer(
       },
       workContext,
     )
+    if (await isWorkspaceFinancialYearWritable()) return access
+    return lockSectionAccessForPastYear(access)
   }
 
   await syncDelegationStatuses(sectionId)
@@ -145,12 +152,14 @@ export async function getSectionAccessForViewer(
 
   const [assignmentAsDelegatee, assignmentAsAbsent] = viewerStaffId
     ? await Promise.all([
-        getActiveDelegationAsDelegatee(viewerStaffId, sectionId),
+        getActiveDelegationAsDelegatee(viewerStaffId, sectionId).then(
+          scopeContractSupportToActiveYear,
+        ),
         getOutgoingActiveDelegation(viewerStaffId, sectionId),
       ])
     : [null, null]
 
-  return buildSectionAccessForWorkContext(
+  const access = buildSectionAccessForWorkContext(
     {
       viewerStaffId,
       sectionManagerId: effectiveManagerId,
@@ -166,6 +175,8 @@ export async function getSectionAccessForViewer(
     },
     workContext,
   )
+  if (await isWorkspaceFinancialYearWritable()) return access
+  return lockSectionAccessForPastYear(access)
 }
 
 export function assertSectionStaffManageAllowed(

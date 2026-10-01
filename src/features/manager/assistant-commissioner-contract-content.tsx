@@ -23,12 +23,13 @@ export function AssistantCommissionerContractContent({
   assistantCommissionerStaffIdForOnboarding,
   canManageContract,
   planningContractSupport,
+  assigneeOptions,
 }: AssistantCommissionerContractPageData) {
   const router = useRouter()
   const [onboardOpen, setOnboardOpen] = React.useState(false)
   const [delegateOpen, setDelegateOpen] = React.useState(false)
   const [isCancellingSupport, setIsCancellingSupport] = React.useState(false)
-  const { active: activeFY } = useFinancialYear()
+  const { active: activeFY, isHistorical } = useFinancialYear()
 
   const divisionName = division.fullName || division.acronym || division.name
   const currentFY = divisionContract?.financialYearLabel ?? activeFY.label
@@ -77,6 +78,9 @@ export function AssistantCommissionerContractContent({
       <div className='flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain p-4 pt-6 md:p-8'>
         <div className='flex flex-col gap-2'>
           <h1 className='text-2xl font-bold'>Performance Contract</h1>
+          <p className='max-w-3xl text-sm text-muted-foreground'>
+            Manage your performance contract and deliverables
+          </p>
         </div>
 
         {planningContractSupport ? (
@@ -85,10 +89,10 @@ export function AssistantCommissionerContractContent({
               <PlanningContractSupportStatus
                 toStaffName={activeSupport.toStaffName}
                 endDate={activeSupport.endDate}
-                onCancel={cancelContractSupport}
+                onCancel={isHistorical ? undefined : cancelContractSupport}
                 isCancelling={isCancellingSupport}
               />
-            ) : (
+            ) : isHistorical ? null : (
               <PlanningContractDelegateCta
                 onDelegate={() => setDelegateOpen(true)}
                 disabled={
@@ -117,6 +121,9 @@ export function AssistantCommissionerContractContent({
                 contractsApi='division-contracts'
                 canManageContract={canManageContract}
                 activityPageBasePath='/assistant-commissioner/contract'
+                assigneeOptions={assigneeOptions}
+                assigneeEmptyLabel='No managers in this division yet.'
+                unassignedLabel='Assign a manager'
               />
             ) : (
               <div className='space-y-4'>

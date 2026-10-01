@@ -312,7 +312,7 @@ export function MeasurableActivityDetailsPanel({
 
   return (
     <aside className='w-full lg:w-[24rem] shrink-0 border-l bg-muted/20 flex flex-col min-h-0 overflow-y-auto overscroll-contain'>
-      <div className='flex min-h-0 flex-1 flex-col space-y-6 p-4 pb-8'>
+      <div className='flex flex-col space-y-6 p-4'>
         <div>
           <Label className='text-xs text-muted-foreground'>
             Measurable activity
@@ -817,6 +817,7 @@ export function MeasurableActivityDetailsPanel({
             </div>
           ) : null}
         </div>
+        <div className='h-8 shrink-0' aria-hidden />
       </div>
     </aside>
   )

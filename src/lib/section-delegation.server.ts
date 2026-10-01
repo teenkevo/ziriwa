@@ -10,6 +10,8 @@ import {
   isSectionActingRole,
   resolveSectionDelegationPurpose,
 } from '@/lib/role-delegation'
+import { isDateInFinancialYear, type FinancialYear } from '@/lib/financial-year'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { client } from '@/sanity/lib/client'
 
 export interface SectionDelegationRecord {
@@ -25,6 +27,8 @@ export interface SectionDelegationRecord {
   endDate: string
   status: string
   note?: string
+  /** Set on contract-support handoffs. Absent on older records and on leave. */
+  financialYearLabel?: string
 }
 
 export interface ActiveDelegationForStaff {
@@ -48,12 +52,44 @@ const delegationProjection = /* groq */ `{
   endDate,
   status,
   note,
+  financialYearLabel,
   "fromStaffId": fromStaff._ref,
   "fromStaffName": coalesce(fromStaff->fullName, fromStaff->firstName + " " + fromStaff->lastName),
   "toStaffId": toStaff._ref,
   "toStaffName": coalesce(toStaff->fullName, toStaff->firstName + " " + toStaff->lastName),
   "sectionId": section._ref
 }`
+
+/**
+ * Contract-entry support belongs to one workspace financial year.
+ * Older rows have no label, so the start date's year is used.
+ * Leave coverage is not year-scoped.
+ */
+export function contractSupportMatchesFinancialYear(
+  record: Pick<
+    SectionDelegationRecord,
+    'purpose' | 'startDate' | 'financialYearLabel'
+  >,
+  fy: Pick<FinancialYear, 'label' | 'startDate' | 'endDate'>,
+): boolean {
+  if (resolveSectionDelegationPurpose(record.purpose) !== 'contract_support') {
+    return true
+  }
+  if (record.financialYearLabel) return record.financialYearLabel === fy.label
+  return isDateInFinancialYear(record.startDate, fy)
+}
+
+/** Hide contract-support handoffs that belong to a different workspace year. */
+export async function scopeContractSupportToActiveYear(
+  record: SectionDelegationRecord | null,
+): Promise<SectionDelegationRecord | null> {
+  if (!record) return null
+  if (resolveSectionDelegationPurpose(record.purpose) !== 'contract_support') {
+    return record
+  }
+  const fy = await getActiveFinancialYear()
+  return contractSupportMatchesFinancialYear(record, fy) ? record : null
+}
 
 function normalizeDelegationRecord(
   row: SectionDelegationRecord | null,
@@ -157,7 +193,7 @@ export async function getOutgoingContractSupportDelegation(
     ] | order(startDate asc)[0] ${delegationProjection}`,
     { staffId, sectionId, date, statuses: [...ACTIVE_STATUSES] },
   )
-  return normalizeDelegationRecord(row)
+  return scopeContractSupportToActiveYear(normalizeDelegationRecord(row))
 }
 
 export async function findOverlappingDelegationAsDelegatee(

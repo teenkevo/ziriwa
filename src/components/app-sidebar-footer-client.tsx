@@ -22,6 +22,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { useDelegationSidebarOptional } from '@/contexts/delegation-sidebar-context'
+import { useFinancialYearOptional } from '@/contexts/financial-year-context'
 import { useWorkContextNavigationOptional } from '@/contexts/work-context-navigation-context'
 
 const ADMIN_LINKS = [
@@ -43,6 +44,7 @@ export function AppSidebarFooterClient({
 }: AppSidebarFooterClientProps) {
   const pathname = usePathname()
   const delegation = useDelegationSidebarOptional()
+  const financialYear = useFinancialYearOptional()
   const navigation = useWorkContextNavigationOptional()
   const isSwitching = navigation?.isSwitching ?? false
   const showDelegateButton = delegation?.canSelfServiceDelegate ?? false
@@ -117,7 +119,7 @@ export function AppSidebarFooterClient({
             <SidebarMenuItem>
               <SidebarMenuButton
                 type='button'
-                disabled={isSwitching}
+                disabled={isSwitching || Boolean(financialYear?.isHistorical)}
                 onClick={delegation?.onOpenDelegate}
                 tooltip='Delegate while on leave'
               >

@@ -81,7 +81,7 @@ export function FinancialYearSwitcher({
               {isHistorical ? (
                 <Badge
                   variant='secondary'
-                  className='h-5 shrink-0 border-0 bg-primary-foreground/15 px-1.5 text-[10px] font-medium text-primary-foreground'
+                  className='h-5 shrink-0 border-0 bg-white px-1.5 text-[10px] font-medium text-black hover:bg-white'
                 >
                   Past
                 </Badge>

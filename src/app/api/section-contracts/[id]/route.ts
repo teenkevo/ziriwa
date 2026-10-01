@@ -14,11 +14,16 @@ import {
 } from '@/lib/section-access.server'
 import { client } from '@/sanity/lib/client'
 import {
+  assignAppendedMeasurableActivity,
+  createdActivityAssigneeIds,
   releaseCrossCuttingActivity,
   setMeasurableActivityAssignees,
 } from '@/lib/contract-cascade/assign-measurable-activity.server'
 import { rejectCascadedContractEdit } from '@/lib/contract-cascade/reject-cascaded-edit.server'
-import { measurableEvidencePatchValue } from '@/lib/measurable-activity-evidence'
+import {
+  applyCreatedActivityEvidence,
+  measurableEvidencePatchValue,
+} from '@/lib/measurable-activity-evidence'
 import { measurableActivityConfigPatch } from '@/lib/measurable-activity-config'
 
 /**
@@ -479,11 +484,36 @@ export async function PATCH(
       if ((activityType === 'kpi' || activityType === 'core') && aim?.trim()) {
         doc.aim = aim.trim()
       }
+      const assignees = await createdActivityAssigneeIds({
+        contractType: 'sectionContract',
+        sectionId,
+        activityType,
+        assigneeIds: payload.assigneeIds,
+      })
+      if (!assignees.ok) {
+        return NextResponse.json({ error: assignees.error }, { status: 400 })
+      }
+      const evidenceError = applyCreatedActivityEvidence(doc, payload.evidence)
+      if (evidenceError) {
+        return NextResponse.json({ error: evidenceError }, { status: 400 })
+      }
       await writeClient
         .patch(id)
         .setIfMissing({ [path]: [] })
         .append(path, [doc])
         .commit()
+      const assigned = await assignAppendedMeasurableActivity({
+        contractId: id,
+        objectiveIndex,
+        initiativeIndex,
+        assigneeIds: assignees.ids,
+      })
+      if (assigned && !assigned.ok) {
+        return NextResponse.json(
+          { error: assigned.error },
+          { status: assigned.status },
+        )
+      }
       audit.sectionContract.updated(
         id,
         contractLabel ?? 'Section contract',

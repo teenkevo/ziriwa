@@ -7,9 +7,13 @@ import {
   getEffectiveViewerEmail,
 } from '@/lib/impersonation/viewer-context.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
+import { isWorkspaceFinancialYearWritable } from '@/lib/financial-year-access.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
-import { getActiveDelegationAsDelegatee } from '@/lib/section-delegation.server'
+import {
+  getActiveDelegationAsDelegatee,
+  scopeContractSupportToActiveYear,
+} from '@/lib/section-delegation.server'
 import { canManageAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
 import { client } from '@/sanity/lib/client'
 import { resolveSectionDelegationPurpose } from '@/lib/role-delegation'
@@ -82,9 +86,8 @@ export async function canManageDivisionContractViaPlanningSupport(
   )
   if (!planningSection?._id) return false
 
-  const assignment = await getActiveDelegationAsDelegatee(
-    viewerStaffId,
-    planningSection._id,
+  const assignment = await scopeContractSupportToActiveYear(
+    await getActiveDelegationAsDelegatee(viewerStaffId, planningSection._id),
   )
   return isContractSupportManagerAssignment(assignment)
 }
@@ -92,6 +95,7 @@ export async function canManageDivisionContractViaPlanningSupport(
 export async function canManageDivisionContract(
   divisionId: string,
 ): Promise<boolean> {
+  if (!(await isWorkspaceFinancialYearWritable())) return false
   const appRole = await getAppRole()
   if ((await canUseSuperadminPowers()) || appRole === 'commissioner_general') return true
 

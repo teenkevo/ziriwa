@@ -27,6 +27,15 @@ import {
   contractsApiBase,
   type ContractsApiResource,
 } from '@/lib/contracts-api'
+import {
+  hasRequiredAssigneeAndEvidence,
+  MeasurableActivityCreateFields,
+} from '@/features/sections/components/measurable-activity-create-fields'
+import {
+  evidenceChipsForSubmit,
+  type EvidenceChip,
+} from '@/features/sections/components/expected-evidence-input'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 
 type MeasurableActivityKind = 'core' | 'cross-cutting'
 
@@ -47,6 +56,9 @@ interface AddDepartmentMeasurableActivityDialogProps {
     | 'supervisor-contracts'
     | 'officer-contracts'
   >
+  assigneeOptions?: CascadeAssigneeOption[] | null
+  assigneeEmptyLabel?: string
+  unassignedLabel?: string
   onSuccess?: () => void
 }
 
@@ -59,6 +71,9 @@ export function AddDepartmentMeasurableActivityDialog({
   initiativeCode,
   nextOrderForType,
   contractsApi = 'department-contracts',
+  assigneeOptions = null,
+  assigneeEmptyLabel,
+  unassignedLabel,
   onSuccess,
 }: AddDepartmentMeasurableActivityDialogProps) {
   const router = useRouter()
@@ -68,6 +83,9 @@ export function AddDepartmentMeasurableActivityDialog({
     MeasurableActivityKind | ''
   >('')
   const [targetDate, setTargetDate] = React.useState('')
+  const [assigneeIds, setAssigneeIds] = React.useState<string[]>([])
+  const [evidenceItems, setEvidenceItems] = React.useState<EvidenceChip[]>([])
+  const [evidencePending, setEvidencePending] = React.useState('')
   const apiBase = contractsApiBase(contractsApi)
 
   React.useEffect(() => {
@@ -75,11 +93,25 @@ export function AddDepartmentMeasurableActivityDialog({
     setTitle('')
     setActivityType('')
     setTargetDate('')
+    setAssigneeIds([])
+    setEvidenceItems([])
+    setEvidencePending('')
   }, [open])
+
+  const canSubmit =
+    Boolean(title.trim()) &&
+    (activityType === 'core' || activityType === 'cross-cutting') &&
+    hasRequiredAssigneeAndEvidence({
+      activityType,
+      assigneeOptions,
+      assigneeIds,
+      evidenceItems,
+      evidencePending,
+    })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) return
+    if (!canSubmit) return
     if (activityType !== 'core' && activityType !== 'cross-cutting') return
     setIsCreating(true)
     try {
@@ -95,6 +127,8 @@ export function AddDepartmentMeasurableActivityDialog({
             title: title.trim(),
             order: nextOrderForType(activityType),
             targetDate: targetDate || undefined,
+            evidence: evidenceChipsForSubmit(evidenceItems, evidencePending),
+            assigneeIds: activityType === 'cross-cutting' ? [] : assigneeIds,
           },
         }),
       })
@@ -164,9 +198,6 @@ export function AddDepartmentMeasurableActivityDialog({
                   <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
                 </SelectContent>
               </Select>
-              <p className='text-xs text-muted-foreground'>
-                Choose from Core or Cross-cutting.
-              </p>
             </div>
             <div className='space-y-2'>
               <Label htmlFor='dept-act-targetDate'>Due date</Label>
@@ -178,6 +209,19 @@ export function AddDepartmentMeasurableActivityDialog({
                 disabled={isCreating}
               />
             </div>
+            <MeasurableActivityCreateFields
+              activityType={activityType}
+              assigneeIds={assigneeIds}
+              onAssigneeIdsChange={setAssigneeIds}
+              assigneeOptions={assigneeOptions}
+              assigneeEmptyLabel={assigneeEmptyLabel}
+              unassignedLabel={unassignedLabel}
+              evidenceItems={evidenceItems}
+              onEvidenceItemsChange={setEvidenceItems}
+              evidencePending={evidencePending}
+              onEvidencePendingChange={setEvidencePending}
+              disabled={isCreating}
+            />
           </div>
           <DialogFooter>
             <Button
@@ -190,11 +234,7 @@ export function AddDepartmentMeasurableActivityDialog({
             </Button>
             <Button
               type='submit'
-              disabled={
-                isCreating ||
-                !title.trim() ||
-                (activityType !== 'core' && activityType !== 'cross-cutting')
-              }
+              disabled={isCreating || !canSubmit}
             >
               {isCreating ? (
                 <>

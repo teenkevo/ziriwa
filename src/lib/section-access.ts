@@ -58,6 +58,8 @@ export interface SectionAccess {
   canManageWorkstreamStaff: boolean
   canSelfServiceDelegate: boolean
   isGlobalAdmin: boolean
+  /** Past workspace year: viewing stays open, writes do not. */
+  isReadOnly: boolean
 }
 
 function permanentFlags(input: SectionAccessInput) {
@@ -169,6 +171,7 @@ export function buildSectionAccessForWorkContext(
       canManageWorkstreamStaff: true,
       canSelfServiceDelegate: false,
       isGlobalAdmin: true,
+      isReadOnly: false,
     }
   }
 
@@ -210,6 +213,7 @@ export function buildSectionAccessForWorkContext(
       ...capabilitiesFromRoles(roleFlags),
       canSelfServiceDelegate: false,
       isGlobalAdmin: false,
+      isReadOnly: false,
     }
   }
 
@@ -255,6 +259,7 @@ export function buildSectionAccessForWorkContext(
       capabilities.canOnboardContract || hasContractSupport,
     canSelfServiceDelegate,
     isGlobalAdmin: false,
+    isReadOnly: false,
   }
 }
 

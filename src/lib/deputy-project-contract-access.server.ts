@@ -2,6 +2,7 @@ import 'server-only'
 
 import { NextResponse } from 'next/server'
 
+import { isWorkspaceFinancialYearWritable } from '@/lib/financial-year-access.server'
 import { isSuperadmin } from '@/lib/authz/guards.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getProjectMembershipForViewer } from '@/lib/project-access.server'
@@ -34,6 +35,7 @@ export async function resolveDeputyProjectManagerStaffRef(
 export async function canManageDeputyProjectContract(
   projectId: string,
 ): Promise<boolean> {
+  if (!(await isWorkspaceFinancialYearWritable())) return false
   if (await isSuperadmin()) return true
   const membership = await getProjectMembershipForViewer(projectId)
   return membership?.role === 'deputy_project_manager'

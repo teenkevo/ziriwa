@@ -12,7 +12,10 @@ import {
 } from '@/lib/deputy-project-contract-access.server'
 import { client } from '@/sanity/lib/client'
 import { rejectCascadedContractEdit } from '@/lib/contract-cascade/reject-cascaded-edit.server'
-import { measurableEvidencePatchValue } from '@/lib/measurable-activity-evidence'
+import {
+  applyCreatedActivityEvidence,
+  measurableEvidencePatchValue,
+} from '@/lib/measurable-activity-evidence'
 import { measurableActivityConfigPatch } from '@/lib/measurable-activity-config'
 
 /**
@@ -449,6 +452,10 @@ export async function PATCH(
       }
       if (typeof aim === 'string' && aim.trim()) {
         doc.aim = aim.trim()
+      }
+      const evidenceError = applyCreatedActivityEvidence(doc, payload.evidence)
+      if (evidenceError) {
+        return NextResponse.json({ error: evidenceError }, { status: 400 })
       }
       await writeClient
         .patch(id)

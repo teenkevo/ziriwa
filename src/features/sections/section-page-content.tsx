@@ -256,13 +256,13 @@ export function SectionPageContent({
   const tabTriggers = [
     { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { value: 'contract', label: 'Performance Contract', icon: FileText },
+    { value: 'staff', label: 'Staff', icon: Users },
     { value: 'weekly-sprint', label: 'Sprints', icon: Zap },
     {
       value: 'stakeholder-engagements',
       label: 'Stakeholders',
       icon: Handshake,
     },
-    { value: 'staff', label: 'Staff', icon: Users },
     { value: 'reporting', label: 'Reporting', icon: FileBarChart },
   ] as const
 
@@ -341,12 +341,23 @@ export function SectionPageContent({
     activeContract?.financialYearLabel ??
     sectionContract?.financialYearLabel ??
     activeFY.label
-  const canManageActiveContract = usesOfficerContract
-    ? sectionAccess.canManageOfficerContract || sectionAccess.isSectionOfficer
-    : usesSupervisorContract
-      ? sectionAccess.canManageSupervisorContract ||
-        sectionAccess.isSectionSupervisor
-      : sectionAccess.canManageContract
+  const hideStaffWithoutPastContract =
+    sectionAccess.isReadOnly && !activeContract
+  const visibleTabs = hideStaffWithoutPastContract
+    ? tabTriggers.filter(tab => tab.value !== 'staff')
+    : tabTriggers
+  const shownTab =
+    hideStaffWithoutPastContract && activeTab === 'staff'
+      ? 'contract'
+      : activeTab
+  const canManageActiveContract =
+    !sectionAccess.isReadOnly &&
+    (usesOfficerContract
+      ? sectionAccess.canManageOfficerContract || sectionAccess.isSectionOfficer
+      : usesSupervisorContract
+        ? sectionAccess.canManageSupervisorContract ||
+          sectionAccess.isSectionSupervisor
+        : sectionAccess.canManageContract)
   const leadershipContractsApi = usesOfficerContract
     ? 'officer-contracts'
     : 'supervisor-contracts'
@@ -591,12 +602,12 @@ export function SectionPageContent({
         )}
 
         <Tabs
-          value={activeTab}
+          value={shownTab}
           onValueChange={setSectionTab}
           className='space-y-4'
         >
           <TabsList className='h-auto w-full max-w-full flex-wrap justify-start'>
-            {tabTriggers.map(({ value, label, icon: Icon }) => (
+            {visibleTabs.map(({ value, label, icon: Icon }) => (
               <TabsTrigger key={value} value={value} className='group shrink-0'>
                 <Icon className='h-4 w-4 mr-2 text-muted-foreground group-data-[state=active]:text-primary' />
                 {label}
@@ -802,12 +813,20 @@ export function SectionPageContent({
                             | 'officer-contracts'
                         }
                         canManageContract={canManageActiveContract}
+                        assigneeOptions={
+                          usesOfficerContract ? null : officers
+                        }
+                        assigneeEmptyLabel='No officers in this section yet.'
+                        unassignedLabel='Assign an officer'
                       />
                     ) : (
                       <ContractTree
                         sectionContract={sectionContract!}
                         sectionSlug={section.slug?.current ?? ''}
                         canManageContract={canManageActiveContract}
+                        assigneeOptions={supervisors}
+                        assigneeEmptyLabel='No supervisors in this section yet.'
+                        unassignedLabel='Assign a supervisor'
                       />
                     )}
                   </div>
@@ -890,7 +909,6 @@ export function SectionPageContent({
           <TabsContent value='staff' className='space-y-4'>
             <SectionStaffContent
               sectionId={section._id}
-              sectionName={section.name}
               roster={staffRoster}
               sectionAccess={sectionAccess}
             />

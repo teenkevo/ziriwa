@@ -1751,8 +1751,16 @@ export function WeeklySprintContent({
               isSubmitting === sprint._id ||
               (isDeletingSprint && sprintToDelete?._id === sprint._id)
             }
-            onEditDraft={() => openEditDraftSprint(sprint)}
-            onDeleteDraft={() => setSprintToDelete(sprint)}
+            onEditDraft={
+              sectionAccess.canCreateSprints
+                ? () => openEditDraftSprint(sprint)
+                : undefined
+            }
+            onDeleteDraft={
+              sectionAccess.canCreateSprints
+                ? () => setSprintToDelete(sprint)
+                : undefined
+            }
             canSubmitDraft={sectionAccess.canCreateSprints}
             isProjectSprint={isProjectSprint}
             onReviewTask={(task, action) =>
@@ -1782,12 +1790,16 @@ export function WeeklySprintContent({
             sprint={sprint}
             onSubmit={() => handleSubmitSprint(sprint._id)}
             isSubmitting={isSubmitting === sprint._id}
-            canManagerReviewPlan={sectionAccess.isSectionManager}
+            canManagerReviewPlan={
+              sectionAccess.isSectionManager && !sectionAccess.isReadOnly
+            }
             onReviewTask={(task, action) =>
               openReview(sprint._id, task, action)
             }
             onOpenRevise={
-              sectionAccess.isSectionManager ? undefined : openReviseDialog
+              sectionAccess.isSectionManager || sectionAccess.isReadOnly
+                ? undefined
+                : openReviseDialog
             }
             canAddPlanTask={canSupervisorManageSprint(sprint, sectionAccess)}
             onAddPlanTask={openPlanTaskDialog}

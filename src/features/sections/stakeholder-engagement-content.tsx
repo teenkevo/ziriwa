@@ -75,7 +75,7 @@ export function StakeholderEngagementContent({
   const [minutesIndex, setMinutesIndex] = React.useState<number | null>(null)
   const [minutesDialogOpen, setMinutesDialogOpen] = React.useState(false)
 
-  const { active: activeFY } = useFinancialYear()
+  const { active: activeFY, isHistorical } = useFinancialYear()
   const stakeholders = engagement?.stakeholders ?? []
   const currentFY = engagement?.financialYearLabel ?? activeFY.label
 
@@ -151,7 +151,10 @@ export function StakeholderEngagementContent({
           No stakeholder engagement matrix for {scopeName} in {currentFY}.
           Onboard the matrix to start adding stakeholders for this {scopeUnit}.
         </p>
-        <Button onClick={handleCreateEngagement} disabled={isCreating}>
+        <Button
+          onClick={handleCreateEngagement}
+          disabled={isCreating || isHistorical}
+        >
           {isCreating ? (
             <>
               <Loader2 className='mr-2 h-4 w-4 animate-spin' />
@@ -198,6 +201,7 @@ export function StakeholderEngagementContent({
           </Button>
           <Button
             size='sm'
+            disabled={isHistorical}
             onClick={() => {
               setEditingEntry(null)
               setEditingIndex(null)

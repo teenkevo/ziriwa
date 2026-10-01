@@ -21,6 +21,7 @@ import {
 } from '@/contexts/workspace-route-navigation-context'
 import { DelegationSidebarProvider } from '@/contexts/delegation-sidebar-context'
 import { FinancialYearProvider, FinancialYearSwitchOverlay } from '@/contexts/financial-year-context'
+import { HistoricalYearBanner } from '@/components/historical-year-banner'
 import { ImpersonationBanner } from '@/components/impersonation-banner'
 import { ViewerProvider } from '@/contexts/viewer-context'
 import { getViewerContext } from '@/lib/impersonation/viewer-context.server'
@@ -81,6 +82,7 @@ export default async function Layout({ children }: LayoutProps) {
                       targetRole={viewer.effectiveAppRole}
                     />
                   ) : null}
+                  <HistoricalYearBanner />
                   <AppTopBarShell />
                   <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
                     <Suspense fallback={null}>{children}</Suspense>

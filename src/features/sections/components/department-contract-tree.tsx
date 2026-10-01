@@ -40,6 +40,7 @@ import {
   type ContractColumnObjective,
 } from '@/features/sections/components/contract-column-browser'
 import { EditMeasurableActivityDialog } from '@/features/sections/components/edit-measurable-activity-dialog'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 
 type LeadershipContract =
   | DepartmentContract
@@ -67,6 +68,9 @@ interface DepartmentContractTreeProps {
     | 'officer-contracts'
   >
   canManageContract?: boolean
+  assigneeOptions?: CascadeAssigneeOption[] | null
+  assigneeEmptyLabel?: string
+  unassignedLabel?: string
   /** Increment to open the add SSMARTA objective dialog (from parent toolbar). */
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
@@ -266,6 +270,9 @@ export function DepartmentContractTree({
   activityPageBasePath,
   contractsApi = 'department-contracts',
   canManageContract = false,
+  assigneeOptions = null,
+  assigneeEmptyLabel,
+  unassignedLabel,
   addObjectiveSignal = 0,
   onAddObjectiveRequestConsumed,
 }: DepartmentContractTreeProps) {
@@ -657,6 +664,9 @@ export function DepartmentContractTree({
             ]?.code ??
             `${objectives[activityDialogParams.objIdx]?.code ?? String(activityDialogParams.objIdx + 1)}.${activityDialogParams.initIdx + 1}`
           }
+          assigneeOptions={assigneeOptions}
+          assigneeEmptyLabel={assigneeEmptyLabel}
+          unassignedLabel={unassignedLabel}
           nextOrderForType={type => {
             const kind = type === 'cross-cutting' ? 'cross-cutting' : 'kpi'
             const activities =

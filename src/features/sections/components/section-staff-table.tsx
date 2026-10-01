@@ -52,6 +52,8 @@ interface SectionStaffTableProps {
   canManageRow?: (row: SectionStaffTableRow) => boolean
   onEdit: (row: SectionStaffTableRow) => void
   onRefresh: () => void
+  /** Rendered on the far right of the search field. */
+  toolbarAction?: React.ReactNode
 }
 
 export function SectionStaffTable({
@@ -60,6 +62,7 @@ export function SectionStaffTable({
   canManageRow,
   onEdit,
   onRefresh,
+  toolbarAction,
 }: SectionStaffTableProps) {
   const [globalFilter, setGlobalFilter] = React.useState('')
   const [disablingId, setDisablingId] = React.useState<string | null>(null)
@@ -216,12 +219,15 @@ export function SectionStaffTable({
 
   return (
     <div className='space-y-4'>
-      <Input
-        placeholder='Search staff…'
-        value={globalFilter}
-        onChange={e => setGlobalFilter(e.target.value)}
-        className='max-w-sm'
-      />
+      <div className='flex items-center justify-between gap-3'>
+        <Input
+          placeholder='Search staff…'
+          value={globalFilter}
+          onChange={e => setGlobalFilter(e.target.value)}
+          className='max-w-sm'
+        />
+        {toolbarAction}
+      </div>
       <div className='rounded-md border'>
         <Table>
           <TableHeader>

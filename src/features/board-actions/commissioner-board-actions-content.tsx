@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import {
   COMMISSIONER_LEVEL_DIVISION,
   divisionIdForApi,
@@ -67,6 +68,7 @@ export function CommissionerBoardActionsContent({
   actions: CommissionerBoardActionRow[]
 }) {
   const router = useRouter()
+  const { isHistorical } = useFinancialYear()
   const [createOpen, setCreateOpen] = React.useState(false)
   const [deletingAction, setDeletingAction] =
     React.useState<CommissionerBoardActionRow | null>(null)
@@ -182,7 +184,7 @@ export function CommissionerBoardActionsContent({
               Manage your board actions
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)} disabled={isHistorical}>
             <Plus className='mr-2 h-4 w-4' />
             New board action
           </Button>

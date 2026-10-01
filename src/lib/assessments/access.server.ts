@@ -16,6 +16,7 @@ export async function getAssessmentAccessForSection(
 }
 
 export function canManageAssessments(access: SectionAccess): boolean {
+  if (access.isReadOnly) return false
   return access.isSectionManager || access.isGlobalAdmin
 }
 
@@ -28,5 +29,6 @@ export function canViewAssessmentResults(access: SectionAccess): boolean {
 }
 
 export function canTakeAssessments(access: SectionAccess): boolean {
+  if (access.isReadOnly) return false
   return access.isSectionOfficer || access.isGlobalAdmin
 }

@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/sidebar'
 import { LeaveSidebarLink } from '@/components/leave-sidebar-link'
 import { SidebarContractGatedItem } from '@/components/sidebar-contract-gated-item'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import { SprintTabSidebarLink } from '@/components/sprint-tab-sidebar-link'
 import { buildSprintTabHref } from '@/lib/sprint-tab-href'
 import type { SprintNavCounts } from '@/lib/sprint-nav-counts'
@@ -78,7 +79,10 @@ export function SectionLeadershipSidebarNav({
   useProjectMembersNav = false,
   staffNavLabel,
 }: SectionLeadershipSidebarNavProps) {
+  const { isHistorical } = useFinancialYear()
   const searchParams = useSearchParams()
+  /** Current year stays open so people can be assigned before onboarding. A past year with no contract does not. */
+  const staffUnlocked = !isHistorical || contractUnlocked
   const membersHref = `${basePath}/members`
   const staffHref = `${basePath}/staff`
   const membersNavActive =
@@ -124,6 +128,28 @@ export function SectionLeadershipSidebarNav({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarContractGatedItem
+              unlocked={staffUnlocked}
+              href={useProjectMembersNav ? membersHref : staffHref}
+              isActive={
+                useProjectMembersNav
+                  ? membersNavActive
+                  : pathname === staffHref ||
+                    pathname.startsWith(`${staffHref}/`)
+              }
+              tooltip={
+                isHistorical
+                  ? 'No performance contract for this financial year'
+                  : undefined
+              }
+            >
+              <Users />
+              <span>
+                {useProjectMembersNav
+                  ? 'Project members'
+                  : (staffNavLabel ?? 'Staff')}
+              </span>
+            </SidebarContractGatedItem>
+            <SidebarContractGatedItem
               unlocked={contractUnlocked}
               href={`${basePath}/stakeholders`}
               isActive={
@@ -134,7 +160,7 @@ export function SectionLeadershipSidebarNav({
               <Handshake />
               <span>Engagements</span>
             </SidebarContractGatedItem>
-            <LeaveSidebarLink pathname={pathname} />
+            <LeaveSidebarLink pathname={pathname} unlocked={contractUnlocked} />
             <SidebarContractGatedItem
               unlocked={contractUnlocked}
               href={`${basePath}/board-actions`}
@@ -181,23 +207,6 @@ export function SectionLeadershipSidebarNav({
                 <span>Workstreams</span>
               </SidebarContractGatedItem>
             ) : null}
-            <SidebarContractGatedItem
-              unlocked={contractUnlocked}
-              href={useProjectMembersNav ? membersHref : staffHref}
-              isActive={
-                useProjectMembersNav
-                  ? membersNavActive
-                  : pathname === staffHref ||
-                    pathname.startsWith(`${staffHref}/`)
-              }
-            >
-              <Users />
-              <span>
-                {useProjectMembersNav
-                  ? 'Project members'
-                  : (staffNavLabel ?? 'Staff')}
-              </span>
-            </SidebarContractGatedItem>
             <SidebarContractGatedItem
               unlocked={contractUnlocked}
               href={`${basePath}/reporting`}

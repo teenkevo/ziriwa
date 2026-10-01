@@ -1,3 +1,27 @@
+/** Staff ids sent when creating a measurable activity. */
+export function parseCreateAssigneeIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return [
+    ...new Set(
+      value
+        .filter((id): id is string => typeof id === 'string')
+        .map(id => id.trim())
+        .filter(Boolean),
+    ),
+  ]
+}
+
+/** Adds structured evidence items onto a new measurable activity document. */
+export function applyCreatedActivityEvidence(
+  doc: Record<string, unknown>,
+  evidence: unknown,
+): string | null {
+  const items = measurableEvidencePatchValue(evidence)
+  if (!items?.length) return 'Expected evidence is required'
+  doc.evidence = items
+  return null
+}
+
 /** Turns evidence drafts into Sanity evidence items. Empty labels are dropped. */
 export function measurableEvidencePatchValue(
   evidence: unknown,

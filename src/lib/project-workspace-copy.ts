@@ -67,7 +67,7 @@ export function getManagerWorkspaceViewConfig(
       },
       contract: {
         title: 'Performance Contract',
-        description: 'Manage your project performance contract and deliverables.',
+        description: 'Manage your performance contract and deliverables'
       },
       sprints: {
         title: 'Sprints',
@@ -81,7 +81,7 @@ export function getManagerWorkspaceViewConfig(
       },
       staff: {
         title: 'Staff',
-        description: 'Manage project members, delegations, and transfers.',
+        description: 'Add and manage your staff',
       },
       reporting: {
         title: 'Reporting',
@@ -99,7 +99,7 @@ export function getManagerWorkspaceViewConfig(
       },
       contract: {
         title: 'Performance Contract',
-        description: 'Manage your workstream performance contract and deliverables.',
+        description: 'Manage your performance contract and deliverables'
       },
       sprints: {
         title: 'Sprints',
@@ -112,7 +112,7 @@ export function getManagerWorkspaceViewConfig(
       },
       staff: {
         title: 'Workstream Members',
-        description: 'Manage workstream members for your workstream.',
+        description: 'Add and manage your staff',
       },
       reporting: {
         title: 'Reporting',
@@ -129,7 +129,7 @@ export function getManagerWorkspaceViewConfig(
     },
     contract: {
       title: 'Performance Contract',
-      description: 'Manage your section performance contract and deliverables.',
+      description: 'Manage your performance contract and deliverables'
     },
     sprints: {
       title: 'Sprints',
@@ -141,7 +141,7 @@ export function getManagerWorkspaceViewConfig(
     },
     staff: {
       title: 'Staff',
-      description: `Manage ${unit} staff, delegations, and transfers.`,
+      description: 'Add and manage your staff',
     },
     reporting: {
       title: 'Reporting',

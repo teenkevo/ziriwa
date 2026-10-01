@@ -6,6 +6,7 @@ import type {
   CascadeNodeRole,
   CascadeSource,
 } from '@/lib/contract-cascade/types'
+import { parseCreateAssigneeIds } from '@/lib/measurable-activity-evidence'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
 
@@ -122,6 +123,70 @@ interface ActivityCascadeContext {
   activityKey?: string
   activityType?: string
   currentAssigneeIds?: string[]
+}
+
+/** Assigns the measurable activity just appended to an initiative. */
+export async function assignAppendedMeasurableActivity(input: {
+  contractId: string
+  objectiveIndex: number
+  initiativeIndex: number
+  assigneeIds: string[]
+}): Promise<SetActivityAssigneesResult | null> {
+  if (input.assigneeIds.length === 0) return null
+  const count = await client.fetch<number | null>(
+    `count(*[_id == $contractId][0].objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities)`,
+    {
+      contractId: input.contractId,
+      objectiveIndex: input.objectiveIndex,
+      initiativeIndex: input.initiativeIndex,
+    },
+  )
+  if (!count) {
+    return { ok: false, status: 404, error: 'Measurable activity not found' }
+  }
+  return setMeasurableActivityAssignees({
+    contractId: input.contractId,
+    objectiveIndex: input.objectiveIndex,
+    initiativeIndex: input.initiativeIndex,
+    activityIndex: count - 1,
+    assigneeIds: input.assigneeIds,
+  })
+}
+
+export async function createdActivityAssigneeIds(input: {
+  contractType: Exclude<SourceContractType, 'officerContract'>
+  sectionId?: string
+  divisionId?: string
+  activityType: unknown
+  assigneeIds: unknown
+}): Promise<{ ok: true; ids: string[] } | { ok: false; error: string }> {
+  const ids =
+    input.activityType === 'cross-cutting'
+      ? []
+      : parseCreateAssigneeIds(input.assigneeIds)
+  if (input.activityType !== 'cross-cutting' && ids.length === 0) {
+    return { ok: false, error: 'Assignees are required' }
+  }
+  if (ids.length === 0) return { ok: true, ids: [] }
+  const eligible = await loadCascadeAssigneeOptions({
+    contractType: input.contractType,
+    sectionId: input.sectionId,
+    divisionId: input.divisionId,
+  })
+  const allowed = new Set((eligible ?? []).map(person => person._id))
+  if (ids.some(id => !allowed.has(id))) {
+    const label =
+      input.contractType === 'divisionContract'
+        ? 'managers'
+        : input.contractType === 'sectionContract'
+          ? 'supervisors'
+          : 'officers'
+    return {
+      ok: false,
+      error: `Assignees must be ${label} on the level below`,
+    }
+  }
+  return { ok: true, ids }
 }
 
 export async function setMeasurableActivityAssignees(input: {

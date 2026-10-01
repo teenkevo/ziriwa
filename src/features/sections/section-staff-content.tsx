@@ -2,24 +2,16 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Users } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 import type { SectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
 import type { SectionAccess } from '@/lib/section-access'
 import { Button } from '@/components/ui/button'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import {
   SectionStaffTable,
   type SectionStaffTableRow,
 } from '@/features/sections/components/section-staff-table'
 import { EditSectionStaffDialog } from '@/features/sections/components/edit-section-staff-dialog'
-import { DelegationAuditTable } from '@/features/sections/components/delegation-audit-table'
 import { CreateStaffDialog } from '@/features/dashboard/components/create-staff-dialog'
 import { CreateProjectMemberDialog } from '@/features/projects/components/create-project-member-dialog'
 import { Dialog } from '@/components/ui/dialog'
@@ -39,24 +31,22 @@ interface ProjectWorkstreamMemberAddConfig {
 
 interface SectionStaffContentProps {
   sectionId: string
-  sectionName: string
   roster: SectionStaffRoster
   sectionAccess: SectionAccess
-  /** Mainstream: Section; project workstream lead: Workstream */
-  staffScopeTitle?: string
-  /** Overrides default "{staffScopeTitle} staff" card title. */
-  staffPageTitle?: string
-  /** Overrides default "Manage {sectionName} staff here." */
-  staffPageDescription?: string
   /** Overrides default "Add staff" button label. */
   addStaffLabel?: string
   /** When set, "Add staff" creates a workstream member via the project members API. */
   projectWorkstreamMemberAdd?: ProjectWorkstreamMemberAddConfig
 }
 
+function isLeaveDelegation(purpose?: string) {
+  return purpose !== 'contract_support'
+}
+
 function buildTableRows(roster: SectionStaffRoster): SectionStaffTableRow[] {
   const actingByStaff = new Map<string, string>()
   for (const d of roster.activeDelegations) {
+    if (!isLeaveDelegation(d.purpose)) continue
     actingByStaff.set(
       d.toStaff._id,
       `Acting ${d.actingRole} for ${d.fromStaff.fullName}`,
@@ -90,19 +80,12 @@ function buildTableRows(roster: SectionStaffRoster): SectionStaffTableRow[] {
 
 export function SectionStaffContent({
   sectionId,
-  sectionName,
   roster,
   sectionAccess,
-  staffScopeTitle = 'Section',
-  staffPageTitle,
-  staffPageDescription,
   addStaffLabel = 'Add staff',
   projectWorkstreamMemberAdd,
 }: SectionStaffContentProps) {
   const router = useRouter()
-  const pageTitle = staffPageTitle ?? `${staffScopeTitle} staff`
-  const pageDescription =
-    staffPageDescription ?? `Manage ${sectionName} staff here.`
   const canManageMainstreamStaff = sectionAccess.canManageSectionStaff
   const canAddWorkstreamMembers = Boolean(
     projectWorkstreamMemberAdd && sectionAccess.canManageWorkstreamStaff,
@@ -119,9 +102,9 @@ export function SectionStaffContent({
       : (['supervisor', 'officer'] as const)
     : (['officer'] as const)
 
-  const resolvedPageDescription = sectionAccess.isPlanningSection
-    ? `The Assistant Commissioner onboards the supervisor; supervisors can onboard officers. One supervisor max.`
-    : pageDescription
+  const leaveDelegations = roster.activeDelegations.filter(d =>
+    isLeaveDelegation(d.purpose),
+  )
 
   const [rows, setRows] = React.useState(() => buildTableRows(roster))
   const [addStaffOpen, setAddStaffOpen] = React.useState(false)
@@ -143,57 +126,35 @@ export function SectionStaffContent({
 
   return (
     <div className='space-y-6'>
-      <Card>
-        <CardHeader className='flex flex-row items-start justify-between gap-4'>
-          <div>
-            <CardTitle className='flex items-center gap-2 text-lg'>
-              <Users className='h-5 w-5' />
-              {pageTitle}
-            </CardTitle>
-            <CardDescription>{resolvedPageDescription}</CardDescription>
-          </div>
-          {canAddStaff && (
+      {leaveDelegations.length > 0 && (
+        <div className='rounded-md border bg-muted/30 p-4 text-sm space-y-2'>
+          <p className='font-medium'>Active & scheduled delegations</p>
+          <ul className='list-disc pl-5 text-muted-foreground space-y-1'>
+            {leaveDelegations.map(d => (
+              <li key={d._id}>
+                {d.toStaff.fullName} acting as {d.actingRole} for{' '}
+                {d.fromStaff.fullName} ({d.startDate} – {d.endDate})
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <SectionStaffTable
+        rows={rows}
+        canManage={canManageTableActions}
+        canManageRow={canManageRow}
+        onEdit={setEditStaff}
+        onRefresh={refresh}
+        toolbarAction={
+          canAddStaff ? (
             <Button size='sm' onClick={() => setAddStaffOpen(true)}>
               <Plus className='h-4 w-4 mr-1' />
               {addStaffLabel}
             </Button>
-          )}
-        </CardHeader>
-        <CardContent className='space-y-6'>
-          {roster.activeDelegations.length > 0 && (
-            <div className='rounded-md border bg-muted/30 p-4 text-sm space-y-2'>
-              <p className='font-medium'>Active & scheduled delegations</p>
-              <ul className='list-disc pl-5 text-muted-foreground space-y-1'>
-                {roster.activeDelegations.map(d => (
-                  <li key={d._id}>
-                    {d.toStaff.fullName} acting as {d.actingRole} for{' '}
-                    {d.fromStaff.fullName} ({d.startDate} – {d.endDate})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <SectionStaffTable
-            rows={rows}
-            canManage={canManageTableActions}
-            canManageRow={canManageRow}
-            onEdit={setEditStaff}
-            onRefresh={refresh}
-          />
-
-          {/* <div className='space-y-3 pt-2'>
-            <div>
-              <h3 className='text-sm font-medium'>Delegation audit log</h3>
-              <p className='text-xs text-muted-foreground'>
-                Full history of acting periods and leave coverage for this
-                section.
-              </p>
-            </div>
-            <DelegationAuditTable history={roster.delegationHistory} />
-          </div> */}
-        </CardContent>
-      </Card>
+          ) : null
+        }
+      />
 
       <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
         {canAddWorkstreamMembers && projectWorkstreamMemberAdd ? (

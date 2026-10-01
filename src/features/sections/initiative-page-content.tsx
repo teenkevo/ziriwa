@@ -549,6 +549,9 @@ export function InitiativePageContent({
           initiativeIndex={initiativeIndex}
           initiativeCode={initiativeCode || undefined}
           nextOrderForType={nextOrderForType}
+          assigneeOptions={assigneeOptions}
+          assigneeEmptyLabel={assigneeEmptyLabel}
+          unassignedLabel={unassignedLabel}
         />
       ) : null}
 

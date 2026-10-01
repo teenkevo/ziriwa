@@ -7,6 +7,7 @@ import {
   getEffectiveViewerEmail,
 } from '@/lib/impersonation/viewer-context.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
+import { isWorkspaceFinancialYearWritable } from '@/lib/financial-year-access.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { client } from '@/sanity/lib/client'
@@ -53,6 +54,7 @@ export async function resolveCommissionerStaffRefForDepartment(
 export async function canManageDepartmentContract(
   departmentId: string,
 ): Promise<boolean> {
+  if (!(await isWorkspaceFinancialYearWritable())) return false
   const appRole = await getAppRole()
   if ((await canUseSuperadminPowers()) || appRole === 'commissioner_general') return true
 

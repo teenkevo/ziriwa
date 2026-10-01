@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import { LeaveMonthCalendar } from '@/features/leave/leave-month-calendar'
 import { LeaveYearCalendar } from '@/features/leave/leave-year-calendar'
 import {
@@ -98,6 +99,8 @@ export function LeavePageContent({
   initialOwnPlans,
 }: LeavePageContentProps) {
   useRegisterPageBreadcrumbs([{ label: 'Leave Management' }])
+  const { isHistorical } = useFinancialYear()
+  const canChangeLeave = Boolean(viewerStaffId) && !isHistorical
   const financialYear = React.useMemo(() => getCurrentFinancialYear(), [])
   const firstMonth = startOfMonth(parseDateKey(financialYear.startDate))
   const lastMonth = startOfMonth(parseDateKey(financialYear.endDate))
@@ -431,7 +434,7 @@ export function LeavePageContent({
         <Button
           type='button'
           className='self-start'
-          disabled={!viewerStaffId}
+          disabled={!canChangeLeave}
           onClick={() => openCreate(toDateKey(new Date()), toDateKey(new Date()))}
         >
           <Plus className='h-4 w-4' />
@@ -526,7 +529,7 @@ export function LeavePageContent({
               selectedId={selectedId}
               yearStart={financialYear.startDate}
               yearEnd={financialYear.endDate}
-              canCreate={Boolean(viewerStaffId) && !isLoading}
+              canCreate={canChangeLeave && !isLoading}
               onSelect={setSelectedId}
               onCreateRange={openCreate}
               onShiftPlan={(planId, startDate, endDate) => {
@@ -548,7 +551,9 @@ export function LeavePageContent({
           <p className='text-xs text-muted-foreground'>
             {calendarView === 'year'
               ? 'The year runs from July to June. Select a month or a marked day to open it.'
-              : 'Drag across open days to plan. Days you already have leave on stay closed for you. Drag a planned bar to move it, or drag either end to change the length. Confirmed leave stays fixed.'}
+              : isHistorical
+                ? 'This financial year is read-only, so leave cannot be planned or changed.'
+                : 'Drag across open days to plan. Days you already have leave on stay closed for you. Drag a planned bar to move it, or drag either end to change the length. Confirmed leave stays fixed.'}
           </p>
         </div>
 
@@ -587,25 +592,40 @@ export function LeavePageContent({
                   reliefHint={reliefHint}
                   teamPlans={plans}
                   onSelect={selectOwnPlan}
-                  onSetRelief={(plan, reliefStaffId) => void setRelief(plan.id, reliefStaffId)}
-                  onConfirm={plan => void setStatus(plan.id, 'confirmed')}
-                  onEdit={plan =>
-                    setEditor({
-                      mode: 'edit',
-                      planId: plan.id,
-                      draft: {
-                        startDate: plan.startDate,
-                        endDate: plan.endDate,
-                        kind: plan.kind,
-                        reliefStaffId: plan.reliefStaffId ?? '',
-                        note: plan.note,
-                      },
-                    })
+                  onSetRelief={
+                    canChangeLeave
+                      ? (plan, reliefStaffId) => void setRelief(plan.id, reliefStaffId)
+                      : undefined
                   }
-                  onRemove={plan => {
-                    setSelectedId(plan.id)
-                    setDeleteOpen(true)
-                  }}
+                  onConfirm={
+                    canChangeLeave
+                      ? plan => void setStatus(plan.id, 'confirmed')
+                      : undefined
+                  }
+                  onEdit={
+                    canChangeLeave
+                      ? plan =>
+                          setEditor({
+                            mode: 'edit',
+                            planId: plan.id,
+                            draft: {
+                              startDate: plan.startDate,
+                              endDate: plan.endDate,
+                              kind: plan.kind,
+                              reliefStaffId: plan.reliefStaffId ?? '',
+                              note: plan.note,
+                            },
+                          })
+                      : undefined
+                  }
+                  onRemove={
+                    canChangeLeave
+                      ? plan => {
+                          setSelectedId(plan.id)
+                          setDeleteOpen(true)
+                        }
+                      : undefined
+                  }
                 />
                 )}
               </TabsContent>

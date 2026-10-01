@@ -1,24 +1,28 @@
 'use client'
 
-import Link from 'next/link'
 import { CalendarDays } from 'lucide-react'
 
-import {
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from '@/components/ui/sidebar'
+import { SidebarContractGatedItem } from '@/components/sidebar-contract-gated-item'
 
-export function LeaveSidebarLink({ pathname }: { pathname: string }) {
+export function LeaveSidebarLink({
+  pathname,
+  unlocked = true,
+}: {
+  pathname: string
+  /** When false, the item stays locked until a performance contract exists. */
+  unlocked?: boolean
+}) {
   const isActive = pathname === '/leave' || pathname.startsWith('/leave/')
 
   return (
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive} tooltip='Leave Management'>
-        <Link href='/leave'>
-          <CalendarDays />
-          <span>Leave Management</span>
-        </Link>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
+    <SidebarContractGatedItem
+      unlocked={unlocked}
+      href='/leave'
+      isActive={isActive}
+      openTooltip='Leave Management'
+    >
+      <CalendarDays />
+      <span>Leave Management</span>
+    </SidebarContractGatedItem>
   )
 }

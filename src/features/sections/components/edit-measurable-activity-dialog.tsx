@@ -172,11 +172,11 @@ function EditMeasurableActivityForm({
               <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
             </SelectContent>
           </Select>
-          <p className='text-xs text-muted-foreground'>
-            {crossCuttingLocked
-              ? 'Remove assignees before changing this activity type.'
-              : 'Choose from Core or Cross-cutting.'}
-          </p>
+          {crossCuttingLocked ? (
+            <p className='text-xs text-muted-foreground'>
+              Remove assignees before changing this activity type.
+            </p>
+          ) : null}
         </div>
         <div className='space-y-2'>
           <Label htmlFor='edit-activity-target-date'>Due date</Label>

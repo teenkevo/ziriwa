@@ -3,6 +3,7 @@
 import { ArrowRight, FileStack } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { useFinancialYear } from '@/contexts/financial-year-context'
 import { cn } from '@/lib/utils'
 
 interface ContractOnboardEmptyStateProps {
@@ -29,6 +30,8 @@ export function ContractOnboardEmptyState({
   ctaLabel = 'Onboard performance contract',
   className,
 }: ContractOnboardEmptyStateProps) {
+  const { isHistorical } = useFinancialYear()
+
   return (
     <div
       className={cn(
@@ -55,14 +58,18 @@ export function ContractOnboardEmptyState({
             {financialYearLabel}
           </p>
           <h2 className='text-xl font-semibold tracking-tight text-foreground sm:text-2xl'>
-            Set up this financial year&apos;s performance contract
+            {isHistorical
+              ? 'No performance contract for this financial year'
+              : "Set up this financial year's performance contract"}
           </h2>
           <p className='text-sm leading-relaxed text-muted-foreground'>
-            {description}
+            {isHistorical
+              ? `No performance contract was created for ${financialYearLabel}.`
+              : description}
           </p>
         </div>
 
-        {canOnboard ? (
+        {isHistorical ? null : canOnboard ? (
           <Button size='lg' className='mt-1 gap-2' onClick={onOnboard}>
             {ctaLabel}
             <ArrowRight className='size-4' aria-hidden />

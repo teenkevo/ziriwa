@@ -27,6 +27,7 @@ import {
   isProjectManagerForProject,
   projectDelegationDenied,
 } from '@/lib/project-delegation.server'
+import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import {
   getActiveDelegationAsDelegatee,
@@ -361,6 +362,10 @@ export async function POST(req: NextRequest) {
     }
 
     const status = computeDelegationStatus(startDate, endDate)
+    const financialYearLabel =
+      purpose === 'contract_support'
+        ? (await getActiveFinancialYear()).label
+        : undefined
 
     const doc = await writeClient.create({
       _type: 'sectionDelegation',
@@ -369,6 +374,7 @@ export async function POST(req: NextRequest) {
       toStaff: { _type: 'reference', _ref: toStaffId },
       actingRole,
       purpose,
+      ...(financialYearLabel ? { financialYearLabel } : {}),
       startDate,
       endDate,
       status,

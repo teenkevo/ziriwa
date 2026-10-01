@@ -285,7 +285,7 @@ export function AppSidebarNav({
                 <Handshake />
                 <span>Engagements</span>
               </SidebarContractGatedItem>
-              <LeaveSidebarLink pathname={pathname} />
+              <LeaveSidebarLink pathname={pathname} unlocked={contractUnlocked} />
               <SidebarContractGatedItem
                 unlocked={contractUnlocked}
                 href={`${officerBasePath}/board-actions`}
@@ -532,7 +532,7 @@ export function AppSidebarNav({
                 <Handshake />
                 <span>Engagements</span>
               </SidebarContractGatedItem>
-              <LeaveSidebarLink pathname={pathname} />
+              <LeaveSidebarLink pathname={pathname} unlocked={contractUnlocked} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -660,7 +660,7 @@ export function AppSidebarNav({
                 <Handshake />
                 <span>Engagements</span>
               </SidebarContractGatedItem>
-              <LeaveSidebarLink pathname={pathname} />
+              <LeaveSidebarLink pathname={pathname} unlocked={contractUnlocked} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

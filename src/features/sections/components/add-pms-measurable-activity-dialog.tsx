@@ -28,6 +28,15 @@ import {
   contractsApiBase,
   type ContractsApiResource,
 } from '@/lib/contracts-api'
+import {
+  hasRequiredAssigneeAndEvidence,
+  MeasurableActivityCreateFields,
+} from '@/features/sections/components/measurable-activity-create-fields'
+import {
+  evidenceChipsForSubmit,
+  type EvidenceChip,
+} from '@/features/sections/components/expected-evidence-input'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 
 type PmsActivityType = 'core' | 'cross-cutting'
 
@@ -40,6 +49,9 @@ interface AddPmsMeasurableActivityDialogProps {
   initiativeIndex: number
   initiativeCode?: string
   nextOrderForType: (type: PmsActivityType) => number
+  assigneeOptions?: CascadeAssigneeOption[] | null
+  assigneeEmptyLabel?: string
+  unassignedLabel?: string
   onSuccess?: () => void
 }
 
@@ -52,6 +64,9 @@ export function AddPmsMeasurableActivityDialog({
   initiativeIndex,
   initiativeCode,
   nextOrderForType,
+  assigneeOptions = null,
+  assigneeEmptyLabel,
+  unassignedLabel,
   onSuccess,
 }: AddPmsMeasurableActivityDialogProps) {
   const router = useRouter()
@@ -61,18 +76,31 @@ export function AddPmsMeasurableActivityDialog({
     '',
   )
   const [targetDate, setTargetDate] = React.useState('')
+  const [assigneeIds, setAssigneeIds] = React.useState<string[]>([])
+  const [evidenceItems, setEvidenceItems] = React.useState<EvidenceChip[]>([])
+  const [evidencePending, setEvidencePending] = React.useState('')
 
   React.useEffect(() => {
     if (!open) return
     setTitle('')
     setActivityType('')
     setTargetDate('')
+    setAssigneeIds([])
+    setEvidenceItems([])
+    setEvidencePending('')
   }, [open])
 
   const canSubmit =
     Boolean(title.trim()) &&
     (activityType === 'core' || activityType === 'cross-cutting') &&
-    Boolean(targetDate)
+    Boolean(targetDate) &&
+    hasRequiredAssigneeAndEvidence({
+      activityType,
+      assigneeOptions,
+      assigneeIds,
+      evidenceItems,
+      evidencePending,
+    })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -95,6 +123,8 @@ export function AddPmsMeasurableActivityDialog({
               title: title.trim(),
               order: nextOrderForType(activityType),
               targetDate,
+              evidence: evidenceChipsForSubmit(evidenceItems, evidencePending),
+              assigneeIds: activityType === 'cross-cutting' ? [] : assigneeIds,
             },
           }),
         },
@@ -162,9 +192,6 @@ export function AddPmsMeasurableActivityDialog({
                   <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
                 </SelectContent>
               </Select>
-              <p className='text-xs text-muted-foreground'>
-                Choose from Core or Cross-cutting.
-              </p>
             </div>
             <div className='space-y-2'>
               <Label htmlFor='pms-activity-due' required>
@@ -178,6 +205,19 @@ export function AddPmsMeasurableActivityDialog({
                 disabled={isCreating}
               />
             </div>
+            <MeasurableActivityCreateFields
+              activityType={activityType}
+              assigneeIds={assigneeIds}
+              onAssigneeIdsChange={setAssigneeIds}
+              assigneeOptions={assigneeOptions}
+              assigneeEmptyLabel={assigneeEmptyLabel}
+              unassignedLabel={unassignedLabel}
+              evidenceItems={evidenceItems}
+              onEvidenceItemsChange={setEvidenceItems}
+              evidencePending={evidencePending}
+              onEvidencePendingChange={setEvidencePending}
+              disabled={isCreating}
+            />
           </div>
           <DialogFooter>
             <Button

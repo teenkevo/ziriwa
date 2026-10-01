@@ -8,7 +8,10 @@ import {
   type SectionActingRole,
 } from '@/lib/role-delegation'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
-import { getActiveDelegationAsDelegatee } from '@/lib/section-delegation.server'
+import {
+  getActiveDelegationAsDelegatee,
+  scopeContractSupportToActiveYear,
+} from '@/lib/section-delegation.server'
 import { client } from '@/sanity/lib/client'
 
 export type { DelegationCandidate }
@@ -113,7 +116,9 @@ export async function isPlanningContractRedelegationFrom(
       }`,
       { sectionId },
     ),
-    getActiveDelegationAsDelegatee(fromStaffId, sectionId),
+    scopeContractSupportToActiveYear(
+      await getActiveDelegationAsDelegatee(fromStaffId, sectionId),
+    ),
   ])
 
   return (

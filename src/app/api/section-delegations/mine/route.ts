@@ -5,6 +5,7 @@ import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import {
   getActiveDelegationAsDelegatee,
   getOutgoingActiveDelegation,
+  scopeContractSupportToActiveYear,
 } from '@/lib/section-delegation.server'
 
 export async function GET(req: Request) {
@@ -24,8 +25,9 @@ export async function GET(req: Request) {
     }
 
     if (!sectionId) {
-      const assignmentAsDelegatee =
-        await getActiveDelegationAsDelegatee(viewerStaffId)
+      const assignmentAsDelegatee = await scopeContractSupportToActiveYear(
+        await getActiveDelegationAsDelegatee(viewerStaffId),
+      )
       return NextResponse.json({
         assignmentAsDelegatee,
         assignmentAsAbsent: null,
@@ -33,7 +35,9 @@ export async function GET(req: Request) {
     }
 
     const [assignmentAsDelegatee, assignmentAsAbsent] = await Promise.all([
-      getActiveDelegationAsDelegatee(viewerStaffId, sectionId),
+      getActiveDelegationAsDelegatee(viewerStaffId, sectionId).then(
+        scopeContractSupportToActiveYear,
+      ),
       getOutgoingActiveDelegation(viewerStaffId, sectionId),
     ])
 

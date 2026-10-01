@@ -2,6 +2,7 @@ import 'server-only'
 
 import { NextResponse } from 'next/server'
 
+import { isWorkspaceFinancialYearWritable } from '@/lib/financial-year-access.server'
 import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
@@ -62,6 +63,7 @@ export async function resolveSupervisorStaffRefForSection(
 export async function canManageSupervisorContract(
   sectionId: string,
 ): Promise<boolean> {
+  if (!(await isWorkspaceFinancialYearWritable())) return false
   const appRole = await getAppRole()
   if ((await canUseSuperadminPowers()) || appRole === 'commissioner_general') return true
 

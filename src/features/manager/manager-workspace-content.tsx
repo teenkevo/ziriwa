@@ -156,13 +156,15 @@ export function ManagerWorkspaceContent({
     : usesSupervisorContract
       ? supervisorContract
       : sectionContract
-  const canManageActiveContract = usesOfficerContract
-    ? sectionAccess.canManageOfficerContract ||
-      isOfficerLikeWorkspaceBasePath(workspaceBasePath)
-    : usesSupervisorContract
-      ? sectionAccess.canManageSupervisorContract ||
-        sectionAccess.isSectionSupervisor
-      : sectionAccess.canManageContract
+  const canManageActiveContract =
+    !sectionAccess.isReadOnly &&
+    (usesOfficerContract
+      ? sectionAccess.canManageOfficerContract ||
+        isOfficerLikeWorkspaceBasePath(workspaceBasePath)
+      : usesSupervisorContract
+        ? sectionAccess.canManageSupervisorContract ||
+          sectionAccess.isSectionSupervisor
+        : sectionAccess.canManageContract)
   const leadershipContractsApi: Extract<
     ContractsApiResource,
     'supervisor-contracts' | 'officer-contracts'
@@ -583,6 +585,9 @@ export function ManagerWorkspaceContent({
                     sectionSlug={section.slug?.current ?? ''}
                     contractsApi={leadershipContractsApi}
                     canManageContract={canManageActiveContract}
+                    assigneeOptions={usesOfficerContract ? null : officers}
+                    assigneeEmptyLabel='No officers in this section yet.'
+                    unassignedLabel='Assign an officer'
                   />
                 ) : (isProjectManagerWorkspace ||
                     isDeputyProjectManagerWorkspace) &&
@@ -601,6 +606,9 @@ export function ManagerWorkspaceContent({
                     sectionContract={sectionContract!}
                     sectionSlug={section.slug?.current ?? ''}
                     canManageContract={canManageActiveContract}
+                    assigneeOptions={supervisors}
+                    assigneeEmptyLabel='No supervisors in this section yet.'
+                    unassignedLabel='Assign a supervisor'
                   />
                 )}
               </div>
@@ -837,18 +845,8 @@ export function ManagerWorkspaceContent({
       return (
         <SectionStaffContent
           sectionId={section._id}
-          sectionName={section.name}
           roster={staffRoster}
           sectionAccess={sectionAccess}
-          staffScopeTitle={
-            scopeLabels.kind === 'workstream' ? 'Workstream' : 'Section'
-          }
-          staffPageTitle={
-            scopeLabels.kind === 'workstream' ? 'Members' : undefined
-          }
-          staffPageDescription={
-            scopeLabels.kind === 'workstream' ? `` : undefined
-          }
           addStaffLabel={projectWorkstreamMemberAdd ? 'Add member' : undefined}
           projectWorkstreamMemberAdd={projectWorkstreamMemberAdd}
         />

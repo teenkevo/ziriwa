@@ -14,6 +14,8 @@ import {
   getOutgoingContractSupportDelegation,
   type SectionDelegationRecord,
 } from '@/lib/section-delegation.server'
+import { loadCascadeAssigneeOptions } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { client } from '@/sanity/lib/client'
 import { getDivisionContractByDivision } from '@/sanity/lib/division-contracts/get-division-contract-by-division'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
@@ -41,6 +43,7 @@ export type AssistantCommissionerContractPageData = {
   assistantCommissionerStaffIdForOnboarding: string | null
   canManageContract: boolean
   planningContractSupport: PlanningSectionContractSupport | null
+  assigneeOptions: CascadeAssigneeOption[]
 }
 
 async function loadPlanningSectionForDivision(divisionId: string): Promise<{
@@ -130,12 +133,17 @@ export async function loadAssistantCommissionerContractPageData(options?: {
     assistantCommissionerStaffIdForOnboarding,
     planningSection,
     viewerStaffId,
+    assigneeOptions,
   ] = await Promise.all([
     getDivisionContractByDivision(division._id),
     canManageDivisionContract(division._id),
     resolveAssistantCommissionerStaffRefForDivision(division._id),
     loadPlanningSectionForDivision(division._id),
     getViewerStaffId(),
+    loadCascadeAssigneeOptions({
+      contractType: 'divisionContract',
+      divisionId: division._id,
+    }),
   ])
 
   // Own-context AC contract page always offers the support CTA. Eligibility
@@ -202,5 +210,6 @@ export async function loadAssistantCommissionerContractPageData(options?: {
     assistantCommissionerStaffIdForOnboarding,
     canManageContract,
     planningContractSupport,
+    assigneeOptions: assigneeOptions ?? [],
   }
 }

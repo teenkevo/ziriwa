@@ -20,6 +20,8 @@ interface SidebarContractGatedItemProps {
   /** Optional badge / trailing content inside the menu item (shown when unlocked). */
   badge?: React.ReactNode
   tooltip?: string
+  /** Tooltip when the item is clickable (collapsed sidebar). */
+  openTooltip?: string
 }
 
 /**
@@ -32,11 +34,12 @@ export function SidebarContractGatedItem({
   children,
   badge,
   tooltip = LOCKED_TOOLTIP,
+  openTooltip,
 }: SidebarContractGatedItemProps) {
   if (unlocked) {
     return (
       <SidebarMenuItem>
-        <SidebarMenuButton asChild isActive={isActive}>
+        <SidebarMenuButton asChild isActive={isActive} tooltip={openTooltip}>
           <Link href={href}>{children}</Link>
         </SidebarMenuButton>
         {badge}

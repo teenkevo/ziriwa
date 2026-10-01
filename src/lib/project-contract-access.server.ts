@@ -2,6 +2,7 @@ import 'server-only'
 
 import { NextResponse } from 'next/server'
 
+import { isWorkspaceFinancialYearWritable } from '@/lib/financial-year-access.server'
 import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
 import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
@@ -35,6 +36,7 @@ export async function resolveProjectManagerStaffRef(
 export async function canManageProjectContract(
   projectId: string,
 ): Promise<boolean> {
+  if (!(await isWorkspaceFinancialYearWritable())) return false
   if (await canUseSuperadminPowers()) return true
 
   const membership = await getProjectMembershipForViewer(projectId)

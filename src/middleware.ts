@@ -3,6 +3,42 @@ import { NextResponse } from 'next/server'
 import { clerkClient } from '@clerk/nextjs/server'
 import { checkStaffEmail } from '@/sanity/lib/staff/check-staff-email'
 import { isMaintenanceModeEnabled } from '@/lib/maintenance-mode'
+import {
+  FINANCIAL_YEAR_COOKIE,
+  getCurrentFinancialYear,
+  parseFinancialYearLabel,
+} from '@/lib/financial-year'
+
+/** Navigation and session routes stay available while a past year is open. */
+const isPastYearWriteAllowed = createRouteMatcher([
+  '/api/financial-year/select',
+  '/api/department/select',
+  '/api/division/select',
+  '/api/workspace/select',
+  '/api/admin/impersonate(.*)',
+  '/api/webhooks/(.*)',
+  '/api/cron/(.*)',
+  '/api/auth/(.*)',
+  '/api/revalidate/(.*)',
+])
+
+function isMutatingMethod(method: string) {
+  return (
+    method === 'POST' ||
+    method === 'PUT' ||
+    method === 'PATCH' ||
+    method === 'DELETE'
+  )
+}
+
+function isPastFinancialYearRequest(request: {
+  cookies: { get: (name: string) => { value: string } | undefined }
+}) {
+  const raw = request.cookies.get(FINANCIAL_YEAR_COOKIE)?.value
+  const parsed = parseFinancialYearLabel(raw)
+  if (!parsed) return false
+  return parsed.label !== getCurrentFinancialYear().label
+}
 
 const isMaintenanceBypassRoute = createRouteMatcher([
   '/maintenance',
@@ -30,6 +66,18 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth()
   const { pathname } = request.nextUrl
+
+  if (
+    pathname.startsWith('/api/') &&
+    isMutatingMethod(request.method) &&
+    !isPastYearWriteAllowed(request) &&
+    isPastFinancialYearRequest(request)
+  ) {
+    return NextResponse.json(
+      { error: 'This financial year is read-only.' },
+      { status: 403 },
+    )
+  }
 
   if (isMaintenanceModeEnabled() && !isMaintenanceBypassRoute(request)) {
     if (pathname.startsWith('/api/')) {

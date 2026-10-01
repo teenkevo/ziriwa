@@ -21,6 +21,7 @@ export interface SectionStaffRoster {
     fromStaff: { _id: string; fullName: string }
     toStaff: { _id: string; fullName: string }
     actingRole: string
+    purpose?: string
     startDate: string
     endDate: string
   }[]
@@ -80,6 +81,7 @@ export async function getSectionStaffRoster(
       ] | order(startDate desc) {
         _id,
         actingRole,
+        purpose,
         startDate,
         endDate,
         "fromStaff": fromStaff->{ _id, "fullName": coalesce(fullName, firstName + " " + lastName) },

@@ -312,7 +312,11 @@ export function LeaveMonthCalendar({
     if (planId) {
       const plan = plans.find(item => item.id === planId)
       if (!plan) return
-      if (plan.staffId !== viewerStaffId || plan.status === 'confirmed') {
+      if (
+        !canCreate ||
+        plan.staffId !== viewerStaffId ||
+        plan.status === 'confirmed'
+      ) {
         onSelect(planId)
         return
       }
