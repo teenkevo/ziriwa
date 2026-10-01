@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   departmentMeasurableActivityNumber,
-  measurableActivityNumber,
+  displayedActivityOrder,
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
@@ -129,15 +129,8 @@ function buildSectionColumnObjectives(input: {
         const activities = init.measurableActivities ?? []
         const children = activities.flatMap((act, actIdx) => {
           if (!act?.title || !String(act.title).trim()) return []
-          const numberingKind = resolveActivityNumberingType(act)
-          const actOrder =
-            activities.slice(0, actIdx).filter(
-              item => resolveActivityNumberingType(item) === numberingKind,
-            ).length + 1
-          const actNum =
-            numberingKind === 'kpi' || numberingKind === 'cross-cutting'
-              ? measurableActivityNumber(initNum, numberingKind, actOrder)
-              : departmentMeasurableActivityNumber(initNum, actOrder)
+          const actOrder = displayedActivityOrder(activities, actIdx)
+          const actNum = departmentMeasurableActivityNumber(initNum, actOrder)
           const canEditActivity = canManage && !isCascadedItem(act)
           return [
             {

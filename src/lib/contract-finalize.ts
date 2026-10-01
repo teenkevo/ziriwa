@@ -1,3 +1,8 @@
+import {
+  displayedActivityOrder,
+  leadershipActivityNumber,
+} from '@/lib/contract-numbering'
+
 export interface ContractFinalizeActivity {
   _key?: string
   title?: string
@@ -5,6 +10,7 @@ export interface ContractFinalizeActivity {
   targetDate?: string
   assignees?: Array<{ _id?: string } | null> | null
   evidence?: unknown[] | null
+  cascadeSource?: { nodeRole?: string } | null
 }
 
 export interface ContractFinalizeInitiative {
@@ -23,10 +29,26 @@ export interface ContractFinalizeObjective {
   initiatives?: Array<ContractFinalizeInitiative | null> | null
 }
 
+export type ContractFinalizeSubject =
+  | 'contract'
+  | 'objective'
+  | 'initiative'
+  | 'activity'
+
 export interface ContractFinalizeIssue {
   severity: 'blocker' | 'warning'
   message: string
   location: string
+  subject: ContractFinalizeSubject
+  /** Title of the contract item this issue belongs to. */
+  label: string
+  /** Initiative display code, when the issue sits on an initiative or activity. */
+  code?: string
+  objectiveCode?: string
+  objectiveName?: string
+  /** Activity that needs the fix, when the issue is on an activity. */
+  activityCode?: string
+  activityLabel?: string
   objectiveKey?: string
   initiativeKey?: string
   activityKey?: string
@@ -81,9 +103,26 @@ function hasType(activityType: string | undefined): boolean {
   )
 }
 
-function place(code: string | undefined, title: string | undefined, fallback: string) {
-  const label = title?.trim() || fallback
-  return code ? `${code} ${label}` : label
+function objectiveNameAndCode(
+  objective: ContractFinalizeObjective,
+  objectiveIndex: number,
+) {
+  const code = objective.code?.trim() || String(objectiveIndex + 1)
+  const name = objective.title?.trim() || `Objective ${objectiveIndex + 1}`
+  return { code, name, label: `${code} ${name}` }
+}
+
+function initiativeNameAndCode(
+  initiative: ContractFinalizeInitiative,
+  objective: ContractFinalizeObjective,
+  objectiveIndex: number,
+  initiativeIndex: number,
+) {
+  const objectiveCode = objective.code?.trim() || String(objectiveIndex + 1)
+  const code =
+    initiative.code?.trim() || `${objectiveCode}.${initiativeIndex + 1}`
+  const name = initiative.title?.trim() || `Initiative ${initiativeIndex + 1}`
+  return { code, name, label: `${code} ${name}` }
 }
 
 /** Issues that must be resolved before a contract can be finalized. */
@@ -101,8 +140,10 @@ export function reviewContractForFinalize(
   if (visibleObjectives.length === 0) {
     issues.push({
       severity: 'blocker',
-      message: 'Add at least one SSMARTA objective.',
+      message: 'Add at least one SSMARTA objective to the contract.',
       location: 'Contract',
+      subject: 'contract',
+      label: 'This contract',
       objectiveIndex: -1,
     })
     return issues
@@ -111,11 +152,8 @@ export function reviewContractForFinalize(
   list.forEach((objective, objectiveIndex) => {
     if (!objective) return
     if (objective._key && hidden.has(objective._key)) return
-    const objectiveLabel = place(
-      objective.code,
-      objective.title,
-      `Objective ${objectiveIndex + 1}`,
-    )
+    const objectiveName = objectiveNameAndCode(objective, objectiveIndex)
+    const objectiveLabel = objectiveName.label
     const initiatives = (objective.initiatives ?? []).filter(Boolean)
     const visibleInitiatives = initiatives.filter(
       initiative => !initiative?._key || !hidden.has(initiative._key),
@@ -124,8 +162,13 @@ export function reviewContractForFinalize(
       if (initiatives.length > 0) return
       issues.push({
         severity: 'blocker',
-        message: 'Add at least one initiative.',
+        message: 'Add at least one initiative to the objective.',
         location: objectiveLabel,
+        subject: 'objective',
+        label: objectiveName.name,
+        code: objectiveName.code,
+        objectiveCode: objectiveName.code,
+        objectiveName: objectiveName.name,
         objectiveKey: objective._key,
         objectiveIndex,
       })
@@ -135,19 +178,26 @@ export function reviewContractForFinalize(
     initiatives.forEach((initiative, initiativeIndex) => {
       if (!initiative) return
       if (initiative._key && hidden.has(initiative._key)) return
-      const initiativeLabel = place(
-        initiative.code,
-        initiative.title,
-        `Initiative ${initiativeIndex + 1}`,
+      const initiativeName = initiativeNameAndCode(
+        initiative,
+        objective,
+        objectiveIndex,
+        initiativeIndex,
       )
+      const initiativeLabel = initiativeName.label
       const activities = (initiative.measurableActivities ?? []).filter(
         activity => activity?.title && String(activity.title).trim(),
       )
       if (activities.length === 0) {
         issues.push({
           severity: 'blocker',
-          message: 'Add at least one measurable activity.',
+          message: 'Add at least one measurable activity to the initiative.',
           location: initiativeLabel,
+          subject: 'initiative',
+          label: initiativeName.name,
+          code: initiativeName.code,
+          objectiveCode: objectiveName.code,
+          objectiveName: objectiveName.name,
           objectiveKey: objective._key,
           initiativeKey: initiative._key,
           objectiveIndex,
@@ -156,16 +206,29 @@ export function reviewContractForFinalize(
         return
       }
 
-      activities.forEach((activity, activityIndex) => {
-        if (!activity) return
-        const activityLabel = place(
-          undefined,
-          activity.title,
-          `Activity ${activityIndex + 1}`,
+      ;(initiative.measurableActivities ?? []).forEach(
+        (activity, activityIndex) => {
+        if (!activity?.title || !String(activity.title).trim()) return
+        const activityOrder = displayedActivityOrder(
+          initiative.measurableActivities ?? [],
+          activityIndex,
         )
-        const location = `${initiativeLabel} · ${activityLabel}`
+        const activityCode = leadershipActivityNumber(
+          initiativeName.code,
+          activity,
+          activityOrder,
+        )
+        const activityLabel = activity.title.trim()
+        const location = `${initiativeLabel} · ${activityCode} ${activityLabel}`
         const base = {
           location,
+          subject: 'activity' as const,
+          label: initiativeName.name,
+          code: initiativeName.code,
+          objectiveCode: objectiveName.code,
+          objectiveName: objectiveName.name,
+          activityCode,
+          activityLabel,
           objectiveKey: objective._key,
           initiativeKey: initiative._key,
           activityKey: activity._key,
@@ -177,14 +240,14 @@ export function reviewContractForFinalize(
           issues.push({
             ...base,
             severity: 'blocker',
-            message: 'Choose Core or Cross-cutting.',
+            message: 'Choose Core or Cross-cutting for the measurable activity.',
           })
         }
         if (!hasEvidence(activity.evidence)) {
           issues.push({
             ...base,
             severity: 'blocker',
-            message: 'Add expected evidence.',
+            message: 'Add expected evidence to the measurable activity.',
           })
         }
         if (CORE_TYPES.has(activity.activityType ?? '')) {
@@ -195,14 +258,14 @@ export function reviewContractForFinalize(
             issues.push({
               ...base,
               severity: 'blocker',
-              message: 'Assign at least one person.',
+              message: 'Assign at least one person to the measurable activity.',
             })
           }
           if (!activity.targetDate) {
             issues.push({
               ...base,
               severity: 'blocker',
-              message: 'Set a due date.',
+              message: 'Set a due date on the measurable activity.',
             })
           }
         }

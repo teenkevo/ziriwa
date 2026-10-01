@@ -72,6 +72,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import {
+  departmentMeasurableActivityNumber,
+  displayedActivityOrder,
+} from '@/lib/contract-numbering'
+import {
   activityFinalizeFields,
   type ActivityFinalizeField,
 } from '@/lib/contract-finalize'
@@ -208,6 +212,8 @@ export type MeasurableActivityRow = MeasurableActivity
 
 interface MeasurableActivitiesTableProps {
   activities: MeasurableActivityRow[]
+  /** Initiative number the activity codes are built from, such as 1.1. */
+  initiativeNumber: string
   selectedActivityKey: string | null
   onSelectActivity: (key: string | null) => void
   onUpdateActivity: (
@@ -230,6 +236,7 @@ interface MeasurableActivitiesTableProps {
 
 export function MeasurableActivitiesTable({
   activities,
+  initiativeNumber,
   selectedActivityKey,
   onSelectActivity,
   onUpdateActivity,
@@ -288,6 +295,21 @@ export function MeasurableActivitiesTable({
     [onAssigneesChange],
   )
 
+  const activityCodes = React.useMemo(() => {
+    const codes = new Map<string, string>()
+    activities.forEach((activity, index) => {
+      if (!activity._key) return
+      codes.set(
+        activity._key,
+        departmentMeasurableActivityNumber(
+          initiativeNumber,
+          displayedActivityOrder(activities, index),
+        ),
+      )
+    })
+    return codes
+  }, [activities, initiativeNumber])
+
   const blockedActivityKeys = React.useMemo(() => {
     return new Set(
       activities
@@ -299,39 +321,53 @@ export function MeasurableActivitiesTable({
   const columns = React.useMemo<ColumnDef<MeasurableActivityRow>[]>(
     () => [
       {
-        accessorKey: 'title',
+        id: 'code',
+        accessorFn: row =>
+          row._key ? (activityCodes.get(row._key) ?? '') : '',
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title='Measurable activity' />
+          <DataTableColumnHeader column={column} title='Code' />
         ),
         cell: ({ row }) => {
           const ready =
             Boolean(row.original.title?.trim()) &&
             !blockedActivityKeys.has(row.original._key)
+          const code = row.original._key
+            ? activityCodes.get(row.original._key)
+            : undefined
           return (
-            <span className='inline-flex min-w-[200px] items-start gap-3 text-xs'>
+            <span className='inline-flex items-center gap-2 whitespace-nowrap text-xs'>
               {ready ? (
                 <CheckCircle2
-                  className='mt-0.5 h-4 w-4 shrink-0 fill-green-600 text-white [&_circle]:stroke-green-600'
+                  className='h-4 w-4 shrink-0 fill-green-600 text-white [&_circle]:stroke-green-600'
                   aria-label='Ready'
                 />
               ) : (
                 <AlertTriangle
-                  className='mt-0.5 h-4 w-4 shrink-0 text-destructive'
+                  className='h-4 w-4 shrink-0 text-destructive'
                   aria-label='Needs attention before finalize'
                 />
               )}
-              <span
-                className={cn(
-                  'break-words',
-                  activityNeeds(row.original, 'title') &&
-                    'rounded-md border !border-destructive px-2 py-0.5',
-                )}
-              >
-                {row.original.title || '—'}
-              </span>
+              <span>{code || '—'}</span>
             </span>
           )
         },
+      },
+      {
+        accessorKey: 'title',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title='Measurable activity' />
+        ),
+        cell: ({ row }) => (
+          <span
+            className={cn(
+              'inline-flex min-w-[200px] break-words text-xs',
+              activityNeeds(row.original, 'title') &&
+                'rounded-md border !border-destructive px-2 py-0.5',
+            )}
+          >
+            {row.original.title || '—'}
+          </span>
+        ),
       },
       {
         accessorKey: 'activityType',
@@ -517,6 +553,7 @@ export function MeasurableActivitiesTable({
       runAssigneesUpdate,
       runUpdate,
       blockedActivityKeys,
+      activityCodes,
     ],
   )
 
@@ -609,7 +646,7 @@ export function MeasurableActivitiesTable({
                   {headerGroup.headers.map((header, index) => (
                     <TableHead
                       key={header.id}
-                      className={index === 0 ? ' pl-2' : undefined}
+                      className={index === 0 ? 'pl-5' : undefined}
                     >
                       {header.isPlaceholder
                         ? null

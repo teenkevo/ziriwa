@@ -51,16 +51,25 @@ export function resolveActivityNumberingType(
   return 'measurable'
 }
 
-/** Number for supervisor/officer/department tree rows (e.g. 1.1.1-KPI-1 or 1.1.1-MA-1). */
+/** Position among titled activities under one initiative, starting at 1. */
+export function displayedActivityOrder(
+  activities: ReadonlyArray<{ title?: string | null } | null | undefined>,
+  activityIndex: number,
+): number {
+  return (
+    activities
+      .slice(0, activityIndex)
+      .filter(item => Boolean(item?.title && String(item.title).trim()))
+      .length + 1
+  )
+}
+
+/** Every measurable activity uses MA numbering (e.g. 1.1.1-MA-1). */
 export function leadershipActivityNumber(
   initiativeNumber: string,
-  activity: ActivityNumberingInput,
+  _activity: ActivityNumberingInput,
   activityOrder: number,
 ): string {
-  const kind = resolveActivityNumberingType(activity)
-  if (kind === 'kpi' || kind === 'cross-cutting') {
-    return measurableActivityNumber(initiativeNumber, kind, activityOrder)
-  }
   return departmentMeasurableActivityNumber(initiativeNumber, activityOrder)
 }
 

@@ -136,7 +136,9 @@ export function InitiativePageContent({
     setEvidenceDrafts(normalizeEvidenceDrafts(selected.evidence))
   }, [selected])
 
-  const initiativeCode = initiative.code ?? ''
+  const initiativeCode =
+    initiative.code?.trim() ||
+    `${objectiveCode?.trim() || String(objectiveIndex + 1)}.${initiativeIndex + 1}`
   const breadcrumbs = React.useMemo(
     () => [
       { label: section.name, href: backHref },
@@ -524,6 +526,7 @@ export function InitiativePageContent({
             </div>
             <MeasurableActivitiesTable
               activities={activities}
+              initiativeNumber={initiativeCode}
               selectedActivityKey={selectedKey}
               onSelectActivity={setSelectedKey}
               onUpdateActivity={handleUpdateActivity}

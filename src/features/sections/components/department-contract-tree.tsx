@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   departmentDetailedTaskNumber,
+  displayedActivityOrder,
   leadershipActivityNumber,
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
@@ -203,14 +204,7 @@ function buildDepartmentColumnObjectives(input: {
             })()
           : activities.flatMap((act, actIdx) => {
               if (!act?.title || !String(act.title).trim()) return []
-              const actOrder =
-                activities
-                  .slice(0, actIdx)
-                  .filter(
-                    item =>
-                      resolveActivityNumberingType(item) ===
-                      resolveActivityNumberingType(act),
-                  ).length + 1
+              const actOrder = displayedActivityOrder(activities, actIdx)
               const canEditActivity = canManage && !isCascadedItem(act)
               return [
                 {

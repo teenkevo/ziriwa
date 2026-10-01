@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
@@ -32,6 +32,27 @@ interface ContractFinalizeBarProps {
   holdMessage?: string | null
   hiddenKeys?: string[]
   issueHref?: (issue: ContractFinalizeIssue) => string | undefined
+}
+
+function CodeCell({
+  code,
+  emphasize,
+}: {
+  code?: string
+  emphasize?: boolean
+}) {
+  if (!code) return <span className='text-muted-foreground'>—</span>
+  return (
+    <span
+      className={
+        emphasize
+          ? 'font-medium text-destructive'
+          : 'text-muted-foreground'
+      }
+    >
+      {code}
+    </span>
+  )
 }
 
 export function CascadeHoldNotice({ message }: { message: string }) {
@@ -153,7 +174,7 @@ export function ContractFinalizeBar({
       >
         <AlertDialogContent
           disableClose={isFinalizing}
-          className='sm:max-w-2xl'
+          className='sm:max-w-4xl'
         >
           <AlertDialogHeader>
             <AlertDialogTitle>Finalize this contract?</AlertDialogTitle>
@@ -164,42 +185,88 @@ export function ContractFinalizeBar({
             </AlertDialogDescription>
           </AlertDialogHeader>
           {blockers.length > 0 ? (
-            <div className='max-h-60 overflow-y-auto rounded-md border'>
-              <ul>
-                {blockers.map(issue => {
-                  const href = issueHref?.(issue)
-                  const row = (
-                    <>
-                      <AlertTriangle className='mt-0.5 h-4 w-4 shrink-0 text-destructive' />
-                      <span className='min-w-0'>
-                        <span className='block font-medium'>{issue.location}</span>
-                        <span className='block text-muted-foreground'>
+            <div className='max-h-72 overflow-y-auto rounded-md border'>
+              <table className='w-full text-sm'>
+                <thead className='sticky top-0 bg-background'>
+                  <tr className='border-b'>
+                    <th className='w-10 px-3 py-2' />
+                    <th className='px-3 py-2 text-left font-medium text-muted-foreground'>
+                      Objective
+                    </th>
+                    <th className='px-3 py-2 text-left font-medium text-muted-foreground'>
+                      Initiative
+                    </th>
+                    <th className='px-3 py-2 text-left font-medium text-muted-foreground'>
+                      Measurable activity
+                    </th>
+                    <th className='px-3 py-2 text-left font-medium text-muted-foreground'>
+                      Action required
+                    </th>
+                    <th className='w-8 px-2 py-2' />
+                  </tr>
+                </thead>
+                <tbody>
+                  {blockers.map(issue => {
+                    const href = issueHref?.(issue)
+                    return (
+                      <tr
+                        key={`${issue.objectiveIndex}-${issue.initiativeIndex ?? 'i'}-${issue.activityIndex ?? 'a'}-${issue.message}`}
+                        className={
+                          href
+                            ? 'cursor-pointer border-b last:border-0 hover:bg-muted'
+                            : 'border-b last:border-0'
+                        }
+                        onClick={() => {
+                          if (!href) return
+                          setConfirmOpen(false)
+                          router.push(href)
+                        }}
+                      >
+                        <td className='px-3 py-2 align-top'>
+                          <AlertTriangle
+                            className='mt-0.5 h-4 w-4 text-destructive'
+                            aria-label='Needs attention'
+                          />
+                        </td>
+                        <td className='whitespace-nowrap px-3 py-2 align-top'>
+                          <CodeCell
+                            code={issue.objectiveCode}
+                            emphasize={issue.subject === 'objective'}
+                          />
+                        </td>
+                        <td className='whitespace-nowrap px-3 py-2 align-top'>
+                          <CodeCell
+                            code={
+                              issue.subject === 'initiative' ||
+                              issue.subject === 'activity'
+                                ? issue.code
+                                : undefined
+                            }
+                            emphasize={issue.subject === 'initiative'}
+                          />
+                        </td>
+                        <td className='whitespace-nowrap px-3 py-2 align-top'>
+                          <CodeCell
+                            code={issue.activityCode}
+                            emphasize={issue.subject === 'activity'}
+                          />
+                        </td>
+                        <td className='px-3 py-2 align-top text-muted-foreground'>
                           {issue.message}
-                        </span>
-                      </span>
-                    </>
-                  )
-                  return (
-                    <li
-                      key={`${issue.objectiveIndex}-${issue.initiativeIndex ?? 'i'}-${issue.activityIndex ?? 'a'}-${issue.message}`}
-                    >
-                      {href ? (
-                        <a
-                          href={href}
-                          className='flex items-start gap-2 px-3 py-2 text-sm hover:bg-muted'
-                          onClick={() => setConfirmOpen(false)}
-                        >
-                          {row}
-                        </a>
-                      ) : (
-                        <div className='flex items-start gap-2 px-3 py-2 text-sm'>
-                          {row}
-                        </div>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
+                        </td>
+                        <td className='px-2 py-2 align-top'>
+                          {href ? (
+                            <ChevronRight
+                              className='mt-0.5 h-4 w-4 text-muted-foreground'
+                              aria-label='Open'
+                            />
+                          ) : null}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : (
             <FinalizeClearNotice key={clearNoticeKey} />

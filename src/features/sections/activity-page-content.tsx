@@ -48,6 +48,7 @@ import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import type { ContractsApiResource } from '@/lib/contracts-api'
 import { contractsApiBase } from '@/lib/contracts-api'
 import {
+  displayedActivityOrder,
   leadershipActivityNumber,
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
@@ -357,10 +358,10 @@ export function ActivityPageContent({
     sectionContract.objectives?.[objectiveIndex]?.initiatives?.[initiativeIndex]
       ?.measurableActivities ?? []
   const numberingKind = resolveActivityNumberingType(activity)
-  const activityOrder =
-    initiativeActivities
-      .slice(0, activityIndex)
-      .filter(a => resolveActivityNumberingType(a) === numberingKind).length + 1
+  const activityOrder = displayedActivityOrder(
+    initiativeActivities,
+    activityIndex,
+  )
   const activityCode = leadershipActivityNumber(
     initiativeCode,
     activity,

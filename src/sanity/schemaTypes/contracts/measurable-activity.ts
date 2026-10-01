@@ -3,7 +3,7 @@ import { defineField, defineType } from 'sanity'
 /**
  * Measurable activity under an initiative.
  * Type: KPI (with AIM, evidence uploads) or Cross-cutting (bullet style).
- * Number governed as {initiative}-KPI-{n} or {initiative}-CC-{n}.
+ * Number governed as {initiative}-MA-{n}.
  * Sub-number: KPI = E1,E2; CC = a,b,c
  */
 export const measurableActivity = defineType({
