@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ArrowRight, UserRoundPlus, X } from 'lucide-react'
+import { ArrowRight, CheckCircle2, LockOpen, UserRoundPlus, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,55 @@ interface PlanningContractDelegateCtaProps {
   disabled?: boolean
   unavailableReason?: string | null
   className?: string
+}
+
+interface ContractActionsMenuProps {
+  onDelegate: () => void
+  delegateDisabled?: boolean
+  delegateDisabledReason?: string | null
+  onFinalize: () => void
+  finalizeDisabled?: boolean
+  finalizeLabel?: string
+}
+
+/** Page-level contract actions: delegate entry, and finalize. */
+export function ContractActionsMenu({
+  onDelegate,
+  delegateDisabled,
+  delegateDisabledReason,
+  onFinalize,
+  finalizeDisabled,
+  finalizeLabel = 'Finalize contract',
+}: ContractActionsMenuProps) {
+  const isUnfinalize = finalizeLabel === 'Unfinalize'
+
+  return (
+    <div className='flex flex-wrap items-center gap-2'>
+      <Button
+        type='button'
+        size='sm'
+        variant='secondary'
+        className='shrink-0'
+        disabled={delegateDisabled}
+        title={delegateDisabledReason ?? undefined}
+        onClick={onDelegate}
+      >
+        <UserRoundPlus aria-hidden className='text-primary' />
+        Delegate contract entry
+      </Button>
+      <Button
+        type='button'
+        size='sm'
+        variant={isUnfinalize ? 'outline' : 'default'}
+        className={isUnfinalize ? 'shrink-0' : 'shrink-0 bg-primary'}
+        disabled={finalizeDisabled}
+        onClick={onFinalize}
+      >
+        {isUnfinalize ? <LockOpen aria-hidden /> : <CheckCircle2 aria-hidden />}
+        {finalizeLabel}
+      </Button>
+    </div>
+  )
 }
 
 /** AC contract-page CTA to hand planning-section contract entry to DIP-Planning. */

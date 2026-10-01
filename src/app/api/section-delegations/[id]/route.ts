@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { assertAuth } from '@/lib/authz/guards.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
+import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { syncDelegationStatuses } from '@/lib/section-delegation.server'
 import { client } from '@/sanity/lib/client'
 import { writeClient } from '@/sanity/lib/write-client'
@@ -50,10 +51,13 @@ export async function PATCH(
       )
     }
 
-    const viewerStaffId = await getViewerStaffIdForSection(delegation.sectionId)
+    const viewerStaffId =
+      (await getViewerStaffIdForSection(delegation.sectionId)) ??
+      (await getViewerStaffId())
     const canCancel =
-      viewerStaffId === delegation.fromStaffId ||
-      viewerStaffId === delegation.toStaffId
+      viewerStaffId != null &&
+      (viewerStaffId === delegation.fromStaffId ||
+        viewerStaffId === delegation.toStaffId)
 
     if (!canCancel) {
       return NextResponse.json(

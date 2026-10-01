@@ -32,6 +32,14 @@ interface ContractFinalizeBarProps {
   holdMessage?: string | null
   hiddenKeys?: string[]
   issueHref?: (issue: ContractFinalizeIssue) => string | undefined
+  /** Hide the standalone finalize button when the page owns a contract actions menu. */
+  hidePrimaryActions?: boolean
+  /** Rendered on the far right of the draft badge. */
+  contractActions?: React.ReactNode
+  /** Increment to open the finalize confirmation. */
+  finalizeRequest?: number
+  /** Increment to open the unfinalize confirmation. */
+  unfinalizeRequest?: number
 }
 
 function CodeCell({
@@ -69,17 +77,19 @@ function FinalizeClearNotice() {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className='flex items-center gap-3 rounded-lg border border-green-600/25 bg-green-600/10 px-3 py-3'
     >
-      <motion.span
-        initial={{ scale: 0.2, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 460, damping: 16, delay: 0.06 }}
-        className='flex h-9 w-9 shrink-0 items-center justify-center'
-      >
-        <CheckCircle2 className='h-8 w-8 fill-green-600 text-white [&_circle]:stroke-green-600' />
-      </motion.span>
-      <p className='text-sm font-medium'>No blocking issues found.</p>
+      <div className='flex items-center gap-3 rounded-lg border border-green-600/25 bg-green-600/10 px-3 py-3'>
+        <motion.span
+          initial={{ scale: 0.2, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 460, damping: 16, delay: 0.06 }}
+        >
+          <span className='flex h-9 w-9 shrink-0 items-center justify-center'>
+            <CheckCircle2 className='h-8 w-8 fill-green-600 text-white [&_circle]:stroke-green-600' />
+          </span>
+        </motion.span>
+        <p className='text-sm font-medium'>No blocking issues found.</p>
+      </div>
     </motion.div>
   )
 }
@@ -92,15 +102,38 @@ export function ContractFinalizeBar({
   holdMessage,
   hiddenKeys,
   issueHref,
+  hidePrimaryActions = false,
+  contractActions,
+  finalizeRequest = 0,
+  unfinalizeRequest = 0,
 }: ContractFinalizeBarProps) {
   const router = useRouter()
   const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const [unfinalizeOpen, setUnfinalizeOpen] = React.useState(false)
   const [clearNoticeKey, setClearNoticeKey] = React.useState(0)
   const [isFinalizing, setIsFinalizing] = React.useState(false)
+  const [isUnfinalizing, setIsUnfinalizing] = React.useState(false)
   const isFinalized = status === 'finalized'
+  const seenFinalizeRequest = React.useRef(finalizeRequest)
+  const seenUnfinalizeRequest = React.useRef(unfinalizeRequest)
   const blockers = reviewContractForFinalize(objectives, hiddenKeys).filter(
     issue => issue.severity === 'blocker',
   )
+
+  React.useEffect(() => {
+    if (seenFinalizeRequest.current === finalizeRequest) return
+    seenFinalizeRequest.current = finalizeRequest
+    if (!canFinalize || isFinalized) return
+    setClearNoticeKey(key => key + 1)
+    setConfirmOpen(true)
+  }, [finalizeRequest, canFinalize, isFinalized])
+
+  React.useEffect(() => {
+    if (seenUnfinalizeRequest.current === unfinalizeRequest) return
+    seenUnfinalizeRequest.current = unfinalizeRequest
+    if (!canFinalize || !isFinalized) return
+    setUnfinalizeOpen(true)
+  }, [unfinalizeRequest, canFinalize, isFinalized])
 
   async function finalize() {
     setIsFinalizing(true)
@@ -126,6 +159,28 @@ export function ContractFinalizeBar({
     }
   }
 
+  async function unfinalize() {
+    setIsUnfinalizing(true)
+    try {
+      const res = await fetch(`/api/contracts/${contractId}/unfinalize`, {
+        method: 'POST',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not unfinalize this contract')
+      }
+      setUnfinalizeOpen(false)
+      toast.success('Contract reopened')
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Could not unfinalize this contract',
+      )
+    } finally {
+      setIsUnfinalizing(false)
+    }
+  }
+
   return (
     <div className='space-y-3'>
       {holdMessage ? (
@@ -145,13 +200,9 @@ export function ContractFinalizeBar({
           >
             {isFinalized ? 'Finalized' : 'Draft'}
           </Badge>
-          {isFinalized ? (
-            <p className='text-sm text-muted-foreground'>
-              This contract is locked. Assigned people can work from it.
-            </p>
-          ) : null}
         </div>
-        {canFinalize && !isFinalized ? (
+        {contractActions}
+        {canFinalize && !isFinalized && !hidePrimaryActions ? (
           <Button
             type='button'
             size='sm'
@@ -162,6 +213,17 @@ export function ContractFinalizeBar({
             }}
           >
             Finalize contract
+          </Button>
+        ) : null}
+        {canFinalize && isFinalized && !hidePrimaryActions ? (
+          <Button
+            type='button'
+            size='sm'
+            variant='outline'
+            disabled={isUnfinalizing}
+            onClick={() => setUnfinalizeOpen(true)}
+          >
+            Unfinalize
           </Button>
         ) : null}
       </div>
@@ -181,7 +243,7 @@ export function ContractFinalizeBar({
             <AlertDialogDescription>
               {blockers.length > 0
                 ? 'Resolve these before the contract can be finalized.'
-                : 'This locks the contract. You will not be able to edit it after this. Assigned people can then start from the core activities you shared.'}
+                : 'This action locks the contract and cascades it to assignees for contracting'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {blockers.length > 0 ? (
@@ -285,6 +347,39 @@ export function ContractFinalizeBar({
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />
               ) : null}
               Finalize contract
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={unfinalizeOpen}
+        onOpenChange={open => {
+          if (isUnfinalizing) return
+          setUnfinalizeOpen(open)
+        }}
+      >
+        <AlertDialogContent disableClose={isUnfinalizing}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unfinalize this contract?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This reopens the contract for editing. Assigned people will not
+              see the shared activities until you finalize it again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isUnfinalizing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isUnfinalizing}
+              onClick={event => {
+                event.preventDefault()
+                if (isUnfinalizing) return
+                void unfinalize()
+              }}
+            >
+              {isUnfinalizing ? (
+                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              ) : null}
+              Unfinalize
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

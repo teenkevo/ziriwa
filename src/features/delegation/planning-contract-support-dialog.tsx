@@ -83,8 +83,8 @@ export function PlanningContractSupportDialog({
     : null
 
   const title = isRedelegate
-    ? 'Delegate contract work to officer'
-    : 'Delegate contract work'
+    ? 'Delegate contract entry to officer'
+    : 'Delegate contract entry'
   const description = isRedelegate
     ? parentWindow
       ? "Choose a planning officer to help onboard the Assistant Commissioner's contract"
@@ -314,7 +314,7 @@ export function PlanningContractSupportDialog({
               {isSaving ? (
                 <Loader2 className='h-4 w-4 animate-spin' />
               ) : (
-                'Delegate contract work'
+                'Delegate contract entry'
               )}
             </Button>
           </DialogFooter>

@@ -10,7 +10,7 @@ import { DepartmentContractTree } from '@/features/sections/components/departmen
 import { OnboardDivisionContractDialog } from '@/features/sections/components/onboard-division-contract-dialog'
 import { ContractOnboardEmptyState } from '@/features/sections/components/contract-onboard-empty-state'
 import {
-  PlanningContractDelegateCta,
+  ContractActionsMenu,
   PlanningContractSupportStatus,
 } from '@/features/delegation/planning-contract-delegation-panel'
 import { PlanningContractSupportDialog } from '@/features/delegation/planning-contract-support-dialog'
@@ -28,6 +28,8 @@ export function AssistantCommissionerContractContent({
   const router = useRouter()
   const [onboardOpen, setOnboardOpen] = React.useState(false)
   const [delegateOpen, setDelegateOpen] = React.useState(false)
+  const [finalizeRequest, setFinalizeRequest] = React.useState(0)
+  const [unfinalizeRequest, setUnfinalizeRequest] = React.useState(0)
   const [isCancellingSupport, setIsCancellingSupport] = React.useState(false)
   const { active: activeFY, isHistorical } = useFinancialYear()
 
@@ -37,6 +39,13 @@ export function AssistantCommissionerContractContent({
     assistantCommissioner?._id ?? assistantCommissionerStaffIdForOnboarding ?? ''
   const hasAssistantCommissionerRef = Boolean(assistantCommissionerRefId)
   const activeSupport = planningContractSupport?.activeSupport ?? null
+  const isFinalized = divisionContract?.status === 'finalized'
+  const canDelegate =
+    Boolean(planningContractSupport?.sectionId) &&
+    (planningContractSupport?.candidates.length ?? 0) > 0 &&
+    !activeSupport
+  const showContractActions =
+    Boolean(planningContractSupport) && !isHistorical && canManageContract
 
   useRegisterPageBreadcrumbs(
     React.useMemo(
@@ -92,16 +101,7 @@ export function AssistantCommissionerContractContent({
                 onCancel={isHistorical ? undefined : cancelContractSupport}
                 isCancelling={isCancellingSupport}
               />
-            ) : isHistorical ? null : (
-              <PlanningContractDelegateCta
-                onDelegate={() => setDelegateOpen(true)}
-                disabled={
-                  !planningContractSupport.sectionId ||
-                  planningContractSupport.candidates.length === 0
-                }
-                unavailableReason={planningContractSupport.unavailableReason}
-              />
-            )}
+            ) : null}
             {planningContractSupport.sectionId ? (
               <PlanningContractSupportDialog
                 open={delegateOpen}
@@ -124,6 +124,33 @@ export function AssistantCommissionerContractContent({
                 assigneeOptions={assigneeOptions}
                 assigneeEmptyLabel='No managers in this division yet.'
                 unassignedLabel='Assign a manager'
+                hideFinalizeActions={showContractActions}
+                contractActions={
+                  showContractActions && planningContractSupport ? (
+                    <ContractActionsMenu
+                      onDelegate={() => setDelegateOpen(true)}
+                      delegateDisabled={!canDelegate}
+                      delegateDisabledReason={
+                        activeSupport
+                          ? 'Contract entry is already delegated.'
+                          : planningContractSupport.unavailableReason
+                      }
+                      onFinalize={() => {
+                        if (isFinalized) {
+                          setUnfinalizeRequest(count => count + 1)
+                          return
+                        }
+                        setFinalizeRequest(count => count + 1)
+                      }}
+                      finalizeDisabled={false}
+                      finalizeLabel={
+                        isFinalized ? 'Unfinalize' : 'Finalize contract'
+                      }
+                    />
+                  ) : null
+                }
+                finalizeRequest={finalizeRequest}
+                unfinalizeRequest={unfinalizeRequest}
               />
             ) : (
               <div className='space-y-4'>

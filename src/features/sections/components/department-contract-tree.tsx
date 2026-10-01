@@ -82,6 +82,11 @@ interface DepartmentContractTreeProps {
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
   onAddObjectiveRequestConsumed?: () => void
+  /** Hide the bar's finalize button when the page shows Contract actions. */
+  hideFinalizeActions?: boolean
+  contractActions?: React.ReactNode
+  finalizeRequest?: number
+  unfinalizeRequest?: number
 }
 
 function contractTreeShowsTasksOnly(
@@ -296,6 +301,10 @@ export function DepartmentContractTree({
   unassignedLabel,
   addObjectiveSignal = 0,
   onAddObjectiveRequestConsumed,
+  hideFinalizeActions = false,
+  contractActions,
+  finalizeRequest = 0,
+  unfinalizeRequest = 0,
 }: DepartmentContractTreeProps) {
   const router = useRouter()
   const apiBase = contractsApiBase(contractsApi)
@@ -735,6 +744,10 @@ export function DepartmentContractTree({
         objectives={departmentContract.objectives}
         holdMessage={departmentContract.cascadeHoldMessage}
         hiddenKeys={departmentContract.hiddenCascadeKeys}
+        hidePrimaryActions={hideFinalizeActions}
+        contractActions={contractActions}
+        finalizeRequest={finalizeRequest}
+        unfinalizeRequest={unfinalizeRequest}
         issueHref={issue => {
           if (issue.objectiveIndex < 0 || issue.initiativeIndex == null) {
             return undefined

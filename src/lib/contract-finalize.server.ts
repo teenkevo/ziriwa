@@ -34,7 +34,7 @@ export async function rejectFinalizedContractMutation(
   return NextResponse.json({ error: FINALIZED_MESSAGE }, { status: 409 })
 }
 
-async function canFinalizeContract(input: {
+export async function canFinalizeContract(input: {
   _type?: string
   sectionId?: string
   divisionId?: string
