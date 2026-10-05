@@ -22,6 +22,37 @@ function sourceContractId(
   )
 }
 
+const CONTRACT_OWNER_TITLES: Record<string, string> = {
+  departmentContract: 'Commissioner',
+  divisionContract: 'Assistant Commissioner',
+  sectionContract: 'Manager',
+  supervisorContract: 'Supervisor',
+  officerContract: 'Officer',
+  projectContract: 'Project Manager',
+  deputyProjectContract: 'Deputy Project Manager',
+}
+
+function cascadeOwnerTitle(input: {
+  _type?: string
+  isProjectWorkstream?: boolean
+}): string | null {
+  if (input.isProjectWorkstream && input._type === 'supervisorContract') {
+    return 'Workstream Lead'
+  }
+  if (input.isProjectWorkstream && input._type === 'officerContract') {
+    return 'Workstream Member'
+  }
+  if (!input._type) return null
+  return CONTRACT_OWNER_TITLES[input._type] ?? null
+}
+
+function cascadeHoldTitle(input: {
+  _type?: string
+  isProjectWorkstream?: boolean
+}): string {
+  return cascadeOwnerTitle(input) ?? 'level above'
+}
+
 /** Keys of cascaded nodes whose source contract is not finalized yet. */
 export async function getUnreleasedCascadeKeys(contractId: string): Promise<{
   hiddenKeys: string[]
@@ -58,18 +89,18 @@ export async function getUnreleasedCascadeKeys(contractId: string): Promise<{
   }
 
   const sources = await client.fetch<
-    Array<{ _id: string; status?: string; ownerName?: string }>
+    Array<{
+      _id: string
+      _type?: string
+      status?: string
+      isProjectWorkstream?: boolean
+    }>
   >(
     /* groq */ `*[_id in $ids]{
       _id,
+      _type,
       status,
-      "ownerName": coalesce(
-        assistantCommissioner->fullName,
-        manager->fullName,
-        supervisor->fullName,
-        projectManager->fullName,
-        "the level above"
-      )
+      "isProjectWorkstream": defined(section->project._ref)
     }`,
     { ids: [...sourceIds] },
   )
@@ -78,10 +109,10 @@ export async function getUnreleasedCascadeKeys(contractId: string): Promise<{
       .filter(source => source.status === 'finalized')
       .map(source => source._id),
   )
-  const heldNames = new Set(
+  const heldTitles = new Set(
     sources
       .filter(source => source.status !== 'finalized')
-      .map(source => source.ownerName?.trim() || 'the level above'),
+      .map(source => cascadeHoldTitle(source)),
   )
 
   const hiddenObjectives = new Set<string>()
@@ -109,13 +140,13 @@ export async function getUnreleasedCascadeKeys(contractId: string): Promise<{
     }
   }
 
-  const names = [...heldNames]
+  const titles = [...heldTitles]
   const holdMessage =
-    names.length === 0
+    titles.length === 0
       ? null
-      : names.length === 1
-        ? `Waiting for ${names[0]} to finalize their contract.`
-        : `Waiting for ${names.slice(0, -1).join(', ')} and ${names.at(-1)} to finalize their contracts.`
+      : titles.length === 1
+        ? `Waiting for the ${titles[0]} to finalize their contract.`
+        : `Waiting for the ${titles.slice(0, -1).join(', the ')} and the ${titles.at(-1)} to finalize their contracts.`
 
   return {
     hiddenKeys: [...hiddenObjectives, ...hiddenInitiatives],

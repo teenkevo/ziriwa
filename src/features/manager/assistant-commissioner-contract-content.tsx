@@ -143,6 +143,10 @@ export function AssistantCommissionerContractContent({
                         setFinalizeRequest(count => count + 1)
                       }}
                       finalizeDisabled={false}
+                      hideFinalize={
+                        Boolean(divisionContract.cascadeHoldMessage) &&
+                        !isFinalized
+                      }
                       finalizeLabel={
                         isFinalized ? 'Unfinalize' : 'Finalize contract'
                       }

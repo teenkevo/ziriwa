@@ -114,8 +114,14 @@ export function ContractFinalizeBar({
   const [isFinalizing, setIsFinalizing] = React.useState(false)
   const [isUnfinalizing, setIsUnfinalizing] = React.useState(false)
   const isFinalized = status === 'finalized'
+  /** Upstream cascade is still held, so draft status and finalize are not available yet. */
+  const isAwaitingCascade = Boolean(holdMessage?.trim()) && !isFinalized
   const seenFinalizeRequest = React.useRef(finalizeRequest)
   const seenUnfinalizeRequest = React.useRef(unfinalizeRequest)
+  const showFinalize =
+    canFinalize && !isFinalized && !hidePrimaryActions && !isAwaitingCascade
+  const showUnfinalize = canFinalize && isFinalized && !hidePrimaryActions
+  const showStatusRow = !isAwaitingCascade || Boolean(contractActions)
   const blockers = reviewContractForFinalize(objectives, hiddenKeys).filter(
     issue => issue.severity === 'blocker',
   )
@@ -123,10 +129,10 @@ export function ContractFinalizeBar({
   React.useEffect(() => {
     if (seenFinalizeRequest.current === finalizeRequest) return
     seenFinalizeRequest.current = finalizeRequest
-    if (!canFinalize || isFinalized) return
+    if (!canFinalize || isFinalized || isAwaitingCascade) return
     setClearNoticeKey(key => key + 1)
     setConfirmOpen(true)
-  }, [finalizeRequest, canFinalize, isFinalized])
+  }, [finalizeRequest, canFinalize, isFinalized, isAwaitingCascade])
 
   React.useEffect(() => {
     if (seenUnfinalizeRequest.current === unfinalizeRequest) return
@@ -188,45 +194,51 @@ export function ContractFinalizeBar({
           {holdMessage}
         </p>
       ) : null}
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div className='flex items-center gap-2'>
-          <Badge
-            variant='outline'
-            className={
-              isFinalized
-                ? 'border-green-600/40 bg-green-600/15 text-green-700 hover:bg-green-600/15 dark:text-green-300'
-                : 'border-orange-500/50 bg-orange-500/15 text-orange-600 hover:bg-orange-500/15 dark:text-orange-300'
-            }
-          >
-            {isFinalized ? 'Finalized' : 'Draft'}
-          </Badge>
+      {showStatusRow ? (
+        <div
+          className={`flex flex-wrap items-center gap-3 ${
+            isAwaitingCascade ? 'justify-end' : 'justify-between'
+          }`}
+        >
+          {isAwaitingCascade ? null : (
+            <Badge
+              variant='outline'
+              className={
+                isFinalized
+                  ? 'border-green-600/40 bg-green-600/15 text-green-700 hover:bg-green-600/15 dark:text-green-300'
+                  : 'border-orange-500/50 bg-orange-500/15 text-orange-600 hover:bg-orange-500/15 dark:text-orange-300'
+              }
+            >
+              {isFinalized ? 'Finalized' : 'Draft'}
+            </Badge>
+          )}
+          {contractActions}
+          {showFinalize ? (
+            <Button
+              type='button'
+              size='sm'
+              disabled={isFinalizing}
+              onClick={() => {
+                setClearNoticeKey(key => key + 1)
+                setConfirmOpen(true)
+              }}
+            >
+              Finalize contract
+            </Button>
+          ) : null}
+          {showUnfinalize ? (
+            <Button
+              type='button'
+              size='sm'
+              variant='outline'
+              disabled={isUnfinalizing}
+              onClick={() => setUnfinalizeOpen(true)}
+            >
+              Unfinalize
+            </Button>
+          ) : null}
         </div>
-        {contractActions}
-        {canFinalize && !isFinalized && !hidePrimaryActions ? (
-          <Button
-            type='button'
-            size='sm'
-            disabled={isFinalizing}
-            onClick={() => {
-              setClearNoticeKey(key => key + 1)
-              setConfirmOpen(true)
-            }}
-          >
-            Finalize contract
-          </Button>
-        ) : null}
-        {canFinalize && isFinalized && !hidePrimaryActions ? (
-          <Button
-            type='button'
-            size='sm'
-            variant='outline'
-            disabled={isUnfinalizing}
-            onClick={() => setUnfinalizeOpen(true)}
-          >
-            Unfinalize
-          </Button>
-        ) : null}
-      </div>
+      ) : null}
       <AlertDialog
         open={confirmOpen}
         onOpenChange={open => {

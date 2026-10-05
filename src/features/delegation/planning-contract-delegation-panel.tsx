@@ -20,6 +20,8 @@ interface ContractActionsMenuProps {
   onFinalize: () => void
   finalizeDisabled?: boolean
   finalizeLabel?: string
+  /** Hide finalize while an upstream contract has not released its cascade. */
+  hideFinalize?: boolean
 }
 
 /** Page-level contract actions: delegate entry, and finalize. */
@@ -30,6 +32,7 @@ export function ContractActionsMenu({
   onFinalize,
   finalizeDisabled,
   finalizeLabel = 'Finalize contract',
+  hideFinalize = false,
 }: ContractActionsMenuProps) {
   const isUnfinalize = finalizeLabel === 'Unfinalize'
 
@@ -47,17 +50,19 @@ export function ContractActionsMenu({
         <UserRoundPlus aria-hidden className='text-primary' />
         Delegate contract entry
       </Button>
-      <Button
-        type='button'
-        size='sm'
-        variant={isUnfinalize ? 'outline' : 'default'}
-        className={isUnfinalize ? 'shrink-0' : 'shrink-0 bg-primary'}
-        disabled={finalizeDisabled}
-        onClick={onFinalize}
-      >
-        {isUnfinalize ? <LockOpen aria-hidden /> : <CheckCircle2 aria-hidden />}
-        {finalizeLabel}
-      </Button>
+      {hideFinalize ? null : (
+        <Button
+          type='button'
+          size='sm'
+          variant={isUnfinalize ? 'outline' : 'default'}
+          className={isUnfinalize ? 'shrink-0' : 'shrink-0 bg-primary'}
+          disabled={finalizeDisabled}
+          onClick={onFinalize}
+        >
+          {isUnfinalize ? <LockOpen aria-hidden /> : <CheckCircle2 aria-hidden />}
+          {finalizeLabel}
+        </Button>
+      )}
     </div>
   )
 }

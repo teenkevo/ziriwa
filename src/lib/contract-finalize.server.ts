@@ -130,6 +130,14 @@ export async function finalizeContract(contractId: string): Promise<
   }
 
   const unreleased = await getUnreleasedCascadeKeys(contractId)
+  if (unreleased.holdMessage) {
+    return {
+      ok: false,
+      status: 409,
+      error: unreleased.holdMessage,
+    }
+  }
+
   const blockers = reviewContractForFinalize(
     contract.objectives,
     unreleased.hiddenKeys,
