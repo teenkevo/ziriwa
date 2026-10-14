@@ -80,14 +80,11 @@ export function ContractSprintPlaceholder({
   ) : null
 
   return (
-    <section
-      aria-label='Sprints'
-      className='flex h-full min-h-48 flex-col gap-2'
-    >
+    <section aria-label='Sprints' className='flex w-full flex-col gap-2 self-start'>
       <div className='h-4 px-0.5' aria-hidden />
       <div
         className={cn(
-          'relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border px-4 py-5',
+          'relative flex flex-col overflow-hidden rounded-xl border px-4 py-5',
           isFinalize
             ? 'border-primary/40 bg-gradient-to-b from-primary/[0.12] via-card to-card ring-1 ring-inset ring-primary/20'
             : 'border-amber-500/40 bg-gradient-to-b from-amber-500/15 via-card to-card dark:from-amber-500/10',
@@ -100,7 +97,7 @@ export function ContractSprintPlaceholder({
             isFinalize ? 'bg-primary/15' : 'bg-amber-500/20',
           )}
         />
-        <div className='relative flex min-h-0 flex-1 flex-col gap-4'>
+        <div className='relative flex flex-col gap-4'>
           <span
             className={cn(
               'flex size-10 items-center justify-center rounded-lg text-white shadow-sm',
@@ -109,7 +106,7 @@ export function ContractSprintPlaceholder({
           >
             <Icon className='size-5' aria-hidden />
           </span>
-          <div className='min-w-0 flex-1 space-y-1.5'>
+          <div className='min-w-0 space-y-1.5'>
             <p className='text-base font-semibold tracking-tight'>{title}</p>
             <p className='text-sm leading-relaxed text-muted-foreground'>
               {detail}

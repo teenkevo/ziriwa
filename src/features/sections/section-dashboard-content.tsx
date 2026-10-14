@@ -109,7 +109,11 @@ export function SectionDashboardContent({
 
   return (
     <div className='space-y-8'>
-      <div className='grid gap-6 lg:grid-cols-4 lg:items-stretch'>
+      <div
+        className={`grid gap-6 lg:grid-cols-4 ${
+          sprintPlaceholder ? 'lg:items-start' : 'lg:items-stretch'
+        }`}
+      >
         <div className='min-w-0 lg:col-span-3'>
           <OverduePanel
             upcomingActivities={metrics.upcomingActivities}
