@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { cache } from 'react'
 import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
@@ -17,7 +18,7 @@ export async function getAssistantCommissionerViewerEmail() {
   return getEffectiveViewerEmail()
 }
 
-export async function getAssistantCommissionerDivision(): Promise<AssistantCommissionerDivision | null> {
+export const getAssistantCommissionerDivision = cache(async function getAssistantCommissionerDivision(): Promise<AssistantCommissionerDivision | null> {
   const email = await getAssistantCommissionerViewerEmail()
   if (!email) return null
 
@@ -42,7 +43,7 @@ export async function getAssistantCommissionerDivision(): Promise<AssistantCommi
     `,
     { email },
   )
-}
+})
 
 export async function canManageAssistantCommissionerDivision(
   divisionId: string,

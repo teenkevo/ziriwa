@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { cache } from 'react'
 import { parseProjectRole, type ProjectRole } from '@/lib/project-role'
 import {
   canUseSuperadminPowers,
@@ -38,7 +39,7 @@ export async function canAccessProjectWorkspace(
   return Boolean(await getProjectMembershipForViewer(projectId))
 }
 
-export async function getProjectMembershipForViewer(
+export const getProjectMembershipForViewer = cache(async function getProjectMembershipForViewer(
   projectId: string,
 ): Promise<ProjectMembership | null> {
   const email = await getEffectiveViewerEmail()
@@ -106,7 +107,7 @@ export async function getProjectMembershipForViewer(
     workstreamId: row?.workstreamId ?? null,
     workstreamName: row?.workstreamName?.trim() || null,
   }
-}
+})
 
 export async function isSectionInProject(sectionId: string): Promise<boolean> {
   return client.fetch<boolean>(

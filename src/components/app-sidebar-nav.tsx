@@ -131,7 +131,7 @@ export function AppSidebarNav({
 
   React.useEffect(() => {
     const m = pathname.match(/^\/sections\/([^/]+)/)
-    if (!m) {
+    if (!m || departmentsTree.length === 0) {
       setSectionDivisionId(null)
       return
     }
@@ -156,7 +156,7 @@ export function AppSidebarNav({
         setSectionDivisionId(null)
       })
     return () => ac.abort()
-  }, [pathname])
+  }, [pathname, departmentsTree.length])
 
   const autoOpenDeptIds = React.useMemo(() => {
     const ids = new Set<string>()

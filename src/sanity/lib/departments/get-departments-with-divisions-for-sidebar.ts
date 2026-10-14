@@ -1,4 +1,5 @@
 import { defineQuery } from 'next-sanity'
+import { cache } from 'react'
 import { sanityFetch } from '../client'
 
 export type SidebarDivision = {
@@ -18,7 +19,7 @@ export type SidebarDepartmentWithDivisions = {
   divisions: SidebarDivision[]
 }
 
-export async function getDepartmentsWithDivisionsForSidebar(): Promise<
+export const getDepartmentsWithDivisionsForSidebar = cache(async function getDepartmentsWithDivisionsForSidebar(): Promise<
   SidebarDepartmentWithDivisions[]
 > {
   const query = defineQuery(`
@@ -45,6 +46,31 @@ export async function getDepartmentsWithDivisionsForSidebar(): Promise<
     return rows ?? []
   } catch (error) {
     console.error('Error fetching departments with divisions for sidebar', error)
+    return []
+  }
+})
+
+export async function getSidebarDivisionsForDepartment(
+  departmentId: string,
+): Promise<SidebarDivision[]> {
+  const query = defineQuery(`
+    *[_type == "division" && department._ref == $departmentId] | order(coalesce(fullName, name) asc) {
+      _id,
+      "name": coalesce(acronym, fullName, name),
+      slug,
+      fullName,
+    }
+  `)
+
+  try {
+    const rows = (await sanityFetch({
+      query,
+      params: { departmentId },
+      revalidate: 0,
+    })) as SidebarDivision[] | null
+    return rows ?? []
+  } catch (error) {
+    console.error('Error fetching sidebar divisions for department', error)
     return []
   }
 }

@@ -1,6 +1,12 @@
 import type { SectionAccess } from '@/lib/section-access'
 import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
 
+type SprintLike = {
+  status: WeeklySprint['status']
+  supervisor?: { _id: string } | null
+  tasks?: Array<{ assignee?: string | null }>
+}
+
 /** Supervisors who are not the section manager only see their own weekly sprints. */
 export function shouldScopeSprintsToSupervisor(access: SectionAccess): boolean {
   return access.isSectionSupervisor && !access.isSectionManager
@@ -20,18 +26,18 @@ export function shouldUseSupervisorContract(access: SectionAccess): boolean {
   return shouldScopeSprintsToSupervisor(access)
 }
 
-export function filterSprintsForSupervisor(
-  sprints: WeeklySprint[],
+export function filterSprintsForSupervisor<T extends SprintLike>(
+  sprints: T[],
   supervisorStaffId: string | null | undefined,
-): WeeklySprint[] {
+): T[] {
   if (!supervisorStaffId) return sprints
   return sprints.filter(sprint => sprint.supervisor?._id === supervisorStaffId)
 }
 
-export function filterSprintsForOfficer(
-  sprints: WeeklySprint[],
+export function filterSprintsForOfficer<T extends SprintLike>(
+  sprints: T[],
   officerStaffId: string | null | undefined,
-): WeeklySprint[] {
+): T[] {
   if (!officerStaffId) return []
   return sprints
     .filter(sprint => sprint.status !== 'draft')
@@ -44,10 +50,10 @@ export function filterSprintsForOfficer(
     .filter(sprint => sprint.tasks.length > 0)
 }
 
-export function scopeSprintsForViewer(
-  sprints: WeeklySprint[],
+export function scopeSprintsForViewer<T extends SprintLike>(
+  sprints: T[],
   access: SectionAccess,
-): WeeklySprint[] {
+): T[] {
   if (shouldScopeSprintsToSupervisor(access)) {
     return filterSprintsForSupervisor(
       sprints,

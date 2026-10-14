@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { cache } from 'react'
 import { client } from '@/sanity/lib/client'
 import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
@@ -60,7 +61,7 @@ type SectionLookup = {
   isPlanningSection?: boolean
 }
 
-export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
+export const getManagedSectionsForViewer = cache(async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
   const email = await getEffectiveViewerEmail()
   if (!email) return []
 
@@ -84,7 +85,7 @@ export async function getManagedSectionsForViewer(): Promise<SectionLookup[]> {
     `,
     { email },
   )
-}
+})
 
 export type LoadSectionWorkspaceOptions = {
   workContext?: WorkContextMode

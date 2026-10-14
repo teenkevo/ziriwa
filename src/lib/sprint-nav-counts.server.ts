@@ -11,13 +11,16 @@ import {
   emptySprintNavCounts,
   type SprintNavCounts,
 } from '@/lib/sprint-nav-counts'
-import { getSprintsBySection } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
-import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import {
+  getSprintNavSummariesBySection,
+  getSprintNavSummariesByWorkstreamIds,
+  type SprintNavSummary,
+} from '@/sanity/lib/weekly-sprints/get-sprint-nav-summaries'
 
 function filterSprintsForActiveFy(
-  sprints: WeeklySprint[],
+  sprints: SprintNavSummary[],
   fy: { startDate: string; endDate: string },
-): WeeklySprint[] {
+): SprintNavSummary[] {
   return sprints.filter(s => isDateInFinancialYear(s.weekStart, fy))
 }
 
@@ -32,11 +35,8 @@ export async function getSprintNavCountsForViewer(): Promise<SprintNavCounts> {
     const sectionIds = workstreams.map(w => w._id)
     if (sectionIds.length === 0) return emptySprintNavCounts()
 
-    const { getSprintsByWorkstreamIds } = await import(
-      '@/sanity/lib/weekly-sprints/get-sprints-by-workstreams'
-    )
     const sprints = filterSprintsForActiveFy(
-      await getSprintsByWorkstreamIds(sectionIds),
+      await getSprintNavSummariesByWorkstreamIds(sectionIds),
       activeFY,
     )
     const access = await getSectionAccessForViewer(sectionIds[0], 'own')
@@ -48,7 +48,7 @@ export async function getSprintNavCountsForViewer(): Promise<SprintNavCounts> {
   if (!sectionId) return emptySprintNavCounts()
 
   const [allSprints, access] = await Promise.all([
-    getSprintsBySection(sectionId),
+    getSprintNavSummariesBySection(sectionId),
     getSectionAccessForViewer(sectionId, 'own'),
   ])
 

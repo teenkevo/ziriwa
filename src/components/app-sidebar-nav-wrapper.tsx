@@ -1,12 +1,14 @@
-import { getDepartmentsWithDivisionsForSidebar } from '@/sanity/lib/departments/get-departments-with-divisions-for-sidebar'
+import {
+  getDepartmentsWithDivisionsForSidebar,
+  getSidebarDivisionsForDepartment,
+} from '@/sanity/lib/departments/get-departments-with-divisions-for-sidebar'
+import type { SidebarDepartmentWithDivisions } from '@/sanity/lib/departments/get-departments-with-divisions-for-sidebar'
 import { AppSidebarNav } from '@/components/app-sidebar-nav'
 import type { SidebarSection } from '@/components/app-sidebar-nav'
 import { getAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
 import { getAppRole } from '@/lib/clerk-app-role.server'
-import {
-  canUseSuperadminPowers,
-  getEffectiveViewerEmail,
-} from '@/lib/impersonation/viewer-context.server'
+import { canUseSuperadminPowers } from '@/lib/impersonation/viewer-context.server'
+import { getCommissionerDepartmentIdForViewer } from '@/lib/commissioner-department.server'
 import { client } from '@/sanity/lib/client'
 import { getProjectMembershipForViewer } from '@/lib/project-access.server'
 import { getSprintNavCountsForViewer } from '@/lib/sprint-nav-counts.server'
@@ -16,11 +18,15 @@ import { getProjectWorkspaceContext } from '@/lib/workspace-mode.server'
 import { getProjectSlugById } from '@/sanity/lib/projects/get-project-by-id'
 import { viewerHasActiveFyContract } from '@/lib/viewer-active-fy-contract.server'
 
+const EMPTY_DEPARTMENTS_TREE: SidebarDepartmentWithDivisions[] = []
+
 export async function AppSidebarNavWrapper() {
-  const role = await getAppRole()
-  const departmentsTree = await getDepartmentsWithDivisionsForSidebar()
-  const useFallbackExplorer = await canUseSuperadminPowers()
-  const { isProjects, projectId } = await getProjectWorkspaceContext()
+  const [role, useFallbackExplorer, workspace] = await Promise.all([
+    getAppRole(),
+    canUseSuperadminPowers(),
+    getProjectWorkspaceContext(),
+  ])
+  const { isProjects, projectId } = workspace
   const hideSprintReviewTab = isProjects
 
   if (isProjects && projectId) {
@@ -28,7 +34,7 @@ export async function AppSidebarNavWrapper() {
     if (slug && useFallbackExplorer) {
       return (
         <AppSidebarNav
-          departmentsTree={departmentsTree}
+          departmentsTree={EMPTY_DEPARTMENTS_TREE}
           variant='project-admin'
           workspaceBasePath={buildProjectAdminBasePath(slug)}
         />
@@ -49,7 +55,7 @@ export async function AppSidebarNavWrapper() {
       if (membership.role === 'project_manager') {
         return (
           <AppSidebarNav
-            departmentsTree={departmentsTree}
+            departmentsTree={EMPTY_DEPARTMENTS_TREE}
             variant='manager'
             workspaceBasePath={workspaceBasePath}
             managerSprintsReviewLabel='In review'
@@ -65,7 +71,7 @@ export async function AppSidebarNavWrapper() {
       if (membership.role === 'deputy_project_manager') {
         return (
           <AppSidebarNav
-            departmentsTree={departmentsTree}
+            departmentsTree={EMPTY_DEPARTMENTS_TREE}
             variant='manager'
             workspaceBasePath={workspaceBasePath}
             managerSprintsReviewLabel='In review'
@@ -81,7 +87,7 @@ export async function AppSidebarNavWrapper() {
       if (membership.role === 'workstream_lead') {
         return (
           <AppSidebarNav
-            departmentsTree={departmentsTree}
+            departmentsTree={EMPTY_DEPARTMENTS_TREE}
             variant='supervisor'
             workspaceBasePath={workspaceBasePath}
             managerSprintsReviewLabel='In review'
@@ -95,7 +101,7 @@ export async function AppSidebarNavWrapper() {
       if (membership.role === 'workstream_member') {
         return (
           <AppSidebarNav
-            departmentsTree={departmentsTree}
+            departmentsTree={EMPTY_DEPARTMENTS_TREE}
             variant='officer'
             workspaceBasePath={workspaceBasePath}
             sprintNavCounts={sprintNavCounts}
@@ -109,7 +115,7 @@ export async function AppSidebarNavWrapper() {
     // Project cookies set but nav context not ready — never fall back to mainstream /manager.
     return (
       <AppSidebarNav
-        departmentsTree={departmentsTree}
+        departmentsTree={EMPTY_DEPARTMENTS_TREE}
         variant='manager'
         workspaceBasePath={
           slug && membership
@@ -123,36 +129,23 @@ export async function AppSidebarNavWrapper() {
   }
 
   if (useFallbackExplorer) {
+    const departmentsTree = await getDepartmentsWithDivisionsForSidebar()
     return <AppSidebarNav departmentsTree={departmentsTree} variant='default' />
   }
 
   if (role === 'commissioner') {
-    const email = await getEffectiveViewerEmail()
-
-    const [commissionerDepartmentId, contractUnlocked] = await Promise.all([
-      email
-        ? client.fetch<string | null>(
-            /* groq */ `
-            coalesce(
-              *[_type == "department" && commissioner->status == "active" && lower(commissioner->email) == $email][0]._id,
-              *[_type == "department" && commissioner._ref == *[_type == "staff" && lower(email) == $email && status == "active"][0]._id][0]._id,
-              *[_type == "staff" && lower(email) == $email && status == "active" && role == "commissioner"][0].department._ref
-            )
-          `,
-            { email },
-          )
-        : Promise.resolve(null),
+    const commissionerDepartmentId =
+      await getCommissionerDepartmentIdForViewer()
+    const [contractUnlocked, commissionerDivisions] = await Promise.all([
       viewerHasActiveFyContract(),
+      commissionerDepartmentId
+        ? getSidebarDivisionsForDepartment(commissionerDepartmentId)
+        : Promise.resolve([]),
     ])
-
-    const commissionerDivisions = commissionerDepartmentId
-      ? departmentsTree.find(dept => dept._id === commissionerDepartmentId)
-          ?.divisions ?? []
-      : []
 
     return (
       <AppSidebarNav
-        departmentsTree={departmentsTree}
+        departmentsTree={EMPTY_DEPARTMENTS_TREE}
         variant='commissioner'
         commissionerDivisions={commissionerDivisions}
         contractUnlocked={contractUnlocked}
@@ -167,7 +160,7 @@ export async function AppSidebarNavWrapper() {
     ])
     return (
       <AppSidebarNav
-        departmentsTree={departmentsTree}
+        departmentsTree={EMPTY_DEPARTMENTS_TREE}
         variant='manager'
         managerSprintsReviewLabel='In review'
         sprintNavCounts={sprintNavCounts}
@@ -184,7 +177,7 @@ export async function AppSidebarNavWrapper() {
     ])
     return (
       <AppSidebarNav
-        departmentsTree={departmentsTree}
+        departmentsTree={EMPTY_DEPARTMENTS_TREE}
         variant='supervisor'
         managerSprintsReviewLabel='In review'
         sprintNavCounts={sprintNavCounts}
@@ -201,7 +194,7 @@ export async function AppSidebarNavWrapper() {
     ])
     return (
       <AppSidebarNav
-        departmentsTree={departmentsTree}
+        departmentsTree={EMPTY_DEPARTMENTS_TREE}
         variant='officer'
         sprintNavCounts={sprintNavCounts}
         contractUnlocked={contractUnlocked}
@@ -229,7 +222,7 @@ export async function AppSidebarNavWrapper() {
 
     return (
       <AppSidebarNav
-        departmentsTree={departmentsTree}
+        departmentsTree={EMPTY_DEPARTMENTS_TREE}
         variant='assistant-commissioner'
         assistantCommissionerSections={assistantCommissionerSections ?? []}
         contractUnlocked={contractUnlocked}
@@ -237,5 +230,6 @@ export async function AppSidebarNavWrapper() {
     )
   }
 
+  const departmentsTree = await getDepartmentsWithDivisionsForSidebar()
   return <AppSidebarNav departmentsTree={departmentsTree} variant='default' />
 }

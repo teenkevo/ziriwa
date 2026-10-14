@@ -1,5 +1,5 @@
 import type { SectionAccess } from '@/lib/section-access'
-import type { WeeklySprint } from '@/sanity/lib/weekly-sprints/get-sprints-by-section'
+import type { SprintNavSummary } from '@/sanity/lib/weekly-sprints/get-sprint-nav-summaries'
 import {
   scopeSprintsForViewer,
   shouldScopeSprintsToOfficer,
@@ -21,7 +21,7 @@ export function emptySprintNavCounts(): SprintNavCounts {
   return { ...EMPTY_SPRINT_NAV_COUNTS }
 }
 
-function isInReviewSprint(sprint: WeeklySprint): boolean {
+function isInReviewSprint(sprint: SprintNavSummary): boolean {
   if (sprint.status === 'submitted') return true
   if (sprint.status !== 'reviewed') return false
   const tasks = sprint.tasks ?? []
@@ -32,7 +32,7 @@ function isInReviewSprint(sprint: WeeklySprint): boolean {
 
 /** Counts for sidebar sprint links — mirrors WeeklySprintContent tab lists. */
 export function computeSprintNavCounts(
-  sprints: WeeklySprint[],
+  sprints: SprintNavSummary[],
   access: SectionAccess,
 ): SprintNavCounts {
   const scoped = scopeSprintsForViewer(sprints, access)

@@ -2,14 +2,13 @@ import 'server-only'
 
 import { getAppRole } from '@/lib/clerk-app-role.server'
 import { getAssistantCommissionerDivision } from '@/lib/assistant-commissioner.server'
+import { getCommissionerDepartmentIdForViewer } from '@/lib/commissioner-department.server'
 import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import { getViewerStaffId } from '@/lib/get-viewer-staff.server'
 import { getViewerStaffIdForSection } from '@/lib/get-viewer-staff-for-section'
-import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getProjectMembershipForViewer } from '@/lib/project-access.server'
 import { getProjectWorkspaceContext } from '@/lib/workspace-mode.server'
 import { getManagedSectionsForViewer } from '@/features/sections/load-section-workspace-data'
-import { client } from '@/sanity/lib/client'
 import { getDepartmentContractByDepartment } from '@/sanity/lib/department-contracts/get-department-contract-by-department'
 import { getDivisionContractByDivision } from '@/sanity/lib/division-contracts/get-division-contract-by-division'
 import { getDeputyProjectContract } from '@/sanity/lib/project-contracts/get-deputy-project-contract'
@@ -70,18 +69,7 @@ export async function viewerHasActiveFyContract(): Promise<boolean> {
   const role = await getAppRole()
 
   if (role === 'commissioner') {
-    const email = await getEffectiveViewerEmail()
-    if (!email) return false
-    const departmentId = await client.fetch<string | null>(
-      /* groq */ `
-        coalesce(
-          *[_type == "department" && commissioner->status == "active" && lower(commissioner->email) == $email][0]._id,
-          *[_type == "department" && commissioner._ref == *[_type == "staff" && lower(email) == $email && status == "active"][0]._id][0]._id,
-          *[_type == "staff" && lower(email) == $email && status == "active" && role == "commissioner"][0].department._ref
-        )
-      `,
-      { email },
-    )
+    const departmentId = await getCommissionerDepartmentIdForViewer()
     if (!departmentId) return false
     return hasReleasedContract(
       await getDepartmentContractByDepartment(departmentId, fyLabel),

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { cookies } from 'next/headers'
+import { cache } from 'react'
 
 import {
   FINANCIAL_YEAR_COOKIE,
@@ -14,7 +15,7 @@ import {
  * Active workspace financial year from cookie, falling back to calendar current.
  * Invalid or out-of-range cookie values are ignored.
  */
-export async function getActiveFinancialYear(): Promise<FinancialYear> {
+export const getActiveFinancialYear = cache(async function getActiveFinancialYear(): Promise<FinancialYear> {
   const store = await cookies()
   const raw = store.get(FINANCIAL_YEAR_COOKIE)?.value
   const parsed = parseFinancialYearLabel(raw)
@@ -25,7 +26,7 @@ export async function getActiveFinancialYear(): Promise<FinancialYear> {
   )
   if (!allowed.has(parsed.label)) return getCurrentFinancialYear()
   return parsed
-}
+})
 
 export async function getActiveFinancialYearLabel(): Promise<string> {
   const fy = await getActiveFinancialYear()
