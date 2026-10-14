@@ -251,6 +251,9 @@ const CONTRACT_MANAGER_OPS = new Set([
   'addMeasurableActivity',
   'updateActivity',
   'setActivityAssignees',
+  'reorderMeasurableActivities',
+  'reorderObjectives',
+  'reorderInitiatives',
 ])
 
 export function assertContractOpAllowed(

@@ -17,8 +17,11 @@ import {
 import {
   departmentMeasurableActivityNumber,
   displayedActivityOrder,
+  mergeKeyedListOrder,
+  mergeVisibleActivityOrder,
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
+import { patchContractReorder } from '@/lib/patch-contract-reorder'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { isPmsAlignment } from '@/lib/contract-alignment'
 import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
@@ -70,6 +73,15 @@ function buildSectionColumnObjectives(input: {
   onAddActivity: (objIdx: number, initIdx: number) => void
   onOpenInitiative: (objIdx: number, initIdx: number) => void
   onOpenActivity: (objIdx: number, initIdx: number, actIdx: number) => void
+  onReorderActivities: (
+    objIdx: number,
+    initIdx: number,
+    orderedVisibleKeys: string[],
+  ) => void | Promise<void>
+  onReorderInitiatives: (
+    objectiveKey: string,
+    orderedVisibleKeys: string[],
+  ) => void | Promise<void>
 }): ContractColumnObjective[] {
   const {
     sectionContract,
@@ -86,6 +98,8 @@ function buildSectionColumnObjectives(input: {
     onAddActivity,
     onOpenInitiative,
     onOpenActivity,
+    onReorderActivities,
+    onReorderInitiatives,
   } = input
   const objectives = sectionContract.objectives ?? []
   const attention = contractFinalizeAttentionKeys(
@@ -184,6 +198,9 @@ function buildSectionColumnObjectives(input: {
           onDelete: canEditInitiative
             ? () => onDeleteInitiative(objIdx, initIdx)
             : undefined,
+          onReorderChildren: canManage
+            ? orderedIds => onReorderActivities(objIdx, initIdx, orderedIds)
+            : undefined,
           children,
         }]
     })
@@ -197,6 +214,10 @@ function buildSectionColumnObjectives(input: {
       onEdit: canEditObjective ? () => onEditObjective(objIdx) : undefined,
       onDelete: canEditObjective ? () => onDeleteObjective(objIdx) : undefined,
       onAddInitiative: canManage ? () => onAddInitiative(objIdx) : undefined,
+      onReorderInitiatives:
+        canManage && obj._key
+          ? orderedIds => onReorderInitiatives(obj._key as string, orderedIds)
+          : undefined,
       initiatives: initiativeRows,
     }]
   })
@@ -258,6 +279,89 @@ export function ContractTree({
     onAddObjectiveRequestConsumed?.()
   }, [addObjectiveSignal, onAddObjectiveRequestConsumed])
 
+  const contractPatchUrl = `/api/section-contracts/${sectionContract._id}`
+  const hiddenCascadeKeys = React.useMemo(
+    () => new Set(sectionContract.hiddenCascadeKeys ?? []),
+    [sectionContract.hiddenCascadeKeys],
+  )
+
+  const persistReorder = React.useCallback(
+    async (op: string, payload: Record<string, unknown>) => {
+      try {
+        await patchContractReorder(contractPatchUrl, op, payload)
+        router.refresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to reorder')
+        throw err
+      }
+    },
+    [contractPatchUrl, router],
+  )
+
+  const handleReorderActivities = React.useCallback(
+    async (
+      objIdx: number,
+      initIdx: number,
+      orderedVisibleKeys: string[],
+    ) => {
+      const activities =
+        sectionContract.objectives?.[objIdx]?.initiatives?.[initIdx]
+          ?.measurableActivities ?? []
+      const orderedKeys = mergeVisibleActivityOrder(
+        activities,
+        orderedVisibleKeys,
+      )
+      if (!orderedKeys) {
+        toast.error('Failed to reorder')
+        throw new Error('Failed to reorder')
+      }
+      await persistReorder('reorderMeasurableActivities', {
+        objectiveIndex: objIdx,
+        initiativeIndex: initIdx,
+        orderedKeys,
+      })
+    },
+    [persistReorder, sectionContract],
+  )
+
+  const handleReorderInitiatives = React.useCallback(
+    async (objectiveKey: string, orderedVisibleKeys: string[]) => {
+      const objective = (sectionContract.objectives ?? []).find(
+        item => item._key === objectiveKey,
+      )
+      const orderedKeys = mergeKeyedListOrder(
+        objective?.initiatives ?? [],
+        orderedVisibleKeys,
+        item => !hiddenCascadeKeys.has(item._key),
+      )
+      if (!orderedKeys) {
+        toast.error('Failed to reorder')
+        throw new Error('Failed to reorder')
+      }
+      await persistReorder('reorderInitiatives', {
+        objectiveKey,
+        orderedKeys,
+      })
+    },
+    [hiddenCascadeKeys, persistReorder, sectionContract],
+  )
+
+  const handleReorderObjectives = React.useCallback(
+    async (orderedVisibleKeys: string[]) => {
+      const orderedKeys = mergeKeyedListOrder(
+        sectionContract.objectives ?? [],
+        orderedVisibleKeys,
+        item => !hiddenCascadeKeys.has(item._key),
+      )
+      if (!orderedKeys) {
+        toast.error('Failed to reorder')
+        throw new Error('Failed to reorder')
+      }
+      await persistReorder('reorderObjectives', { orderedKeys })
+    },
+    [hiddenCascadeKeys, persistReorder, sectionContract],
+  )
+
   const columnObjectives = React.useMemo(
     () =>
       buildSectionColumnObjectives({
@@ -308,8 +412,18 @@ export function ContractTree({
             `/sections/${sectionSlug}/initiative/${sectionContract._id}/${objIdx}/${initIdx}${activityQuery}`,
           )
         },
+        onReorderActivities: handleReorderActivities,
+        onReorderInitiatives: handleReorderInitiatives,
       }),
-    [sectionContract, sectionSlug, pmsMode, canManageContract, router],
+    [
+      sectionContract,
+      sectionSlug,
+      pmsMode,
+      canManageContract,
+      router,
+      handleReorderActivities,
+      handleReorderInitiatives,
+    ],
   )
 
   const handleDeleteObjective = React.useCallback(async () => {
@@ -639,6 +753,11 @@ export function ContractTree({
       />
       <ContractColumnBrowser
         objectives={columnObjectives}
+        onReorderObjectives={
+          canManageContract && sectionContract.status !== 'finalized'
+            ? handleReorderObjectives
+            : undefined
+        }
         emptyObjectivesMessage={
           sectionContract.cascadeHoldMessage ||
           'Waiting for the Assistant Commissioner to cascade activities.'

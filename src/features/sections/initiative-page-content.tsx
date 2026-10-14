@@ -277,6 +277,27 @@ export function InitiativePageContent({
     }
   }
 
+  async function handleReorderActivities(orderedKeys: string[]) {
+    if (!canManage) return
+    setIsSaving(true)
+    try {
+      await patchContract({
+        op: 'reorderMeasurableActivities',
+        payload: {
+          objectiveIndex,
+          initiativeIndex,
+          orderedKeys,
+        },
+      })
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reorder')
+      throw err
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   async function handleActivityChange(updates: MeasurableActivityPanelUpdate) {
     if (!canManage || selectedIndex < 0 || isCascadedItem(selected)) return
     if (updates.title !== undefined) setPanelTitle(updates.title)
@@ -535,6 +556,9 @@ export function InitiativePageContent({
               assigneeEmptyLabel={assigneeEmptyLabel}
               unassignedLabel={unassignedLabel}
               onAssigneesChange={handleAssigneesChange}
+              onReorderActivities={
+                canManage ? handleReorderActivities : undefined
+              }
               isSaving={isSaving}
               canManage={canManage}
             />

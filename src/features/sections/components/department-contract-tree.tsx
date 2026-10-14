@@ -19,8 +19,11 @@ import {
   departmentDetailedTaskNumber,
   displayedActivityOrder,
   leadershipActivityNumber,
+  mergeKeyedListOrder,
+  mergeVisibleActivityOrder,
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
+import { patchContractReorder } from '@/lib/patch-contract-reorder'
 import { contractsApiBase, type ContractsApiResource } from '@/lib/contracts-api'
 import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import type { DepartmentContract } from '@/sanity/lib/department-contracts/get-department-contract'
@@ -133,6 +136,15 @@ function buildDepartmentColumnObjectives(input: {
     actIdx: number,
     taskKey?: string,
   ) => void
+  onReorderActivities: (
+    objIdx: number,
+    initIdx: number,
+    orderedVisibleKeys: string[],
+  ) => void | Promise<void>
+  onReorderInitiatives: (
+    objectiveKey: string,
+    orderedVisibleKeys: string[],
+  ) => void | Promise<void>
 }): ContractColumnObjective[] {
   const {
     contract,
@@ -149,6 +161,8 @@ function buildDepartmentColumnObjectives(input: {
     onDeleteActivity,
     onEditActivity,
     onOpenActivity,
+    onReorderActivities,
+    onReorderInitiatives,
   } = input
   const objectives = contract.objectives ?? []
   const attention = contractFinalizeAttentionKeys(
@@ -272,6 +286,10 @@ function buildDepartmentColumnObjectives(input: {
           onDelete: canEditInitiative
             ? () => onDeleteInitiative(objIdx, initIdx)
             : undefined,
+          onReorderChildren:
+            canManage && !showTasksOnly
+              ? orderedIds => onReorderActivities(objIdx, initIdx, orderedIds)
+              : undefined,
           children,
         }]
     })
@@ -285,6 +303,10 @@ function buildDepartmentColumnObjectives(input: {
       onEdit: canEditObjective ? () => onEditObjective(objIdx) : undefined,
       onDelete: canEditObjective ? () => onDeleteObjective(objIdx) : undefined,
       onAddInitiative: canManage ? () => onAddInitiative(objIdx) : undefined,
+      onReorderInitiatives:
+        canManage && obj._key
+          ? orderedIds => onReorderInitiatives(obj._key as string, orderedIds)
+          : undefined,
       initiatives: initiativeRows,
     }]
   })
@@ -349,6 +371,89 @@ export function DepartmentContractTree({
   const [editActivityOpen, setEditActivityOpen] = React.useState(false)
 
   const objectives = departmentContract.objectives ?? []
+
+  const contractPatchUrl = `${apiBase}/${departmentContract._id}`
+  const hiddenCascadeKeys = React.useMemo(
+    () => new Set(departmentContract.hiddenCascadeKeys ?? []),
+    [departmentContract.hiddenCascadeKeys],
+  )
+
+  const persistReorder = React.useCallback(
+    async (op: string, payload: Record<string, unknown>) => {
+      try {
+        await patchContractReorder(contractPatchUrl, op, payload)
+        router.refresh()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to reorder')
+        throw err
+      }
+    },
+    [contractPatchUrl, router],
+  )
+
+  const handleReorderActivities = React.useCallback(
+    async (
+      objIdx: number,
+      initIdx: number,
+      orderedVisibleKeys: string[],
+    ) => {
+      const activities =
+        departmentContract.objectives?.[objIdx]?.initiatives?.[initIdx]
+          ?.measurableActivities ?? []
+      const orderedKeys = mergeVisibleActivityOrder(
+        activities,
+        orderedVisibleKeys,
+      )
+      if (!orderedKeys) {
+        toast.error('Failed to reorder')
+        throw new Error('Failed to reorder')
+      }
+      await persistReorder('reorderMeasurableActivities', {
+        objectiveIndex: objIdx,
+        initiativeIndex: initIdx,
+        orderedKeys,
+      })
+    },
+    [departmentContract, persistReorder],
+  )
+
+  const handleReorderInitiatives = React.useCallback(
+    async (objectiveKey: string, orderedVisibleKeys: string[]) => {
+      const objective = (departmentContract.objectives ?? []).find(
+        item => item._key === objectiveKey,
+      )
+      const orderedKeys = mergeKeyedListOrder(
+        objective?.initiatives ?? [],
+        orderedVisibleKeys,
+        item => !hiddenCascadeKeys.has(item._key),
+      )
+      if (!orderedKeys) {
+        toast.error('Failed to reorder')
+        throw new Error('Failed to reorder')
+      }
+      await persistReorder('reorderInitiatives', {
+        objectiveKey,
+        orderedKeys,
+      })
+    },
+    [departmentContract, hiddenCascadeKeys, persistReorder],
+  )
+
+  const handleReorderObjectives = React.useCallback(
+    async (orderedVisibleKeys: string[]) => {
+      const orderedKeys = mergeKeyedListOrder(
+        departmentContract.objectives ?? [],
+        orderedVisibleKeys,
+        item => !hiddenCascadeKeys.has(item._key),
+      )
+      if (!orderedKeys) {
+        toast.error('Failed to reorder')
+        throw new Error('Failed to reorder')
+      }
+      await persistReorder('reorderObjectives', { orderedKeys })
+    },
+    [departmentContract, hiddenCascadeKeys, persistReorder],
+  )
 
   React.useEffect(() => {
     if (
@@ -419,6 +524,8 @@ export function DepartmentContractTree({
             `/sections/${sectionSlug}/initiative/${departmentContract._id}/${objIdx}/${initIdx}${activityQuery}`,
           )
         },
+        onReorderActivities: handleReorderActivities,
+        onReorderInitiatives: handleReorderInitiatives,
       }),
     [
       departmentContract,
@@ -427,6 +534,8 @@ export function DepartmentContractTree({
       canManageContract,
       showTasksOnlyUnderMeasurable,
       router,
+      handleReorderActivities,
+      handleReorderInitiatives,
     ],
   )
 
@@ -770,6 +879,11 @@ export function DepartmentContractTree({
       />
       <ContractColumnBrowser
         objectives={columnObjectives}
+        onReorderObjectives={
+          canManageContract && departmentContract.status !== 'finalized'
+            ? handleReorderObjectives
+            : undefined
+        }
         onAddObjective={
           canCreateObjectives &&
           canManageContract &&

@@ -26,6 +26,11 @@ import {
   measurableEvidencePatchValue,
 } from '@/lib/measurable-activity-evidence'
 import { measurableActivityConfigPatch } from '@/lib/measurable-activity-config'
+import {
+  reorderContractInitiatives,
+  reorderContractObjectives,
+  reorderMeasurableActivities,
+} from '@/lib/reorder-measurable-activities.server'
 
 /**
  * PATCH /api/section-contracts/[id] - Add objective, initiative, or activity
@@ -354,6 +359,69 @@ export async function PATCH(
           `objectives[${objectiveIndex}].initiatives[${initiativeIndex}].measurableActivities[${activityIndex}]`,
         ])
         .commit()
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'reorderMeasurableActivities') {
+      const result = await reorderMeasurableActivities({
+        contractId: id,
+        objectiveIndex: payload.objectiveIndex,
+        initiativeIndex: payload.initiativeIndex,
+        orderedKeys: payload.orderedKeys,
+      })
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: result.error },
+          { status: result.status },
+        )
+      }
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'reorderObjectives') {
+      const result = await reorderContractObjectives({
+        contractId: id,
+        orderedKeys: payload.orderedKeys,
+      })
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: result.error },
+          { status: result.status },
+        )
+      }
+      audit.sectionContract.updated(
+        id,
+        contractLabel ?? 'Section contract',
+        op,
+        sectionId,
+      )
+      return NextResponse.json({ ok: true })
+    }
+
+    if (op === 'reorderInitiatives') {
+      const result = await reorderContractInitiatives({
+        contractId: id,
+        objectiveKey: payload.objectiveKey,
+        orderedKeys: payload.orderedKeys,
+      })
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: result.error },
+          { status: result.status },
+        )
+      }
       audit.sectionContract.updated(
         id,
         contractLabel ?? 'Section contract',

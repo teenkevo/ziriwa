@@ -51,17 +51,56 @@ export function resolveActivityNumberingType(
   return 'measurable'
 }
 
+function activityHasTitle(
+  item: { title?: string | null } | null | undefined,
+): boolean {
+  return Boolean(item?.title && String(item.title).trim())
+}
+
 /** Position among titled activities under one initiative, starting at 1. */
 export function displayedActivityOrder(
   activities: ReadonlyArray<{ title?: string | null } | null | undefined>,
   activityIndex: number,
 ): number {
-  return (
-    activities
-      .slice(0, activityIndex)
-      .filter(item => Boolean(item?.title && String(item.title).trim()))
-      .length + 1
+  return activities.slice(0, activityIndex).filter(activityHasTitle).length + 1
+}
+
+/**
+ * Rebuilds the full key list after a visible subset is reordered. Hidden rows
+ * keep their slots.
+ */
+export function mergeKeyedListOrder<T extends { _key?: string }>(
+  items: ReadonlyArray<T | null | undefined>,
+  orderedVisibleKeys: string[],
+  isVisible: (item: T & { _key: string }) => boolean = () => true,
+): string[] | null {
+  const list = items.filter((item): item is T => item != null)
+  if (list.some(item => !item._key)) return null
+  const keyed = list as Array<T & { _key: string }>
+
+  const visibleKeys = keyed.filter(isVisible).map(item => item._key)
+  if (orderedVisibleKeys.length !== visibleKeys.length) return null
+  if (new Set(orderedVisibleKeys).size !== orderedVisibleKeys.length) return null
+  const visibleSet = new Set(visibleKeys)
+  if (orderedVisibleKeys.some(key => !visibleSet.has(key))) return null
+
+  let nextVisible = 0
+  return keyed.map(item =>
+    isVisible(item) ? orderedVisibleKeys[nextVisible++] : item._key,
   )
+}
+
+/**
+ * Rebuilds the full activity-key list after the titled (visible) subset is
+ * reordered. Untitled rows keep their slots.
+ */
+export function mergeVisibleActivityOrder(
+  activities: ReadonlyArray<
+    { _key?: string; title?: string | null } | null | undefined
+  >,
+  orderedVisibleKeys: string[],
+): string[] | null {
+  return mergeKeyedListOrder(activities, orderedVisibleKeys, activityHasTitle)
 }
 
 /** Every measurable activity uses MA numbering (e.g. 1.1.1-MA-1). */

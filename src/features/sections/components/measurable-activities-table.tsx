@@ -2,6 +2,22 @@
 
 import * as React from 'react'
 import {
+  closestCenter,
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   ColumnDef,
   ColumnFiltersState,
   SortingState,
@@ -13,6 +29,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type Row,
 } from '@tanstack/react-table'
 import {
   addDays,
@@ -31,6 +48,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  GripVertical,
   Loader2,
   Search,
   Trash2,
@@ -230,6 +248,7 @@ interface MeasurableActivitiesTableProps {
     key: string,
     assigneeIds: string[],
   ) => void | Promise<void>
+  onReorderActivities?: (orderedKeys: string[]) => void | Promise<void>
   isSaving: boolean
   canManage: boolean
 }
@@ -245,12 +264,24 @@ export function MeasurableActivitiesTable({
   assigneeEmptyLabel = 'No staff on the level below yet.',
   unassignedLabel = 'Assign',
   onAssigneesChange,
+  onReorderActivities,
   isSaving,
   canManage,
 }: MeasurableActivitiesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
+  )
+  const [orderedActivities, setOrderedActivities] = React.useState(activities)
+  React.useEffect(() => {
+    setOrderedActivities(activities)
+  }, [activities])
+
+  const showHandleColumn = Boolean(canManage && onReorderActivities)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
   )
   const [deleteKey, setDeleteKey] = React.useState<string | null>(null)
   /** Which cell is mid-save, so only that row shows a spinner. */
@@ -297,26 +328,26 @@ export function MeasurableActivitiesTable({
 
   const activityCodes = React.useMemo(() => {
     const codes = new Map<string, string>()
-    activities.forEach((activity, index) => {
+    orderedActivities.forEach((activity, index) => {
       if (!activity._key) return
       codes.set(
         activity._key,
         departmentMeasurableActivityNumber(
           initiativeNumber,
-          displayedActivityOrder(activities, index),
+          displayedActivityOrder(orderedActivities, index),
         ),
       )
     })
     return codes
-  }, [activities, initiativeNumber])
+  }, [orderedActivities, initiativeNumber])
 
   const blockedActivityKeys = React.useMemo(() => {
     return new Set(
-      activities
+      orderedActivities
         .filter(activity => activityFinalizeFields(activity).length > 0)
         .map(activity => activity._key),
     )
-  }, [activities])
+  }, [orderedActivities])
 
   const columns = React.useMemo<ColumnDef<MeasurableActivityRow>[]>(
     () => [
@@ -558,7 +589,7 @@ export function MeasurableActivitiesTable({
   )
 
   const table = useReactTable({
-    data: activities,
+    data: orderedActivities,
     columns,
     state: { sorting, columnFilters },
     onSortingChange: setSorting,
@@ -577,6 +608,123 @@ export function MeasurableActivitiesTable({
   })
 
   const isFiltered = table.getState().columnFilters.length > 0
+  const isReorderBlockedByView =
+    sorting.length > 0 || isFiltered || table.getPageCount() > 1
+  const canReorder =
+    showHandleColumn &&
+    !isSaving &&
+    orderedActivities.length > 1 &&
+    !isReorderBlockedByView
+  const sortableIds = table.getRowModel().rows.map(row => row.original._key)
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!canReorder || !over || active.id === over.id) return
+    const oldIndex = orderedActivities.findIndex(
+      activity => activity._key === active.id,
+    )
+    const newIndex = orderedActivities.findIndex(
+      activity => activity._key === over.id,
+    )
+    if (oldIndex < 0 || newIndex < 0) return
+    const next = arrayMove(orderedActivities, oldIndex, newIndex)
+    setOrderedActivities(next)
+    try {
+      await onReorderActivities?.(next.map(activity => activity._key))
+    } catch {
+      setOrderedActivities(activities)
+    }
+  }
+
+  const tableElement = (
+    <div className='rounded-md border'>
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map(headerGroup => (
+            <TableRow key={headerGroup.id}>
+              {showHandleColumn ? (
+                <TableHead className='w-8 px-1'>
+                  <span className='sr-only'>Reorder</span>
+                </TableHead>
+              ) : null}
+              {headerGroup.headers.map((header, index) => (
+                <TableHead
+                  key={header.id}
+                  className={index === 0 ? 'pl-5' : undefined}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map(row =>
+              showHandleColumn ? (
+                <SortableActivityRow
+                  key={row.original._key}
+                  row={row}
+                  canDrag={canReorder}
+                  isSelected={row.original._key === selectedActivityKey}
+                  onSelect={() =>
+                    onSelectActivity(
+                      row.original._key === selectedActivityKey
+                        ? null
+                        : row.original._key,
+                    )
+                  }
+                />
+              ) : (
+                <TableRow
+                  key={row.original._key}
+                  className='cursor-pointer'
+                  data-state={
+                    row.original._key === selectedActivityKey
+                      ? 'selected'
+                      : undefined
+                  }
+                  onClick={() =>
+                    onSelectActivity(
+                      row.original._key === selectedActivityKey
+                        ? null
+                        : row.original._key,
+                    )
+                  }
+                >
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ),
+            )
+          ) : (
+            <TableRow>
+              <TableCell
+                colSpan={
+                  table.getVisibleFlatColumns().length +
+                  (showHandleColumn ? 1 : 0)
+                }
+                className='h-24 text-center text-muted-foreground'
+              >
+                No measurable activities yet.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
 
   return (
     <>
@@ -638,69 +786,31 @@ export function MeasurableActivitiesTable({
             )}
           </div>
         </div>
-        <div className='rounded-md border'>
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map(headerGroup => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header, index) => (
-                    <TableHead
-                      key={header.id}
-                      className={index === 0 ? 'pl-5' : undefined}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map(row => (
-                  <TableRow
-                    key={row.original._key}
-                    className='cursor-pointer'
-                    data-state={
-                      row.original._key === selectedActivityKey
-                        ? 'selected'
-                        : undefined
-                    }
-                    onClick={() =>
-                      onSelectActivity(
-                        row.original._key === selectedActivityKey
-                          ? null
-                          : row.original._key,
-                      )
-                    }
-                  >
-                    {row.getVisibleCells().map(cell => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext(),
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={table.getVisibleFlatColumns().length}
-                    className='h-24 text-center text-muted-foreground'
-                  >
-                    No measurable activities yet.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        {showHandleColumn &&
+        isReorderBlockedByView &&
+        orderedActivities.length > 1 ? (
+          <p className='text-xs text-muted-foreground'>
+            Clear filters and sorting, and show all rows, to reorder
+            activities.
+          </p>
+        ) : null}
+        {showHandleColumn ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            onDragEnd={event => void handleDragEnd(event)}
+          >
+            <SortableContext
+              items={sortableIds}
+              strategy={verticalListSortingStrategy}
+            >
+              {tableElement}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          tableElement
+        )}
         <div className='flex items-center justify-between px-2'>
           <div className='text-sm text-muted-foreground'>
             {table.getFilteredRowModel().rows.length} activity(ies)
@@ -797,6 +907,78 @@ export function MeasurableActivitiesTable({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  )
+}
+
+function SortableActivityRow({
+  row,
+  canDrag,
+  isSelected,
+  onSelect,
+}: {
+  row: Row<MeasurableActivityRow>
+  canDrag: boolean
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: row.original._key,
+    disabled: !canDrag,
+  })
+
+  return (
+    <TableRow
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition,
+      }}
+      className={cn(
+        'cursor-pointer',
+        isDragging && 'relative z-10 bg-background opacity-70 shadow-sm',
+      )}
+      data-state={isSelected ? 'selected' : undefined}
+      onClick={onSelect}
+    >
+      <TableCell className='w-8 px-1'>
+        <button
+          type='button'
+          className={cn(
+            'flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground',
+            canDrag
+              ? 'cursor-grab hover:bg-muted active:cursor-grabbing'
+              : 'cursor-not-allowed opacity-40',
+          )}
+          aria-label={
+            canDrag
+              ? 'Reorder activity'
+              : 'Clear filters and sorting to reorder'
+          }
+          title={
+            canDrag
+              ? 'Drag to reorder'
+              : 'Clear filters, sorting, and show all rows to reorder'
+          }
+          disabled={!canDrag}
+          onClick={event => event.stopPropagation()}
+          {...(canDrag ? { ...attributes, ...listeners } : {})}
+        >
+          <GripVertical className='h-4 w-4' />
+        </button>
+      </TableCell>
+      {row.getVisibleCells().map(cell => (
+        <TableCell key={cell.id}>
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      ))}
+    </TableRow>
   )
 }
 

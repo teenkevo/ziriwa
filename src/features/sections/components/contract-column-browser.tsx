@@ -3,10 +3,27 @@
 import * as React from 'react'
 import Link from 'next/link'
 import {
+  closestCenter,
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
   File,
+  GripVertical,
   MoreVertical,
   Pencil,
   Plus,
@@ -96,6 +113,8 @@ export interface ContractColumnInitiative {
   childHeaderAction?: React.ReactNode
   childEmptyLabel?: string
   children?: ContractColumnLeaf[]
+  /** Persist a new order of child row ids (visible titled activities). */
+  onReorderChildren?: (orderedIds: string[]) => void | Promise<void>
 }
 
 export interface ContractColumnObjective {
@@ -109,11 +128,13 @@ export interface ContractColumnObjective {
   onDelete?: () => void
   onAddInitiative?: () => void
   initiatives: ContractColumnInitiative[]
+  onReorderInitiatives?: (orderedIds: string[]) => void | Promise<void>
 }
 
 interface ContractColumnBrowserProps {
   objectives: ContractColumnObjective[]
   onAddObjective?: () => void
+  onReorderObjectives?: (orderedIds: string[]) => void | Promise<void>
   /** Shown in the empty SSMARTA objectives column when objectives are cascaded in. */
   emptyObjectivesMessage?: string
 }
@@ -144,6 +165,8 @@ interface ColumnModel {
   headerAction?: React.ReactNode
   emptyAction?: React.ReactNode
   rows: ColumnRowModel[]
+  onReorderRows?: (orderedIds: string[]) => void | Promise<void>
+  reorderNoun?: string
 }
 
 type ColumnIllustrationKind = 'objectives' | 'initiatives' | 'activities' | 'tasks'
@@ -429,7 +452,13 @@ function ColumnRowActivator({
   )
 }
 
-function ColumnRow({ row }: { row: ColumnRowModel }) {
+function ColumnRow({
+  row,
+  dragHandle,
+}: {
+  row: ColumnRowModel
+  dragHandle?: React.ReactNode
+}) {
   return (
     <div
       role='option'
@@ -440,6 +469,7 @@ function ColumnRow({ row }: { row: ColumnRowModel }) {
         !row.leafSelected && !row.branchSelected && 'hover:bg-muted/80',
       )}
     >
+      {dragHandle}
       <ColumnRowActivator row={row}>
         <span className='min-w-0 flex-1'>
           <span
@@ -497,6 +527,65 @@ function ColumnRow({ row }: { row: ColumnRowModel }) {
   )
 }
 
+function SortableColumnRow({
+  row,
+  canDrag,
+  reorderNoun,
+}: {
+  row: ColumnRowModel
+  canDrag: boolean
+  reorderNoun: string
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: row.id,
+    disabled: !canDrag,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition,
+      }}
+      className={cn(isDragging && 'relative z-10 opacity-70')}
+    >
+      <ColumnRow
+        row={row}
+        dragHandle={
+          <div className='shrink-0 pt-1.5'>
+            <button
+              type='button'
+              className={cn(
+                'flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground',
+                canDrag
+                  ? 'cursor-grab hover:bg-muted active:cursor-grabbing'
+                  : 'cursor-not-allowed opacity-40',
+              )}
+              aria-label={
+                canDrag ? `Reorder ${reorderNoun}` : 'Clear search to reorder'
+              }
+              title={canDrag ? 'Drag to reorder' : 'Clear search to reorder'}
+              disabled={!canDrag}
+              onClick={event => event.stopPropagation()}
+              {...(canDrag ? { ...attributes, ...listeners } : {})}
+            >
+              <GripVertical className='h-4 w-4' />
+            </button>
+          </div>
+        }
+      />
+    </div>
+  )
+}
+
 function ColumnPane({
   column,
   showSearch,
@@ -508,11 +597,39 @@ function ColumnPane({
   query: string
   onQueryChange: (value: string) => void
 }) {
-  const visibleRows = showSearch
-    ? column.rows.filter(row => matchesQuery(query, row))
-    : column.rows
+  const [orderedRows, setOrderedRows] = React.useState(column.rows)
+  React.useEffect(() => {
+    setOrderedRows(current => {
+      const incomingIds = column.rows.map(row => row.id)
+      const currentIds = current.map(row => row.id)
+      const sameMembers =
+        incomingIds.length === currentIds.length &&
+        incomingIds.every(id => currentIds.includes(id))
+      if (!sameMembers) return column.rows
+      const byId = new Map(column.rows.map(row => [row.id, row]))
+      return currentIds
+        .map(id => byId.get(id))
+        .filter((row): row is ColumnRowModel => row != null)
+    })
+  }, [column.rows])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+  )
+
+  const isSearching = Boolean(query.trim())
+  const sourceRows = orderedRows
+  const visibleRows = showSearch && isSearching
+    ? sourceRows.filter(row => matchesQuery(query, row))
+    : sourceRows
+  const canReorder =
+    Boolean(column.onReorderRows) &&
+    !isSearching &&
+    sourceRows.length > 1
   const emptyLabel =
-    showSearch && query.trim() && column.rows.length > 0
+    showSearch && isSearching && column.rows.length > 0
       ? 'No matches.'
       : column.emptyLabel
   const showEmptyAction = visibleRows.length === 0 && column.emptyAction != null
@@ -520,6 +637,60 @@ function ColumnPane({
     visibleRows.length === 0 && !showEmptyAction
       ? placeholderCopy(emptyLabel)
       : null
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!canReorder || !over || active.id === over.id) return
+    const oldIndex = orderedRows.findIndex(row => row.id === active.id)
+    const newIndex = orderedRows.findIndex(row => row.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    const next = arrayMove(orderedRows, oldIndex, newIndex)
+    setOrderedRows(next)
+    try {
+      await column.onReorderRows?.(next.map(row => row.id))
+    } catch {
+      setOrderedRows(column.rows)
+    }
+  }
+
+  const rowList =
+    visibleRows.length === 0 ? (
+      <div className='flex min-h-full w-full items-center justify-center px-3 py-6'>
+        {showEmptyAction ? (
+          column.emptyAction
+        ) : emptyCopy ? (
+          <ColumnEmptyPlaceholder
+            title={emptyCopy.title}
+            message={emptyCopy.message}
+            illustration={emptyCopy.illustration}
+            compact={emptyCopy.compact}
+          />
+        ) : (
+          <p className='px-2 text-center text-xs text-muted-foreground'>
+            {emptyLabel}
+          </p>
+        )}
+      </div>
+    ) : (
+      <div
+        role='listbox'
+        aria-label={column.title}
+        className='space-y-0.5 px-2 py-1.5'
+      >
+        {visibleRows.map(row =>
+          column.onReorderRows ? (
+            <SortableColumnRow
+              key={row.id}
+              row={row}
+              canDrag={canReorder}
+              reorderNoun={column.reorderNoun ?? 'item'}
+            />
+          ) : (
+            <ColumnRow key={row.id} row={row} />
+          ),
+        )}
+      </div>
+    )
 
   return (
     <section
@@ -548,29 +719,22 @@ function ColumnPane({
         </div>
       ) : null}
       <div className='flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden'>
-        {visibleRows.length === 0 ? (
-          <div className='flex min-h-full w-full items-center justify-center px-3 py-6'>
-            {showEmptyAction ? (
-              column.emptyAction
-            ) : emptyCopy ? (
-              <ColumnEmptyPlaceholder
-                title={emptyCopy.title}
-                message={emptyCopy.message}
-                illustration={emptyCopy.illustration}
-                compact={emptyCopy.compact}
-              />
-            ) : (
-              <p className='px-2 text-center text-xs text-muted-foreground'>
-                {emptyLabel}
-              </p>
-            )}
-          </div>
+        {column.onReorderRows && visibleRows.length > 0 ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            onDragEnd={event => void handleDragEnd(event)}
+          >
+            <SortableContext
+              items={visibleRows.map(row => row.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {rowList}
+            </SortableContext>
+          </DndContext>
         ) : (
-          <div role='listbox' aria-label={column.title} className='space-y-0.5 px-2 py-1.5'>
-            {visibleRows.map(row => (
-              <ColumnRow key={row.id} row={row} />
-            ))}
-          </div>
+          rowList
         )}
       </div>
     </section>
@@ -584,6 +748,7 @@ function ColumnPane({
 export function ContractColumnBrowser({
   objectives,
   onAddObjective,
+  onReorderObjectives,
   emptyObjectivesMessage,
 }: ContractColumnBrowserProps) {
   const [selectedObjectiveId, setSelectedObjectiveId] = React.useState<
@@ -660,6 +825,8 @@ export function ContractColumnBrowser({
         onEdit: objective.onEdit,
         onDelete: objective.onDelete,
       })),
+      onReorderRows: onReorderObjectives,
+      reorderNoun: 'SSMARTA objective',
     }
 
     const initiativeColumn: ColumnModel = selectedObjective
@@ -703,6 +870,8 @@ export function ContractColumnBrowser({
           onOpen: opensColumn ? undefined : initiative.onOpen,
         }
       }),
+      onReorderRows: selectedObjective.onReorderInitiatives,
+      reorderNoun: 'initiative',
     }
       : {
           id: 'initiatives',
@@ -739,6 +908,8 @@ export function ContractColumnBrowser({
         onEdit: leaf.onEdit,
         onOpen: leaf.onOpen,
       })),
+      onReorderRows: selectedInitiative.onReorderChildren,
+      reorderNoun: 'activity',
     }
         : {
             id: 'activities',
@@ -751,6 +922,7 @@ export function ContractColumnBrowser({
   }, [
     objectives,
     onAddObjective,
+    onReorderObjectives,
     emptyObjectivesMessage,
     selectedObjective,
     selectedInitiative,
