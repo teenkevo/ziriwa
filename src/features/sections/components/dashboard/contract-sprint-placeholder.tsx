@@ -5,15 +5,41 @@ import { ArrowRight, CheckCircle2, FileStack } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import {
+  isManagerDashboardBasePath,
+  isSupervisorDashboardBasePath,
+} from '@/lib/workspace-paths'
 
 const RELEASED_CONTRACT_STATUSES = new Set(['finalized', 'active', 'completed'])
 
 export type ContractSprintPlaceholderMode = 'finalize' | 'prepare'
 
-export function contractSprintPlaceholder(contract: {
-  status?: string | null
-  cascadeHoldMessage?: string | null
-} | null | undefined): {
+/** Who this contract cascades to, based on the viewer's workspace. */
+export function cascadeAssigneesLabel(
+  workspaceBasePath?: string | null,
+): string {
+  if (
+    !workspaceBasePath ||
+    workspaceBasePath.includes('assistant-commissioner')
+  ) {
+    return 'your managers'
+  }
+  if (isSupervisorDashboardBasePath(workspaceBasePath)) {
+    return 'your officers'
+  }
+  if (isManagerDashboardBasePath(workspaceBasePath)) {
+    return 'your supervisors'
+  }
+  return 'your officers'
+}
+
+export function contractSprintPlaceholder(
+  contract: {
+    status?: string | null
+    cascadeHoldMessage?: string | null
+  } | null | undefined,
+  assigneesLabel: string,
+): {
   mode: ContractSprintPlaceholderMode
   detail: string
 } | null {
@@ -29,12 +55,12 @@ export function contractSprintPlaceholder(contract: {
   if (!contract) {
     return {
       mode: 'prepare',
-      detail: 'Sprint metrics appear here after you prepare your contract.',
+      detail: `Prepare your contract so assigned activities can cascade to ${assigneesLabel}.`,
     }
   }
   return {
     mode: 'finalize',
-    detail: 'Sprint metrics appear here once you finalize your contract.',
+    detail: `Finalize your contract to cascade assigned activities to ${assigneesLabel}.`,
   }
 }
 

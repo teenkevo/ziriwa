@@ -19,7 +19,10 @@ export function AssistantCommissionerDashboardContent({
   const sprintWeekLabel =
     data.sectionSprintMetrics.find(r => r.weekLabel)?.weekLabel ??
     data.weeklyOversight.periodLabel
-  const sprintPlaceholder = contractSprintPlaceholder(data.ownContract)
+  const sprintPlaceholder = contractSprintPlaceholder(
+    data.ownContract,
+    'your managers',
+  )
 
   useRegisterPageBreadcrumbs(
     React.useMemo(

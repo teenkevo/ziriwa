@@ -10,6 +10,7 @@ import { OverduePanel } from './components/dashboard/overdue-panel'
 import { DashboardPulse } from './components/dashboard/dashboard-pulse'
 import {
   ContractSprintPlaceholder,
+  cascadeAssigneesLabel,
   contractSprintPlaceholder,
 } from './components/dashboard/contract-sprint-placeholder'
 import { DashboardInsights } from './components/dashboard/dashboard-insights'
@@ -96,7 +97,10 @@ export function SectionDashboardContent({
     })
   }, [isManagerView, sprints, oversightSprints, today, supervisorCount])
 
-  const sprintPlaceholder = contractSprintPlaceholder(contract)
+  const sprintPlaceholder = contractSprintPlaceholder(
+    contract,
+    cascadeAssigneesLabel(workspaceBasePath),
+  )
   const onOpenSprints = onNavigateToTab
     ? () => onNavigateToTab('weekly-sprint')
     : undefined
