@@ -40,7 +40,9 @@ export function SidebarContractGatedItem({
     return (
       <SidebarMenuItem>
         <SidebarMenuButton asChild isActive={isActive} tooltip={openTooltip}>
-          <Link href={href}>{children}</Link>
+          <Link href={href} prefetch={false}>
+            {children}
+          </Link>
         </SidebarMenuButton>
         {badge}
       </SidebarMenuItem>

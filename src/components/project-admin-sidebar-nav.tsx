@@ -43,7 +43,7 @@ export function ProjectAdminSidebarNav({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isSetupActive}>
-                <Link href={adminBasePath}>
+                <Link href={adminBasePath} prefetch={false}>
                   <Settings2 />
                   <span>Workstreams</span>
                 </Link>
@@ -51,7 +51,7 @@ export function ProjectAdminSidebarNav({
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isMembersActive}>
-                <Link href={membersHref}>
+                <Link href={membersHref} prefetch={false}>
                   <Users />
                   <span>Project members</span>
                 </Link>
@@ -63,7 +63,7 @@ export function ProjectAdminSidebarNav({
                 asChild
                 isActive={pathname === '/workspace/projects'}
               >
-                <Link href='/workspace/projects'>
+                <Link href='/workspace/projects' prefetch={false}>
                   <FolderKanban />
                   <span>All projects</span>
                 </Link>

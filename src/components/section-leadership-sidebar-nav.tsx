@@ -107,7 +107,7 @@ export function SectionLeadershipSidebarNav({
                   pathname.startsWith(`${basePath}/dashboard/`)
                 }
               >
-                <Link href={`${basePath}/dashboard`}>
+                <Link href={`${basePath}/dashboard`} prefetch={false}>
                   <LayoutDashboard />
                   <span>Dashboard</span>
                 </Link>
@@ -121,7 +121,7 @@ export function SectionLeadershipSidebarNav({
                   pathname.startsWith(`${basePath}/contract/`)
                 }
               >
-                <Link href={`${basePath}/contract`}>
+                <Link href={`${basePath}/contract`} prefetch={false}>
                   <FileText />
                   <span>Performance Contract</span>
                 </Link>

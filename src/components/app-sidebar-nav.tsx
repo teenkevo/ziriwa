@@ -255,7 +255,7 @@ export function AppSidebarNav({
                     pathname.startsWith(`${officerBasePath}/dashboard/`)
                   }
                 >
-                  <Link href={`${officerBasePath}/dashboard`}>
+                  <Link href={`${officerBasePath}/dashboard`} prefetch={false}>
                     <LayoutDashboard />
                     <span>Dashboard</span>
                   </Link>
@@ -269,7 +269,7 @@ export function AppSidebarNav({
                     pathname.startsWith(`${officerBasePath}/contract/`)
                   }
                 >
-                  <Link href={`${officerBasePath}/contract`}>
+                  <Link href={`${officerBasePath}/contract`} prefetch={false}>
                     <FileText />
                     <span>Performance Contract</span>
                   </Link>
@@ -473,7 +473,7 @@ export function AppSidebarNav({
                     pathname.startsWith('/assistant-commissioner/dashboard/')
                   }
                 >
-                  <Link href='/assistant-commissioner/dashboard'>
+                  <Link href='/assistant-commissioner/dashboard' prefetch={false}>
                     <LayoutDashboard />
                     <span>Dashboard</span>
                   </Link>
@@ -487,7 +487,7 @@ export function AppSidebarNav({
                     pathname.startsWith('/assistant-commissioner/contract/')
                   }
                 >
-                  <Link href='/assistant-commissioner/contract'>
+                  <Link href='/assistant-commissioner/contract' prefetch={false}>
                     <FileText />
                     <span>Performance Contract</span>
                   </Link>
@@ -606,7 +606,7 @@ export function AppSidebarNav({
                     pathname.startsWith('/commissioner/dashboard/')
                   }
                 >
-                  <Link href='/commissioner/dashboard'>
+                  <Link href='/commissioner/dashboard' prefetch={false}>
                     <LayoutDashboard />
                     <span>Dashboard</span>
                   </Link>
@@ -620,7 +620,7 @@ export function AppSidebarNav({
                     pathname.startsWith('/commissioner/contract/')
                   }
                 >
-                  <Link href='/commissioner/contract'>
+                  <Link href='/commissioner/contract' prefetch={false}>
                     <FileText />
                     <span>Performance Contract</span>
                   </Link>
@@ -773,7 +773,7 @@ export function AppSidebarNav({
                         isActive={departmentLinkActive}
                         tooltip={deptLabel}
                       >
-                        <Link href={deptHref}>
+                        <Link href={deptHref} prefetch={false}>
                           <Building />
                           <span className='truncate'>{deptLabel}</span>
                         </Link>
@@ -819,7 +819,7 @@ export function AppSidebarNav({
                                     isActive={active}
                                     size='sm'
                                   >
-                                    <Link href={href}>
+                                    <Link href={href} prefetch={false}>
                                       <span className='truncate'>{label}</span>
                                     </Link>
                                   </SidebarMenuSubButton>

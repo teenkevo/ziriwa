@@ -152,7 +152,7 @@ export function AppSidebarFooterClient({
                   isActive={pathname === href || pathname.startsWith(`${href}/`)}
                   tooltip={label}
                 >
-                  <Link href={href}>
+                  <Link href={href} prefetch={false}>
                     <Icon />
                     <span>{label}</span>
                   </Link>

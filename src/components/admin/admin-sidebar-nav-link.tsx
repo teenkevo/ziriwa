@@ -26,7 +26,7 @@ export function AdminSidebarNavLink() {
             isActive={isActive}
             tooltip='User management'
           >
-            <Link href='/admin/users'>
+            <Link href='/admin/users' prefetch={false}>
               <User />
               <span>User management</span>
             </Link>
