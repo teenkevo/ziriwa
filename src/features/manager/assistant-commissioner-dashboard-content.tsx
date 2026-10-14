@@ -6,6 +6,10 @@ import type { AssistantCommissionerDashboardData } from './load-assistant-commis
 import { AssistantCommissionerActionTracker } from './assistant-commissioner-action-tracker'
 import { AssistantCommissionerFocusPanel } from './assistant-commissioner-focus-panel'
 import { AssistantCommissionerSectionSprintPanel } from './assistant-commissioner-section-sprint-panel'
+import {
+  ContractSprintPlaceholder,
+  contractSprintPlaceholder,
+} from '@/features/sections/components/dashboard/contract-sprint-placeholder'
 
 export function AssistantCommissionerDashboardContent({
   data,
@@ -15,6 +19,7 @@ export function AssistantCommissionerDashboardContent({
   const sprintWeekLabel =
     data.sectionSprintMetrics.find(r => r.weekLabel)?.weekLabel ??
     data.weeklyOversight.periodLabel
+  const sprintPlaceholder = contractSprintPlaceholder(data.ownContract)
 
   useRegisterPageBreadcrumbs(
     React.useMemo(
@@ -41,10 +46,18 @@ export function AssistantCommissionerDashboardContent({
             <AssistantCommissionerFocusPanel focusItems={data.focusItems} />
           </div>
           <div className='min-w-0 lg:col-span-1'>
-            <AssistantCommissionerSectionSprintPanel
-              rows={data.sectionSprintMetrics}
-              weekLabel={sprintWeekLabel}
-            />
+            {sprintPlaceholder ? (
+              <ContractSprintPlaceholder
+                mode={sprintPlaceholder.mode}
+                detail={sprintPlaceholder.detail}
+                contractHref='/assistant-commissioner/contract'
+              />
+            ) : (
+              <AssistantCommissionerSectionSprintPanel
+                rows={data.sectionSprintMetrics}
+                weekLabel={sprintWeekLabel}
+              />
+            )}
           </div>
         </div>
 

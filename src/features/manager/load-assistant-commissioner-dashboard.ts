@@ -110,6 +110,10 @@ export type AssistantCommissionerDashboardData = {
   boardActionsOversight: BoardActionsOversightSummary
   focusItems: AcFocusItems
   sectionSprintMetrics: AcSectionSprintMetrics[]
+  ownContract: {
+    status?: string | null
+    cascadeHoldMessage?: string | null
+  } | null
   actionTracker: {
     total: number
     overdue: number
@@ -418,6 +422,12 @@ export async function loadAssistantCommissionerDashboardData(options?: {
     boardActionsOversight,
     focusItems,
     sectionSprintMetrics,
+    ownContract: divisionContract
+      ? {
+          status: divisionContract.status ?? null,
+          cascadeHoldMessage: divisionContract.cascadeHoldMessage ?? null,
+        }
+      : null,
     actionTracker,
     overdue: {
       stakeholderEngagements: focusItems.lateEngagements,

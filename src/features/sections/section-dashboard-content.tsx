@@ -8,6 +8,10 @@ import type { StakeholderEngagement } from '@/sanity/lib/stakeholder-engagement/
 
 import { OverduePanel } from './components/dashboard/overdue-panel'
 import { DashboardPulse } from './components/dashboard/dashboard-pulse'
+import {
+  ContractSprintPlaceholder,
+  contractSprintPlaceholder,
+} from './components/dashboard/contract-sprint-placeholder'
 import { DashboardInsights } from './components/dashboard/dashboard-insights'
 import { computeSectionDashboardMetrics } from '@/lib/section-dashboard-metrics'
 import type { SectionAccess } from '@/lib/section-access'
@@ -18,7 +22,7 @@ import {
   type CurrentWeekSprintPulse,
 } from '@/lib/sprint-dashboard-pulse'
 import type { WorkspaceScopeKind } from '@/lib/project-workspace-copy'
-import { type WorkspaceBasePath } from '@/lib/workspace-paths'
+import { getWorkspacePaths, type WorkspaceBasePath } from '@/lib/workspace-paths'
 import { useFinancialYear } from '@/contexts/financial-year-context'
 
 interface SectionDashboardContentProps {
@@ -92,8 +96,12 @@ export function SectionDashboardContent({
     })
   }, [isManagerView, sprints, oversightSprints, today, supervisorCount])
 
+  const sprintPlaceholder = contractSprintPlaceholder(contract)
   const onOpenSprints = onNavigateToTab
     ? () => onNavigateToTab('weekly-sprint')
+    : undefined
+  const onOpenContract = onNavigateToTab
+    ? () => onNavigateToTab('contract')
     : undefined
   const onOpenStakeholders = onNavigateToTab
     ? () => onNavigateToTab('stakeholder-engagements')
@@ -117,7 +125,20 @@ export function SectionDashboardContent({
           />
         </div>
         <div className='min-w-0 lg:col-span-1'>
-          <DashboardPulse pulse={sprintPulse} onOpenSprints={onOpenSprints} />
+          {sprintPlaceholder ? (
+            <ContractSprintPlaceholder
+              mode={sprintPlaceholder.mode}
+              detail={sprintPlaceholder.detail}
+              onOpenContract={onOpenContract}
+              contractHref={
+                onOpenContract
+                  ? undefined
+                  : getWorkspacePaths(workspaceBasePath).contract
+              }
+            />
+          ) : (
+            <DashboardPulse pulse={sprintPulse} onOpenSprints={onOpenSprints} />
+          )}
         </div>
       </div>
 
