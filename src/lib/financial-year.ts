@@ -6,6 +6,8 @@
  */
 
 export const FINANCIAL_YEAR_COOKIE = 'ziriwa_financial_year'
+/** Clerk session id that last initialized the FY cookie (reset on each login). */
+export const FINANCIAL_YEAR_SESSION_COOKIE = 'ziriwa_financial_year_session'
 export const FINANCIAL_YEAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 /** Matches labels like FY-2025/2026 */

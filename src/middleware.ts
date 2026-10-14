@@ -8,6 +8,10 @@ import {
   getCurrentFinancialYear,
   parseFinancialYearLabel,
 } from '@/lib/financial-year'
+import {
+  bindFinancialYearCookieToSession,
+  shouldResetFinancialYearForSession,
+} from '@/lib/financial-year-session'
 
 /** Navigation and session routes stay available while a past year is open. */
 const isPastYearWriteAllowed = createRouteMatcher([
@@ -64,42 +68,58 @@ const isPublicRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, request) => {
-  const { userId } = await auth()
+  const { userId, sessionId } = await auth()
   const { pathname } = request.nextUrl
+  const resetFinancialYear =
+    Boolean(userId) && shouldResetFinancialYearForSession(request, sessionId)
+
+  function finish(response: NextResponse) {
+    if (resetFinancialYear && sessionId) {
+      return bindFinancialYearCookieToSession(response, sessionId)
+    }
+    return response
+  }
 
   if (
     pathname.startsWith('/api/') &&
     isMutatingMethod(request.method) &&
     !isPastYearWriteAllowed(request) &&
+    !resetFinancialYear &&
     isPastFinancialYearRequest(request)
   ) {
-    return NextResponse.json(
-      { error: 'This financial year is read-only.' },
-      { status: 403 },
+    return finish(
+      NextResponse.json(
+        { error: 'This financial year is read-only.' },
+        { status: 403 },
+      ),
     )
   }
 
   if (isMaintenanceModeEnabled() && !isMaintenanceBypassRoute(request)) {
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json(
-        { error: 'Service temporarily unavailable', maintenance: true },
-        { status: 503 },
+      return finish(
+        NextResponse.json(
+          { error: 'Service temporarily unavailable', maintenance: true },
+          { status: 503 },
+        ),
       )
     }
 
     if (pathname !== '/maintenance') {
-      return NextResponse.redirect(new URL('/maintenance', request.url))
+      return finish(
+        NextResponse.redirect(new URL('/maintenance', request.url)),
+      )
     }
   }
 
   // Post-sign-in boot (loader + workspace routing).
   if (userId && pathname === '/') {
-    return NextResponse.redirect(new URL('/auth/continue', request.url))
+    return finish(NextResponse.redirect(new URL('/auth/continue', request.url)))
   }
 
   // Skip auth gating when AUTH_GATED is not 'true'
   if (!AUTH_GATED) {
-    return NextResponse.next()
+    return finish(NextResponse.next())
   }
 
   // Protect all routes except public routes
@@ -120,16 +140,22 @@ export default clerkMiddleware(async (auth, request) => {
 
           if (!emailExists) {
             // User's email is not in Sanity, redirect to unauthorized
-            return NextResponse.redirect(new URL('/unauthorized', request.url))
+            return finish(
+              NextResponse.redirect(new URL('/unauthorized', request.url)),
+            )
           }
         } else {
           // No email found, redirect to unauthorized
-          return NextResponse.redirect(new URL('/unauthorized', request.url))
+          return finish(
+            NextResponse.redirect(new URL('/unauthorized', request.url)),
+          )
         }
       } catch (error) {
         // If there's an error getting the user (e.g., user was deleted),
         // redirect to unauthorized page
-        return NextResponse.redirect(new URL('/unauthorized', request.url))
+        return finish(
+          NextResponse.redirect(new URL('/unauthorized', request.url)),
+        )
       }
     }
 
@@ -137,7 +163,7 @@ export default clerkMiddleware(async (auth, request) => {
     await auth.protect()
   }
 
-  return NextResponse.next()
+  return finish(NextResponse.next())
 })
 
 export const config = {
