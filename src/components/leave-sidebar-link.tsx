@@ -9,7 +9,7 @@ export function LeaveSidebarLink({
   unlocked = true,
 }: {
   pathname: string
-  /** When false, the item stays locked until a performance contract exists. */
+  /** When false, the item stays locked until the performance contract is finalized. */
   unlocked?: boolean
 }) {
   const isActive = pathname === '/leave' || pathname.startsWith('/leave/')

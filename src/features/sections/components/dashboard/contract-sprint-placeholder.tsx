@@ -5,12 +5,11 @@ import { ArrowRight, CheckCircle2, FileStack } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { isReleasedContractStatus } from '@/lib/contract-status'
 import {
   isManagerDashboardBasePath,
   isSupervisorDashboardBasePath,
 } from '@/lib/workspace-paths'
-
-const RELEASED_CONTRACT_STATUSES = new Set(['finalized', 'active', 'completed'])
 
 export type ContractSprintPlaceholderMode = 'finalize' | 'prepare'
 
@@ -43,7 +42,7 @@ export function contractSprintPlaceholder(
   mode: ContractSprintPlaceholderMode
   detail: string
 } | null {
-  if (contract?.status && RELEASED_CONTRACT_STATUSES.has(contract.status)) {
+  if (isReleasedContractStatus(contract?.status)) {
     return null
   }
   if (contract?.cascadeHoldMessage) {

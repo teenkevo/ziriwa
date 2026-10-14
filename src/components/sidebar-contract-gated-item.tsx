@@ -10,7 +10,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 
-const LOCKED_TOOLTIP = 'Onboard a performance contract first'
+const LOCKED_TOOLTIP = 'Finalize your performance contract first'
 
 interface SidebarContractGatedItemProps {
   unlocked: boolean
@@ -25,7 +25,7 @@ interface SidebarContractGatedItemProps {
 }
 
 /**
- * Dashboard / Contract stay clickable; other items are disabled until a FY contract exists.
+ * Dashboard / Contract stay clickable; other items are disabled until the FY contract is finalized.
  */
 export function SidebarContractGatedItem({
   unlocked,

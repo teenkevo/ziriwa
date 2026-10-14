@@ -19,9 +19,16 @@ import { getOfficerContract } from '@/sanity/lib/officer-contracts/get-officer-c
 import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { getSupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import { getSectionAccessForViewer } from '@/lib/section-access.server'
+import { isReleasedContractStatus } from '@/lib/contract-status'
+
+function hasReleasedContract(
+  contract: { status?: string | null } | null,
+): boolean {
+  return isReleasedContractStatus(contract?.status)
+}
 
 /**
- * Whether the viewer already has a contract for the active financial year.
+ * Whether the viewer's active-year contract is finalized (or later).
  * Used to unlock sidebar destinations beyond Dashboard / Contract.
  */
 export async function viewerHasActiveFyContract(): Promise<boolean> {
@@ -33,10 +40,12 @@ export async function viewerHasActiveFyContract(): Promise<boolean> {
     if (!membership) return false
 
     if (membership.role === 'project_manager') {
-      return Boolean(await getProjectContract(projectId, fyLabel))
+      return hasReleasedContract(await getProjectContract(projectId, fyLabel))
     }
     if (membership.role === 'deputy_project_manager') {
-      return Boolean(await getDeputyProjectContract(projectId, fyLabel))
+      return hasReleasedContract(
+        await getDeputyProjectContract(projectId, fyLabel),
+      )
     }
 
     const workstreams = await getProjectWorkstreamsForViewer(projectId)
@@ -46,12 +55,14 @@ export async function viewerHasActiveFyContract(): Promise<boolean> {
     if (!staffId) return false
 
     if (membership.role === 'workstream_lead') {
-      return Boolean(
+      return hasReleasedContract(
         await getSupervisorContract(sectionId, staffId, fyLabel),
       )
     }
     if (membership.role === 'workstream_member') {
-      return Boolean(await getOfficerContract(sectionId, staffId, fyLabel))
+      return hasReleasedContract(
+        await getOfficerContract(sectionId, staffId, fyLabel),
+      )
     }
     return false
   }
@@ -72,7 +83,7 @@ export async function viewerHasActiveFyContract(): Promise<boolean> {
       { email },
     )
     if (!departmentId) return false
-    return Boolean(
+    return hasReleasedContract(
       await getDepartmentContractByDepartment(departmentId, fyLabel),
     )
   }
@@ -80,7 +91,9 @@ export async function viewerHasActiveFyContract(): Promise<boolean> {
   if (role === 'assistant_commissioner') {
     const division = await getAssistantCommissionerDivision()
     if (!division?._id) return false
-    return Boolean(await getDivisionContractByDivision(division._id, fyLabel))
+    return hasReleasedContract(
+      await getDivisionContractByDivision(division._id, fyLabel),
+    )
   }
 
   const sections = await getManagedSectionsForViewer()
@@ -94,19 +107,21 @@ export async function viewerHasActiveFyContract(): Promise<boolean> {
   if (access.isSectionOfficer || role === 'officer') {
     const officerId = access.officerContextStaffId ?? staffId
     if (!officerId) return false
-    return Boolean(await getOfficerContract(sectionId, officerId, fyLabel))
+    return hasReleasedContract(
+      await getOfficerContract(sectionId, officerId, fyLabel),
+    )
   }
 
   if (access.isSectionSupervisor || role === 'supervisor') {
     const supervisorId = access.supervisorContextStaffId ?? staffId
     if (!supervisorId) return false
-    return Boolean(
+    return hasReleasedContract(
       await getSupervisorContract(sectionId, supervisorId, fyLabel),
     )
   }
 
   if (access.isSectionManager || role === 'manager') {
-    return Boolean(await getSectionContract(sectionId, fyLabel))
+    return hasReleasedContract(await getSectionContract(sectionId, fyLabel))
   }
 
   // Fallback: any section/supervisor/officer contract for this viewer
@@ -117,8 +132,12 @@ export async function viewerHasActiveFyContract(): Promise<boolean> {
       getSupervisorContract(sectionId, viewerStaffId, fyLabel),
       getOfficerContract(sectionId, viewerStaffId, fyLabel),
     ])
-    return Boolean(section || supervisor || officer)
+    return (
+      hasReleasedContract(section) ||
+      hasReleasedContract(supervisor) ||
+      hasReleasedContract(officer)
+    )
   }
 
-  return Boolean(await getSectionContract(sectionId, fyLabel))
+  return hasReleasedContract(await getSectionContract(sectionId, fyLabel))
 }

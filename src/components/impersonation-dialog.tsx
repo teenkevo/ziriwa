@@ -1,12 +1,20 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 
 import type { AppRole } from '@/lib/app-role'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
 import { ImpersonationTransitionOverlay } from '@/components/impersonation-transition-overlay'
 import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import {
   Dialog,
   DialogContent,
@@ -15,13 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { dropdownSurfaceClassName } from '@/components/ui/dropdown-surface'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
 
 interface ImpersonationTarget {
   email: string
@@ -48,6 +56,7 @@ export function ImpersonationDialog({
 }) {
   const [targets, setTargets] = React.useState<ImpersonationTarget[]>([])
   const [selectedEmail, setSelectedEmail] = React.useState('')
+  const [pickerOpen, setPickerOpen] = React.useState(false)
   const [isLoadingTargets, setIsLoadingTargets] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [transitionMessage, setTransitionMessage] = React.useState<string | null>(
@@ -58,6 +67,7 @@ export function ImpersonationDialog({
   React.useEffect(() => {
     if (!open) {
       setSelectedEmail('')
+      setPickerOpen(false)
       setError(null)
       return
     }
@@ -114,6 +124,8 @@ export function ImpersonationDialog({
     )
   }
 
+  const selectedTarget = targets.find(row => row.email === selectedEmail)
+
   return (
     <>
       {transitionMessage ? (
@@ -132,26 +144,67 @@ export function ImpersonationDialog({
 
           <div className='space-y-4 py-2'>
             <div className='space-y-2'>
-              <Select
-                value={selectedEmail}
-                onValueChange={setSelectedEmail}
-                disabled={isLoadingTargets || isSubmitting}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      isLoadingTargets ? 'Loading staff…' : 'Choose a user'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent className='max-h-72'>
-                  {targets.map(target => (
-                    <SelectItem key={target.email} value={target.email}>
-                      {formatTargetLabel(target)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover modal open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    role='combobox'
+                    aria-expanded={pickerOpen}
+                    aria-label='Choose a user'
+                    disabled={isLoadingTargets || isSubmitting}
+                    className={cn(
+                      'w-full justify-between font-normal',
+                      dropdownSurfaceClassName,
+                    )}
+                  >
+                    <span className='min-w-0 truncate text-left'>
+                      {selectedTarget
+                        ? formatTargetLabel(selectedTarget)
+                        : isLoadingTargets
+                          ? 'Loading staff…'
+                          : 'Choose a user'}
+                    </span>
+                    <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className='z-[60] w-[var(--radix-popover-trigger-width)] p-0'
+                  align='start'
+                >
+                  <Command>
+                    <CommandInput placeholder='Search by name, role, or email…' />
+                    <CommandList>
+                      <CommandEmpty>No matching staff.</CommandEmpty>
+                      <CommandGroup>
+                        {targets.map(target => {
+                          const label = formatTargetLabel(target)
+                          return (
+                            <CommandItem
+                              key={target.email}
+                              value={`${target.name} ${label} ${target.email}`}
+                              onSelect={() => {
+                                setSelectedEmail(target.email)
+                                setPickerOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  'h-4 w-4',
+                                  selectedEmail === target.email
+                                    ? 'opacity-100'
+                                    : 'opacity-0',
+                                )}
+                              />
+                              <span className='min-w-0 truncate'>{label}</span>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {error ? (

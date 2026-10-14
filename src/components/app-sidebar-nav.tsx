@@ -118,7 +118,7 @@ export function AppSidebarNav({
   showWorkstreamsNav?: boolean
   useProjectMembersNav?: boolean
   staffNavLabel?: string
-  /** When false, only Dashboard and Contract stay clickable. */
+  /** When false, only Dashboard and Contract stay clickable until the contract is finalized. */
   contractUnlocked?: boolean
   /** PM/DPM: ready-only. Workstream member: split Ready/Drafts. Section officer: single link. */
   sprintsNavMode?: 'split' | 'ready-only' | 'single'
