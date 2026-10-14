@@ -22,7 +22,11 @@ import {
   shouldScopeSprintsToSupervisor,
   shouldUseOfficerContract,
 } from '@/lib/sprint-workspace-scope'
-import { canCreateSelfServiceDelegation, isPlanningContractSupportAssignment } from '@/lib/role-delegation'
+import {
+  canCreateSelfServiceDelegation,
+  canRedelegatePlanningContractWork,
+  isPlanningContractSupportAssignment,
+} from '@/lib/role-delegation'
 import { getActiveOrgDelegationAsDelegatee } from '@/lib/org-role-delegation.server'
 import { getDelegationCandidatesForStaff } from '@/lib/section-delegation-candidates.server'
 import { getSectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
@@ -221,9 +225,15 @@ export async function loadSectionWorkspaceData(
     assignmentAsAbsent: sectionAccess.delegation.assignmentAsAbsent,
     hasOtherScopeActingAssignment: Boolean(orgActingAsDelegatee),
   })
+  const mayRedelegatePlanningContract = canRedelegatePlanningContractWork({
+    isPlanningSection: sectionAccess.isPlanningSection,
+    isPermanentSupervisor: sectionAccess.isPermanentSupervisor,
+    assignmentAsDelegatee: sectionAccess.delegation.assignmentAsDelegatee,
+  })
 
   const delegationCandidates =
-    mayCreateDelegation && sectionAccess.viewerStaffId
+    (mayCreateDelegation || mayRedelegatePlanningContract) &&
+    sectionAccess.viewerStaffId
       ? await getDelegationCandidatesForStaff(
           section._id,
           sectionAccess.viewerStaffId,

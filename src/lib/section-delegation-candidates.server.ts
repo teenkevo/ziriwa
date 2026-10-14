@@ -138,7 +138,7 @@ export async function getPlanningContractSupportCandidates(
     /* groq */ `*[
       _type == "staff"
       && section._ref == $sectionId
-      && status == "active"
+      && coalesce(status, "active") == "active"
       && role == "supervisor"
       && _id != $fromStaffId
     ] | order(fullName asc) {
@@ -165,7 +165,7 @@ export async function getDelegationCandidatesForStaff(
       /* groq */ `*[
         _type == "staff"
         && section._ref == $sectionId
-        && status == "active"
+        && coalesce(status, "active") == "active"
         && role == "officer"
         && _id != $fromStaffId
       ] | order(fullName asc) {
@@ -188,7 +188,7 @@ export async function getDelegationCandidatesForStaff(
     /* groq */ `*[
       _type == "staff"
       && section._ref == $sectionId
-      && status == "active"
+      && coalesce(status, "active") == "active"
       && _id != $fromStaffId
     ] | order(fullName asc) {
       _id,
