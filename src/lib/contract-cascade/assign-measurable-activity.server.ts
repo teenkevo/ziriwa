@@ -79,13 +79,21 @@ export async function loadCascadeAssigneeOptions(input: {
 
   if (input.contractType === 'divisionContract') {
     if (!input.divisionId) return []
+    // Planning sections have no manager. Their supervisor reports directly to
+    // the AC, so they are assignable alongside section managers.
     return client.fetch<CascadeAssigneeOption[]>(
       /* groq */ `*[
         _type == "staff"
-        && role == "manager"
         && coalesce(status, "active") == "active"
         && section->division._ref == $divisionId
         && !defined(section->project._ref)
+        && (
+          role == "manager"
+          || (
+            role == "supervisor"
+            && coalesce(section->isPlanningSection, false) == true
+          )
+        )
       ] | order(fullName asc) { _id, ${STAFF_NAME} }`,
       { divisionId: input.divisionId },
     )
@@ -111,6 +119,16 @@ export type SetActivityAssigneesResult =
 
 const CROSS_CUTTING_CASCADE_ERROR =
   'Cross-cutting activities stay on this contract and cannot be cascaded.'
+
+function assigneeLevelError(
+  contractType: Exclude<SourceContractType, 'officerContract'>,
+): string {
+  if (contractType === 'divisionContract') {
+    return 'Assignees must be managers in this division, or the planning supervisor'
+  }
+  const label = contractType === 'sectionContract' ? 'supervisors' : 'officers'
+  return `Assignees must be ${label} on the level below`
+}
 
 interface ActivityCascadeContext {
   _type?: SourceContractType
@@ -175,15 +193,9 @@ export async function createdActivityAssigneeIds(input: {
   })
   const allowed = new Set((eligible ?? []).map(person => person._id))
   if (ids.some(id => !allowed.has(id))) {
-    const label =
-      input.contractType === 'divisionContract'
-        ? 'managers'
-        : input.contractType === 'sectionContract'
-          ? 'supervisors'
-          : 'officers'
     return {
       ok: false,
-      error: `Assignees must be ${label} on the level below`,
+      error: assigneeLevelError(input.contractType),
     }
   }
   return { ok: true, ids }
@@ -261,7 +273,7 @@ export async function setMeasurableActivityAssignees(input: {
     return {
       ok: false,
       status: 400,
-      error: `Assignees must be ${level.childLabel}s on the level below`,
+      error: assigneeLevelError(source._type),
     }
   }
 
@@ -436,12 +448,26 @@ async function findDownstreamContractId(input: {
 }): Promise<string | null> {
   if (input.contractType === 'divisionContract') {
     if (!input.divisionId) return null
-    return writeClient.fetch<string | null>(
+    const sectionContractId = await writeClient.fetch<string | null>(
       /* groq */ `*[
         _type == "sectionContract"
         && financialYearLabel == $financialYearLabel
         && manager._ref == $staffId
         && section->division._ref == $divisionId
+        && !defined(section->project._ref)
+      ][0]._id`,
+      input,
+    )
+    if (sectionContractId) return sectionContractId
+    // Planning supervisor stands in for a section manager and owns a
+    // supervisor contract directly under the AC.
+    return writeClient.fetch<string | null>(
+      /* groq */ `*[
+        _type == "supervisorContract"
+        && financialYearLabel == $financialYearLabel
+        && supervisor._ref == $staffId
+        && section->division._ref == $divisionId
+        && coalesce(section->isPlanningSection, false) == true
         && !defined(section->project._ref)
       ][0]._id`,
       input,

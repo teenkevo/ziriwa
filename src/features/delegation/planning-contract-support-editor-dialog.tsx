@@ -31,7 +31,8 @@ import { ASSESSMENT_FULLSCREEN_DIALOG_CLASS } from '@/features/assessments/asses
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
 
-const DIVISION_ASSIGNEE_EMPTY_LABEL = 'No managers in this division yet.'
+const DIVISION_ASSIGNEE_EMPTY_LABEL =
+  'No managers or planning supervisor in this division yet.'
 const DIVISION_UNASSIGNED_LABEL = 'Assign a manager'
 
 interface PlanningContractSupportEditorDialogProps {

@@ -122,7 +122,7 @@ export function AssistantCommissionerContractContent({
                 canManageContract={canManageContract}
                 activityPageBasePath='/assistant-commissioner/contract'
                 assigneeOptions={assigneeOptions}
-                assigneeEmptyLabel='No managers in this division yet.'
+                assigneeEmptyLabel='No managers or planning supervisor in this division yet.'
                 unassignedLabel='Assign a manager'
                 hideFinalizeActions={showContractActions}
                 contractActions={

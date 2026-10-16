@@ -125,7 +125,7 @@ export default async function AssistantCommissionerInitiativePage({
       backHref='/assistant-commissioner/contract'
       initialActivityKey={initialActivityKey}
       assigneeOptions={assigneeOptions ?? []}
-      assigneeEmptyLabel='No managers in this division yet.'
+      assigneeEmptyLabel='No managers or planning supervisor in this division yet.'
       unassignedLabel='Assign a Manager'
       showTaskSettings
     />
