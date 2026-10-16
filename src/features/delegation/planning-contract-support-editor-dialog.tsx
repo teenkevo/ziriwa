@@ -24,10 +24,15 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useFinancialYear } from '@/contexts/financial-year-context'
 import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
+import { InitiativePageContent } from '@/features/sections/initiative-page-content'
 import { OnboardDivisionContractDialog } from '@/features/sections/components/onboard-division-contract-dialog'
 import { ContractOnboardEmptyState } from '@/features/sections/components/contract-onboard-empty-state'
 import { ASSESSMENT_FULLSCREEN_DIALOG_CLASS } from '@/features/assessments/assessment-fullscreen-layout'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
+
+const DIVISION_ASSIGNEE_EMPTY_LABEL = 'No managers in this division yet.'
+const DIVISION_UNASSIGNED_LABEL = 'Assign a manager'
 
 interface PlanningContractSupportEditorDialogProps {
   open: boolean
@@ -39,6 +44,8 @@ interface PlanningContractSupportEditorDialogProps {
   assistantCommissionerId: string
   assistantCommissionerName: string
   canManageContract: boolean
+  /** Managers in the AC's division — same list the AC assigns on activities. */
+  assigneeOptions?: CascadeAssigneeOption[]
 }
 
 /**
@@ -54,11 +61,17 @@ export function PlanningContractSupportEditorDialog({
   assistantCommissionerId,
   assistantCommissionerName,
   canManageContract,
+  assigneeOptions = [],
 }: PlanningContractSupportEditorDialogProps) {
   const router = useRouter()
   const { active: activeFY } = useFinancialYear()
   const [confirmCloseOpen, setConfirmCloseOpen] = React.useState(false)
   const [onboardOpen, setOnboardOpen] = React.useState(false)
+  const [openActivity, setOpenActivity] = React.useState<{
+    objectiveIndex: number
+    initiativeIndex: number
+    activityKey?: string
+  } | null>(null)
 
   const currentFY =
     divisionContract?.financialYearLabel ?? activeFY.label
@@ -67,8 +80,28 @@ export function PlanningContractSupportEditorDialog({
     if (!open) {
       setConfirmCloseOpen(false)
       setOnboardOpen(false)
+      setOpenActivity(null)
     }
   }, [open])
+
+  const openObjective = openActivity
+    ? divisionContract?.objectives?.[openActivity.objectiveIndex]
+    : undefined
+  const openInitiative =
+    openObjective?.initiatives?.[openActivity?.initiativeIndex ?? -1]
+  const canEditDivisionContract =
+    canManageContract && divisionContract?.status !== 'finalized'
+
+  const handleSelectActivity = React.useCallback(
+    (
+      objectiveIndex: number,
+      initiativeIndex: number,
+      activityKey?: string,
+    ) => {
+      setOpenActivity({ objectiveIndex, initiativeIndex, activityKey })
+    },
+    [],
+  )
 
   function requestClose() {
     setConfirmCloseOpen(true)
@@ -127,40 +160,67 @@ export function PlanningContractSupportEditorDialog({
             </div>
           </DialogHeader>
 
-          <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6'>
-            {divisionContract ? (
-              <DepartmentContractTree
-                departmentContract={divisionContract}
-                contractsApi='division-contracts'
-                canManageContract={canManageContract}
+          <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+            {divisionContract && openActivity && openInitiative ? (
+              <InitiativePageContent
+                embedded
+                onBack={() => setOpenActivity(null)}
+                section={{ _id: divisionId, name: divisionName }}
+                contractId={divisionContract._id}
+                contractApiResource='division-contracts'
+                objectiveIndex={openActivity.objectiveIndex}
+                initiativeIndex={openActivity.initiativeIndex}
+                objectiveCode={openObjective?.code}
+                objectiveTitle={openObjective?.title}
+                initiative={openInitiative}
+                canManage={canEditDivisionContract}
+                backHref='#'
+                initialActivityKey={openActivity.activityKey}
+                assigneeOptions={assigneeOptions}
+                assigneeEmptyLabel={DIVISION_ASSIGNEE_EMPTY_LABEL}
+                unassignedLabel='Assign a Manager'
               />
+            ) : divisionContract ? (
+              <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6'>
+                <DepartmentContractTree
+                  departmentContract={divisionContract}
+                  contractsApi='division-contracts'
+                  canManageContract={canManageContract}
+                  assigneeOptions={assigneeOptions}
+                  assigneeEmptyLabel={DIVISION_ASSIGNEE_EMPTY_LABEL}
+                  unassignedLabel={DIVISION_UNASSIGNED_LABEL}
+                  onSelectActivity={handleSelectActivity}
+                />
+              </div>
             ) : (
-              <div className='space-y-4'>
-                <OnboardDivisionContractDialog
-                  open={onboardOpen}
-                  onOpenChange={setOnboardOpen}
-                  divisionId={divisionId}
-                  assistantCommissionerId={assistantCommissionerId}
-                  divisionName={divisionName}
-                  assistantCommissionerName={assistantCommissionerName}
-                  onSuccess={() => {
-                    setOnboardOpen(false)
-                    router.refresh()
-                  }}
-                />
-                <ContractOnboardEmptyState
-                  financialYearLabel={currentFY}
-                  description='Onboard the Assistant Commissioner division contract to add SSMARTA objectives, initiatives, and measurable activities.'
-                  canOnboard={
-                    canManageContract && Boolean(assistantCommissionerId)
-                  }
-                  onOnboard={() => setOnboardOpen(true)}
-                  missingAssigneeMessage={
-                    canManageContract && !assistantCommissionerId
-                      ? 'The Assistant Commissioner staff record could not be resolved for this contract.'
-                      : undefined
-                  }
-                />
+              <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6'>
+                <div className='space-y-4'>
+                  <OnboardDivisionContractDialog
+                    open={onboardOpen}
+                    onOpenChange={setOnboardOpen}
+                    divisionId={divisionId}
+                    assistantCommissionerId={assistantCommissionerId}
+                    divisionName={divisionName}
+                    assistantCommissionerName={assistantCommissionerName}
+                    onSuccess={() => {
+                      setOnboardOpen(false)
+                      router.refresh()
+                    }}
+                  />
+                  <ContractOnboardEmptyState
+                    financialYearLabel={currentFY}
+                    description='Onboard the Assistant Commissioner division contract to add SSMARTA objectives, initiatives, and measurable activities.'
+                    canOnboard={
+                      canManageContract && Boolean(assistantCommissionerId)
+                    }
+                    onOnboard={() => setOnboardOpen(true)}
+                    missingAssigneeMessage={
+                      canManageContract && !assistantCommissionerId
+                        ? 'The Assistant Commissioner staff record could not be resolved for this contract.'
+                        : undefined
+                    }
+                  />
+                </div>
               </div>
             )}
           </div>

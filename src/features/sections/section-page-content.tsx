@@ -90,6 +90,7 @@ import { OfficerCascadeImportDialog } from './components/officer-cascade-import-
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { OnboardOfficerContractDialog } from './components/onboard-officer-contract-dialog'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
 import { getWorkspaceBasePathForAccess } from '@/lib/workspace-paths'
@@ -147,6 +148,8 @@ export interface SectionPageContentProps {
   /** AC division contract — for planning contract-support editors. */
   divisionContract?: DivisionContract | null
   canManageAcDivisionContract?: boolean
+  /** Managers the delegated planning officer can assign on the AC contract. */
+  acDivisionAssigneeOptions?: CascadeAssigneeOption[]
   stakeholderEngagement: StakeholderEngagement | null
   staffOptions: StaffOption[]
   supervisors: SectionStaff[]
@@ -184,6 +187,7 @@ export function SectionPageContent({
   officerContract = null,
   divisionContract = null,
   canManageAcDivisionContract = false,
+  acDivisionAssigneeOptions = [],
   stakeholderEngagement,
   staffOptions,
   supervisors,
@@ -498,6 +502,7 @@ export function SectionPageContent({
               sectionAccess.delegation.assignmentAsDelegatee.fromStaffName
             }
             canManageContract={canManageAcDivisionContract}
+            assigneeOptions={acDivisionAssigneeOptions}
           />
         ) : null}
         <div className='flex min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row'>

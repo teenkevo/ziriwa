@@ -20,7 +20,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
+import {
+  useRegisterPageBreadcrumbs,
+  type AppBreadcrumbItem,
+} from '@/contexts/app-breadcrumb-context'
 import { useIsLg } from '@/hooks/use-is-lg'
 import {
   contractsApiBase,
@@ -66,6 +69,18 @@ interface InitiativePageContentProps {
   unassignedLabel?: string
   /** PMS and other non-ITIL 4 contracts keep task settings on the activity. */
   showTaskSettings?: boolean
+  /**
+   * Stay inside the current surface (planning contract editor) instead of
+   * navigating to `backHref`.
+   */
+  onBack?: () => void
+  /** Skip page breadcrumbs and fill the parent instead of the viewport. */
+  embedded?: boolean
+}
+
+function InitiativePageBreadcrumbs({ items }: { items: AppBreadcrumbItem[] }) {
+  useRegisterPageBreadcrumbs(items)
+  return null
 }
 
 export function InitiativePageContent({
@@ -84,6 +99,8 @@ export function InitiativePageContent({
   assigneeEmptyLabel,
   unassignedLabel,
   showTaskSettings = false,
+  onBack,
+  embedded = false,
 }: InitiativePageContentProps) {
   const router = useRouter()
   const isLg = useIsLg()
@@ -147,7 +164,6 @@ export function InitiativePageContent({
     ],
     [section.name, backHref, initiative.title],
   )
-  useRegisterPageBreadcrumbs(breadcrumbs)
 
   async function patchContract(body: Record<string, unknown>) {
     const res = await fetch(`${apiBase}/${contractId}`, {
@@ -358,7 +374,8 @@ export function InitiativePageContent({
         },
       })
       toast.success('Initiative deleted')
-      router.push(backHref)
+      if (onBack) onBack()
+      else router.push(backHref)
       router.refresh()
     } catch (err) {
       toast.error(
@@ -391,20 +408,40 @@ export function InitiativePageContent({
   )
 
   return (
-    <div className='flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'>
+    <div
+      className={
+        embedded
+          ? 'flex min-h-0 flex-1 overflow-hidden'
+          : 'flex flex-1 min-h-0 overflow-hidden lg:h-[calc(100vh-5rem)]'
+      }
+    >
+      {embedded ? null : <InitiativePageBreadcrumbs items={breadcrumbs} />}
       <div className='flex flex-col flex-1 gap-6 p-4 md:p-8 pt-6 min-w-0 overflow-y-auto overscroll-contain'>
         <div className='flex items-center justify-between gap-3'>
-          <Button
-            variant='secondary'
-            size='sm'
-            className='w-fit -ml-2 shrink-0'
-            asChild
-          >
-            <Link href={backHref}>
+          {onBack ? (
+            <Button
+              type='button'
+              variant='secondary'
+              size='sm'
+              className='w-fit -ml-2 shrink-0'
+              onClick={onBack}
+            >
               <ArrowLeft className='mr-2 h-4 w-4' />
               Back to contract
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button
+              variant='secondary'
+              size='sm'
+              className='w-fit -ml-2 shrink-0'
+              asChild
+            >
+              <Link href={backHref}>
+                <ArrowLeft className='mr-2 h-4 w-4' />
+                Back to contract
+              </Link>
+            </Button>
+          )}
           {canEditInitiative ? (
             <AlertDialog
               open={deleteInitiativeOpen}

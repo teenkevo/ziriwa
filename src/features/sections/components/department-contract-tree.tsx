@@ -81,6 +81,16 @@ interface DepartmentContractTreeProps {
   assigneeOptions?: CascadeAssigneeOption[] | null
   assigneeEmptyLabel?: string
   unassignedLabel?: string
+  /**
+   * Opens a measurable activity in place instead of navigating away.
+   * Used by the planning contract editor, where the viewer cannot open the
+   * assistant commissioner initiative page.
+   */
+  onSelectActivity?: (
+    objectiveIndex: number,
+    initiativeIndex: number,
+    activityKey?: string,
+  ) => void
   /** Increment to open the add SSMARTA objective dialog (from parent toolbar). */
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
@@ -130,6 +140,11 @@ function buildDepartmentColumnObjectives(input: {
   onAddActivity: (objIdx: number, initIdx: number) => void
   onDeleteActivity: (objIdx: number, initIdx: number, actIdx: number) => void
   onEditActivity: (objIdx: number, initIdx: number, actIdx: number) => void
+  onSelectActivity?: (
+    objIdx: number,
+    initIdx: number,
+    activityKey?: string,
+  ) => void
   onOpenActivity: (
     objIdx: number,
     initIdx: number,
@@ -160,6 +175,7 @@ function buildDepartmentColumnObjectives(input: {
     onAddActivity,
     onDeleteActivity,
     onEditActivity,
+    onSelectActivity,
     onOpenActivity,
     onReorderActivities,
     onReorderInitiatives,
@@ -237,22 +253,26 @@ function buildDepartmentColumnObjectives(input: {
                   title: act.title,
                   code: leadershipActivityNumber(initNum, act, actOrder),
                   status: act.status,
-                  href: activityPageBasePath
-                    ? `${activityPageBasePath}/initiative/${contract._id}/${objIdx}/${initIdx}${
-                        act._key
-                          ? `?activityKey=${encodeURIComponent(act._key)}`
-                          : ''
-                      }`
-                    : contractInitiativeActivityHref({
-                        sectionSlug,
-                        contractId: contract._id,
-                        objectiveIndex: objIdx,
-                        initiativeIndex: initIdx,
-                        activityKey: act._key,
-                      }),
-                  onOpen: sectionSlug
-                    ? () => onOpenActivity(objIdx, initIdx, actIdx)
-                    : undefined,
+                  href: onSelectActivity
+                    ? undefined
+                    : activityPageBasePath
+                      ? `${activityPageBasePath}/initiative/${contract._id}/${objIdx}/${initIdx}${
+                          act._key
+                            ? `?activityKey=${encodeURIComponent(act._key)}`
+                            : ''
+                        }`
+                      : contractInitiativeActivityHref({
+                          sectionSlug,
+                          contractId: contract._id,
+                          objectiveIndex: objIdx,
+                          initiativeIndex: initIdx,
+                          activityKey: act._key,
+                        }),
+                  onOpen: onSelectActivity
+                    ? () => onSelectActivity(objIdx, initIdx, act._key)
+                    : sectionSlug
+                      ? () => onOpenActivity(objIdx, initIdx, actIdx)
+                      : undefined,
                   onEdit: canEditActivity
                     ? () => onEditActivity(objIdx, initIdx, actIdx)
                     : undefined,
@@ -321,6 +341,7 @@ export function DepartmentContractTree({
   assigneeOptions = null,
   assigneeEmptyLabel,
   unassignedLabel,
+  onSelectActivity,
   addObjectiveSignal = 0,
   onAddObjectiveRequestConsumed,
   hideFinalizeActions = false,
@@ -506,6 +527,7 @@ export function DepartmentContractTree({
           setEditingActivity({ objIdx, initIdx, actIdx })
           setEditActivityOpen(true)
         },
+        onSelectActivity,
         onOpenActivity: (objIdx, initIdx, actIdx, taskKey) => {
           if (!sectionSlug) return
           if (taskKey != null) {
@@ -531,6 +553,7 @@ export function DepartmentContractTree({
       departmentContract,
       sectionSlug,
       activityPageBasePath,
+      onSelectActivity,
       canManageContract,
       showTasksOnlyUnderMeasurable,
       router,

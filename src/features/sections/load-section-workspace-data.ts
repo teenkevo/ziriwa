@@ -42,6 +42,8 @@ import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer
 import { getDivisionContractByDivision } from '@/sanity/lib/division-contracts/get-division-contract-by-division'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
 import { canManageDivisionContract } from '@/lib/division-contract-access.server'
+import { loadCascadeAssigneeOptions } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 
 export type WorkspaceSection = {
   _id: string
@@ -324,11 +326,19 @@ export async function loadSectionWorkspaceData(
 
   let divisionContract: DivisionContract | null = null
   let canManageAcDivisionContract = false
+  let acDivisionAssigneeOptions: CascadeAssigneeOption[] = []
   if (divisionId && hasPlanningContractSupport) {
-    ;[divisionContract, canManageAcDivisionContract] = await Promise.all([
+    const [loadedContract, canManage, assigneeOptions] = await Promise.all([
       getDivisionContractByDivision(divisionId),
       canManageDivisionContract(divisionId),
+      loadCascadeAssigneeOptions({
+        contractType: 'divisionContract',
+        divisionId,
+      }),
     ])
+    divisionContract = loadedContract
+    canManageAcDivisionContract = canManage
+    acDivisionAssigneeOptions = assigneeOptions ?? []
   }
 
   return {
@@ -339,6 +349,7 @@ export async function loadSectionWorkspaceData(
     officerContract,
     divisionContract,
     canManageAcDivisionContract,
+    acDivisionAssigneeOptions,
     stakeholderEngagement,
     staffOptions,
     supervisors,

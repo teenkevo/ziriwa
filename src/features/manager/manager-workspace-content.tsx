@@ -94,6 +94,7 @@ export function ManagerWorkspaceContent({
   officerContract = null,
   divisionContract = null,
   canManageAcDivisionContract = false,
+  acDivisionAssigneeOptions = [],
   stakeholderEngagement,
   staffOptions,
   supervisors,
@@ -305,6 +306,7 @@ export function ManagerWorkspaceContent({
         assistantCommissionerId={planningSupportOwnerId}
         assistantCommissionerName={planningSupportOwnerName}
         canManageContract={canManageAcDivisionContract}
+        assigneeOptions={acDivisionAssigneeOptions}
       />
     ) : null
 
