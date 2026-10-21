@@ -439,6 +439,83 @@ async function staffNames(ids: string[]): Promise<Map<string, string>> {
   return new Map(rows.map(row => [row._id, row.fullName?.trim() || 'Staff']))
 }
 
+async function findDownstreamContractIds(input: {
+  contractType: Exclude<SourceContractType, 'officerContract'>
+  staffIds: string[]
+  financialYearLabel: string
+  sectionId?: string
+  divisionId?: string
+}): Promise<Map<string, string>> {
+  const staffIds = [...new Set(input.staffIds)]
+  const found = new Map<string, string>()
+  if (staffIds.length === 0) return found
+
+  if (input.contractType === 'divisionContract') {
+    if (!input.divisionId) return found
+    const params = {
+      financialYearLabel: input.financialYearLabel,
+      divisionId: input.divisionId,
+      staffIds,
+    }
+    const [sectionContracts, planningContracts] = await Promise.all([
+      writeClient.fetch<Array<{ _id: string; staffId?: string }>>(
+        /* groq */ `*[
+          _type == "sectionContract"
+          && financialYearLabel == $financialYearLabel
+          && manager._ref in $staffIds
+          && section->division._ref == $divisionId
+          && !defined(section->project._ref)
+        ]{ _id, "staffId": manager._ref }`,
+        params,
+      ),
+      writeClient.fetch<Array<{ _id: string; staffId?: string }>>(
+        /* groq */ `*[
+          _type == "supervisorContract"
+          && financialYearLabel == $financialYearLabel
+          && supervisor._ref in $staffIds
+          && section->division._ref == $divisionId
+          && coalesce(section->isPlanningSection, false) == true
+          && !defined(section->project._ref)
+        ]{ _id, "staffId": supervisor._ref }`,
+        params,
+      ),
+    ])
+    for (const row of planningContracts) {
+      if (row.staffId) found.set(row.staffId, row._id)
+    }
+    for (const row of sectionContracts) {
+      if (row.staffId) found.set(row.staffId, row._id)
+    }
+    return found
+  }
+
+  if (!input.sectionId) return found
+  const childType =
+    input.contractType === 'sectionContract'
+      ? 'supervisorContract'
+      : 'officerContract'
+  const staffField =
+    input.contractType === 'sectionContract' ? 'supervisor' : 'officer'
+  const rows = await writeClient.fetch<Array<{ _id: string; staffId?: string }>>(
+    /* groq */ `*[
+      _type == $childType
+      && financialYearLabel == $financialYearLabel
+      && section._ref == $sectionId
+      && ${staffField}._ref in $staffIds
+    ]{ _id, "staffId": ${staffField}._ref }`,
+    {
+      financialYearLabel: input.financialYearLabel,
+      sectionId: input.sectionId,
+      staffIds,
+      childType,
+    },
+  )
+  for (const row of rows) {
+    if (row.staffId && !found.has(row.staffId)) found.set(row.staffId, row._id)
+  }
+  return found
+}
+
 async function findDownstreamContractId(input: {
   contractType: Exclude<SourceContractType, 'officerContract'>
   staffId: string
@@ -504,26 +581,6 @@ function sourceMatches(
   if (keys.initiativeKey && source.initiativeKey !== keys.initiativeKey) return false
   if (keys.activityKey && source.activityKey !== keys.activityKey) return false
   return true
-}
-
-async function upsertDownstreamContract(input: {
-  downstreamId: string
-  level: CascadeLevel
-  upstreamContractId: string
-  initiativeKey: string
-  initiativeTitle: string
-  activityKey: string
-  activityTitle: string
-}) {
-  const objectives =
-    (await writeClient.fetch<ContractNode[] | null>(
-      /* groq */ `*[_id == $id][0].objectives`,
-      { id: input.downstreamId },
-    )) ?? []
-
-  const { next, changed } = upsertCascadedNodes(objectives, input)
-  if (!changed) return
-  await writeClient.patch(input.downstreamId).set({ objectives: next }).commit()
 }
 
 function upsertCascadedNodes(
@@ -707,40 +764,29 @@ export async function shareFinalizedAssignments(
   }
 
   const level = CASCADE_LEVELS[source._type]
-  const warnings: string[] = []
-  const warned = new Set<string>()
+  const assignments: Array<{
+    staffId: string
+    initiativeKey: string
+    initiativeTitle: string
+    activityKey: string
+    activityTitle: string
+  }> = []
+  const staffIds: string[] = []
+  const seenStaff = new Set<string>()
 
   for (const objective of source.objectives ?? []) {
     for (const initiative of objective?.initiatives ?? []) {
       if (!initiative?._key) continue
       for (const activity of initiative.measurableActivities ?? []) {
         if (!activity?._key) continue
-        if (activity.activityType !== 'core' && activity.activityType !== 'kpi') {
-          continue
-        }
-        const assigneeIds = (activity.assigneeIds ?? []).filter(Boolean)
-        for (const staffId of assigneeIds) {
-          const downstreamId = await findDownstreamContractId({
-            contractType: source._type,
-            staffId,
-            financialYearLabel: source.financialYearLabel,
-            sectionId: source.sectionId,
-            divisionId: source.divisionId,
-          })
-          if (!downstreamId) {
-            if (!warned.has(staffId)) {
-              warned.add(staffId)
-              const names = await staffNames([staffId])
-              warnings.push(
-                `${names.get(staffId) ?? 'This person'} has no performance contract for ${source.financialYearLabel}, so their activities will appear after they onboard.`,
-              )
-            }
-            continue
+        if (!isSharedCascadeActivity(activity.activityType)) continue
+        for (const staffId of (activity.assigneeIds ?? []).filter(Boolean)) {
+          if (!seenStaff.has(staffId)) {
+            seenStaff.add(staffId)
+            staffIds.push(staffId)
           }
-          await upsertDownstreamContract({
-            downstreamId,
-            level,
-            upstreamContractId: contractId,
+          assignments.push({
+            staffId,
             initiativeKey: initiative._key,
             initiativeTitle: initiative.title?.trim() || 'Initiative',
             activityKey: activity._key,
@@ -750,8 +796,101 @@ export async function shareFinalizedAssignments(
       }
     }
   }
+  if (assignments.length === 0) return []
 
+  const downstreamByStaff = await findDownstreamContractIds({
+    contractType: source._type,
+    staffIds,
+    financialYearLabel: source.financialYearLabel,
+    sectionId: source.sectionId,
+    divisionId: source.divisionId,
+  })
+
+  const missingStaffIds = staffIds.filter(staffId => !downstreamByStaff.has(staffId))
+  const names = await staffNames(missingStaffIds)
+  const warnings = missingStaffIds.map(
+    staffId =>
+      `${names.get(staffId) ?? 'This person'} has no performance contract for ${source.financialYearLabel}, so their activities will appear after they onboard.`,
+  )
+
+  const byDownstream = new Map<string, typeof assignments>()
+  for (const assignment of assignments) {
+    const downstreamId = downstreamByStaff.get(assignment.staffId)
+    if (!downstreamId) continue
+    const group = byDownstream.get(downstreamId)
+    if (group) group.push(assignment)
+    else byDownstream.set(downstreamId, [assignment])
+  }
+  if (byDownstream.size === 0) return warnings
+
+  const downstreamIds = [...byDownstream.keys()]
+  const existing = await fetchDownstreamObjectives(downstreamIds)
+  const objectivesById = new Map(
+    existing.map(row => [row._id, row.objectives ?? []]),
+  )
+
+  const writes: Array<() => Promise<void>> = []
+  for (const [downstreamId, group] of byDownstream) {
+    let objectives = objectivesById.get(downstreamId) ?? []
+    let changed = false
+    for (const assignment of group) {
+      const result = upsertCascadedNodes(objectives, {
+        level,
+        upstreamContractId: contractId,
+        initiativeKey: assignment.initiativeKey,
+        initiativeTitle: assignment.initiativeTitle,
+        activityKey: assignment.activityKey,
+        activityTitle: assignment.activityTitle,
+      })
+      objectives = result.next
+      changed = changed || result.changed
+    }
+    if (!changed) continue
+    const nextObjectives = objectives
+    writes.push(async () => {
+      await writeClient
+        .patch(downstreamId)
+        .set({ objectives: nextObjectives })
+        .commit()
+    })
+  }
+
+  await runWithConcurrency(writes, 6)
   return warnings
+}
+
+async function fetchDownstreamObjectives(ids: string[]) {
+  const chunks: string[][] = []
+  for (let index = 0; index < ids.length; index += 8) {
+    chunks.push(ids.slice(index, index + 8))
+  }
+  const groups = await Promise.all(
+    chunks.map(chunk =>
+      writeClient.fetch<Array<{ _id: string; objectives?: ContractNode[] | null }>>(
+        /* groq */ `*[_id in $ids]{ _id, objectives }`,
+        { ids: chunk },
+      ),
+    ),
+  )
+  return groups.flat()
+}
+
+async function runWithConcurrency(
+  tasks: Array<() => Promise<void>>,
+  limit: number,
+) {
+  if (tasks.length === 0) return
+  let next = 0
+  async function worker() {
+    while (next < tasks.length) {
+      const current = next
+      next += 1
+      await tasks[current]?.()
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, tasks.length) }, () => worker()),
+  )
 }
 
 type ReceivingContractType =

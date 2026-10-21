@@ -107,8 +107,8 @@ export async function finalizeContract(contractId: string): Promise<
             title,
             activityType,
             targetDate,
-            "assignees": assignees[]->{ _id },
-            evidence
+            "assignees": assignees[]{ "_id": _ref },
+            "evidence": evidence[]{ label }
           }
         }
       }
