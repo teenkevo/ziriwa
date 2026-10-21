@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { getActiveFinancialYear } from '@/lib/financial-year.server'
+import { receiveFinalizedUpstreamCascade } from '@/lib/contract-cascade/assign-measurable-activity.server'
 import { getSectionContractAlignment } from '@/lib/contract-alignment.server'
 import { getSectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import {
@@ -55,6 +56,11 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await writeClient.create(doc)
+    try {
+      await receiveFinalizedUpstreamCascade(result._id)
+    } catch (error) {
+      console.error('Failed to apply finalized cascade', error)
+    }
 
     return NextResponse.json(
       { id: result._id, financialYearLabel: currentFY.label },

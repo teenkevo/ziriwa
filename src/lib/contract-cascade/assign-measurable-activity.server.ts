@@ -521,7 +521,8 @@ async function upsertDownstreamContract(input: {
       { id: input.downstreamId },
     )) ?? []
 
-  const next = upsertCascadedNodes(objectives, input)
+  const { next, changed } = upsertCascadedNodes(objectives, input)
+  if (!changed) return
   await writeClient.patch(input.downstreamId).set({ objectives: next }).commit()
 }
 
@@ -535,11 +536,13 @@ function upsertCascadedNodes(
     activityKey: string
     activityTitle: string
   },
-): ContractNode[] {
+  options?: { insertOnly?: boolean },
+): { next: ContractNode[]; changed: boolean } {
   const next = objectives.map(objective => ({
     ...objective,
     initiatives: [...(objective.initiatives ?? [])],
   }))
+  let changed = false
   let objective = next.find(item =>
     sourceMatches(item.cascadeSource, input.level, input.upstreamContractId, input.level.objectiveRole, {
       initiativeKey: input.initiativeKey,
@@ -563,8 +566,13 @@ function upsertCascadedNodes(
       initiatives: [],
     }
     next.push(objective)
-  } else {
+    changed = true
+  } else if (
+    !options?.insertOnly &&
+    objective.title !== input.initiativeTitle
+  ) {
     objective.title = input.initiativeTitle
+    changed = true
   }
 
   const initiatives = objective.initiatives ?? []
@@ -597,11 +605,16 @@ function upsertCascadedNodes(
       measurableActivities: [],
     })
     objective.initiatives = initiatives
-  } else {
+    changed = true
+  } else if (
+    !options?.insertOnly &&
+    initiative.title !== input.activityTitle
+  ) {
     initiative.title = input.activityTitle
+    changed = true
   }
 
-  return next
+  return { next, changed }
 }
 
 async function removeDownstreamInitiative(input: {
@@ -739,4 +752,242 @@ export async function shareFinalizedAssignments(
   }
 
   return warnings
+}
+
+type ReceivingContractType =
+  | 'sectionContract'
+  | 'supervisorContract'
+  | 'officerContract'
+
+interface ReleasedSourceActivity {
+  _key?: string
+  title?: string
+  activityType?: string
+  assigneeIds?: string[]
+}
+
+interface ReleasedSourceInitiative {
+  _key?: string
+  title?: string
+  measurableActivities?: Array<ReleasedSourceActivity | null> | null
+}
+
+interface ReleasedSourceContract {
+  _id: string
+  _type?: Exclude<SourceContractType, 'officerContract'>
+  initiatives?: Array<ReleasedSourceInitiative | null> | null
+}
+
+const RELEASED_SOURCE_PROJECTION = /* groq */ `{
+  _id,
+  _type,
+  "initiatives": objectives[].initiatives[]{
+    _key,
+    title,
+    measurableActivities[]{
+      _key,
+      title,
+      activityType,
+      "assigneeIds": assignees[]._ref
+    }
+  }
+}`
+
+function isSharedCascadeActivity(activityType: string | undefined): boolean {
+  return activityType === 'core' || activityType === 'kpi'
+}
+
+async function loadFinalizedUpstreamSources(input: {
+  _type: ReceivingContractType
+  financialYearLabel: string
+  sectionId?: string | null
+  divisionId?: string | null
+  isPlanningSection?: boolean
+  isProject?: boolean
+}): Promise<ReleasedSourceContract[]> {
+  // Project workstreams import from the project contract by hand.
+  // Finalize-share only covers division, section, and supervisor contracts.
+  if (input.isProject && input._type !== 'officerContract') return []
+
+  const params = {
+    fy: input.financialYearLabel,
+    sectionId: input.sectionId ?? '',
+    divisionId: input.divisionId ?? '',
+  }
+
+  if (
+    input._type === 'sectionContract' ||
+    (input._type === 'supervisorContract' && input.isPlanningSection)
+  ) {
+    if (!input.divisionId) return []
+    return writeClient.fetch<ReleasedSourceContract[]>(
+      /* groq */ `*[
+        _type == "divisionContract"
+        && status == "finalized"
+        && financialYearLabel == $fy
+        && division._ref == $divisionId
+      ]${RELEASED_SOURCE_PROJECTION}`,
+      params,
+    )
+  }
+
+  if (input._type === 'supervisorContract') {
+    if (!input.sectionId) return []
+    return writeClient.fetch<ReleasedSourceContract[]>(
+      /* groq */ `*[
+        _type == "sectionContract"
+        && status == "finalized"
+        && financialYearLabel == $fy
+        && section._ref == $sectionId
+      ]${RELEASED_SOURCE_PROJECTION}`,
+      params,
+    )
+  }
+
+  if (!input.sectionId) return []
+  return writeClient.fetch<ReleasedSourceContract[]>(
+    /* groq */ `*[
+      _type == "supervisorContract"
+      && status == "finalized"
+      && financialYearLabel == $fy
+      && section._ref == $sectionId
+    ]${RELEASED_SOURCE_PROJECTION}`,
+    params,
+  )
+}
+
+/**
+ * Copy activities the level above already finalized onto a contract that
+ * was onboarded afterwards. Finalize only shares onto contracts that exist
+ * at that moment, so a later contract would otherwise stay empty.
+ */
+export async function receiveFinalizedUpstreamCascade(
+  contractId: string,
+): Promise<boolean> {
+  const downstream = await writeClient.fetch<{
+    _type?: ReceivingContractType
+    status?: string
+    financialYearLabel?: string
+    staffId?: string
+    sectionId?: string | null
+    divisionId?: string | null
+    isPlanningSection?: boolean
+    isProject?: boolean
+    existingActivitySources?: Array<{
+      activityKey?: string
+      divisionContractId?: string
+      sectionContractId?: string
+      supervisorContractId?: string
+    } | null> | null
+  } | null>(
+    /* groq */ `*[_id == $contractId][0]{
+      _type,
+      status,
+      financialYearLabel,
+      "staffId": coalesce(manager._ref, supervisor._ref, officer._ref),
+      "sectionId": section._ref,
+      "divisionId": section->division._ref,
+      "isPlanningSection": coalesce(section->isPlanningSection, false),
+      "isProject": defined(section->project._ref),
+      "existingActivitySources": objectives[].initiatives[].cascadeSource{
+        activityKey,
+        divisionContractId,
+        sectionContractId,
+        supervisorContractId
+      }
+    }`,
+    { contractId },
+  )
+  if (
+    !downstream?._type ||
+    !downstream.financialYearLabel ||
+    !downstream.staffId ||
+    downstream.status === 'finalized' ||
+    (downstream._type !== 'sectionContract' &&
+      downstream._type !== 'supervisorContract' &&
+      downstream._type !== 'officerContract')
+  ) {
+    return false
+  }
+
+  const sources = await loadFinalizedUpstreamSources({
+    _type: downstream._type,
+    financialYearLabel: downstream.financialYearLabel,
+    sectionId: downstream.sectionId,
+    divisionId: downstream.divisionId,
+    isPlanningSection: downstream.isPlanningSection,
+    isProject: downstream.isProject,
+  })
+  if (sources.length === 0) return false
+
+  const existing = downstream.existingActivitySources ?? []
+  const pending: Array<{
+    level: CascadeLevel
+    upstreamContractId: string
+    initiativeKey: string
+    initiativeTitle: string
+    activityKey: string
+    activityTitle: string
+  }> = []
+
+  for (const source of sources) {
+    if (!source._type || !(source._type in CASCADE_LEVELS)) continue
+    const level = CASCADE_LEVELS[source._type]
+    for (const initiative of source.initiatives ?? []) {
+      if (!initiative?._key) continue
+      for (const activity of initiative.measurableActivities ?? []) {
+        if (!activity?._key || !isSharedCascadeActivity(activity.activityType)) {
+          continue
+        }
+        const assigneeIds = (activity.assigneeIds ?? []).filter(Boolean)
+        if (!assigneeIds.includes(downstream.staffId)) continue
+        const alreadyThere = existing.some(item => {
+          if (!item || item.activityKey !== activity._key) return false
+          return item[level.sourceField] === source._id
+        })
+        if (alreadyThere) continue
+        pending.push({
+          level,
+          upstreamContractId: source._id,
+          initiativeKey: initiative._key,
+          initiativeTitle: initiative.title?.trim() || 'Initiative',
+          activityKey: activity._key,
+          activityTitle: activity.title?.trim() || 'Measurable activity',
+        })
+      }
+    }
+  }
+  if (pending.length === 0) return false
+
+  let objectives =
+    (await writeClient.fetch<ContractNode[] | null>(
+      /* groq */ `*[_id == $id][0].objectives`,
+      { id: contractId },
+    )) ?? []
+  let changed = false
+  for (const assignment of pending) {
+    const result = upsertCascadedNodes(objectives, assignment, {
+      insertOnly: true,
+    })
+    objectives = result.next
+    changed = changed || result.changed
+  }
+  if (!changed) return false
+
+  await writeClient.patch(contractId).set({ objectives }).commit()
+  return true
+}
+
+export async function receiveIntoContract<
+  T extends { _id: string; status?: string } | null,
+>(contract: T, reload: () => Promise<T>): Promise<T> {
+  if (!contract?._id || contract.status === 'finalized') return contract
+  try {
+    const wrote = await receiveFinalizedUpstreamCascade(contract._id)
+    if (!wrote) return contract
+    return (await reload()) ?? contract
+  } catch (error) {
+    console.error('Failed to apply finalized cascade', error)
+    return contract
+  }
 }

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { cache } from 'react'
+import { receiveIntoContract } from '@/lib/contract-cascade/assign-measurable-activity.server'
 import { client } from '@/sanity/lib/client'
 import { getEffectiveViewerEmail } from '@/lib/impersonation/viewer-context.server'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
@@ -124,7 +125,7 @@ export async function loadSectionWorkspaceData(
   const parentProjectId = await getProjectIdForSection(section._id)
 
   const [
-    sectionContract,
+    loadedSectionContract,
     stakeholderEngagement,
     supervisors,
     officers,
@@ -144,6 +145,11 @@ export async function loadSectionWorkspaceData(
     getSectionStaffRoster(section._id),
     getActiveFinancialYear(),
   ])
+
+  const sectionContract = await receiveIntoContract(
+    loadedSectionContract,
+    () => getSectionContractBySection(section._id),
+  )
 
   const sprints = allSprints.filter(s =>
     isDateInFinancialYear(s.weekStart, activeFY),
@@ -253,15 +259,15 @@ export async function loadSectionWorkspaceData(
   let supervisorContract: SupervisorContract | null = null
   let officerContract: OfficerContract | null = null
   if (usesSupervisorContract && supervisorStaffId) {
-    supervisorContract = await getSupervisorContractForViewer(
-      section._id,
-      supervisorStaffId,
+    supervisorContract = await receiveIntoContract(
+      await getSupervisorContractForViewer(section._id, supervisorStaffId),
+      () => getSupervisorContractForViewer(section._id, supervisorStaffId),
     )
   }
   if (usesOfficerContract && officerStaffId) {
-    officerContract = await getOfficerContractForViewer(
-      section._id,
-      officerStaffId,
+    officerContract = await receiveIntoContract(
+      await getOfficerContractForViewer(section._id, officerStaffId),
+      () => getOfficerContractForViewer(section._id, officerStaffId),
     )
   }
 

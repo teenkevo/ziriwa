@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { receiveFinalizedUpstreamCascade } from '@/lib/contract-cascade/assign-measurable-activity.server'
 import { getSectionContractAlignment } from '@/lib/contract-alignment.server'
 import { getActiveFinancialYear } from '@/lib/financial-year.server'
 import {
@@ -64,6 +65,11 @@ export async function POST(req: NextRequest) {
       officer: { _type: 'reference', _ref: officerId },
       status: 'draft',
     })
+    try {
+      await receiveFinalizedUpstreamCascade(result._id)
+    } catch (error) {
+      console.error('Failed to apply finalized cascade', error)
+    }
 
     return NextResponse.json(
       { id: result._id, financialYearLabel: currentFY.label },

@@ -759,8 +759,7 @@ export function ContractTree({
             : undefined
         }
         emptyObjectivesMessage={
-          sectionContract.cascadeHoldMessage ||
-          'Waiting for the Assistant Commissioner to cascade activities.'
+          sectionContract.cascadeHoldMessage || undefined
         }
       />
     </div>

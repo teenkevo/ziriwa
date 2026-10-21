@@ -916,7 +916,10 @@ export function DepartmentContractTree({
         }
         emptyObjectivesMessage={
           departmentContract.cascadeHoldMessage ||
-          cascadedObjectivesWaitingMessage(contractsApi)
+          (contractsApi === 'supervisor-contracts' ||
+          contractsApi === 'officer-contracts'
+            ? undefined
+            : cascadedObjectivesWaitingMessage(contractsApi))
         }
       />
     </div>

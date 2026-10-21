@@ -1,3 +1,4 @@
+import { receiveIntoContract } from '@/lib/contract-cascade/assign-measurable-activity.server'
 import { gateContractObjectives } from '@/lib/contract-cascade-visibility'
 import { defineQuery } from 'next-sanity'
 
@@ -84,12 +85,16 @@ export async function getContractForActivityPage(
     }
   `)
 
-  try {
-    const contract = await sanityFetch({
+  async function load() {
+    return sanityFetch({
       query,
       params: { contractId, sectionId },
       revalidate: 0,
     })
+  }
+
+  try {
+    const contract = await receiveIntoContract(await load(), load)
     return gateContractObjectives(contract || null)
   } catch (error) {
     console.error('Error fetching contract for activity page', error)
