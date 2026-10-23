@@ -66,11 +66,11 @@ export default async function Layout({ children }: LayoutProps) {
             <SidebarProvider defaultOpen={defaultOpen}>
               <Sidebar collapsible='icon' variant='inset'>
                 <SidebarChromeHeader />
-                <SidebarFinancialYear />
                 <Suspense fallback={null}>
+                  <SidebarFinancialYear />
                   <AppSidebarNavWrapper />
+                  <AppSidebarFooter />
                 </Suspense>
-                <AppSidebarFooter />
                 <SidebarRail />
               </Sidebar>
               <SidebarInset>
