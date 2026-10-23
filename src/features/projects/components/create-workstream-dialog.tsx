@@ -80,11 +80,11 @@ export function CreateWorkstreamDialog({
       }
       const data = (await res.json()) as { workstreamId?: string }
       const workstreamId = data.workstreamId ?? ''
-      setOpen(false)
       if (workstreamId) {
         onWorkstreamCreated?.({ _id: workstreamId, name: trimmed })
       }
-      onSuccess?.()
+      await onSuccess?.()
+      setOpen(false)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed')
     } finally {

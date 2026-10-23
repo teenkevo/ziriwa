@@ -1,7 +1,10 @@
 import { notFound } from 'next/navigation'
 import { getSectionBySlug } from '@/sanity/lib/sections/get-section-by-slug'
 import { getSectionAccessForViewer } from '@/lib/section-access.server'
-import { contractBackHrefForViewer } from '@/lib/contract-activity-back-href'
+import {
+  contractBackHrefForViewer,
+  withContractChainHref,
+} from '@/lib/contract-activity-back-href'
 import {
   contractsApiForActivityContract,
   getContractForActivityPage,
@@ -90,7 +93,14 @@ export default async function InitiativePage({
     })
   }
 
-  const backHref = contractBackHrefForViewer(sectionAccess, slug)
+  const backHref = withContractChainHref(
+    contractBackHrefForViewer(sectionAccess, slug),
+    {
+      objectiveId: objective?._key || `objective-${objIndex}`,
+      initiativeId: initiative._key || `initiative-${objIndex}-${initIndex}`,
+      activityId: initialActivityKey,
+    },
+  )
   const assigneeOptions = await loadCascadeAssigneeOptions({
     contractType: contract._type,
     sectionId: section._id,

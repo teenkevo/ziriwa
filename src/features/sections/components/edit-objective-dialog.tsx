@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -62,7 +62,7 @@ export function EditObjectiveDialog({
   initialCode: string
   initialTitle: string
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const apiBase = contractsApiBase(contractsApi ?? 'section-contracts')
 
   const form = useForm<ObjectiveFormValues>({
@@ -96,8 +96,8 @@ export function EditObjectiveDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to update objective')
       }
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to update objective')

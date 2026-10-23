@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { toast } from 'sonner'
 
 import type { CascadeActivityRewrite, CascadeImportSelection } from '@/lib/contract-cascade/types'
@@ -35,7 +35,7 @@ export function useSupervisorCascadeImportFlow({
   const upstreamContractNoun = getSupervisorUpstreamContractNoun(
     isProjectWorkstream,
   )
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [step, setStep] = React.useState<FlowStep>('select')
   const [isBusy, setIsBusy] = React.useState(false)
   const [selections, setSelections] = React.useState<CascadeImportSelection[]>(
@@ -107,8 +107,8 @@ export function useSupervisorCascadeImportFlow({
       toast.success(
         `Cascaded ${importedCount} ${itemLabel} from ${upstreamContractNoun}`,
       )
-      router.refresh()
-      onComplete?.()
+      await refreshRouter()
+      await onComplete?.()
       resetFlow()
     },
     [

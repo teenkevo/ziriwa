@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { ChevronsUpDown, PlusCircle, UserCog } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import type { StaffPickerMember } from '@/lib/staff-picker'
 import { cn } from '@/lib/utils'
@@ -52,7 +52,7 @@ export function AssistantCommissionerSwitcher({
   divisionId,
   currentDivisionId,
 }: AssistantCommissionerSwitcherProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
   const [createdAssistantCommissioners, setCreatedAssistantCommissioners] =
@@ -78,7 +78,7 @@ export function AssistantCommissionerSwitcher({
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
-  const handleCreateSuccess = (newStaff: StaffMember) => {
+  const handleCreateSuccess = async (newStaff: StaffMember) => {
     setCreatedAssistantCommissioners(current => {
       if (
         current.some(
@@ -90,9 +90,9 @@ export function AssistantCommissionerSwitcher({
       return [...current, newStaff]
     })
     onChange(newStaff._id)
+    await refreshRouter()
     setShowCreateDialog(false)
     setOpen(false)
-    router.refresh()
   }
 
   return (

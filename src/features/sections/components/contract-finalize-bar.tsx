@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { motion } from 'framer-motion'
 import { AlertTriangle, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -107,7 +107,7 @@ export function ContractFinalizeBar({
   finalizeRequest = 0,
   unfinalizeRequest = 0,
 }: ContractFinalizeBarProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [unfinalizeOpen, setUnfinalizeOpen] = React.useState(false)
   const [clearNoticeKey, setClearNoticeKey] = React.useState(0)
@@ -155,7 +155,7 @@ export function ContractFinalizeBar({
       setConfirmOpen(false)
       toast.success('Contract finalized')
       for (const warning of warnings) toast.message(warning)
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Could not finalize this contract',
@@ -177,7 +177,7 @@ export function ContractFinalizeBar({
       }
       setUnfinalizeOpen(false)
       toast.success('Contract reopened')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Could not unfinalize this contract',

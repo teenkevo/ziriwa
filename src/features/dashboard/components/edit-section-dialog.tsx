@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -67,7 +67,7 @@ export function EditSectionDialog({
   managers,
   canEditContractAlignment = false,
 }: EditSectionDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter, runTransition } = useServerRefresh()
   const [isSaving, setIsSaving] = React.useState(false)
   const [name, setName] = React.useState('')
   const [managerId, setManagerId] = React.useState('')
@@ -118,12 +118,14 @@ export function EditSectionDialog({
         throw new Error(data.error || 'Failed to update section')
       }
       const data = (await res.json()) as { slug?: string }
-      onOpenChange(false)
       if (data.slug && data.slug !== section.slug?.current) {
-        router.replace(`/sections/${data.slug}`)
+        await runTransition(() => {
+          router.replace(`/sections/${data.slug}`)
+        })
       } else {
-        router.refresh()
+        await refreshRouter()
       }
+      onOpenChange(false)
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to update section')

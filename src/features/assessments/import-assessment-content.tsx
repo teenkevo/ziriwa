@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -27,7 +27,7 @@ export function ImportAssessmentContent({
   basePath,
   dashboardHref,
 }: ImportAssessmentContentProps) {
-  const router = useRouter()
+  const { router, runTransition } = useServerRefresh()
   const [file, setFile] = React.useState<File | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -70,8 +70,9 @@ export function ImportAssessmentContent({
       toast.success(
         `Imported ${data.questionCount ?? 0} questions into "${data.title ?? 'assessment'}"`,
       )
-      router.push(`${basePath}/${data.id as string}`)
-      router.refresh()
+      await runTransition(() => {
+        router.push(`${basePath}/${data.id as string}`)
+      })
     } catch (error) {
       console.error(error)
       toast.error(

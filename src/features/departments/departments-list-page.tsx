@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -90,7 +90,7 @@ export function DepartmentsListPage({
   departments: DepartmentListRow[]
   commissioners: CommissionerMember[]
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [search, setSearch] = React.useState('')
   const { mode: viewMode, setMode: setViewMode } = useViewMode(
     'departments-list-view',
@@ -138,8 +138,8 @@ export function DepartmentsListPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clear: true }),
       })
+      await refreshRouter()
       setDeletingDepartment(null)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete department')
@@ -164,8 +164,8 @@ export function DepartmentsListPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clear: true }),
       })
+      await refreshRouter()
       setBulkDeleteIds(null)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete departments')

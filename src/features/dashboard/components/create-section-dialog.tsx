@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -56,7 +56,7 @@ export function CreateSectionDialog({
   managers,
   onSuccess,
 }: CreateSectionDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [isCreating, setIsCreating] = React.useState(false)
   const [name, setName] = React.useState('')
   const [managerId, setManagerId] = React.useState<string>('')
@@ -107,8 +107,8 @@ export function CreateSectionDialog({
       setName('')
       setManagerId('')
       setIsPlanningSection(false)
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
       onSuccess?.(newSection)
     } catch (err) {
       console.error(err)

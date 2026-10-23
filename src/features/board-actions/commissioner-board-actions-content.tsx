@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2, Plus } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,7 +67,7 @@ export function CommissionerBoardActionsContent({
   divisions: CommissionerDivisionOption[]
   actions: CommissionerBoardActionRow[]
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter, runTransition } = useServerRefresh()
   const { isHistorical } = useFinancialYear()
   const [createOpen, setCreateOpen] = React.useState(false)
   const [deletingAction, setDeletingAction] =
@@ -111,12 +111,14 @@ export function CommissionerBoardActionsContent({
       }
       const data = (await res.json()) as { id?: string }
       setForm(emptyFormState())
-      setCreateOpen(false)
       if (data.id) {
-        router.push(`/commissioner/board-actions/${data.id}`)
+        await runTransition(() => {
+          router.push(`/commissioner/board-actions/${data.id}`)
+        })
       } else {
-        router.refresh()
+        await refreshRouter()
       }
+      setCreateOpen(false)
     } catch (err) {
       alert(
         err instanceof Error ? err.message : 'Failed to create board action',
@@ -137,8 +139,8 @@ export function CommissionerBoardActionsContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to delete board action')
       }
+      await refreshRouter()
       setDeletingAction(null)
-      router.refresh()
     } catch (err) {
       alert(
         err instanceof Error ? err.message : 'Failed to delete board action',
@@ -161,8 +163,8 @@ export function CommissionerBoardActionsContent({
           throw new Error(data.error || 'Failed to delete board action')
         }
       }
+      await refreshRouter()
       setBulkDeleteIds(null)
-      router.refresh()
     } catch (err) {
       alert(
         err instanceof Error

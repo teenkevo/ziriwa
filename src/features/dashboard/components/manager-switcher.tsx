@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { ChevronsUpDown, PlusCircle, Users } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import type { StaffPickerMember } from '@/lib/staff-picker'
 import { cn } from '@/lib/utils'
@@ -50,7 +50,7 @@ export function ManagerSwitcher({
   divisionId,
   currentSectionId,
 }: ManagerSwitcherProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
   const [createdManagers, setCreatedManagers] = React.useState<
@@ -70,7 +70,7 @@ export function ManagerSwitcher({
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
-  const handleCreateSuccess = (newStaff: StaffMember) => {
+  const handleCreateSuccess = async (newStaff: StaffMember) => {
     setCreatedManagers(current => {
       if (current.some(manager => manager._id === newStaff._id)) {
         return current
@@ -78,9 +78,9 @@ export function ManagerSwitcher({
       return [...current, newStaff]
     })
     onChange(newStaff._id)
+    await refreshRouter()
     setShowCreateDialog(false)
     setOpen(false)
-    router.refresh()
   }
 
   return (

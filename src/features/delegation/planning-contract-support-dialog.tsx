@@ -189,8 +189,8 @@ export function PlanningContractSupportDialog({
           ? 'Contract work handed to planning officer'
           : 'Contract work handed to planning supervisor',
       )
+      await onSuccess()
       onOpenChange(false)
-      onSuccess()
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to delegate contract work',

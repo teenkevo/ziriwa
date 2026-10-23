@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { LayoutGrid, Table2, Loader2, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -50,7 +50,7 @@ export function StakeholderEngagementContent({
   sprints = [],
   viewerStaffId,
 }: StakeholderEngagementContentProps) {
-  const router = useRouter()
+  const { refresh: refreshRouter } = useServerRefresh()
   const [viewMode, setViewMode] = React.useState<'table' | 'matrix'>('table')
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
   const [editingEntry, setEditingEntry] =
@@ -95,7 +95,7 @@ export function StakeholderEngagementContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to create engagement')
       }
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create engagement')
@@ -113,7 +113,6 @@ export function StakeholderEngagementContent({
   const handleAddSuccess = () => {
     setEditingEntry(null)
     setEditingIndex(null)
-    router.refresh()
   }
 
   const handleReport = (entry: StakeholderEntry, index: number) => {
@@ -220,7 +219,7 @@ export function StakeholderEngagementContent({
           engagementId={engagement._id}
           initiatives={initiatives}
           onEdit={handleEdit}
-          onDelete={() => router.refresh()}
+          onDelete={() => refreshRouter()}
           onReport={handleReport}
           onActionPoints={handleActionPoints}
           onMinutes={handleMinutes}
@@ -262,7 +261,7 @@ export function StakeholderEngagementContent({
         stakeholderIndex={actionPointsIndex}
         engagementId={engagement._id}
         staffOptions={staffOptions}
-        onSuccess={() => router.refresh()}
+        onSuccess={() => refreshRouter()}
       />
 
       <StakeholderMinutesDialog
@@ -283,7 +282,7 @@ export function StakeholderEngagementContent({
         engagementId={engagement._id}
         staffOptions={staffOptions}
         viewerStaffId={viewerStaffId}
-        onSuccess={() => router.refresh()}
+        onSuccess={() => refreshRouter()}
       />
 
       <SubmitReportDialog
@@ -298,7 +297,7 @@ export function StakeholderEngagementContent({
         entry={reportEntry}
         stakeholderIndex={reportIndex}
         engagementId={engagement._id}
-        onSuccess={() => router.refresh()}
+        onSuccess={() => refreshRouter()}
       />
     </div>
   )

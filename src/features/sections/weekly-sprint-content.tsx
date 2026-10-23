@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import {
   Loader2,
   Plus,
@@ -710,7 +711,7 @@ export function WeeklySprintContent({
   singleView = 'ready',
   contractAlignment,
 }: WeeklySprintContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { active: activeFY, isHistorical } = useFinancialYear()
@@ -1075,8 +1076,8 @@ export function WeeklySprintContent({
         }
       }
 
+      await refreshRouter()
       closeCreateSprintDialog()
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to save sprint')
@@ -1175,13 +1176,13 @@ export function WeeklySprintContent({
             : 'Failed to save revision',
         )
       }
+      await refreshRouter()
       setReviseOpen(false)
       setReviseTaskDraft(null)
       setReviseSprintId('')
       setReviseSprintSectionId('')
       setReviseSupervisorStaffId('')
       setReviseManagerFeedback('')
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to save revision')
@@ -1204,7 +1205,7 @@ export function WeeklySprintContent({
           typeof data.error === 'string' ? data.error : 'Failed to submit',
         )
       }
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       alert(
@@ -1237,8 +1238,8 @@ export function WeeklySprintContent({
         setCreateOpen(false)
         setDraftTasks([createEmptyDraftTask()])
       }
+      await refreshRouter()
       setSprintToDelete(null)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete sprint')
@@ -1295,8 +1296,8 @@ export function WeeklySprintContent({
       if (reviewAction === 'withdraw_revision') {
         toast.success('Revision request withdrawn')
       }
+      await refreshRouter()
       setReviewDialogOpen(false)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to review task')
@@ -1386,7 +1387,7 @@ export function WeeklySprintContent({
         body: JSON.stringify({ action: 'update-task', taskKey, updates }),
       })
       if (!res.ok) throw new Error('Failed to update task')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       alert('Failed to update task')
@@ -1434,7 +1435,7 @@ export function WeeklySprintContent({
       }),
     })
     if (!res.ok) throw new Error('Failed to add work submission')
-    router.refresh()
+    await refreshRouter()
   }
 
   const handleApproveSubmission = async (
@@ -1456,7 +1457,7 @@ export function WeeklySprintContent({
         }),
       })
       if (!res.ok) throw new Error('Failed to approve submission')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       alert('Failed to approve submission')
@@ -1484,7 +1485,7 @@ export function WeeklySprintContent({
         }),
       })
       if (!res.ok) throw new Error('Failed to reject submission')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       alert('Failed to reject submission')
@@ -1530,7 +1531,7 @@ export function WeeklySprintContent({
       }),
     })
     if (!res.ok) throw new Error('Failed to respond')
-    router.refresh()
+    await refreshRouter()
   }
 
   const openExtraTaskDialog = (sprintId?: string) => {
@@ -1608,13 +1609,13 @@ export function WeeklySprintContent({
             : 'Failed to add extra task',
         )
       }
+      await refreshRouter()
       setExtraTaskOpen(false)
       setExtraTaskDraft(createEmptyDraftTask())
       setExtraTaskSprintId('')
       setExtraTaskSprintSectionId('')
       setExtraTaskSupervisorStaffId('')
       setExtraTaskMode('officer-extra')
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to add extra task')

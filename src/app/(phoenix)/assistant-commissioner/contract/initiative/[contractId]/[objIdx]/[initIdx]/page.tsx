@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { CascadeHoldNotice } from '@/features/sections/components/contract-finalize-bar'
+import { withContractChainHref } from '@/lib/contract-activity-back-href'
 import { InitiativePageContent } from '@/features/sections/initiative-page-content'
 import { getUnreleasedCascadeKeys } from '@/lib/contract-cascade-visibility'
 import { ensureAssistantCommissionerPageAccess } from '@/features/manager/assistant-commissioner-workspace-page'
@@ -122,7 +123,11 @@ export default async function AssistantCommissionerInitiativePage({
       objectiveTitle={objective?.title}
       initiative={initiative}
       canManage={contract.status !== 'finalized'}
-      backHref='/assistant-commissioner/contract'
+      backHref={withContractChainHref('/assistant-commissioner/contract', {
+        objectiveId: objective?._key || `objective-${objectiveIndex}`,
+        initiativeId: initiative._key || `initiative-${objectiveIndex}-${initiativeIndex}`,
+        activityId: initialActivityKey,
+      })}
       initialActivityKey={initialActivityKey}
       assigneeOptions={assigneeOptions ?? []}
       assigneeEmptyLabel='No managers or planning supervisor in this division yet.'

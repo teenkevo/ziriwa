@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -76,7 +76,7 @@ export function AddDepartmentMeasurableActivityDialog({
   unassignedLabel,
   onSuccess,
 }: AddDepartmentMeasurableActivityDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [isCreating, setIsCreating] = React.useState(false)
   const [title, setTitle] = React.useState('')
   const [activityType, setActivityType] = React.useState<
@@ -136,8 +136,8 @@ export function AddDepartmentMeasurableActivityDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to add measurable activity')
       }
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
       onSuccess?.()
     } catch (err) {
       console.error(err)

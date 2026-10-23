@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Suspense } from 'react'
-import { useRouter } from 'next/navigation'
 
 import { WorkContextNavigationProvider } from '@/contexts/work-context-navigation-context'
 import type { SectionPageContentProps } from '@/features/sections/section-page-content'
@@ -63,11 +63,11 @@ export function WorkspaceDelegationShell({
   hideSprintReviewTab,
   ...rest
 }: WorkspaceDelegationShellProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [leaveOpen, setLeaveOpen] = React.useState(false)
   const [contractSupportOpen, setContractSupportOpen] = React.useState(false)
 
-  const refresh = () => router.refresh()
+  const refresh = () => refreshRouter()
   const openLeave = React.useCallback(() => setLeaveOpen(true), [])
   const openContractSupport = React.useCallback(
     () => setContractSupportOpen(true),

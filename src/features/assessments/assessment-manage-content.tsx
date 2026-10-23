@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronLeft,
@@ -69,7 +69,7 @@ export function AssessmentManageContent({
   officerSubmissions,
   canManage,
 }: AssessmentManageContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const navigation = useWorkspaceRouteNavigationOptional()
   const [questions, setQuestions] = React.useState<AssessmentQuestion[]>(
     assessment.questions ?? [],
@@ -248,7 +248,7 @@ export function AssessmentManageContent({
       if (!res.ok) throw new Error(data.error ?? 'Update failed')
       toast.success('Assessment updated')
       setIsDirty(false)
-      router.refresh()
+      await refreshRouter()
     } catch (error) {
       console.error(error)
       toast.error(error instanceof Error ? error.message : 'Update failed')
@@ -300,7 +300,7 @@ export function AssessmentManageContent({
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error ?? 'Failed to release results')
       toast.success('Results released to officers')
-      router.refresh()
+      await refreshRouter()
     } catch (error) {
       console.error(error)
       toast.error(

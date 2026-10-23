@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
+import { WorkspaceRouteLink } from '@/components/workspace-route-link'
 import { ArrowLeft, Check, Loader2, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -102,7 +102,7 @@ export function InitiativePageContent({
   onBack,
   embedded = false,
 }: InitiativePageContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter, runTransition } = useServerRefresh()
   const isLg = useIsLg()
   const apiBase = contractsApiBase(contractApiResource)
 
@@ -197,7 +197,7 @@ export function InitiativePageContent({
       } else {
         toast.success('Assignees updated')
       }
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update assignees')
     } finally {
@@ -222,7 +222,7 @@ export function InitiativePageContent({
       })
       setIsEditingTitle(false)
       toast.success('Initiative updated')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save title')
     } finally {
@@ -262,7 +262,7 @@ export function InitiativePageContent({
         if (updates.title !== undefined) setPanelTitle(updates.title)
         if (updates.status !== undefined) setPanelStatus(updates.status)
       }
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update')
     } finally {
@@ -285,7 +285,7 @@ export function InitiativePageContent({
       })
       if (selectedKey === key) setSelectedKey(null)
       toast.success('Activity deleted')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete')
     } finally {
@@ -305,7 +305,7 @@ export function InitiativePageContent({
           orderedKeys,
         },
       })
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to reorder')
       throw err
@@ -348,7 +348,7 @@ export function InitiativePageContent({
             : {}),
         },
       })
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       if (selected) {
         setPanelTitle(selected.title ?? '')
@@ -374,9 +374,14 @@ export function InitiativePageContent({
         },
       })
       toast.success('Initiative deleted')
-      if (onBack) onBack()
-      else router.push(backHref)
-      router.refresh()
+      if (onBack) {
+        onBack()
+        await refreshRouter()
+      } else {
+        await runTransition(() => {
+          router.push(backHref)
+        })
+      }
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to delete initiative',
@@ -436,10 +441,10 @@ export function InitiativePageContent({
               className='w-fit -ml-2 shrink-0'
               asChild
             >
-              <Link href={backHref}>
+              <WorkspaceRouteLink href={backHref}>
                 <ArrowLeft className='mr-2 h-4 w-4' />
                 Back to contract
-              </Link>
+              </WorkspaceRouteLink>
             </Button>
           )}
           {canEditInitiative ? (

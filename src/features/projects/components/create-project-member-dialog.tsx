@@ -1,12 +1,12 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { isValidPhoneNumber } from 'react-phone-number-input'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -182,7 +182,7 @@ export function CreateProjectMemberDialog({
   onMemberCreated,
   onSuccess,
 }: CreateProjectMemberDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [workstreamOptions, setWorkstreamOptions] =
     React.useState<WorkstreamOption[]>(workstreams)
   const [isCheckingEmail, setIsCheckingEmail] = React.useState(false)
@@ -432,8 +432,6 @@ export function CreateProjectMemberDialog({
       const fullName =
         data.fullName?.trim() ||
         `${values.firstName.trim()} ${values.lastName.trim()}`.trim()
-      form.reset()
-      onOpenChange(false)
       const createdLabel = isLeadOnlyFlow
         ? 'Workstream lead added'
         : isWorkstreamMemberOnlyFlow
@@ -452,10 +450,12 @@ export function CreateProjectMemberDialog({
       if (staffId) {
         onMemberCreated?.({ staffId, fullName })
       }
-      onSuccess?.()
+      await onSuccess?.()
       if (!onMemberCreated) {
-        router.refresh()
+        await refreshRouter()
       }
+      form.reset()
+      onOpenChange(false)
     } catch (err) {
       console.error(err)
       toast.error(

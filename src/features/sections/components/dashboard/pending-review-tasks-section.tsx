@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { toast } from 'sonner'
 
 import type { AtRiskSprintTask } from '@/lib/section-dashboard-metrics'
@@ -18,7 +18,7 @@ interface PendingReviewTasksSectionProps {
 export function PendingReviewTasksSection({
   tasks,
 }: PendingReviewTasksSectionProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [reviewOpen, setReviewOpen] = React.useState(false)
   const [reviewingTask, setReviewingTask] =
     React.useState<AtRiskSprintTask | null>(null)
@@ -72,11 +72,11 @@ export function PendingReviewTasksSection({
       if (reviewAction === 'revisions_requested') {
         toast.success('Feedback sent successfully')
       }
+      await refreshRouter()
       setReviewOpen(false)
       setReviewingTask(null)
       setReviewAction('')
       setRevisionReason('')
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to review task')

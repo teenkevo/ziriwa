@@ -182,7 +182,7 @@ export function StakeholderMinutesDialog({
         authorId: minutes?.author?._id ?? viewerStaffId,
         meetingDate,
       })
-      onSuccess()
+      await onSuccess()
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to save minutes')
     } finally {
@@ -202,7 +202,7 @@ export function StakeholderMinutesDialog({
         stakeholderIndex,
         content,
       })
-      onSuccess()
+      await onSuccess()
       onOpenChange(false)
     } catch (error) {
       alert(
@@ -221,7 +221,7 @@ export function StakeholderMinutesDialog({
         stakeholderIndex,
         assigneeId: viewerStaffId,
       })
-      onSuccess()
+      await onSuccess()
     } catch (error) {
       alert(
         error instanceof Error ? error.message : 'Failed to approve minutes',
@@ -248,7 +248,7 @@ export function StakeholderMinutesDialog({
         approverIds,
       })
       setApprovalsOpen(false)
-      onSuccess()
+      await onSuccess()
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to save approvals')
     } finally {
@@ -262,7 +262,7 @@ export function StakeholderMinutesDialog({
     try {
       await patchMinutes('deleteMinutes', { stakeholderIndex })
       setDeleteOpen(false)
-      onSuccess()
+      await onSuccess()
       onOpenChange(false)
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to delete minutes')

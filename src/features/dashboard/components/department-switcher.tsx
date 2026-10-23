@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import {
   Building,
   Check,
@@ -8,7 +9,6 @@ import {
   Loader2,
   PlusCircle,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -67,7 +67,7 @@ export default function DepartmentSwitcher({
   selectedId,
   className,
 }: DepartmentSwitcherProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
   const [isCreating, setIsCreating] = React.useState(false)
@@ -94,8 +94,8 @@ export default function DepartmentSwitcher({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: department._id }),
       })
+      await refreshRouter()
       setOpen(false)
-      router.refresh()
     } finally {
       setIsSelecting(false)
     }
@@ -120,17 +120,17 @@ export default function DepartmentSwitcher({
         throw new Error(data.error || 'Failed to create')
       }
       const { id } = await res.json()
-      setCreateFullName('')
-      setCreateAcronym('')
-      setCreateCommissionerId('')
-      setShowCreateDialog(false)
-      setOpen(false)
       await fetch('/api/department/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      router.refresh()
+      await refreshRouter()
+      setCreateFullName('')
+      setCreateAcronym('')
+      setCreateCommissionerId('')
+      setShowCreateDialog(false)
+      setOpen(false)
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create department')

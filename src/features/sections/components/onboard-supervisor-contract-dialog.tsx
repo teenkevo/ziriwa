@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -62,7 +61,6 @@ export function OnboardSupervisorContractDialog({
 }: OnboardSupervisorContractDialogProps) {
   const effectiveUpstreamRoleLabel =
     upstreamRoleLabel ?? getSupervisorUpstreamRoleLabel(isProjectWorkstream)
-  const router = useRouter()
   const [step, setStep] = React.useState<Step>('details')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [createdContractId, setCreatedContractId] = React.useState<
@@ -72,9 +70,8 @@ export function OnboardSupervisorContractDialog({
 
   const finish = React.useCallback(() => {
     onOpenChange(false)
-    router.refresh()
     onSuccess?.()
-  }, [onOpenChange, onSuccess, router])
+  }, [onOpenChange, onSuccess])
 
   const flow = useSupervisorCascadeImportFlow({
     sectionId,

@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { format, isPast, parseISO, startOfDay } from 'date-fns'
 import {
   ArrowLeft,
@@ -126,7 +126,7 @@ export function BoardActionPageContent({
   canApprove?: boolean
   canReject?: boolean
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const resolvedWorkspace = workspace ?? {
     roleLabel: 'Commissioner',
     dashboardHref: '/commissioner/dashboard',
@@ -198,7 +198,7 @@ export function BoardActionPageContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to save')
       }
-      router.refresh()
+      await refreshRouter()
     },
     [action._id, apiPath, router],
   )
@@ -324,7 +324,7 @@ export function BoardActionPageContent({
         throw new Error(data.error || 'Failed to delegate action')
       }
       toast.success('Delegated to section')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to delegate action',
@@ -346,7 +346,7 @@ export function BoardActionPageContent({
       }
       toast.success('Board action deleted')
       router.push(listHref)
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete')
     } finally {

@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -93,7 +93,7 @@ export function DivisionPageContent({
   managers: StaffMember[]
   assistantCommissioners: StaffMember[]
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [showCreateSection, setShowCreateSection] = useState(false)
   const [showEditDivision, setShowEditDivision] = useState(false)
   const [showDeleteDivision, setShowDeleteDivision] = useState(false)
@@ -157,7 +157,7 @@ export function DivisionPageContent({
       }
       setShowDeleteDivision(false)
       router.push('/departments')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete division')
@@ -177,8 +177,8 @@ export function DivisionPageContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to delete section')
       }
+      await refreshRouter()
       setDeletingSection(null)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete section')
@@ -198,8 +198,8 @@ export function DivisionPageContent({
           throw new Error(data.error || `Failed to delete section ${id}`)
         }
       }
+      await refreshRouter()
       setBulkDeleteSectionIds(null)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete sections')

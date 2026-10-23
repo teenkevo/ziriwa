@@ -181,8 +181,8 @@ export function EditProjectMemberDialog({
         )
       }
       toast.success('Project member updated')
+      await onSuccess?.()
       onOpenChange(false)
-      onSuccess?.()
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to update project member',

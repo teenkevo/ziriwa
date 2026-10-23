@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -107,7 +107,7 @@ export function DepartmentDivisionsView({
   commissionersForDepartmentEdit?: CommissionerMember[]
   deleteDepartmentRedirectTo?: string | null
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [showCreateDivision, setShowCreateDivision] = useState(false)
   const [showEditDepartment, setShowEditDepartment] = useState(false)
   const [showDeleteDepartment, setShowDeleteDepartment] = useState(false)
@@ -142,8 +142,8 @@ export function DepartmentDivisionsView({
         const data = await res.json()
         throw new Error(data.error || 'Failed to delete division')
       }
+      await refreshRouter()
       setDeletingDivision(null)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete division')
@@ -180,7 +180,7 @@ export function DepartmentDivisionsView({
       if (deleteDepartmentRedirectTo) {
         router.push(deleteDepartmentRedirectTo)
       }
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete department')
@@ -205,8 +205,8 @@ export function DepartmentDivisionsView({
           throw new Error(data.error || `Failed to delete division ${id}`)
         }
       }
+      await refreshRouter()
       setBulkDeleteIds(null)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete divisions')

@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Building2, Check, ChevronsUpDown, Loader2, PlusCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -64,7 +64,7 @@ export default function DivisionSwitcher({
   departmentName,
   className,
 }: DivisionSwitcherProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
   const [isCreating, setIsCreating] = React.useState(false)
@@ -91,8 +91,8 @@ export default function DivisionSwitcher({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: division._id }),
       })
+      await refreshRouter()
       setOpen(false)
-      router.refresh()
     } finally {
       setIsSelecting(false)
     }
@@ -118,17 +118,17 @@ export default function DivisionSwitcher({
         throw new Error(data.error || 'Failed to create')
       }
       const { id } = await res.json()
-      setCreateFullName('')
-      setCreateAcronym('')
-      setCreateAssistantCommissionerId('')
-      setShowCreateDialog(false)
-      setOpen(false)
       await fetch('/api/division/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      router.refresh()
+      await refreshRouter()
+      setCreateFullName('')
+      setCreateAcronym('')
+      setCreateAssistantCommissionerId('')
+      setShowCreateDialog(false)
+      setOpen(false)
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create division')

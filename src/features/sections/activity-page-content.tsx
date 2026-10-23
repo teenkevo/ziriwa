@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
+import { WorkspaceRouteLink } from '@/components/workspace-route-link'
 import { endOfMonth, endOfQuarter, endOfWeek, format } from 'date-fns'
 import {
   ArrowLeft,
@@ -339,7 +339,7 @@ export function ActivityPageContent({
   downstreamTaskAssignees,
   sprintEvidenceByTaskKey,
 }: ActivityPageContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter, runTransition } = useServerRefresh()
   const isLg = useIsLg()
   const sectionSlug = section.slug?.current ?? ''
   const contractHref =
@@ -472,7 +472,7 @@ export function ActivityPageContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to save')
       }
-      router.refresh()
+      await refreshRouter()
       setIsEditingTitle(false)
     } catch (err) {
       console.error(err)
@@ -514,7 +514,7 @@ export function ActivityPageContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to save')
       }
-      router.refresh()
+      await refreshRouter()
       setIsEditingAim(false)
     } catch (err) {
       console.error(err)
@@ -556,9 +556,10 @@ export function ActivityPageContent({
         throw new Error(data.error || 'Failed to delete measurable activity')
       }
       toast.success('Measurable activity deleted')
+      await runTransition(() => {
+        router.push(contractHref)
+      })
       setDeleteDialogOpen(false)
-      router.push(contractHref)
-      router.refresh()
     } catch (err) {
       console.error(err)
       toast.error(
@@ -626,7 +627,7 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
         }
-        router.refresh()
+        await refreshRouter()
       } catch (err) {
         console.error(err)
         setTargetDate(previous)
@@ -671,7 +672,7 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
         }
-        router.refresh()
+        await refreshRouter()
       } catch (err) {
         console.error(err)
         setReportingFrequency(reportingFrequency)
@@ -717,7 +718,7 @@ export function ActivityPageContent({
           const data = await res.json()
           throw new Error(data.error || 'Failed to save')
         }
-        router.refresh()
+        await refreshRouter()
       } catch (err) {
         console.error(err)
         setReportingFrequency(reportingFrequency)
@@ -766,7 +767,7 @@ export function ActivityPageContent({
           throw new Error(data.error || 'Failed to save tasks')
         }
         lastSavedTasksPayloadRef.current = JSON.stringify(payload)
-        router.refresh()
+        await refreshRouter()
       } catch (err) {
         console.error(err)
         toast.error(err instanceof Error ? err.message : 'Failed to save tasks')
@@ -1661,10 +1662,10 @@ export function ActivityPageContent({
             className='w-fit -ml-2 shrink-0'
             asChild
           >
-            <Link href={contractHref}>
+            <WorkspaceRouteLink href={contractHref}>
               <ArrowLeft className='mr-2 h-4 w-4' />
               Back to contract
-            </Link>
+            </WorkspaceRouteLink>
           </Button>
           {canEditActivity && !isOfficerContract ? (
             <AlertDialog

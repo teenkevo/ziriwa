@@ -1,7 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+
+import { WorkspaceRouteLink } from '@/components/workspace-route-link'
 import {
   closestCenter,
   DndContext,
@@ -137,6 +139,24 @@ interface ContractColumnBrowserProps {
   onReorderObjectives?: (orderedIds: string[]) => void | Promise<void>
   /** Shown in the empty SSMARTA objectives column when objectives are cascaded in. */
   emptyObjectivesMessage?: string
+}
+
+function chainSelection(
+  objectives: ContractColumnObjective[],
+  objectiveId: string | null,
+  initiativeId: string | null,
+  activityId: string | null,
+) {
+  const objective = objectives.find(item => item.id === objectiveId) ?? null
+  const initiative =
+    objective?.initiatives.find(item => item.id === initiativeId) ?? null
+  const activity =
+    initiative?.children?.find(item => item.id === activityId) ?? null
+  return {
+    objectiveId: objective?.id ?? null,
+    initiativeId: initiative?.id ?? null,
+    activityId: activity?.id ?? null,
+  }
 }
 
 interface ColumnRowModel {
@@ -439,9 +459,9 @@ function ColumnRowActivator({
 
   if (row.href) {
     return (
-      <Link href={row.href} className={className} title={title}>
+      <WorkspaceRouteLink href={row.href} className={className} title={title}>
         {children}
-      </Link>
+      </WorkspaceRouteLink>
     )
   }
 
@@ -463,6 +483,7 @@ function ColumnRow({
     <div
       role='option'
       aria-selected={Boolean(row.branchSelected || row.leafSelected)}
+      data-contract-row={row.id}
       className={cn(
         'flex w-full min-w-0 items-start rounded-md',
         (row.leafSelected || row.branchSelected) && 'bg-muted',
@@ -751,15 +772,23 @@ export function ContractColumnBrowser({
   onReorderObjectives,
   emptyObjectivesMessage,
 }: ContractColumnBrowserProps) {
+  const searchParams = useSearchParams()
+  const restoredChain = chainSelection(
+    objectives,
+    searchParams.get('chainObjective'),
+    searchParams.get('chainInitiative'),
+    searchParams.get('chainActivity'),
+  )
   const [selectedObjectiveId, setSelectedObjectiveId] = React.useState<
     string | null
-  >(null)
+  >(restoredChain.objectiveId)
   const [selectedInitiativeId, setSelectedInitiativeId] = React.useState<
     string | null
-  >(null)
+  >(restoredChain.initiativeId)
   const [selectedLeafId, setSelectedLeafId] = React.useState<string | null>(
-    null,
+    restoredChain.activityId,
   )
+  const didRevealChain = React.useRef(false)
   const [queries, setQueries] = React.useState({
     objectives: '',
     initiatives: '',
@@ -772,6 +801,18 @@ export function ContractColumnBrowser({
     selectedObjective?.initiatives.find(
       initiative => initiative.id === selectedInitiativeId,
     ) ?? null
+
+  React.useEffect(() => {
+    if (didRevealChain.current || !selectedObjectiveId) return
+    didRevealChain.current = true
+    const rowIds = [selectedObjectiveId, selectedInitiativeId, selectedLeafId]
+    for (const rowId of rowIds) {
+      if (!rowId) continue
+      document
+        .querySelector(`[data-contract-row="${window.CSS.escape(rowId)}"]`)
+        ?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [selectedInitiativeId, selectedLeafId, selectedObjectiveId])
 
   const columns = React.useMemo<ColumnModel[]>(() => {
     const objectiveColumn: ColumnModel = {
@@ -898,7 +939,7 @@ export function ContractColumnBrowser({
         detail: leaf.detail,
         status: leaf.status,
         href: leaf.href,
-        leafSelected: !leaf.href && leaf.id === selectedLeafId,
+        leafSelected: leaf.id === selectedLeafId,
         onSelect: () => {
           if (leaf.href) return
           setSelectedLeafId(leaf.id)

@@ -85,7 +85,7 @@ interface CreateStaffDialogProps {
   divisionId?: string
   /** Override POST URL (e.g. section-scoped staff create for managers/supervisors). */
   createApiUrl?: string
-  onSuccess?: (staff: StaffMember) => void
+  onSuccess?: (staff: StaffMember) => void | Promise<void>
 }
 
 export function CreateStaffDialog({
@@ -155,8 +155,6 @@ export function CreateStaffDialog({
         inviteError?: string
       }
       const newStaff: StaffMember = { _id: id, fullName }
-      form.reset()
-      onOpenChange(false)
       if (inviteError) {
         toast.warning(`Staff created, but invitation failed: ${inviteError}`)
       } else {
@@ -166,7 +164,9 @@ export function CreateStaffDialog({
             : 'Staff created; app role updated for existing user',
         )
       }
-      onSuccess?.(newStaff)
+      await onSuccess?.(newStaff)
+      form.reset()
+      onOpenChange(false)
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create staff')

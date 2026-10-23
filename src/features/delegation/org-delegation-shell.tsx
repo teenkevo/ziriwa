@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Suspense } from 'react'
-import { useRouter } from 'next/navigation'
 
 import { WorkContextNavigationProvider } from '@/contexts/work-context-navigation-context'
 import type { AssistantCommissionerWorkspaceContext } from '@/lib/assistant-commissioner-workspace.server'
@@ -51,10 +51,10 @@ export function OrgDelegationShell({
   workspace,
   children,
 }: OrgDelegationShellProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [delegateOpen, setDelegateOpen] = React.useState(false)
 
-  const refresh = () => router.refresh()
+  const refresh = () => refreshRouter()
   const openDelegate = React.useCallback(() => setDelegateOpen(true), [])
   const createPayload = buildCreatePayload(workspace)
 

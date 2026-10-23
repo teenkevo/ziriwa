@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -33,7 +33,7 @@ export function SetAssessmentStartTimeDialog({
   open,
   onOpenChange,
 }: SetAssessmentStartTimeDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [startsAt, setStartsAt] = React.useState<string | undefined>()
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -61,8 +61,8 @@ export function SetAssessmentStartTimeDialog({
       if (!res.ok) throw new Error(data.error ?? 'Failed to update start time')
 
       toast.success('Start time updated')
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
     } catch (error) {
       console.error(error)
       toast.error(

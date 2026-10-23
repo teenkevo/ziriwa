@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ChevronLeft,
@@ -76,7 +76,7 @@ export function AssessmentTakeContent({
   activeAttempt: initialActiveAttempt = null,
   resultsReleased,
 }: AssessmentTakeContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const navigation = useWorkspaceRouteNavigationOptional()
   const [answers, setAnswers] = React.useState<Record<string, string[]>>({})
   const [submittedAttempt, setSubmittedAttempt] =
@@ -197,7 +197,7 @@ export function AssessmentTakeContent({
       if (!res.ok) throw new Error(data.error ?? 'Failed to abandon assessment')
 
       toast.success('Assessment abandoned. You received a score of 0.')
-      router.refresh()
+      await refreshRouter()
       navigateToAssessmentsList()
     } catch (error) {
       console.error(error)
@@ -408,7 +408,7 @@ export function AssessmentTakeContent({
             ? 'Assessment submitted'
             : 'Assessment submitted. Your manager will release results when ready.',
       )
-      router.refresh()
+      await refreshRouter()
     } catch (error) {
       console.error(error)
       toast.error(error instanceof Error ? error.message : 'Submission failed')

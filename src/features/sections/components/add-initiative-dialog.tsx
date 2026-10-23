@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 
@@ -62,7 +62,7 @@ function AddInitiativeFormInner({
 }: Omit<AddInitiativeDialogProps, 'open'> & {
   onSubmittingChange: (isSubmitting: boolean) => void
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const apiBase = contractsApiBase(contractsApi)
   const [isCheckingCode, setIsCheckingCode] = React.useState(false)
   const checkAbortRef = React.useRef<AbortController | null>(null)
@@ -165,9 +165,9 @@ function AddInitiativeFormInner({
         const data = await res.json()
         throw new Error(data.error || 'Failed to add initiative')
       }
+      await refreshRouter()
       form.reset()
       onOpenChange(false)
-      router.refresh()
       onSuccess?.()
     } catch (err) {
       console.error(err)

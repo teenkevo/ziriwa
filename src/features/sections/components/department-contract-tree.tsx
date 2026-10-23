@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -24,6 +24,7 @@ import {
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
 import { patchContractReorder } from '@/lib/patch-contract-reorder'
+import { useWorkspaceRouteNavigationOptional } from '@/contexts/workspace-route-navigation-context'
 import { contractsApiBase, type ContractsApiResource } from '@/lib/contracts-api'
 import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import type { DepartmentContract } from '@/sanity/lib/department-contracts/get-department-contract'
@@ -349,7 +350,18 @@ export function DepartmentContractTree({
   finalizeRequest = 0,
   unfinalizeRequest = 0,
 }: DepartmentContractTreeProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
+  const navigation = useWorkspaceRouteNavigationOptional()
+  const openContractHref = React.useCallback(
+    (href: string) => {
+      if (navigation) {
+        navigation.navigateToHref(href)
+        return
+      }
+      router.push(href)
+    },
+    [navigation, router],
+  )
   const apiBase = contractsApiBase(contractsApi)
   const showTasksOnlyUnderMeasurable =
     contractTreeShowsTasksOnly(contractsApi)
@@ -403,7 +415,7 @@ export function DepartmentContractTree({
     async (op: string, payload: Record<string, unknown>) => {
       try {
         await patchContractReorder(contractPatchUrl, op, payload)
-        router.refresh()
+        await refreshRouter()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to reorder')
         throw err
@@ -531,7 +543,7 @@ export function DepartmentContractTree({
         onOpenActivity: (objIdx, initIdx, actIdx, taskKey) => {
           if (!sectionSlug) return
           if (taskKey != null) {
-            router.push(
+            openContractHref(
               `/sections/${sectionSlug}/activity/${departmentContract._id}/${objIdx}/${initIdx}/${actIdx}?taskKey=${encodeURIComponent(taskKey)}`,
             )
             return
@@ -542,7 +554,7 @@ export function DepartmentContractTree({
           const activityQuery = activityKey
             ? `?activityKey=${encodeURIComponent(activityKey)}`
             : ''
-          router.push(
+          openContractHref(
             `/sections/${sectionSlug}/initiative/${departmentContract._id}/${objIdx}/${initIdx}${activityQuery}`,
           )
         },
@@ -556,7 +568,7 @@ export function DepartmentContractTree({
       onSelectActivity,
       canManageContract,
       showTasksOnlyUnderMeasurable,
-      router,
+      openContractHref,
       handleReorderActivities,
       handleReorderInitiatives,
     ],
@@ -580,7 +592,7 @@ export function DepartmentContractTree({
       }
       setDeleteObjectiveIndex(null)
       toast.success('Objective deleted')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       toast.error(
@@ -612,7 +624,7 @@ export function DepartmentContractTree({
       }
       setDeleteInitiative(null)
       toast.success('Initiative deleted')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       toast.error(
@@ -645,7 +657,7 @@ export function DepartmentContractTree({
       }
       setDeleteActivity(null)
       toast.success('Measurable activity deleted')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       toast.error(

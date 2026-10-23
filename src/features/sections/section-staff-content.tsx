@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Plus } from 'lucide-react'
 
 import type { SectionStaffRoster } from '@/sanity/lib/staff/get-section-staff-roster'
@@ -85,7 +85,7 @@ export function SectionStaffContent({
   addStaffLabel = 'Add staff',
   projectWorkstreamMemberAdd,
 }: SectionStaffContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const canManageMainstreamStaff = sectionAccess.canManageSectionStaff
   const canAddWorkstreamMembers = Boolean(
     projectWorkstreamMemberAdd && sectionAccess.canManageWorkstreamStaff,
@@ -116,7 +116,7 @@ export function SectionStaffContent({
     setRows(buildTableRows(roster))
   }, [roster])
 
-  const refresh = () => router.refresh()
+  const refresh = () => refreshRouter()
 
   function canManageRow(row: SectionStaffTableRow) {
     if (!canManageTableActions) return false
@@ -172,9 +172,9 @@ export function SectionStaffContent({
             lockedRole='workstream_member'
             fixedWorkstreamId={projectWorkstreamMemberAdd.workstreamId}
             fixedWorkstreamName={projectWorkstreamMemberAdd.workstreamName}
-            onSuccess={() => {
+            onSuccess={async () => {
+              await refresh()
               setAddStaffOpen(false)
-              refresh()
             }}
           />
         ) : (
@@ -184,9 +184,9 @@ export function SectionStaffContent({
             allowedRoles={allowedCreateRoles}
             fixedSectionId={sectionId}
             createApiUrl={`/api/sections/${sectionId}/staff`}
-            onSuccess={() => {
+            onSuccess={async () => {
+              await refresh()
               setAddStaffOpen(false)
-              refresh()
             }}
           />
         )}

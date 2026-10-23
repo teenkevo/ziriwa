@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -52,7 +52,7 @@ export function CreateAssessmentContent({
   basePath,
   dashboardHref,
 }: CreateAssessmentContentProps) {
-  const router = useRouter()
+  const { router, runTransition } = useServerRefresh()
   const [title, setTitle] = React.useState('')
   const [description, setDescription] = React.useState('')
   const [dueDate, setDueDate] = React.useState('')
@@ -221,8 +221,9 @@ export function CreateAssessmentContent({
       if (!res.ok) throw new Error(data.error ?? 'Create failed')
 
       toast.success('Assessment created')
-      router.push(`${basePath}/${data.id as string}`)
-      router.refresh()
+      await runTransition(() => {
+        router.push(`${basePath}/${data.id as string}`)
+      })
     } catch (error) {
       console.error(error)
       toast.error(error instanceof Error ? error.message : 'Create failed')

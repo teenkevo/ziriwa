@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -38,7 +38,7 @@ export function CreateDivisionDialog({
   departmentName,
   assistantCommissioners,
 }: CreateDivisionDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [isCreating, setIsCreating] = React.useState(false)
   const [fullName, setFullName] = React.useState('')
   const [acronym, setAcronym] = React.useState('')
@@ -66,16 +66,16 @@ export function CreateDivisionDialog({
         throw new Error(data.error || 'Failed to create division')
       }
       const { id } = await res.json()
-      setFullName('')
-      setAcronym('')
-      setAssistantCommissionerId('')
-      onOpenChange(false)
       await fetch('/api/division/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      router.refresh()
+      await refreshRouter()
+      setFullName('')
+      setAcronym('')
+      setAssistantCommissionerId('')
+      onOpenChange(false)
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create division')

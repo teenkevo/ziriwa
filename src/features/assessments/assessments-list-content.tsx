@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import Link from 'next/link'
 import { FileSpreadsheet, Plus } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 import { AllClearState } from '@/components/all-clear-state'
@@ -60,7 +60,7 @@ export function AssessmentsListContent({
   sectionOfficerCount = 0,
   canViewSubmissions = false,
 }: AssessmentsListContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [timeLimitDialog, setTimeLimitDialog] = React.useState<{
     assessmentId: string
     assessmentTitle: string
@@ -107,7 +107,7 @@ export function AssessmentsListContent({
       setSubmissionsSheet(current =>
         current ? { ...current, resultsReleased: true } : current,
       )
-      router.refresh()
+      await refreshRouter()
     } catch (error) {
       console.error(error)
       toast.error(

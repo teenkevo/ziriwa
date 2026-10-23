@@ -175,7 +175,7 @@ export function SubmitReportDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to save report')
       }
-      onSuccess()
+      await onSuccess()
       onOpenChange(false)
     } catch (err) {
       console.error(err)

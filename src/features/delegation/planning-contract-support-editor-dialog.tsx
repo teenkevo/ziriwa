@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -64,7 +64,7 @@ export function PlanningContractSupportEditorDialog({
   canManageContract,
   assigneeOptions = [],
 }: PlanningContractSupportEditorDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const { active: activeFY } = useFinancialYear()
   const [confirmCloseOpen, setConfirmCloseOpen] = React.useState(false)
   const [onboardOpen, setOnboardOpen] = React.useState(false)
@@ -108,10 +108,10 @@ export function PlanningContractSupportEditorDialog({
     setConfirmCloseOpen(true)
   }
 
-  function confirmClose() {
+  async function confirmClose() {
+    await refreshRouter()
     setConfirmCloseOpen(false)
     onOpenChange(false)
-    router.refresh()
   }
 
   return (
@@ -205,7 +205,6 @@ export function PlanningContractSupportEditorDialog({
                     assistantCommissionerName={assistantCommissionerName}
                     onSuccess={() => {
                       setOnboardOpen(false)
-                      router.refresh()
                     }}
                   />
                   <ContractOnboardEmptyState

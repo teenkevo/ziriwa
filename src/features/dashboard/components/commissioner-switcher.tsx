@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { ChevronsUpDown, PlusCircle, UserCog } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import type { StaffPickerMember } from '@/lib/staff-picker'
 import { cn } from '@/lib/utils'
@@ -51,7 +51,7 @@ export function CommissionerSwitcher({
   departmentId,
   currentDepartmentId,
 }: CommissionerSwitcherProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
   const [createdCommissioners, setCreatedCommissioners] = React.useState<
@@ -75,7 +75,7 @@ export function CommissionerSwitcher({
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
-  const handleCreateSuccess = (newStaff: StaffMember) => {
+  const handleCreateSuccess = async (newStaff: StaffMember) => {
     setCreatedCommissioners(current => {
       if (current.some(commissioner => commissioner._id === newStaff._id)) {
         return current
@@ -83,9 +83,9 @@ export function CommissionerSwitcher({
       return [...current, newStaff]
     })
     onChange(newStaff._id)
+    await refreshRouter()
     setShowCreateDialog(false)
     setOpen(false)
-    router.refresh()
   }
 
   return (

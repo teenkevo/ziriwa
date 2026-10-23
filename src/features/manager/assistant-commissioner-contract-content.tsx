@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { toast } from 'sonner'
 
 import { useRegisterPageBreadcrumbs } from '@/contexts/app-breadcrumb-context'
@@ -25,7 +25,7 @@ export function AssistantCommissionerContractContent({
   planningContractSupport,
   assigneeOptions,
 }: AssistantCommissionerContractPageData) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [onboardOpen, setOnboardOpen] = React.useState(false)
   const [delegateOpen, setDelegateOpen] = React.useState(false)
   const [finalizeRequest, setFinalizeRequest] = React.useState(0)
@@ -74,7 +74,7 @@ export function AssistantCommissionerContractContent({
         throw new Error(data.error || 'Failed to cancel')
       }
       toast.success('Contract support cancelled')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to cancel')
     } finally {
@@ -109,7 +109,7 @@ export function AssistantCommissionerContractContent({
                 candidates={planningContractSupport.candidates}
                 sectionId={planningContractSupport.sectionId}
                 mode='ac-to-supervisor'
-                onSuccess={() => router.refresh()}
+                onSuccess={() => refreshRouter()}
               />
             ) : null}
           </>

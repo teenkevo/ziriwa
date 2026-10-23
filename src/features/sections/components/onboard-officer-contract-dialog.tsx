@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -46,7 +46,7 @@ export function OnboardOfficerContractDialog({
   upstreamName,
   onSuccess,
 }: OnboardOfficerContractDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [isCreating, setIsCreating] = React.useState(false)
   const { active: currentFY } = useFinancialYear()
 
@@ -63,8 +63,8 @@ export function OnboardOfficerContractDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to onboard contract')
       }
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
       onSuccess?.()
     } catch (err) {
       console.error(err)

@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { Loader2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -80,7 +80,7 @@ function CommissionerList({
   apiPath,
   canCreate = true,
 }: Extract<OrgWorkItemsListContentProps, { mode: 'commissioner' }>) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [open, setOpen] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
   const [formTitle, setFormTitle] = React.useState('')
@@ -117,7 +117,7 @@ function CommissionerList({
       toast.success('Created')
       setOpen(false)
       router.push(`${basePath}/${data.id}`)
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create')
     } finally {

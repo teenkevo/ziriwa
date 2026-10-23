@@ -74,8 +74,8 @@ export function EditWorkstreamDialog({
           typeof data.error === 'string' ? data.error : 'Failed to update workstream',
         )
       }
+      await onSuccess?.()
       onOpenChange(false)
-      onSuccess?.()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update workstream')
     } finally {

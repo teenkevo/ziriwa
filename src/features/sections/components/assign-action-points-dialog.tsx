@@ -285,7 +285,7 @@ export function AssignActionPointsDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to save action points')
       }
-      onSuccess()
+      await onSuccess()
       onOpenChange(false)
     } catch (err) {
       console.error(err)

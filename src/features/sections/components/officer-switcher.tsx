@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Check, ChevronsUpDown, PlusCircle, User } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -57,7 +57,7 @@ export function OfficerSwitcher({
   sectionId,
   compact = false,
 }: OfficerSwitcherProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
   const [createdOfficers, setCreatedOfficers] = React.useState<Officer[]>([])
@@ -86,7 +86,10 @@ export function OfficerSwitcher({
     return `${first.fullName} +${selectedOfficers.length - 1}`
   })()
 
-  const handleCreateSuccess = (newStaff: { _id: string; fullName: string }) => {
+  const handleCreateSuccess = async (newStaff: {
+    _id: string
+    fullName: string
+  }) => {
     setCreatedOfficers(current => {
       if (current.some(officer => officer._id === newStaff._id)) {
         return current
@@ -102,9 +105,9 @@ export function OfficerSwitcher({
     } else {
       onChange?.(newStaff._id)
     }
+    await refreshRouter()
     setShowCreateDialog(false)
     setOpen(false)
-    router.refresh()
   }
 
   function toggleOfficer(id: string) {

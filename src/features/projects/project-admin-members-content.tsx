@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Plus, Users } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -29,7 +29,7 @@ export function ProjectAdminMembersContent({
   initialRoster,
   workstreams,
 }: ProjectAdminMembersContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [roster, setRoster] = React.useState(initialRoster)
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editingMember, setEditingMember] =
@@ -61,14 +61,19 @@ export function ProjectAdminMembersContent({
     [roster, editingMember?.memberId],
   )
 
-  const refresh = () => {
-    fetch(`/api/projects/${projectId}/members-roster`)
-      .then(r => (r.ok ? r.json() : { roster: [] }))
-      .then((data: { roster?: ProjectMemberRosterRow[] }) => {
+  const refresh = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/members-roster`)
+      if (response.ok) {
+        const data = (await response.json()) as {
+          roster?: ProjectMemberRosterRow[]
+        }
         setRoster(data.roster ?? [])
-      })
-      .catch(() => {})
-    router.refresh()
+      }
+    } catch {
+      // The server refresh below still updates the page.
+    }
+    await refreshRouter()
   }
 
   return (
@@ -109,9 +114,9 @@ export function ProjectAdminMembersContent({
           hasProjectManager={hasProjectManager}
           hasDeputyProjectManager={hasDeputyProjectManager}
           occupiedWorkstreamLeadIds={editOccupiedWorkstreamLeadIds}
-          onSuccess={() => {
+          onSuccess={async () => {
+            await refresh()
             setEditingMember(null)
-            refresh()
           }}
         />
       </Dialog>
@@ -130,9 +135,9 @@ export function ProjectAdminMembersContent({
           hasProjectManager={hasProjectManager}
           hasDeputyProjectManager={hasDeputyProjectManager}
           occupiedWorkstreamLeadIds={occupiedWorkstreamLeadIds}
-          onSuccess={() => {
+          onSuccess={async () => {
+            await refresh()
             setCreateOpen(false)
-            refresh()
           }}
         />
       </Dialog>

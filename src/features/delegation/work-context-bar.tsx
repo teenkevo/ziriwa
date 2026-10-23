@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { CalendarClock, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -31,7 +32,7 @@ export function WorkContextBar({
   hideActingSwitcher = false,
 }: WorkContextBarProps) {
   const pathname = usePathname()
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const searchParams = useSearchParams()
   const navigation = useWorkContextNavigationOptional()
   const [isCancelling, setIsCancelling] = React.useState(false)
@@ -82,7 +83,7 @@ export function WorkContextBar({
       const params = new URLSearchParams(searchParams.toString())
       params.delete('workContext')
       router.push(params.size ? `${pathname}?${params}` : pathname)
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to cancel')
     } finally {

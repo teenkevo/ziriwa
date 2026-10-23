@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2, PlusCircle } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -34,7 +34,7 @@ export function CreateDepartmentDialog({
   onOpenChange,
   commissioners,
 }: CreateDepartmentDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [isCreating, setIsCreating] = React.useState(false)
   const [fullName, setFullName] = React.useState('')
   const [acronym, setAcronym] = React.useState('')
@@ -60,16 +60,16 @@ export function CreateDepartmentDialog({
         throw new Error(data.error || 'Failed to create department')
       }
       const { id } = await res.json()
-      setFullName('')
-      setAcronym('')
-      setCommissionerId('')
-      onOpenChange(false)
       await fetch('/api/department/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      router.refresh()
+      await refreshRouter()
+      setFullName('')
+      setAcronym('')
+      setCommissionerId('')
+      onOpenChange(false)
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to create department')

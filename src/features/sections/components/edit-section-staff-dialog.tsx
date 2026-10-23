@@ -62,8 +62,8 @@ export function EditSectionStaffDialog({
         throw new Error(data.error || 'Failed to update staff')
       }
       toast.success('Staff updated')
+      await onSuccess()
       onOpenChange(false)
-      onSuccess()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Update failed')
     } finally {

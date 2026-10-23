@@ -105,8 +105,8 @@ export function SelfServiceDelegationDialog({
         throw new Error(data.error || 'Failed to create delegation')
       }
       toast.success('Leave delegation saved')
+      await onSuccess()
       onOpenChange(false)
-      onSuccess()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delegate')
     } finally {

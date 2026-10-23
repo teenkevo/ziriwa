@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { ManagerSwitcher } from '@/features/dashboard/components/manager-switcher'
 import type { StaffPickerMember } from '@/lib/staff-picker'
@@ -28,7 +28,7 @@ export function AssignProjectManagerCard({
   managers,
   initialManagerId = '',
 }: AssignProjectManagerCardProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [managerId, setManagerId] = React.useState(initialManagerId)
   const [isBusy, setIsBusy] = React.useState(false)
 
@@ -56,7 +56,7 @@ export function AssignProjectManagerCard({
             : 'Failed to assign project manager',
         )
       }
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed')
     } finally {

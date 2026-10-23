@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -71,7 +71,7 @@ function EditMeasurableActivityForm({
 }: Omit<EditMeasurableActivityDialogProps, 'open'> & {
   onSubmittingChange: (isSubmitting: boolean) => void
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [title, setTitle] = React.useState(initialTitle)
   const [activityType, setActivityType] = React.useState<
     MeasurableActivityKind | ''
@@ -120,8 +120,8 @@ function EditMeasurableActivityForm({
         throw new Error(data.error || 'Failed to update measurable activity')
       }
       toast.success('Measurable activity updated')
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
     } catch (err) {
       toast.error(
         err instanceof Error

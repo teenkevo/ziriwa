@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Container } from 'lucide-react'
 
 import { buildWorkspaceEnterHref } from '@/lib/workspace-mode'
@@ -22,7 +22,7 @@ export function ProjectPickerContent({
   canCreateProject = false,
   onProjectsChange,
 }: ProjectPickerContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [projects, setProjects] = React.useState(initialProjects)
 
   React.useEffect(() => {
@@ -40,7 +40,7 @@ export function ProjectPickerContent({
     const data = (await res.json()) as { projects?: ViewerProjectOption[] }
     const next = data.projects ?? []
     updateProjects(next)
-    router.refresh()
+    await refreshRouter()
   }
 
   return (

@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -47,7 +47,7 @@ export function EditDivisionDialog({
   division,
   assistantCommissioners,
 }: EditDivisionDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [isSaving, setIsSaving] = React.useState(false)
   const [fullName, setFullName] = React.useState('')
   const [acronym, setAcronym] = React.useState('')
@@ -85,8 +85,8 @@ export function EditDivisionDialog({
         const data = await res.json()
         throw new Error(data.error || 'Failed to update division')
       }
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to update division')

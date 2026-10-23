@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -42,7 +42,7 @@ export function ProjectsAdminPage({
 }: {
   initialProjects: ProjectRow[]
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [projects, setProjects] = React.useState(initialProjects)
   const [selectedProjectId, setSelectedProjectId] = React.useState('')
   const [workstreams, setWorkstreams] = React.useState<WorkstreamRow[]>([])
@@ -100,7 +100,7 @@ export function ProjectsAdminPage({
       }
       setProjectName('')
       await refreshProjects()
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed')
     } finally {
@@ -137,7 +137,7 @@ export function ProjectsAdminPage({
         const data = (await listRes.json()) as { workstreams?: WorkstreamRow[] }
         setWorkstreams(data.workstreams ?? [])
       }
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed')
     } finally {
@@ -170,11 +170,11 @@ export function ProjectsAdminPage({
           typeof data.error === 'string' ? data.error : 'Failed to onboard',
         )
       }
+      await refreshRouter()
       setMemberFirstName('')
       setMemberLastName('')
       setMemberIdNumber('')
       setMemberEmail('')
-      router.refresh()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed')
     } finally {

@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 
@@ -63,7 +63,7 @@ function EditInitiativeFormInner({
 }: Omit<EditInitiativeDialogProps, 'open'> & {
   onSubmittingChange: (isSubmitting: boolean) => void
 }) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const apiBase = contractsApiBase(contractsApi)
 
   const initiativeSchema = React.useMemo(
@@ -118,8 +118,8 @@ function EditInitiativeFormInner({
         const data = await res.json()
         throw new Error(data.error || 'Failed to update initiative')
       }
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to update initiative')

@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { ChevronsUpDown, PlusCircle, User } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import type { StaffPickerMember } from '@/lib/staff-picker'
 import { cn } from '@/lib/utils'
@@ -45,7 +45,7 @@ export function WorkstreamMemberSwitcher({
   disabled = false,
   placeholder = 'Select or create workstream member',
 }: WorkstreamMemberSwitcherProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [open, setOpen] = React.useState(false)
   const [showCreateDialog, setShowCreateDialog] = React.useState(false)
   const [created, setCreated] = React.useState<StaffPickerMember[]>([])
@@ -60,15 +60,15 @@ export function WorkstreamMemberSwitcher({
     ? `${selected.fullName}${selected.staffId ? ` (${selected.staffId})` : ''}`
     : placeholder
 
-  const handleCreateSuccess = (newStaff: StaffPickerMember) => {
+  const handleCreateSuccess = async (newStaff: StaffPickerMember) => {
     setCreated(current => {
       if (current.some(o => o._id === newStaff._id)) return current
       return [...current, newStaff]
     })
     onChange(newStaff._id)
+    await refreshRouter()
     setShowCreateDialog(false)
     setOpen(false)
-    router.refresh()
   }
 
   return (

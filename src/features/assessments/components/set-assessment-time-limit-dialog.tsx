@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -34,7 +34,7 @@ export function SetAssessmentTimeLimitDialog({
   open,
   onOpenChange,
 }: SetAssessmentTimeLimitDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [minutes, setMinutes] = React.useState('')
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -67,8 +67,8 @@ export function SetAssessmentTimeLimitDialog({
       if (!res.ok) throw new Error(data.error ?? 'Failed to update time limit')
 
       toast.success('Time limit updated')
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
     } catch (error) {
       console.error(error)
       toast.error(

@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { useCallback, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -206,7 +207,7 @@ export function SectionPageContent({
   workContext = 'own',
   delegationCandidates = [],
 }: SectionPageContentProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter, runTransition } = useServerRefresh()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { active: activeFY } = useFinancialYear()
@@ -424,13 +425,14 @@ export function SectionPageContent({
         const data = await res.json()
         throw new Error(data.error || 'Failed to delete section')
       }
+      await runTransition(() => {
+        if (divisionSlug) {
+          router.push(`/divisions/${divisionSlug}`)
+        } else {
+          router.push('/departments')
+        }
+      })
       setShowDeleteSection(false)
-      if (divisionSlug) {
-        router.push(`/divisions/${divisionSlug}`)
-      } else {
-        router.push('/departments')
-      }
-      router.refresh()
     } catch (err) {
       console.error(err)
       alert(err instanceof Error ? err.message : 'Failed to delete section')
@@ -464,7 +466,7 @@ export function SectionPageContent({
           actingRoleLabel={leaveActingRoleLabel}
           candidates={delegationCandidates}
           createPayload={{ sectionId: section._id }}
-          onSuccess={() => router.refresh()}
+          onSuccess={() => refreshRouter()}
         />
         <PlanningContractSupportDialog
           open={contractSupportOpen}
@@ -482,7 +484,7 @@ export function SectionPageContent({
                 }
               : null
           }
-          onSuccess={() => router.refresh()}
+          onSuccess={() => refreshRouter()}
         />
         {hasPlanningContractAction &&
         sectionAccess.delegation.assignmentAsDelegatee &&

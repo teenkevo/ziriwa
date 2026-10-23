@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -69,7 +69,7 @@ export function AddPmsMeasurableActivityDialog({
   unassignedLabel,
   onSuccess,
 }: AddPmsMeasurableActivityDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [isCreating, setIsCreating] = React.useState(false)
   const [title, setTitle] = React.useState('')
   const [activityType, setActivityType] = React.useState<PmsActivityType | ''>(
@@ -135,7 +135,7 @@ export function AddPmsMeasurableActivityDialog({
       }
       onOpenChange(false)
       toast.success('Measurable activity created')
-      router.refresh()
+      await refreshRouter()
       onSuccess?.()
     } catch (err) {
       toast.error(

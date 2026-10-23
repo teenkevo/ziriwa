@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -22,6 +22,7 @@ import {
   resolveActivityNumberingType,
 } from '@/lib/contract-numbering'
 import { patchContractReorder } from '@/lib/patch-contract-reorder'
+import { useWorkspaceRouteNavigationOptional } from '@/contexts/workspace-route-navigation-context'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { isPmsAlignment } from '@/lib/contract-alignment'
 import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
@@ -233,7 +234,18 @@ export function ContractTree({
   addObjectiveSignal = 0,
   onAddObjectiveRequestConsumed,
 }: ContractTreeProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
+  const navigation = useWorkspaceRouteNavigationOptional()
+  const openContractHref = React.useCallback(
+    (href: string) => {
+      if (navigation) {
+        navigation.navigateToHref(href)
+        return
+      }
+      router.push(href)
+    },
+    [navigation, router],
+  )
   const [objectiveDialogOpen, setObjectiveDialogOpen] = React.useState(false)
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
   const [initiativeDialogObjIdx, setInitiativeDialogObjIdx] =
@@ -289,7 +301,7 @@ export function ContractTree({
     async (op: string, payload: Record<string, unknown>) => {
       try {
         await patchContractReorder(contractPatchUrl, op, payload)
-        router.refresh()
+        await refreshRouter()
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to reorder')
         throw err
@@ -396,7 +408,7 @@ export function ContractTree({
         },
         onOpenInitiative: (objIdx, initIdx) => {
           if (!sectionSlug) return
-          router.push(
+          openContractHref(
             `/sections/${sectionSlug}/initiative/${sectionContract._id}/${objIdx}/${initIdx}`,
           )
         },
@@ -408,7 +420,7 @@ export function ContractTree({
           const activityQuery = activityKey
             ? `?activityKey=${encodeURIComponent(activityKey)}`
             : ''
-          router.push(
+          openContractHref(
             `/sections/${sectionSlug}/initiative/${sectionContract._id}/${objIdx}/${initIdx}${activityQuery}`,
           )
         },
@@ -420,7 +432,7 @@ export function ContractTree({
       sectionSlug,
       pmsMode,
       canManageContract,
-      router,
+      openContractHref,
       handleReorderActivities,
       handleReorderInitiatives,
     ],
@@ -444,7 +456,7 @@ export function ContractTree({
       }
       setDeleteObjectiveIndex(null)
       toast.success('Objective deleted')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       toast.error(
@@ -476,7 +488,7 @@ export function ContractTree({
       }
       setDeleteInitiative(null)
       toast.success('Initiative deleted')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       toast.error(
@@ -509,7 +521,7 @@ export function ContractTree({
       }
       setDeleteActivity(null)
       toast.success('Measurable activity deleted')
-      router.refresh()
+      await refreshRouter()
     } catch (err) {
       console.error(err)
       toast.error(

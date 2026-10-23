@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useServerRefresh } from '@/hooks/use-server-refresh'
 import {
   Loader2,
   ChevronRight,
@@ -10,7 +11,6 @@ import {
   Handshake,
   Wallet,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -146,7 +146,7 @@ export function AddStakeholderDialog({
   editingIndex,
   onSuccess,
 }: AddStakeholderDialogProps) {
-  const router = useRouter()
+  const { router, refresh: refreshRouter } = useServerRefresh()
   const [step, setStep] = React.useState(1)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [form, setForm] = React.useState(emptyForm)
@@ -299,8 +299,8 @@ export function AddStakeholderDialog({
           throw new Error(data.error || 'Failed to add stakeholder')
         }
       }
+      await refreshRouter()
       onOpenChange(false)
-      router.refresh()
       onSuccess?.()
     } catch (err) {
       console.error(err)
