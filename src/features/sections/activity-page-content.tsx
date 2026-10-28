@@ -383,7 +383,7 @@ export function ActivityPageContent({
   const canEditActivity = canManageContract && !isCascadedItem(activity)
   const activityKindLabel =
     numberingKind === 'kpi'
-      ? 'KPI'
+      ? 'Core'
       : numberingKind === 'cross-cutting'
         ? 'Cross-cutting'
         : 'measurable'

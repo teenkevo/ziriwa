@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { measurableActivityType } from '@/lib/measurable-activity-type'
 import { AllClearState } from '@/components/all-clear-state'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -303,13 +304,11 @@ function buildAttentionRows(
         ? `${item.initiativeCode.trim()} · ${item.initiativeTitle.trim()}`
         : item.initiativeTitle?.trim() || item.initiativeCode?.trim() || ''
     const activityTypeTag =
-      item.activityType === 'kpi'
-        ? 'KPI'
-        : item.activityType === 'cross-cutting'
+      measurableActivityType(item.activityType) === 'core'
+        ? 'Core'
+        : measurableActivityType(item.activityType) === 'cross-cutting'
           ? 'CC'
-          : item.activityType === 'core'
-            ? 'Core'
-            : ''
+          : ''
     rows.push({
       key: rowKey('ua', item),
       categoryId: 'upcoming-activities',
@@ -356,13 +355,11 @@ function buildAttentionRows(
         ? `${item.initiativeCode.trim()} · ${item.initiativeTitle.trim()}`
         : item.initiativeTitle?.trim() || item.initiativeCode?.trim() || ''
     const activityTypeTag =
-      item.activityType === 'kpi'
-        ? 'KPI'
-        : item.activityType === 'cross-cutting'
+      measurableActivityType(item.activityType) === 'core'
+        ? 'Core'
+        : measurableActivityType(item.activityType) === 'cross-cutting'
           ? 'CC'
-          : item.activityType === 'core'
-            ? 'Core'
-            : ''
+          : ''
     const activityLabel =
       activityTypeTag && item.activityTitle?.trim()
         ? `${activityTypeTag} · ${item.activityTitle.trim()}`

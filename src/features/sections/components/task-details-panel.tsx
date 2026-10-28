@@ -66,6 +66,7 @@ import {
   type ReportingFrequency,
 } from '@/lib/reporting-periods'
 import { cn } from '@/lib/utils'
+import { isCoreActivityType } from '@/lib/measurable-activity-type'
 import { OfficerSwitcher, type Officer } from './officer-switcher'
 import { PeriodDeliverableTabs } from './period-deliverable-tabs'
 import {
@@ -243,7 +244,7 @@ export function TaskDetailsPanel({
   const pendingPeriodKeyRef = React.useRef<string | null>(null)
 
   const isSavingTask = isSaving || waitingForSave
-  const isKPI = activityType === 'kpi'
+  const isKPI = isCoreActivityType(activityType)
   const isDone = (task?.status ?? '') === 'done'
   const taskConfigLocked = task ? hasOfficerContent(task) : false
   const cascadedTask = task ? isCascadedDetailedTask(task) : false

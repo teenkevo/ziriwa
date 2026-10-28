@@ -38,7 +38,7 @@ import {
 } from '@/features/sections/components/expected-evidence-input'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 
-type PmsActivityType = 'core' | 'cross-cutting'
+type MeasurableActivityType = 'core' | 'cross-cutting'
 
 interface AddPmsMeasurableActivityDialogProps {
   open: boolean
@@ -48,7 +48,7 @@ interface AddPmsMeasurableActivityDialogProps {
   objectiveIndex: number
   initiativeIndex: number
   initiativeCode?: string
-  nextOrderForType: (type: PmsActivityType) => number
+  nextOrderForType: (type: MeasurableActivityType) => number
   assigneeOptions?: CascadeAssigneeOption[] | null
   assigneeEmptyLabel?: string
   unassignedLabel?: string
@@ -72,7 +72,7 @@ export function AddPmsMeasurableActivityDialog({
   const { router, refresh: refreshRouter } = useServerRefresh()
   const [isCreating, setIsCreating] = React.useState(false)
   const [title, setTitle] = React.useState('')
-  const [activityType, setActivityType] = React.useState<PmsActivityType | ''>(
+  const [activityType, setActivityType] = React.useState<MeasurableActivityType | ''>(
     '',
   )
   const [targetDate, setTargetDate] = React.useState('')
@@ -172,7 +172,7 @@ export function AddPmsMeasurableActivityDialog({
               />
             </div>
             <div className='space-y-2'>
-              <Label htmlFor='pms-activity-type' required>
+              <Label htmlFor='measurable-activity-type' required>
                 Type
               </Label>
               <Select
@@ -184,7 +184,7 @@ export function AddPmsMeasurableActivityDialog({
                 }
                 disabled={isCreating}
               >
-                <SelectTrigger id='pms-activity-type'>
+                <SelectTrigger id='measurable-activity-type'>
                   <SelectValue placeholder='Select type' />
                 </SelectTrigger>
                 <SelectContent>

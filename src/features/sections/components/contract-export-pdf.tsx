@@ -11,6 +11,7 @@ import {
 } from '@react-pdf/renderer'
 
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
+import { isCoreActivityType } from '@/lib/measurable-activity-type'
 import type { ContractExportDownloadButtonProps } from './contract-export-download-button'
 
 type ContractExportActivityRow = {
@@ -327,7 +328,7 @@ function normalizeDetailedTasks(
 }
 
 function renderMeasurableActivityCell(row: ContractExportActivityRow) {
-  if (row.activityType !== 'kpi') {
+  if (!isCoreActivityType(row.activityType)) {
     return (
       <Text style={styles.plainActivityText}>
         {row.measurableActivity || '—'}
@@ -337,7 +338,7 @@ function renderMeasurableActivityCell(row: ContractExportActivityRow) {
 
   return (
     <View>
-      <Text style={styles.measurableBlockLabel}>NUMBERED KPI</Text>
+      <Text style={styles.measurableBlockLabel}>CORE</Text>
       <Text style={styles.measurableBlockValue}>
         {row.measurableActivity || '—'}
       </Text>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
+import { storedActivityType } from '@/lib/measurable-activity-type'
 import {
   duplicateAmongStrings,
   initiativeCodeMatchesObjective,
@@ -505,7 +506,7 @@ export async function PATCH(
         typeof initiativeIndex !== 'number' ||
         !title ||
         typeof title !== 'string' ||
-        !['measurable', 'core', 'cross-cutting'].includes(activityType)
+        !storedActivityType(activityType)
       ) {
         return NextResponse.json(
           {
@@ -519,7 +520,7 @@ export async function PATCH(
       const doc: Record<string, unknown> = {
         _type: 'measurableActivity',
         _key: crypto.randomUUID(),
-        activityType,
+        activityType: storedActivityType(activityType) ?? activityType,
         title: title.trim(),
         order: typeof order === 'number' ? order : undefined,
         targetDate: targetDate || undefined,
@@ -582,11 +583,9 @@ export async function PATCH(
       if (title !== undefined && typeof title === 'string') {
         setPayload[`${basePath}.title`] = title.trim()
       }
-      if (
-        typeof activityType === 'string' &&
-        ['measurable', 'core', 'cross-cutting'].includes(activityType)
-      ) {
-        setPayload[`${basePath}.activityType`] = activityType
+      const persistedActivityType = storedActivityType(activityType)
+      if (persistedActivityType) {
+        setPayload[`${basePath}.activityType`] = persistedActivityType
       }
       if (aim !== undefined) {
         setPayload[`${basePath}.aim`] =

@@ -2,6 +2,7 @@ import {
   managerActivityCanCascade,
   managerActivityCascadeDetail,
 } from './aim'
+import { storedActivityType } from '@/lib/measurable-activity-type'
 import type {
   ManagerCascadeObjectiveOption,
   ManagerCascadeOptionsResponse,
@@ -56,10 +57,7 @@ export function buildManagerCascadeOptions(
     for (const init of obj.initiatives ?? []) {
       const kpis = []
       for (const act of init.measurableActivities ?? []) {
-        if (act.activityType !== 'kpi' && act.activityType !== 'measurable') {
-          continue
-        }
-        const canCascade = managerActivityCanCascade(act)
+        if (!managerActivityCanCascade(act)) continue
         const alreadyImported = isKpiAlreadyImported(
           supervisorObjectives,
           sectionContractId,
@@ -69,9 +67,9 @@ export function buildManagerCascadeOptions(
           activityKey: act._key,
           title: act.title,
           aim: managerActivityCascadeDetail(act),
-          activityType: act.activityType,
-          hasAim: canCascade,
-          canCascade: canCascade && !alreadyImported,
+          activityType: storedActivityType(act.activityType) ?? 'core',
+          hasAim: true,
+          canCascade: !alreadyImported,
           alreadyImported,
         })
       }

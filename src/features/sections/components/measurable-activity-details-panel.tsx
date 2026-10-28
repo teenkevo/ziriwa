@@ -26,7 +26,7 @@ import { ActivityAssigneesPicker } from '@/features/sections/components/activity
 import { resolveAssigneeNames } from '@/lib/contract-cascade/assignee-names'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { activityFinalizeFields } from '@/lib/contract-finalize'
-import { pmsActivityType } from '@/lib/pms-activity-type'
+import { measurableActivityType } from '@/lib/measurable-activity-type'
 import { cn } from '@/lib/utils'
 import type {
   MeasurableActivity,
@@ -425,7 +425,7 @@ export function MeasurableActivityDetailsPanel({
             Type
           </Label>
           <Select
-            value={pmsActivityType(activity.activityType)}
+            value={measurableActivityType(activity.activityType)}
             onValueChange={value => {
               if (value !== 'core' && value !== 'cross-cutting') return
               void saveActivity({ activityType: value })

@@ -97,7 +97,7 @@ import {
   activityFinalizeFields,
   type ActivityFinalizeField,
 } from '@/lib/contract-finalize'
-import { pmsActivityType } from '@/lib/pms-activity-type'
+import { measurableActivityType } from '@/lib/measurable-activity-type'
 import type { MeasurableActivity } from '@/sanity/lib/section-contracts/get-section-contract'
 
 const ACTIVITY_TYPES = [
@@ -208,7 +208,7 @@ function ActivityAssigneesCell({
 }
 
 function typeLabel(value: string | undefined) {
-  const activityType = pmsActivityType(value)
+  const activityType = measurableActivityType(value)
   return ACTIVITY_TYPES.find(t => t.value === activityType)?.label ?? '—'
 }
 
@@ -413,7 +413,7 @@ export function MeasurableActivitiesTable({
           return (
             <div className='flex items-center gap-2' aria-busy={saving}>
               <Select
-                value={pmsActivityType(row.original.activityType)}
+                value={measurableActivityType(row.original.activityType)}
                 onValueChange={v =>
                   void runUpdate(row.original._key, 'activityType', {
                     activityType: v as MeasurableActivity['activityType'],
@@ -450,7 +450,7 @@ export function MeasurableActivitiesTable({
           )
         },
         filterFn: (row, id, value) => value.includes(row.getValue(id)),
-        accessorFn: row => pmsActivityType(row.activityType),
+        accessorFn: row => measurableActivityType(row.activityType),
       },
       ...(assigneeOptions
         ? [

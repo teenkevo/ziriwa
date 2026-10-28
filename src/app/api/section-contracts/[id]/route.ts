@@ -21,6 +21,7 @@ import {
 } from '@/lib/contract-cascade/assign-measurable-activity.server'
 import { rejectCascadedContractEdit } from '@/lib/contract-cascade/reject-cascaded-edit.server'
 import { rejectFinalizedContractMutation } from '@/lib/contract-finalize.server'
+import { storedActivityType } from '@/lib/measurable-activity-type'
 import {
   applyCreatedActivityEvidence,
   measurableEvidencePatchValue,
@@ -541,7 +542,7 @@ export async function PATCH(
       const doc: Record<string, unknown> = {
         _type: 'measurableActivity',
         _key: crypto.randomUUID(),
-        activityType,
+        activityType: storedActivityType(activityType) ?? activityType,
         title: title.trim(),
         order: typeof order === 'number' ? order : undefined,
         targetDate: targetDate || undefined,
@@ -629,11 +630,9 @@ export async function PATCH(
       if (title !== undefined && typeof title === 'string') {
         setPayload[`${basePath}.title`] = title.trim()
       }
-      if (
-        typeof activityType === 'string' &&
-        ['kpi', 'cross-cutting', 'core', 'measurable'].includes(activityType)
-      ) {
-        setPayload[`${basePath}.activityType`] = activityType
+      const persistedActivityType = storedActivityType(activityType)
+      if (persistedActivityType) {
+        setPayload[`${basePath}.activityType`] = persistedActivityType
       }
       if (aim !== undefined) {
         setPayload[`${basePath}.aim`] =

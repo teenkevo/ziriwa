@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { NotAuthorized } from '@/components/admin/not-authorized'
 import { UserManagementPage } from '@/features/admin/user-management-page'
 import { parseAppRole } from '@/lib/app-role'
-import { isUserAdmin } from '@/lib/authz/guards.server'
+import { isSuperadmin, isUserAdmin } from '@/lib/authz/guards.server'
 import {
   departmentsForAdminQuery,
   staffByEmailsQuery,
@@ -95,6 +95,7 @@ export default async function AdminUsersPage() {
       members={members}
       departments={departments}
       pendingInvites={pendingInvites}
+      showActivityTypeRewrite={await isSuperadmin()}
     />
   )
 }

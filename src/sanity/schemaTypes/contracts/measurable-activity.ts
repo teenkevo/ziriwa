@@ -17,10 +17,8 @@ export const measurableActivity = defineType({
       type: 'string',
       options: {
         list: [
-          { title: 'KPI', value: 'kpi' },
-          { title: 'Cross-cutting', value: 'cross-cutting' },
-          { title: 'Measurable', value: 'measurable' },
           { title: 'Core', value: 'core' },
+          { title: 'Cross-cutting', value: 'cross-cutting' },
         ],
         layout: 'dropdown',
       },
@@ -39,7 +37,7 @@ export const measurableActivity = defineType({
       description: 'AIM text for KPI activities',
       hidden: ({ parent }) => {
         const t = (parent as { activityType?: string })?.activityType
-        return t !== 'kpi'
+        return t !== 'core' && t !== 'kpi'
       },
     }),
     defineField({
@@ -200,13 +198,13 @@ export const measurableActivity = defineType({
     select: { title: 'title', activityType: 'activityType' },
     prepare({ title, activityType }) {
       const type =
-        activityType === 'kpi'
-          ? 'KPI'
-          : activityType === 'core'
+        activityType === 'cross-cutting'
+          ? 'CC'
+          : activityType === 'core' ||
+              activityType === 'kpi' ||
+              activityType === 'measurable'
             ? 'Core'
-            : activityType === 'cross-cutting'
-              ? 'CC'
-              : 'Measurable'
+            : 'Activity'
       return { title: title || 'Activity', subtitle: type }
     },
   },

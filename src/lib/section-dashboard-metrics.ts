@@ -10,6 +10,7 @@ import type {
   SectionContract,
   DetailedTask,
 } from '@/sanity/lib/section-contracts/get-section-contract'
+import { isCoreActivityType } from '@/lib/measurable-activity-type'
 import type {
   WeeklySprint,
   SprintTask,
@@ -376,7 +377,7 @@ export function computeSectionDashboardMetrics(input: {
         const act = measurableActivities[actIdx]
         activitiesCount++
         objTotal++
-        if (act.activityType === 'kpi') kpiActivitiesCount++
+        if (isCoreActivityType(act.activityType)) kpiActivitiesCount++
         else if (act.activityType === 'cross-cutting') crossCuttingActivitiesCount++
 
         const statusKey = (act.status as ActivityStatusKey | undefined) ?? 'not_started'
@@ -447,7 +448,7 @@ export function computeSectionDashboardMetrics(input: {
         }
 
         // KPI tasks: scan periodDeliverables for overdue + upcoming
-        if (act.activityType === 'kpi' && act.tasks?.length) {
+        if (isCoreActivityType(act.activityType) && act.tasks?.length) {
           for (const t of act.tasks) {
             const task = typeof t === 'string' ? null : (t as DetailedTask)
             if (!task) continue

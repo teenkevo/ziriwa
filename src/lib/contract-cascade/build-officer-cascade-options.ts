@@ -1,4 +1,5 @@
 import { managerActivityCanCascade } from './aim'
+import { storedActivityType } from '@/lib/measurable-activity-type'
 import type {
   ManagerCascadeObjectiveOption,
   SupervisorCascadeOptionsResponse,
@@ -51,12 +52,7 @@ export function buildOfficerCascadeOptions(
           supervisorContractId,
           act._key,
         )
-        const activityType =
-          act.activityType === 'kpi' ||
-          act.activityType === 'measurable' ||
-          act.activityType === 'core'
-            ? act.activityType
-            : 'measurable'
+        const activityType = storedActivityType(act.activityType) ?? 'core'
         activities.push({
           activityKey: act._key,
           title: act.title,

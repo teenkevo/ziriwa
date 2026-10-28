@@ -8,17 +8,20 @@ import {
   type PendingInviteRow,
 } from '@/components/admin/members-table'
 import { Card, CardContent } from '@/components/ui/card'
+import { RewriteLegacyActivityTypesButton } from '@/features/admin/rewrite-legacy-activity-types-button'
 
 interface UserManagementPageProps {
   members: AppMemberRow[]
   departments: DepartmentOption[]
   pendingInvites: PendingInviteRow[]
+  showActivityTypeRewrite?: boolean
 }
 
 export function UserManagementPage({
   members,
   departments,
   pendingInvites,
+  showActivityTypeRewrite = false,
 }: UserManagementPageProps) {
   useRegisterPageBreadcrumbs([
     { label: 'Departments', href: '/departments' },
@@ -36,6 +39,8 @@ export function UserManagementPage({
             Onboard users, and assign them roles in the application.
           </p>
         </div>
+
+        {showActivityTypeRewrite ? <RewriteLegacyActivityTypesButton /> : null}
 
         <Card>
           <CardContent className='pt-6'>

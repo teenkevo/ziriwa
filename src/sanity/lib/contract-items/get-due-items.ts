@@ -3,6 +3,7 @@ import type {
   DetailedTask,
 } from '../section-contracts/get-section-contract'
 import { getCurrentPeriodDueDate } from '@/lib/reporting-periods'
+import { isCoreActivityType } from '@/lib/measurable-activity-type'
 
 export type DueItem = {
   _key: string
@@ -60,7 +61,7 @@ export function getDueItemsFromContract(
         }
 
         // KPI tasks with periodic reporting: task-level expected deliverable per period
-        if (act.activityType === 'kpi' && act.tasks?.length) {
+        if (isCoreActivityType(act.activityType) && act.tasks?.length) {
           for (const t of act.tasks) {
             const task =
               typeof t === 'string' ? null : (t as DetailedTask)
@@ -128,7 +129,7 @@ export function getOverdueItemsFromContract(
           })
         }
 
-        if (act.activityType === 'kpi' && act.tasks?.length) {
+        if (isCoreActivityType(act.activityType) && act.tasks?.length) {
           for (const t of act.tasks) {
             const task =
               typeof t === 'string' ? null : (t as DetailedTask)
