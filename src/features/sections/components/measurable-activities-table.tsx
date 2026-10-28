@@ -56,6 +56,7 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
 import { ActivityAssigneesPicker } from '@/features/sections/components/activity-assignees-picker'
 import { resolveAssigneeNames } from '@/lib/contract-cascade/assignee-names'
 import { cn } from '@/lib/utils'
@@ -227,6 +228,88 @@ function formatActivityDueDate(value: string | undefined) {
   return format(parsed, 'dd MMM yyyy')
 }
 
+function ActivityDueDateCell({
+  activity,
+  readOnly,
+  disabled,
+  saving,
+  attention,
+  onChange,
+}: {
+  activity: MeasurableActivityRow
+  readOnly: boolean
+  disabled: boolean
+  saving: boolean
+  attention: boolean
+  onChange: (targetDate: string) => void | Promise<void>
+}) {
+  const [dueDate, setDueDate] = React.useState(activity.targetDate ?? '')
+
+  React.useEffect(() => {
+    setDueDate(activity.targetDate ?? '')
+  }, [activity._key, activity.targetDate])
+
+  if (readOnly) {
+    return (
+      <span
+        className={cn(
+          'whitespace-nowrap text-xs text-muted-foreground',
+          attention &&
+            'inline-flex rounded-md border !border-destructive px-2 py-1',
+        )}
+      >
+        {formatActivityDueDate(activity.targetDate)}
+      </span>
+    )
+  }
+
+  async function changeDueDate(value: string) {
+    const previous = dueDate
+    setDueDate(value)
+    try {
+      await onChange(value)
+    } catch {
+      setDueDate(previous)
+    }
+  }
+
+  return (
+    <div
+      className='flex items-center gap-1'
+      aria-busy={saving}
+      onClick={event => event.stopPropagation()}
+      onPointerDown={event => event.stopPropagation()}
+    >
+      <DatePicker
+        className={cn(
+          'h-9 w-auto min-w-[11.5rem] px-2 text-xs',
+          attention && '!border-destructive dark:!border-destructive',
+        )}
+        value={dueDate}
+        disabled={disabled || saving}
+        placeholder='Set due date'
+        onChange={value => {
+          void changeDueDate(value)
+        }}
+      />
+      {saving ? <CellSavingSpinner label='Saving due date' /> : null}
+      <Button
+        type='button'
+        variant='ghost'
+        size='icon'
+        className='h-9 w-9 shrink-0 text-muted-foreground'
+        aria-label='Clear due date'
+        disabled={disabled || saving || !dueDate}
+        onClick={() => {
+          void changeDueDate('')
+        }}
+      >
+        <X className='h-4 w-4' />
+      </Button>
+    </div>
+  )
+}
+
 export type MeasurableActivityRow = MeasurableActivity
 
 interface MeasurableActivitiesTableProps {
@@ -237,7 +320,9 @@ interface MeasurableActivitiesTableProps {
   onSelectActivity: (key: string | null) => void
   onUpdateActivity: (
     key: string,
-    updates: Partial<Pick<MeasurableActivity, 'title' | 'status' | 'activityType'>>,
+    updates: Partial<
+      Pick<MeasurableActivity, 'title' | 'status' | 'activityType' | 'targetDate'>
+    >,
   ) => void | Promise<void>
   onRemoveActivity: (key: string) => void | Promise<void>
   /** Staff one level below. Null hides the column (officer contracts). */
@@ -291,12 +376,14 @@ export function MeasurableActivitiesTable({
   /** Which cell is mid-save, so only that row shows a spinner. */
   const [pendingEdit, setPendingEdit] = React.useState<{
     key: string
-    field: 'activityType' | 'status' | 'assignees'
+    field: 'activityType' | 'status' | 'assignees' | 'targetDate'
   } | null>(null)
 
   const isPending = React.useCallback(
-    (key: string, field: 'activityType' | 'status' | 'assignees') =>
-      pendingEdit?.key === key && pendingEdit.field === field,
+    (
+      key: string,
+      field: 'activityType' | 'status' | 'assignees' | 'targetDate',
+    ) => pendingEdit?.key === key && pendingEdit.field === field,
     [pendingEdit],
   )
 
@@ -311,6 +398,20 @@ export function MeasurableActivitiesTable({
       setPendingEdit({ key, field })
       try {
         await onUpdateActivity(key, updates)
+      } catch {
+        // The page already reports the save error.
+      } finally {
+        setPendingEdit(null)
+      }
+    },
+    [onUpdateActivity],
+  )
+
+  const runDueDateUpdate = React.useCallback(
+    async (key: string, targetDate: string) => {
+      setPendingEdit({ key, field: 'targetDate' })
+      try {
+        await onUpdateActivity(key, { targetDate })
       } finally {
         setPendingEdit(null)
       }
@@ -495,15 +596,14 @@ export function MeasurableActivitiesTable({
           <DataTableColumnHeader column={column} title='Due date' />
         ),
         cell: ({ row }) => (
-          <span
-            className={cn(
-              'whitespace-nowrap text-xs text-muted-foreground',
-              activityNeeds(row.original, 'dueDate') &&
-                'inline-flex rounded-md border !border-destructive px-2 py-1',
-            )}
-          >
-            {formatActivityDueDate(row.original.targetDate)}
-          </span>
+          <ActivityDueDateCell
+            activity={row.original}
+            readOnly={!canManage || isCascadedItem(row.original)}
+            disabled={isSaving}
+            saving={isPending(row.original._key, 'targetDate')}
+            attention={activityNeeds(row.original, 'dueDate')}
+            onChange={value => runDueDateUpdate(row.original._key, value)}
+          />
         ),
       },
       {
@@ -548,6 +648,7 @@ export function MeasurableActivitiesTable({
       isSaving,
       isPending,
       runAssigneesUpdate,
+      runDueDateUpdate,
       runUpdate,
       blockedActivityKeys,
       activityCodes,

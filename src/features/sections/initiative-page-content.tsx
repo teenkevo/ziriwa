@@ -239,11 +239,16 @@ export function InitiativePageContent({
   async function handleUpdateActivity(
     key: string,
     updates: Partial<
-      Pick<MeasurableActivity, 'title' | 'status' | 'activityType'>
+      Pick<
+        MeasurableActivity,
+        'title' | 'status' | 'activityType' | 'targetDate'
+      >
     >,
   ) {
     const index = activities.findIndex(a => a._key === key)
-    if (index < 0 || isCascadedItem(activities[index])) return
+    if (index < 0 || isCascadedItem(activities[index])) {
+      throw new Error('This activity cannot be edited')
+    }
     setIsSaving(true)
     try {
       await patchContract({
@@ -262,6 +267,7 @@ export function InitiativePageContent({
       await refreshRouter()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update')
+      throw err
     } finally {
       setIsSaving(false)
     }
