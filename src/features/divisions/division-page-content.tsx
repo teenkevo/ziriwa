@@ -113,7 +113,7 @@ export function DivisionPageContent({
     'division-sections-view',
   )
 
-  const { canCreateSection: allowSectionActions, canManageDivisions: allowDivisionActions, isSuperadmin } =
+  const { canCreateSection: allowSectionActions, canManageDivisions: allowDivisionActions } =
     useOrgStructureAccess()
 
   const divisionLabel = division.fullName || division.name
@@ -336,7 +336,6 @@ export function DivisionPageContent({
             divisionName={division.name}
             divisionAcronym={division.acronym}
             managers={managers}
-            canEditContractAlignment={isSuperadmin}
           />
         )}
 
@@ -358,7 +357,6 @@ export function DivisionPageContent({
             divisionName={division.name}
             divisionAcronym={division.acronym}
             managers={managers}
-            canEditContractAlignment={isSuperadmin}
           />
         )}
 

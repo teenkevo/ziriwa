@@ -97,13 +97,12 @@ import {
   activityFinalizeFields,
   type ActivityFinalizeField,
 } from '@/lib/contract-finalize'
+import { pmsActivityType } from '@/lib/pms-activity-type'
 import type { MeasurableActivity } from '@/sanity/lib/section-contracts/get-section-contract'
 
 const ACTIVITY_TYPES = [
   { label: 'Core', value: 'core' },
   { label: 'Cross-cutting', value: 'cross-cutting' },
-  { label: 'KPI', value: 'kpi' },
-  { label: 'Measurable', value: 'measurable' },
 ]
 
 const ACTIVITY_STATUSES = [
@@ -137,10 +136,6 @@ function activityDueWindows(targetDate: string | undefined): string[] {
   if (due <= endOfMonth(now)) windows.push('month')
   if (due <= endOfQuarter(now)) windows.push('quarter')
   return windows
-}
-
-function typeLabel(value: string | undefined) {
-  return ACTIVITY_TYPES.find(t => t.value === value)?.label ?? value ?? '—'
 }
 
 function activityNeeds(
@@ -210,6 +205,11 @@ function ActivityAssigneesCell({
       {saving ? <CellSavingSpinner label='Saving assignees' /> : null}
     </div>
   )
+}
+
+function typeLabel(value: string | undefined) {
+  const activityType = pmsActivityType(value)
+  return ACTIVITY_TYPES.find(t => t.value === activityType)?.label ?? '—'
 }
 
 function statusLabel(value: string | undefined) {
@@ -413,7 +413,7 @@ export function MeasurableActivitiesTable({
           return (
             <div className='flex items-center gap-2' aria-busy={saving}>
               <Select
-                value={row.original.activityType}
+                value={pmsActivityType(row.original.activityType)}
                 onValueChange={v =>
                   void runUpdate(row.original._key, 'activityType', {
                     activityType: v as MeasurableActivity['activityType'],
@@ -450,7 +450,7 @@ export function MeasurableActivitiesTable({
           )
         },
         filterFn: (row, id, value) => value.includes(row.getValue(id)),
-        accessorFn: row => row.activityType,
+        accessorFn: row => pmsActivityType(row.activityType),
       },
       ...(assigneeOptions
         ? [

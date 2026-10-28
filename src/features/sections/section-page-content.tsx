@@ -557,7 +557,6 @@ export function SectionPageContent({
               divisionName={section.division.name}
               divisionAcronym={section.division.acronym}
               managers={managers}
-              canEditContractAlignment={isSuperadmin}
             />
             <AlertDialog
               open={showDeleteSection}
@@ -822,12 +821,6 @@ export function SectionPageContent({
                         sectionContract={sectionContract!}
                         sectionSlug={section.slug?.current ?? ''}
                         canManageContract={canManageActiveContract}
-                        assigneeOptions={withAssignToMyself(
-                          supervisors,
-                          sectionContract?.manager,
-                        )}
-                        assigneeEmptyLabel='No supervisors in this section yet.'
-                        unassignedLabel='Assign a supervisor'
                       />
                     )}
                   </div>

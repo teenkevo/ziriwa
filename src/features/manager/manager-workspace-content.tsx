@@ -602,12 +602,6 @@ export function ManagerWorkspaceContent({
                     sectionContract={sectionContract!}
                     sectionSlug={section.slug?.current ?? ''}
                     canManageContract={canManageActiveContract}
-                    assigneeOptions={withAssignToMyself(
-                      supervisors,
-                      sectionContract?.manager,
-                    )}
-                    assigneeEmptyLabel='No supervisors in this section yet.'
-                    unassignedLabel='Assign a supervisor'
                   />
                 )}
               </div>
@@ -790,7 +784,6 @@ export function ManagerWorkspaceContent({
           workspaceScope={scopeLabels.kind}
           presentation='single-view'
           singleView={activeSprintView}
-          contractAlignment={activeContract?.contractAlignment}
         />
       )
     }

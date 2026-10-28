@@ -1,18 +1,10 @@
 import 'server-only'
 
-import { client } from '@/sanity/lib/client'
-import {
-  parseContractAlignment,
-  type ContractAlignment,
-} from '@/lib/contract-alignment'
+import type { ContractAlignment } from '@/lib/contract-alignment'
 
-/** Resolve section alignment for snapshotting onto a new FY contract. */
+/** New financial-year contracts are PMS. The section no longer chooses a workflow. */
 export async function getSectionContractAlignment(
-  sectionId: string,
+  _sectionId: string,
 ): Promise<ContractAlignment> {
-  const raw = await client.fetch<string | null>(
-    /* groq */ `*[_type == "section" && _id == $id][0].contractAlignment`,
-    { id: sectionId },
-  )
-  return parseContractAlignment(raw)
+  return 'pms'
 }

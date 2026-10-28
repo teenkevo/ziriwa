@@ -33,16 +33,14 @@ export const officerContract = defineType({
       name: 'contractAlignment',
       title: 'Contract Alignment',
       type: 'string',
-      initialValue: 'itil4',
+      initialValue: 'pms',
       readOnly: true,
+      hidden: true,
       options: {
-        list: [
-          { title: 'ITIL 4-Aligned', value: 'itil4' },
-          { title: 'PMS-Aligned', value: 'pms' },
-        ],
+        list: [{ title: 'PMS-Aligned', value: 'pms' }],
       },
       description:
-        'Snapshot from the section at onboard time. Existing FY contracts keep their alignment if the section setting later changes.',
+        'Contracts use the PMS workflow. Kept so existing documents remain valid.',
     }),
     defineField({
       name: 'status',

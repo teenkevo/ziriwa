@@ -26,6 +26,7 @@ import { ActivityAssigneesPicker } from '@/features/sections/components/activity
 import { resolveAssigneeNames } from '@/lib/contract-cascade/assignee-names'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { activityFinalizeFields } from '@/lib/contract-finalize'
+import { pmsActivityType } from '@/lib/pms-activity-type'
 import { cn } from '@/lib/utils'
 import type {
   MeasurableActivity,
@@ -92,8 +93,6 @@ interface MeasurableActivityDetailsPanelProps {
   activity: MeasurableActivity | null
   canManage: boolean
   isSaving: boolean
-  /** Non-ITIL 4 contracts keep detailed-task settings on the measurable activity. */
-  showTaskSettings?: boolean
   /** Staff one level below, selectable as assignees. Null hides the section. */
   assigneeOptions?: CascadeAssigneeOption[] | null
   /** Shown inside the picker when nobody can be assigned yet. */
@@ -114,7 +113,6 @@ export function MeasurableActivityDetailsPanel({
   activity,
   canManage,
   isSaving,
-  showTaskSettings = false,
   assigneeOptions = null,
   assigneeEmptyLabel = 'No staff on the level below yet.',
   unassignedLabel = 'Assign',
@@ -427,12 +425,7 @@ export function MeasurableActivityDetailsPanel({
             Type
           </Label>
           <Select
-            value={
-              activity.activityType === 'core' ||
-              activity.activityType === 'cross-cutting'
-                ? activity.activityType
-                : undefined
-            }
+            value={pmsActivityType(activity.activityType)}
             onValueChange={value => {
               if (value !== 'core' && value !== 'cross-cutting') return
               void saveActivity({ activityType: value })
@@ -555,9 +548,7 @@ export function MeasurableActivityDetailsPanel({
           </Select>
         </div>
 
-        {showTaskSettings ? (
-          <>
-            <div className='space-y-2'>
+        <div className='space-y-2'>
               <Label
                 className='text-xs text-muted-foreground'
                 required={activity.activityType !== 'cross-cutting'}
@@ -771,8 +762,6 @@ export function MeasurableActivityDetailsPanel({
                 </CardContent>
               ) : null}
             </Card>
-          </>
-        ) : null}
 
         <div className='space-y-2'>
           <Label className='text-xs text-muted-foreground' required>

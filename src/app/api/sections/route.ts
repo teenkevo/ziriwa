@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeClient } from '@/sanity/lib/write-client'
 import { generateUniqueSlug } from '@/sanity/lib/unique-slug'
-import {
-  assertAuth,
-  assertPermission,
-  isSuperadmin,
-} from '@/lib/authz/guards.server'
-import { parseContractAlignment } from '@/lib/contract-alignment'
+import { assertAuth, assertPermission } from '@/lib/authz/guards.server'
 import { buildPlanningSectionName } from '@/lib/planning-section-name'
 
 export async function POST(req: NextRequest) {
@@ -27,14 +22,12 @@ export async function POST(req: NextRequest) {
       managerId,
       order,
       isPlanningSection,
-      contractAlignment: contractAlignmentRaw,
     } = body as {
       name?: string
       divisionId?: string
       managerId?: string
       order?: number
       isPlanningSection?: boolean
-      contractAlignment?: string
     }
 
     if (!divisionId || typeof divisionId !== 'string') {
@@ -83,20 +76,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    let contractAlignment = parseContractAlignment(undefined)
-    if (contractAlignmentRaw === 'itil4' || contractAlignmentRaw === 'pms') {
-      contractAlignment = parseContractAlignment(contractAlignmentRaw)
-      if (contractAlignment !== 'itil4' && !(await isSuperadmin())) {
-        return NextResponse.json(
-          {
-            error:
-              'Only superadmins can set contract alignment (ITIL 4 vs PMS)',
-          },
-          { status: 403 },
-        )
-      }
-    }
-
     const baseSlug = sectionName
       .toLowerCase()
       .replace(/\s+/g, '-')
@@ -110,7 +89,7 @@ export async function POST(req: NextRequest) {
       slug: { _type: 'slug', current: slug },
       division: { _type: 'reference', _ref: divisionId },
       isPlanningSection: planning,
-      contractAlignment,
+      contractAlignment: 'pms',
       ...(planning
         ? {}
         : { manager: { _type: 'reference', _ref: managerId } }),

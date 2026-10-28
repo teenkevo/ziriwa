@@ -12,7 +12,6 @@ import {
 } from '@/sanity/lib/contracts/get-contract-for-activity'
 import { CascadeHoldNotice } from '@/features/sections/components/contract-finalize-bar'
 import { InitiativePageContent } from '@/features/sections/initiative-page-content'
-import { isPmsAlignment } from '@/lib/contract-alignment'
 import {
   loadCascadeAssigneeOptions,
   releaseAssignedCrossCuttingActivities,
@@ -138,7 +137,6 @@ export default async function InitiativePage({
       assigneeOptions={assigneeOptions}
       assigneeEmptyLabel={assigneeEmptyLabel}
       unassignedLabel={unassignedLabel}
-      showTaskSettings={isPmsAlignment(contract.contractAlignment)}
     />
   )
 }

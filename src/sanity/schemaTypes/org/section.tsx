@@ -66,16 +66,14 @@ export const section = defineType({
       name: 'contractAlignment',
       title: 'Contract Alignment',
       type: 'string',
-      initialValue: 'itil4',
+      initialValue: 'pms',
+      readOnly: true,
+      hidden: true,
       options: {
-        list: [
-          { title: 'ITIL 4-Aligned', value: 'itil4' },
-          { title: 'PMS-Aligned', value: 'pms' },
-        ],
-        layout: 'radio',
+        list: [{ title: 'PMS-Aligned', value: 'pms' }],
       },
       description:
-        'Controls contract hierarchy for new financial-year contracts. ITIL 4 uses detailed tasks under measurable activities; PMS stops at measurable activities (core / cross-cutting). Superadmin only.',
+        'Contracts use the PMS workflow. Kept so existing documents remain valid.',
     }),
     defineField({
       name: 'manager',

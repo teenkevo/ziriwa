@@ -141,7 +141,6 @@ export default async function AssistantCommissionerInitiativePage({
       assigneeOptions={assigneeOptions ?? []}
       assigneeEmptyLabel='No managers or planning supervisor in this division yet.'
       unassignedLabel='Assign a Manager'
-      showTaskSettings
     />
   )
 }

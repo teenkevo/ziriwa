@@ -67,8 +67,6 @@ interface InitiativePageContentProps {
   assigneeEmptyLabel?: string
   /** Shown on an unassigned core activity. */
   unassignedLabel?: string
-  /** PMS and other non-ITIL 4 contracts keep task settings on the activity. */
-  showTaskSettings?: boolean
   /**
    * Stay inside the current surface (planning contract editor) instead of
    * navigating to `backHref`.
@@ -98,7 +96,6 @@ export function InitiativePageContent({
   assigneeOptions = null,
   assigneeEmptyLabel,
   unassignedLabel,
-  showTaskSettings = false,
   onBack,
   embedded = false,
 }: InitiativePageContentProps) {
@@ -395,7 +392,6 @@ export function InitiativePageContent({
       activity={selected}
       canManage={canManage && !isCascadedItem(selected)}
       isSaving={isSaving}
-      showTaskSettings={showTaskSettings}
       assigneeOptions={assigneeOptions}
       assigneeEmptyLabel={assigneeEmptyLabel}
       unassignedLabel={unassignedLabel}

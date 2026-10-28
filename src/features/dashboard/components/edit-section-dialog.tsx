@@ -16,18 +16,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  CONTRACT_ALIGNMENT_LABELS,
-  parseContractAlignment,
-  type ContractAlignment,
-} from '@/lib/contract-alignment'
 import { buildPlanningSectionName } from '@/lib/planning-section-name'
 import { AnimatedExpand } from './animated-expand'
 import { ManagerSwitcher } from './manager-switcher'
@@ -47,14 +35,11 @@ interface EditSectionDialogProps {
     slug?: { current: string }
     manager?: { _id: string }
     isPlanningSection?: boolean
-    contractAlignment?: ContractAlignment | string
   }
   divisionId: string
   divisionName: string
   divisionAcronym?: string
   managers: StaffMember[]
-  /** Superadmin-only: change ITIL 4 vs PMS alignment for future FY contracts. */
-  canEditContractAlignment?: boolean
 }
 
 export function EditSectionDialog({
@@ -65,15 +50,12 @@ export function EditSectionDialog({
   divisionName,
   divisionAcronym,
   managers,
-  canEditContractAlignment = false,
 }: EditSectionDialogProps) {
   const { router, refresh: refreshRouter, runTransition } = useServerRefresh()
   const [isSaving, setIsSaving] = React.useState(false)
   const [name, setName] = React.useState('')
   const [managerId, setManagerId] = React.useState('')
   const [isPlanningSection, setIsPlanningSection] = React.useState(false)
-  const [contractAlignment, setContractAlignment] =
-    React.useState<ContractAlignment>('itil4')
 
   const planningName = React.useMemo(
     () =>
@@ -90,7 +72,6 @@ export function EditSectionDialog({
     setIsPlanningSection(planning)
     setName(planning ? planningName : section.name)
     setManagerId(planning ? '' : (section.manager?._id ?? ''))
-    setContractAlignment(parseContractAlignment(section.contractAlignment))
   }, [open, section, planningName])
 
   const effectiveName = isPlanningSection ? planningName : name
@@ -110,7 +91,6 @@ export function EditSectionDialog({
           name: effectiveName.trim(),
           isPlanningSection,
           managerId: isPlanningSection ? null : managerId,
-          ...(canEditContractAlignment ? { contractAlignment } : {}),
         }),
       })
       if (!res.ok) {
@@ -141,9 +121,6 @@ export function EditSectionDialog({
           <DialogTitle>Edit section</DialogTitle>
           <DialogDescription>
             Update the section name, type, and manager.
-            {canEditContractAlignment
-              ? ' Contract alignment applies to newly onboarded financial-year contracts.'
-              : null}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -231,36 +208,6 @@ export function EditSectionDialog({
                 currentSectionId={section._id}
               />
             </AnimatedExpand>
-            {canEditContractAlignment ? (
-              <div className='space-y-2'>
-                <Label htmlFor='editContractAlignment'>
-                  Contract alignment
-                </Label>
-                <Select
-                  value={contractAlignment}
-                  onValueChange={v =>
-                    setContractAlignment(parseContractAlignment(v))
-                  }
-                  disabled={isSaving}
-                >
-                  <SelectTrigger id='editContractAlignment'>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='itil4'>
-                      {CONTRACT_ALIGNMENT_LABELS.itil4}
-                    </SelectItem>
-                    <SelectItem value='pms'>
-                      {CONTRACT_ALIGNMENT_LABELS.pms}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className='text-xs text-muted-foreground'>
-                  ITIL 4 contracts are aligned to the ITIL 4 framework. PMS
-                  contracts are aligned to the newly developed PMS.
-                </p>
-              </div>
-            ) : null}
           </div>
           <DialogFooter>
             <Button

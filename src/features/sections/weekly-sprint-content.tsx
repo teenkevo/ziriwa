@@ -31,7 +31,6 @@ import {
   SprintViewEmptyState,
   getSprintViewEmptyCopy,
 } from '@/features/sections/components/sprint-view-empty-state'
-import { isPmsAlignment, type ContractAlignment } from '@/lib/contract-alignment'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -119,7 +118,6 @@ export type {
   ContractActivityTask,
 } from '@/lib/flatten-initiatives-with-activities'
 import {
-  findContractActivity,
   findContractDetailedTask,
   type InitiativeWithActivities,
 } from '@/lib/flatten-initiatives-with-activities'
@@ -164,8 +162,6 @@ interface WeeklySprintContentProps {
   workspaceScope?: WorkspaceScopeKind
   presentation?: 'tabs' | 'single-view'
   singleView?: 'ready' | 'in-review' | 'draft'
-  /** Snapshot from the active FY contract — PMS skips detailed-task links. */
-  contractAlignment?: ContractAlignment | string
 }
 
 type WeekOption = {
@@ -490,20 +486,8 @@ function SprintTaskDescriptionEditor({
   )
 }
 
-function draftTaskLinkOptions(
-  initiatives: InitiativeWithActivities[],
-  task: Pick<DraftTask, 'initiativeKey' | 'activityKey'>,
-  options?: { pmsMode?: boolean },
-) {
-  if (options?.pmsMode) {
-    return { activityHasDetailedTasks: false }
-  }
-  const activity = findContractActivity(
-    initiatives,
-    task.initiativeKey,
-    task.activityKey,
-  )
-  return { activityHasDetailedTasks: (activity?.tasks.length ?? 0) > 0 }
+function draftTaskLinkOptions() {
+  return { activityHasDetailedTasks: false }
 }
 
 function buildDraftTaskWritePayload(
@@ -562,7 +546,6 @@ function SprintTaskContractLinkFields({
   task,
   initiatives,
   disabled = false,
-  pmsMode = false,
   onFieldChange,
 }: {
   contractPhrase: string
@@ -572,7 +555,6 @@ function SprintTaskContractLinkFields({
   >
   initiatives: InitiativeWithActivities[]
   disabled?: boolean
-  pmsMode?: boolean
   onFieldChange: (field: ContractLinkField, value: string) => void
 }) {
   if (!task.activityCategory) {
@@ -597,12 +579,6 @@ function SprintTaskContractLinkFields({
   }
 
   const selectedInit = initiatives.find(i => i.key === task.initiativeKey)
-  const selectedActivity = findContractActivity(
-    initiatives,
-    task.initiativeKey,
-    task.activityKey,
-  )
-  const detailedTasks = selectedActivity?.tasks ?? []
 
   return (
     <div className='grid gap-2'>
@@ -656,40 +632,6 @@ function SprintTaskContractLinkFields({
           </SelectContent>
         </Select>
       </div>
-      {task.activityKey && !pmsMode ? (
-        detailedTasks.length > 0 ? (
-          <div className='w-[100%] space-y-1 overflow-hidden p-1'>
-            <Label className='text-xs' required>
-              Related detailed task
-            </Label>
-            <Select
-              value={task.contractTaskKey || undefined}
-              onValueChange={v => onFieldChange('contractTaskKey', v)}
-              disabled={disabled}
-            >
-              <SelectTrigger className='w-[100%] overflow-hidden text-xs'>
-                <SelectValue placeholder='Select related detailed task' />
-              </SelectTrigger>
-              <SelectContent className='max-w-[var(--radix-select-trigger-width)]'>
-                {detailedTasks.map(dt => (
-                  <SelectItem
-                    key={dt.key}
-                    value={dt.key}
-                    className='whitespace-normal break-words text-xs'
-                  >
-                    {dt.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : (
-          <p className='rounded-md border border-dashed p-2 text-xs text-muted-foreground'>
-            This measurable activity has no detailed tasks yet. Add them on your
-            contract before linking sprint work.
-          </p>
-        )
-      ) : null}
     </div>
   )
 }
@@ -709,7 +651,6 @@ export function WeeklySprintContent({
   workspaceScope = 'mainstream',
   presentation = 'tabs',
   singleView = 'ready',
-  contractAlignment,
 }: WeeklySprintContentProps) {
   const { router, refresh: refreshRouter } = useServerRefresh()
   const pathname = usePathname()
@@ -717,7 +658,6 @@ export function WeeklySprintContent({
   const { active: activeFY, isHistorical } = useFinancialYear()
   const scopeLabels = scopeLabelsFromKind(workspaceScope)
   const isProjectSprint = isProjectSprintScope(workspaceScope)
-  const pmsMode = isPmsAlignment(contractAlignment)
   const activityCategoryOptions =
     getSprintActivityCategoryOptions(workspaceScope)
   const contractPhrase = theContractPhrase(scopeLabels)
@@ -1015,7 +955,7 @@ export function WeeklySprintContent({
   const handleSaveSprint = async (e: React.FormEvent) => {
     e.preventDefault()
     const validTasks = draftTasks.filter(t =>
-      isSprintDraftTaskComplete(t, draftTaskLinkOptions(initiatives, t)),
+      isSprintDraftTaskComplete(t, draftTaskLinkOptions()),
     )
     const week = fyWeeks[Number(selectedWeekIdx)]
     if (validTasks.length === 0 || !week) return
@@ -1151,7 +1091,7 @@ export function WeeklySprintContent({
       !reviseTaskDraft?._key ||
       !isSprintDraftTaskComplete(
         reviseTaskDraft,
-        draftTaskLinkOptions(reviseInitiatives, reviseTaskDraft),
+        draftTaskLinkOptions(),
       )
     ) {
       return
@@ -1581,7 +1521,7 @@ export function WeeklySprintContent({
     if (
       !isSprintDraftTaskComplete(
         extraTaskDraft,
-        draftTaskLinkOptions(taskInitiatives, extraTaskDraft),
+        draftTaskLinkOptions(),
       ) ||
       !extraTaskSprintId
     ) {
@@ -1625,7 +1565,7 @@ export function WeeklySprintContent({
   }
 
   const validDraftTasks = draftTasks.filter(t =>
-    isSprintDraftTaskComplete(t, draftTaskLinkOptions(initiatives, t)),
+    isSprintDraftTaskComplete(t, draftTaskLinkOptions()),
   )
   const createSprintNeedsContractInitiatives =
     sprintDraftNeedsContractInitiatives(validDraftTasks)
@@ -2152,7 +2092,6 @@ export function WeeklySprintContent({
                             </Select>
                           </div>
                           <SprintTaskContractLinkFields
-                            pmsMode={pmsMode}
                             contractPhrase={contractPhrase}
                             task={task}
                             initiatives={initiatives}
@@ -2300,7 +2239,6 @@ export function WeeklySprintContent({
               ) : null}
 
               <SprintTaskContractLinkFields
-                pmsMode={pmsMode}
                 contractPhrase={contractPhrase}
                 task={extraTaskDraft}
                 initiatives={extraTaskInitiatives}
@@ -2325,7 +2263,7 @@ export function WeeklySprintContent({
                   isSavingExtraTask ||
                   !isSprintDraftTaskComplete(
                     extraTaskDraft,
-                    draftTaskLinkOptions(extraTaskInitiatives, extraTaskDraft),
+                    draftTaskLinkOptions(),
                   ) ||
                   !extraTaskSprintId ||
                   (sprintTaskRequiresContractLinks(
@@ -2522,7 +2460,6 @@ export function WeeklySprintContent({
                   </Select>
                 </div>
                 <SprintTaskContractLinkFields
-                  pmsMode={pmsMode}
                   contractPhrase={contractPhrase}
                   task={reviseTaskDraft}
                   initiatives={reviseInitiatives}
@@ -2546,7 +2483,7 @@ export function WeeklySprintContent({
                     !reviseTaskDraft ||
                     !isSprintDraftTaskComplete(
                       reviseTaskDraft,
-                      draftTaskLinkOptions(reviseInitiatives, reviseTaskDraft),
+                      draftTaskLinkOptions(),
                     ) ||
                     (sprintTaskRequiresContractLinks(
                       reviseTaskDraft.activityCategory,

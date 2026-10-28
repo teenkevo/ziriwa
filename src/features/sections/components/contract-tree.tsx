@@ -14,32 +14,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  departmentMeasurableActivityNumber,
-  displayedActivityOrder,
-  mergeKeyedListOrder,
-  mergeVisibleActivityOrder,
-  resolveActivityNumberingType,
-} from '@/lib/contract-numbering'
+import { mergeKeyedListOrder } from '@/lib/contract-numbering'
 import { patchContractReorder } from '@/lib/patch-contract-reorder'
 import { useWorkspaceRouteNavigationOptional } from '@/contexts/workspace-route-navigation-context'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
-import { isPmsAlignment } from '@/lib/contract-alignment'
 import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import { AddObjectiveDialog } from '@/features/sections/components/add-objective-dialog'
 import { AddInitiativeDialog } from '@/features/sections/components/add-initiative-dialog'
-import { AddMeasurableActivityDialog } from '@/features/sections/components/add-measurable-activity-dialog'
 import { EditObjectiveDialog } from '@/features/sections/components/edit-objective-dialog'
 import { EditInitiativeDialog } from '@/features/sections/components/edit-initiative-dialog'
 import {
-  ContractColumnAddButton,
   ContractColumnBrowser,
   contractInitiativeActivityHref,
   type ContractColumnInitiative,
   type ContractColumnObjective,
 } from '@/features/sections/components/contract-column-browser'
-import { EditMeasurableActivityDialog } from '@/features/sections/components/edit-measurable-activity-dialog'
-import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import {
   contractFinalizeAttentionKeys,
   reviewContractForFinalize,
@@ -50,9 +39,6 @@ interface ContractTreeProps {
   sectionContract: SectionContract
   sectionSlug?: string
   canManageContract?: boolean
-  assigneeOptions?: CascadeAssigneeOption[] | null
-  assigneeEmptyLabel?: string
-  unassignedLabel?: string
   /** Increment to open the add SSMARTA objective dialog (from parent toolbar). */
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
@@ -62,23 +48,13 @@ interface ContractTreeProps {
 function buildSectionColumnObjectives(input: {
   sectionContract: SectionContract
   sectionSlug: string
-  pmsMode: boolean
   canManage: boolean
   onEditObjective: (objIdx: number) => void
   onDeleteObjective: (objIdx: number) => void
   onAddInitiative: (objIdx: number) => void
   onEditInitiative: (objIdx: number, initIdx: number) => void
   onDeleteInitiative: (objIdx: number, initIdx: number) => void
-  onDeleteActivity: (objIdx: number, initIdx: number, actIdx: number) => void
-  onEditActivity: (objIdx: number, initIdx: number, actIdx: number) => void
-  onAddActivity: (objIdx: number, initIdx: number) => void
   onOpenInitiative: (objIdx: number, initIdx: number) => void
-  onOpenActivity: (objIdx: number, initIdx: number, actIdx: number) => void
-  onReorderActivities: (
-    objIdx: number,
-    initIdx: number,
-    orderedVisibleKeys: string[],
-  ) => void | Promise<void>
   onReorderInitiatives: (
     objectiveKey: string,
     orderedVisibleKeys: string[],
@@ -87,19 +63,13 @@ function buildSectionColumnObjectives(input: {
   const {
     sectionContract,
     sectionSlug,
-    pmsMode,
     canManage,
     onEditObjective,
     onDeleteObjective,
     onAddInitiative,
     onEditInitiative,
     onDeleteInitiative,
-    onDeleteActivity,
-    onEditActivity,
-    onAddActivity,
     onOpenInitiative,
-    onOpenActivity,
-    onReorderActivities,
     onReorderInitiatives,
   } = input
   const objectives = sectionContract.objectives ?? []
@@ -122,87 +92,21 @@ function buildSectionColumnObjectives(input: {
         if (init._key && hidden.has(init._key)) return []
         const canEditInitiative = canManage && !isCascadedItem(init)
 
-        if (pmsMode) {
-          return [{
-            id: initiativeId,
-            attention: attention.has(initiativeId),
-            ready: !attention.has(initiativeId),
-            title: init.title,
-            code: initNum,
-            onEdit: canEditInitiative
-              ? () => onEditInitiative(objIdx, initIdx)
-              : undefined,
-            onDelete: canEditInitiative
-              ? () => onDeleteInitiative(objIdx, initIdx)
-              : undefined,
-            onOpen: sectionSlug
-              ? () => onOpenInitiative(objIdx, initIdx)
-              : undefined,
-          }]
-        }
-
-        const activities = init.measurableActivities ?? []
-        const children = activities.flatMap((act, actIdx) => {
-          if (!act?.title || !String(act.title).trim()) return []
-          const actOrder = displayedActivityOrder(activities, actIdx)
-          const actNum = departmentMeasurableActivityNumber(initNum, actOrder)
-          const canEditActivity = canManage && !isCascadedItem(act)
-          return [
-            {
-              id: act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
-              attention: attention.has(
-                act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
-              ),
-              ready: !attention.has(
-                act._key || `activity-${objIdx}-${initIdx}-${actIdx}`,
-              ),
-              title: act.title,
-              code: actNum,
-              status: act.status,
-              href: contractInitiativeActivityHref({
-                sectionSlug,
-                contractId: sectionContract._id,
-                objectiveIndex: objIdx,
-                initiativeIndex: initIdx,
-                activityKey: act._key,
-              }),
-              onOpen: sectionSlug
-                ? () => onOpenActivity(objIdx, initIdx, actIdx)
-                : undefined,
-              onEdit: canEditActivity
-                ? () => onEditActivity(objIdx, initIdx, actIdx)
-                : undefined,
-              onDelete: canEditActivity
-                ? () => onDeleteActivity(objIdx, initIdx, actIdx)
-                : undefined,
-            },
-          ]
-        })
-
         return [{
           id: initiativeId,
           attention: attention.has(initiativeId),
           ready: !attention.has(initiativeId),
           title: init.title,
           code: initNum,
-          opensNextColumn: true,
-          childEmptyLabel: 'No measurable activities yet.',
-          childHeaderAction: canManage ? (
-            <ContractColumnAddButton
-              label='Add measurable activity'
-              onClick={() => onAddActivity(objIdx, initIdx)}
-            />
-          ) : undefined,
           onEdit: canEditInitiative
             ? () => onEditInitiative(objIdx, initIdx)
             : undefined,
           onDelete: canEditInitiative
             ? () => onDeleteInitiative(objIdx, initIdx)
             : undefined,
-          onReorderChildren: canManage
-            ? orderedIds => onReorderActivities(objIdx, initIdx, orderedIds)
+          onOpen: sectionSlug
+            ? () => onOpenInitiative(objIdx, initIdx)
             : undefined,
-          children,
         }]
     })
     if (initiatives.length > 0 && initiativeRows.length === 0) return []
@@ -228,9 +132,6 @@ export function ContractTree({
   sectionContract,
   sectionSlug = '',
   canManageContract = false,
-  assigneeOptions = null,
-  assigneeEmptyLabel,
-  unassignedLabel,
   addObjectiveSignal = 0,
   onAddObjectiveRequestConsumed,
 }: ContractTreeProps) {
@@ -250,7 +151,6 @@ export function ContractTree({
   const [initiativeDialogOpen, setInitiativeDialogOpen] = React.useState(false)
   const [initiativeDialogObjIdx, setInitiativeDialogObjIdx] =
     React.useState<number>(0)
-  const [activityDialogOpen, setActivityDialogOpen] = React.useState(false)
   const [editObjectiveOpen, setEditObjectiveOpen] = React.useState(false)
   const [editingObjectiveIndex, setEditingObjectiveIndex] =
     React.useState<number>(0)
@@ -266,25 +166,9 @@ export function ContractTree({
     objIdx: number
     initIdx: number
   } | null>(null)
-  const [deleteActivity, setDeleteActivity] = React.useState<{
-    objIdx: number
-    initIdx: number
-    actIdx: number
-  } | null>(null)
-  const [editingActivity, setEditingActivity] = React.useState<{
-    objIdx: number
-    initIdx: number
-    actIdx: number
-  } | null>(null)
-  const [editActivityOpen, setEditActivityOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
-  const [activityDialogParams, setActivityDialogParams] = React.useState<{
-    objIdx: number
-    initIdx: number
-  } | null>(null)
 
   const objectives = sectionContract.objectives ?? []
-  const pmsMode = isPmsAlignment(sectionContract.contractAlignment)
 
   React.useEffect(() => {
     if (addObjectiveSignal === 0) return
@@ -308,32 +192,6 @@ export function ContractTree({
       }
     },
     [contractPatchUrl, router],
-  )
-
-  const handleReorderActivities = React.useCallback(
-    async (
-      objIdx: number,
-      initIdx: number,
-      orderedVisibleKeys: string[],
-    ) => {
-      const activities =
-        sectionContract.objectives?.[objIdx]?.initiatives?.[initIdx]
-          ?.measurableActivities ?? []
-      const orderedKeys = mergeVisibleActivityOrder(
-        activities,
-        orderedVisibleKeys,
-      )
-      if (!orderedKeys) {
-        toast.error('Failed to reorder')
-        throw new Error('Failed to reorder')
-      }
-      await persistReorder('reorderMeasurableActivities', {
-        objectiveIndex: objIdx,
-        initiativeIndex: initIdx,
-        orderedKeys,
-      })
-    },
-    [persistReorder, sectionContract],
   )
 
   const handleReorderInitiatives = React.useCallback(
@@ -379,7 +237,6 @@ export function ContractTree({
       buildSectionColumnObjectives({
         sectionContract,
         sectionSlug,
-        pmsMode,
         canManage: canManageContract && sectionContract.status !== 'finalized',
         onEditObjective: objIdx => {
           setEditingObjectiveIndex(objIdx)
@@ -396,44 +253,19 @@ export function ContractTree({
         },
         onDeleteInitiative: (objIdx, initIdx) =>
           setDeleteInitiative({ objIdx, initIdx }),
-        onDeleteActivity: (objIdx, initIdx, actIdx) =>
-          setDeleteActivity({ objIdx, initIdx, actIdx }),
-        onEditActivity: (objIdx, initIdx, actIdx) => {
-          setEditingActivity({ objIdx, initIdx, actIdx })
-          setEditActivityOpen(true)
-        },
-        onAddActivity: (objIdx, initIdx) => {
-          setActivityDialogParams({ objIdx, initIdx })
-          setActivityDialogOpen(true)
-        },
         onOpenInitiative: (objIdx, initIdx) => {
           if (!sectionSlug) return
           openContractHref(
             `/sections/${sectionSlug}/initiative/${sectionContract._id}/${objIdx}/${initIdx}`,
           )
         },
-        onOpenActivity: (objIdx, initIdx, actIdx) => {
-          if (!sectionSlug) return
-          const activityKey =
-            sectionContract.objectives?.[objIdx]?.initiatives?.[initIdx]
-              ?.measurableActivities?.[actIdx]?._key
-          const activityQuery = activityKey
-            ? `?activityKey=${encodeURIComponent(activityKey)}`
-            : ''
-          openContractHref(
-            `/sections/${sectionSlug}/initiative/${sectionContract._id}/${objIdx}/${initIdx}${activityQuery}`,
-          )
-        },
-        onReorderActivities: handleReorderActivities,
         onReorderInitiatives: handleReorderInitiatives,
       }),
     [
       sectionContract,
       sectionSlug,
-      pmsMode,
       canManageContract,
       openContractHref,
-      handleReorderActivities,
       handleReorderInitiatives,
     ],
   )
@@ -498,46 +330,6 @@ export function ContractTree({
       setDeleting(false)
     }
   }, [deleteInitiative, router, sectionContract._id])
-
-  const handleDeleteActivity = React.useCallback(async () => {
-    if (!deleteActivity) return
-    setDeleting(true)
-    try {
-      const res = await fetch(`/api/section-contracts/${sectionContract._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          op: 'deleteMeasurableActivity',
-          payload: {
-            objectiveIndex: deleteActivity.objIdx,
-            initiativeIndex: deleteActivity.initIdx,
-            activityIndex: deleteActivity.actIdx,
-          },
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Failed to delete measurable activity')
-      }
-      setDeleteActivity(null)
-      toast.success('Measurable activity deleted')
-      await refreshRouter()
-    } catch (err) {
-      console.error(err)
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : 'Failed to delete measurable activity',
-      )
-    } finally {
-      setDeleting(false)
-    }
-  }, [deleteActivity, router, sectionContract._id])
-
-  const activityBeingEdited = editingActivity
-    ? objectives[editingActivity.objIdx]?.initiatives?.[editingActivity.initIdx]
-        ?.measurableActivities?.[editingActivity.actIdx]
-    : undefined
 
   return (
     <div className='space-y-4'>
@@ -647,41 +439,6 @@ export function ContractTree({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AlertDialog
-        open={deleteActivity !== null}
-        onOpenChange={open => !open && setDeleteActivity(null)}
-      >
-        <AlertDialogContent disableClose={deleting}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete measurable activity?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this measurable activity and all of
-              its detailed tasks.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              disabled={deleting}
-              onClick={e => {
-                e.preventDefault()
-                handleDeleteActivity()
-              }}
-            >
-              {deleting ? (
-                <>
-                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                  Deleting…
-                </>
-              ) : (
-                'Delete'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <AddInitiativeDialog
         open={initiativeDialogOpen}
         onOpenChange={setInitiativeDialogOpen}
@@ -695,50 +452,6 @@ export function ContractTree({
           (objectives[initiativeDialogObjIdx]?.initiatives?.length ?? 0) + 1
         }
       />
-      {activityDialogParams && (
-        <AddMeasurableActivityDialog
-          open={activityDialogOpen}
-          onOpenChange={setActivityDialogOpen}
-          sectionContractId={sectionContract._id}
-          objectiveIndex={activityDialogParams.objIdx}
-          initiativeIndex={activityDialogParams.initIdx}
-          initiativeCode={
-            objectives[activityDialogParams.objIdx]?.initiatives?.[
-              activityDialogParams.initIdx
-            ]?.code ??
-            `${objectives[activityDialogParams.objIdx]?.code ?? String(activityDialogParams.objIdx + 1)}.${activityDialogParams.initIdx + 1}`
-          }
-          assigneeOptions={assigneeOptions}
-          assigneeEmptyLabel={assigneeEmptyLabel}
-          unassignedLabel={unassignedLabel}
-          nextOrderForType={type => {
-            const kind = type === 'cross-cutting' ? 'cross-cutting' : 'kpi'
-            const activities =
-              objectives[activityDialogParams.objIdx]?.initiatives?.[
-                activityDialogParams.initIdx
-              ]?.measurableActivities ?? []
-            return (
-              activities.filter(
-                activity => resolveActivityNumberingType(activity) === kind,
-              ).length + 1
-            )
-          }}
-        />
-      )}
-      {editingActivity && activityBeingEdited ? (
-        <EditMeasurableActivityDialog
-          open={editActivityOpen}
-          onOpenChange={setEditActivityOpen}
-          contractId={sectionContract._id}
-          objectiveIndex={editingActivity.objIdx}
-          initiativeIndex={editingActivity.initIdx}
-          activityIndex={editingActivity.actIdx}
-          initialTitle={activityBeingEdited.title}
-          initialActivityType={activityBeingEdited.activityType}
-          initialTargetDate={activityBeingEdited.targetDate}
-          hasAssignees={(activityBeingEdited.assignees?.length ?? 0) > 0}
-        />
-      ) : null}
       <ContractFinalizeBar
         contractId={sectionContract._id}
         status={sectionContract.status}
