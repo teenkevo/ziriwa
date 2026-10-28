@@ -100,10 +100,18 @@ export function ManagerSwitcher({
             <ChevronsUpDown className='ml-auto opacity-50' />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className='w-[var(--radix-popover-trigger-width)] p-0'>
-          <Command>
+        <PopoverContent
+          align='start'
+          collisionPadding={12}
+          className='z-[60] flex w-[var(--radix-popover-trigger-width)] flex-col overflow-hidden p-0'
+          style={{
+            maxHeight: 'var(--radix-popover-content-available-height)',
+          }}
+          onWheel={event => event.stopPropagation()}
+        >
+          <Command className='h-auto min-h-0'>
             <CommandInput placeholder='Search manager...' />
-            <CommandList>
+            <CommandList className='max-h-[min(16rem,calc(var(--radix-popover-content-available-height)-5.75rem))] overflow-y-auto overscroll-contain'>
               <CommandEmpty>No manager found.</CommandEmpty>
               <CommandGroup heading='Managers'>
                 <StaffPickerCommandItems
@@ -117,20 +125,20 @@ export function ManagerSwitcher({
                   }}
                 />
               </CommandGroup>
-              <CommandGroup>
-                <DialogTrigger asChild>
-                  <CommandItem
-                    onSelect={() => {
-                      setOpen(false)
-                      setShowCreateDialog(true)
-                    }}
-                  >
-                    <PlusCircle className='h-5 w-5' />
-                    Create Manager
-                  </CommandItem>
-                </DialogTrigger>
-              </CommandGroup>
             </CommandList>
+            <CommandGroup className='shrink-0 border-t'>
+              <DialogTrigger asChild>
+                <CommandItem
+                  onSelect={() => {
+                    setOpen(false)
+                    setShowCreateDialog(true)
+                  }}
+                >
+                  <PlusCircle className='h-5 w-5' />
+                  Create Manager
+                </CommandItem>
+              </DialogTrigger>
+            </CommandGroup>
           </Command>
         </PopoverContent>
       </Popover>
