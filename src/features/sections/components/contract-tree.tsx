@@ -14,16 +14,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { mergeKeyedListOrder } from '@/lib/contract-numbering'
+import {
+  displayedActivityOrder,
+  leadershipActivityNumber,
+  mergeKeyedListOrder,
+  resolveActivityNumberingType,
+} from '@/lib/contract-numbering'
+import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { patchContractReorder } from '@/lib/patch-contract-reorder'
 import { useWorkspaceRouteNavigationOptional } from '@/contexts/workspace-route-navigation-context'
 import type { SectionContract } from '@/sanity/lib/section-contracts/get-section-contract'
 import { isCascadedItem } from '@/lib/contract-cascade/is-cascaded'
 import { AddObjectiveDialog } from '@/features/sections/components/add-objective-dialog'
 import { AddInitiativeDialog } from '@/features/sections/components/add-initiative-dialog'
+import { AddPmsMeasurableActivityDialog } from '@/features/sections/components/add-pms-measurable-activity-dialog'
 import { EditObjectiveDialog } from '@/features/sections/components/edit-objective-dialog'
 import { EditInitiativeDialog } from '@/features/sections/components/edit-initiative-dialog'
 import {
+  ContractColumnAddButton,
   ContractColumnBrowser,
   contractInitiativeActivityHref,
   type ContractColumnInitiative,
@@ -39,6 +47,7 @@ interface ContractTreeProps {
   sectionContract: SectionContract
   sectionSlug?: string
   canManageContract?: boolean
+  assigneeOptions?: CascadeAssigneeOption[] | null
   /** Increment to open the add SSMARTA objective dialog (from parent toolbar). */
   addObjectiveSignal?: number
   /** Call when the add-objective dialog closes so the parent can clear `addObjectiveSignal`. */
@@ -54,7 +63,12 @@ function buildSectionColumnObjectives(input: {
   onAddInitiative: (objIdx: number) => void
   onEditInitiative: (objIdx: number, initIdx: number) => void
   onDeleteInitiative: (objIdx: number, initIdx: number) => void
-  onOpenInitiative: (objIdx: number, initIdx: number) => void
+  onAddActivity: (objIdx: number, initIdx: number) => void
+  onOpenActivity: (
+    objIdx: number,
+    initIdx: number,
+    activityKey?: string,
+  ) => void
   onReorderInitiatives: (
     objectiveKey: string,
     orderedVisibleKeys: string[],
@@ -69,7 +83,8 @@ function buildSectionColumnObjectives(input: {
     onAddInitiative,
     onEditInitiative,
     onDeleteInitiative,
-    onOpenInitiative,
+    onAddActivity,
+    onOpenActivity,
     onReorderInitiatives,
   } = input
   const objectives = sectionContract.objectives ?? []
@@ -91,6 +106,35 @@ function buildSectionColumnObjectives(input: {
         const initiativeId = init._key || `initiative-${objIdx}-${initIdx}`
         if (init._key && hidden.has(init._key)) return []
         const canEditInitiative = canManage && !isCascadedItem(init)
+        const activities = (init.measurableActivities ?? []).filter(
+          activity => !(activity._key && hidden.has(activity._key)),
+        )
+        const children = activities.flatMap((activity, actIdx) => {
+          if (!activity?.title || !String(activity.title).trim()) return []
+          const activityId =
+            activity._key || `activity-${objIdx}-${initIdx}-${actIdx}`
+          const activityOrder = displayedActivityOrder(activities, actIdx)
+          return [
+            {
+              id: activityId,
+              attention: attention.has(activityId),
+              ready: !attention.has(activityId),
+              title: activity.title,
+              code: leadershipActivityNumber(initNum, activity, activityOrder),
+              status: activity.status,
+              href: contractInitiativeActivityHref({
+                sectionSlug,
+                contractId: sectionContract._id,
+                objectiveIndex: objIdx,
+                initiativeIndex: initIdx,
+                activityKey: activity._key,
+              }),
+              onOpen: sectionSlug
+                ? () => onOpenActivity(objIdx, initIdx, activity._key)
+                : undefined,
+            },
+          ]
+        })
 
         return [{
           id: initiativeId,
@@ -98,15 +142,21 @@ function buildSectionColumnObjectives(input: {
           ready: !attention.has(initiativeId),
           title: init.title,
           code: initNum,
+          opensNextColumn: true,
+          childEmptyLabel: 'No measurable activities yet.',
+          childHeaderAction: canManage ? (
+            <ContractColumnAddButton
+              label='Add measurable activity'
+              onClick={() => onAddActivity(objIdx, initIdx)}
+            />
+          ) : undefined,
           onEdit: canEditInitiative
             ? () => onEditInitiative(objIdx, initIdx)
             : undefined,
           onDelete: canEditInitiative
             ? () => onDeleteInitiative(objIdx, initIdx)
             : undefined,
-          onOpen: sectionSlug
-            ? () => onOpenInitiative(objIdx, initIdx)
-            : undefined,
+          children,
         }]
     })
     if (initiatives.length > 0 && initiativeRows.length === 0) return []
@@ -132,6 +182,7 @@ export function ContractTree({
   sectionContract,
   sectionSlug = '',
   canManageContract = false,
+  assigneeOptions = null,
   addObjectiveSignal = 0,
   onAddObjectiveRequestConsumed,
 }: ContractTreeProps) {
@@ -163,6 +214,11 @@ export function ContractTree({
     number | null
   >(null)
   const [deleteInitiative, setDeleteInitiative] = React.useState<{
+    objIdx: number
+    initIdx: number
+  } | null>(null)
+  const [activityDialogOpen, setActivityDialogOpen] = React.useState(false)
+  const [activityDialogParams, setActivityDialogParams] = React.useState<{
     objIdx: number
     initIdx: number
   } | null>(null)
@@ -253,11 +309,20 @@ export function ContractTree({
         },
         onDeleteInitiative: (objIdx, initIdx) =>
           setDeleteInitiative({ objIdx, initIdx }),
-        onOpenInitiative: (objIdx, initIdx) => {
-          if (!sectionSlug) return
-          openContractHref(
-            `/sections/${sectionSlug}/initiative/${sectionContract._id}/${objIdx}/${initIdx}`,
-          )
+        onAddActivity: (objIdx, initIdx) => {
+          setActivityDialogParams({ objIdx, initIdx })
+          setActivityDialogOpen(true)
+        },
+        onOpenActivity: (objIdx, initIdx, activityKey) => {
+          const href = contractInitiativeActivityHref({
+            sectionSlug,
+            contractId: sectionContract._id,
+            objectiveIndex: objIdx,
+            initiativeIndex: initIdx,
+            activityKey,
+          })
+          if (!href) return
+          openContractHref(href)
         },
         onReorderInitiatives: handleReorderInitiatives,
       }),
@@ -452,6 +517,37 @@ export function ContractTree({
           (objectives[initiativeDialogObjIdx]?.initiatives?.length ?? 0) + 1
         }
       />
+      {activityDialogParams ? (
+        <AddPmsMeasurableActivityDialog
+          open={activityDialogOpen}
+          onOpenChange={setActivityDialogOpen}
+          contractId={sectionContract._id}
+          contractsApi='section-contracts'
+          objectiveIndex={activityDialogParams.objIdx}
+          initiativeIndex={activityDialogParams.initIdx}
+          initiativeCode={
+            objectives[activityDialogParams.objIdx]?.initiatives?.[
+              activityDialogParams.initIdx
+            ]?.code ??
+            `${objectives[activityDialogParams.objIdx]?.code ?? String(activityDialogParams.objIdx + 1)}.${activityDialogParams.initIdx + 1}`
+          }
+          assigneeOptions={assigneeOptions}
+          assigneeEmptyLabel='No supervisors in this section yet.'
+          unassignedLabel='Assign a supervisor'
+          nextOrderForType={type => {
+            const kind = type === 'cross-cutting' ? 'cross-cutting' : 'kpi'
+            const activities =
+              objectives[activityDialogParams.objIdx]?.initiatives?.[
+                activityDialogParams.initIdx
+              ]?.measurableActivities ?? []
+            return (
+              activities.filter(
+                activity => resolveActivityNumberingType(activity) === kind,
+              ).length + 1
+            )
+          }}
+        />
+      ) : null}
       <ContractFinalizeBar
         contractId={sectionContract._id}
         status={sectionContract.status}

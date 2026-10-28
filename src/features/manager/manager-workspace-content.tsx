@@ -602,6 +602,13 @@ export function ManagerWorkspaceContent({
                     sectionContract={sectionContract!}
                     sectionSlug={section.slug?.current ?? ''}
                     canManageContract={canManageActiveContract}
+                    assigneeOptions={withAssignToMyself(
+                      supervisors.map(person => ({
+                        _id: person._id,
+                        fullName: person.fullName,
+                      })),
+                      sectionContract?.manager,
+                    )}
                   />
                 )}
               </div>
