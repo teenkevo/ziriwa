@@ -566,6 +566,7 @@ export async function PATCH(
         doc.aim = aim.trim()
       }
       const assignees = await createdActivityAssigneeIds({
+        contractId: id,
         contractType: 'supervisorContract',
         sectionId,
         activityType,

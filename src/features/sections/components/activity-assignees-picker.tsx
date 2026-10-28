@@ -10,7 +10,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { buildAssigneeNameMap } from '@/lib/contract-cascade/assignee-names'
+import {
+  ASSIGN_TO_MYSELF_LABEL,
+  ASSIGNED_TO_MYSELF_LABEL,
+  buildAssigneeNameMap,
+} from '@/lib/contract-cascade/assignee-names'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { cn } from '@/lib/utils'
 
@@ -44,10 +48,22 @@ export function ActivityAssigneesPicker({
     .map(person => person._id)
     .filter(Boolean)
   const known = buildAssigneeNameMap(assignees, options)
-  const choices = [...known.entries()].map(([id, fullName]) => ({
-    _id: id,
-    fullName,
-  }))
+  const selfOption = options.find(option => option.assignToSelf)
+  const listedIds = new Set(options.map(option => option._id))
+  const choices: CascadeAssigneeOption[] = [
+    ...options.filter(option => !option.assignToSelf),
+    ...(assignees ?? []).flatMap(person =>
+      person._id && !listedIds.has(person._id)
+        ? [
+            {
+              _id: person._id,
+              fullName: person.fullName?.trim() || 'Staff',
+            },
+          ]
+        : [],
+    ),
+    ...(selfOption ? [selfOption] : []),
+  ]
   const label =
     selectedIds.length === 0
       ? unassignedLabel
@@ -85,10 +101,14 @@ export function ActivityAssigneesPicker({
           <div className='flex max-h-56 flex-col gap-1 overflow-y-auto'>
             {choices.map(person => {
               const checked = selectedIds.includes(person._id)
+              const assignToSelf = person.assignToSelf === true
               return (
                 <label
                   key={person._id}
-                  className='flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
+                  className={cn(
+                    'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
+                    assignToSelf && 'mt-1 border-t border-border pt-2',
+                  )}
                 >
                   <Checkbox
                     checked={checked}
@@ -99,7 +119,13 @@ export function ActivityAssigneesPicker({
                       onChange([...new Set(next)])
                     }}
                   />
-                  <span className='min-w-0 truncate'>{person.fullName}</span>
+                  <span className='min-w-0 truncate'>
+                    {assignToSelf
+                      ? checked
+                        ? ASSIGNED_TO_MYSELF_LABEL
+                        : ASSIGN_TO_MYSELF_LABEL
+                      : person.fullName}
+                  </span>
                 </label>
               )
             })}

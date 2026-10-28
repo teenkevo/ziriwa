@@ -44,6 +44,7 @@ import { getDivisionContractByDivision } from '@/sanity/lib/division-contracts/g
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
 import { canManageDivisionContract } from '@/lib/division-contract-access.server'
 import { loadCascadeAssigneeOptions } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import { withAssignToMyself } from '@/lib/contract-cascade/assignee-names'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 
 export type WorkspaceSection = {
@@ -344,7 +345,11 @@ export async function loadSectionWorkspaceData(
     ])
     divisionContract = loadedContract
     canManageAcDivisionContract = canManage
-    acDivisionAssigneeOptions = assigneeOptions ?? []
+    acDivisionAssigneeOptions =
+      withAssignToMyself(
+        assigneeOptions ?? [],
+        loadedContract?.assistantCommissioner,
+      ) ?? []
   }
 
   return {

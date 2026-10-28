@@ -91,6 +91,7 @@ import { OfficerCascadeImportDialog } from './components/officer-cascade-import-
 import type { SupervisorContract } from '@/sanity/lib/supervisor-contracts/get-supervisor-contract'
 import type { OfficerContract } from '@/sanity/lib/officer-contracts/get-officer-contract'
 import type { DivisionContract } from '@/sanity/lib/division-contracts/get-division-contract'
+import { withAssignToMyself } from '@/lib/contract-cascade/assignee-names'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { OnboardOfficerContractDialog } from './components/onboard-officer-contract-dialog'
 import { APP_ROLE_LABELS } from '@/lib/authz/types'
@@ -806,7 +807,12 @@ export function SectionPageContent({
                         }
                         canManageContract={canManageActiveContract}
                         assigneeOptions={
-                          usesOfficerContract ? null : officers
+                          usesOfficerContract
+                            ? null
+                            : withAssignToMyself(
+                                officers,
+                                supervisorContract?.supervisor,
+                              )
                         }
                         assigneeEmptyLabel='No officers in this section yet.'
                         unassignedLabel='Assign an officer'
@@ -816,7 +822,10 @@ export function SectionPageContent({
                         sectionContract={sectionContract!}
                         sectionSlug={section.slug?.current ?? ''}
                         canManageContract={canManageActiveContract}
-                        assigneeOptions={supervisors}
+                        assigneeOptions={withAssignToMyself(
+                          supervisors,
+                          sectionContract?.manager,
+                        )}
                         assigneeEmptyLabel='No supervisors in this section yet.'
                         unassignedLabel='Assign a supervisor'
                       />

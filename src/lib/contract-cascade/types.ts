@@ -1,6 +1,8 @@
 export interface CascadeAssigneeOption {
   _id: string
   fullName: string
+  /** Keeps the activity on this contract instead of cascading it down. */
+  assignToSelf?: boolean
 }
 
 export type CascadeNodeRole =

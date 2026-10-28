@@ -9,6 +9,7 @@ import {
   loadCascadeAssigneeOptions,
   releaseAssignedCrossCuttingActivities,
 } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import { withAssignToMyself } from '@/lib/contract-cascade/assignee-names'
 import {
   canManageDivisionContract,
   getDivisionIdFromContract,
@@ -51,6 +52,10 @@ export default async function AssistantCommissionerInitiativePage({
       _id,
       status,
       "divisionName": coalesce(division->fullName, division->name, "Division"),
+      assistantCommissioner->{
+        _id,
+        "fullName": coalesce(fullName, firstName + " " + lastName),
+      },
       objectives[] {
         _key,
         cascadeKind,
@@ -73,6 +78,7 @@ export default async function AssistantCommissionerInitiativePage({
     _id: string
     status?: string
     divisionName?: string
+    assistantCommissioner?: { _id: string; fullName?: string }
     objectives?: SsmartaObjective[]
   } | null
   if (!contract) notFound()
@@ -104,10 +110,13 @@ export default async function AssistantCommissionerInitiativePage({
     objectives: contract.objectives,
   })
 
-  const assigneeOptions = await loadCascadeAssigneeOptions({
-    contractType: 'divisionContract',
-    divisionId,
-  })
+  const assigneeOptions = withAssignToMyself(
+    await loadCascadeAssigneeOptions({
+      contractType: 'divisionContract',
+      divisionId,
+    }),
+    contract.assistantCommissioner,
+  )
 
   return (
     <InitiativePageContent

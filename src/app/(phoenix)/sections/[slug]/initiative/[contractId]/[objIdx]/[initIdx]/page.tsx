@@ -17,6 +17,7 @@ import {
   loadCascadeAssigneeOptions,
   releaseAssignedCrossCuttingActivities,
 } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import { withAssignToMyself } from '@/lib/contract-cascade/assignee-names'
 
 function canManageActivityContract(
   contractType: 'sectionContract' | 'supervisorContract' | 'officerContract',
@@ -101,10 +102,13 @@ export default async function InitiativePage({
       activityId: initialActivityKey,
     },
   )
-  const assigneeOptions = await loadCascadeAssigneeOptions({
-    contractType: contract._type,
-    sectionId: section._id,
-  })
+  const assigneeOptions = withAssignToMyself(
+    await loadCascadeAssigneeOptions({
+      contractType: contract._type,
+      sectionId: section._id,
+    }),
+    contract.owner,
+  )
   const assigneeEmptyLabel =
     contract._type === 'sectionContract'
       ? 'No supervisors in this section yet.'

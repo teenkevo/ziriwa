@@ -12,6 +12,7 @@ import { SectionStaffContent } from '@/features/sections/section-staff-content'
 import { StakeholderEngagementContent } from '@/features/sections/stakeholder-engagement-content'
 import { SectionReportingContent } from '@/features/sections/section-reporting-content'
 import { WeeklySprintContent } from '@/features/sections/weekly-sprint-content'
+import { withAssignToMyself } from '@/lib/contract-cascade/assignee-names'
 import { ContractTree } from '@/features/sections/components/contract-tree'
 import { DepartmentContractTree } from '@/features/sections/components/department-contract-tree'
 import { OnboardContractDialog } from '@/features/sections/components/onboard-contract-dialog'
@@ -573,7 +574,14 @@ export function ManagerWorkspaceContent({
                     sectionSlug={section.slug?.current ?? ''}
                     contractsApi={leadershipContractsApi}
                     canManageContract={canManageActiveContract}
-                    assigneeOptions={usesOfficerContract ? null : officers}
+                    assigneeOptions={
+                      usesOfficerContract
+                        ? null
+                        : withAssignToMyself(
+                            officers,
+                            supervisorContract?.supervisor,
+                          )
+                    }
                     assigneeEmptyLabel='No officers in this section yet.'
                     unassignedLabel='Assign an officer'
                   />
@@ -594,7 +602,10 @@ export function ManagerWorkspaceContent({
                     sectionContract={sectionContract!}
                     sectionSlug={section.slug?.current ?? ''}
                     canManageContract={canManageActiveContract}
-                    assigneeOptions={supervisors}
+                    assigneeOptions={withAssignToMyself(
+                      supervisors,
+                      sectionContract?.manager,
+                    )}
                     assigneeEmptyLabel='No supervisors in this section yet.'
                     unassignedLabel='Assign a supervisor'
                   />

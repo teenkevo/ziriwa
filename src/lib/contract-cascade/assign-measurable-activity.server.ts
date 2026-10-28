@@ -171,7 +171,25 @@ export async function assignAppendedMeasurableActivity(input: {
   })
 }
 
+const CONTRACT_OWNER_STAFF = /* groq */ `coalesce(
+  assistantCommissioner._ref,
+  projectManager._ref,
+  manager._ref,
+  supervisor._ref
+)`
+
+/** Staff member who owns this contract. Assigning them keeps the activity here. */
+export async function contractOwnerStaffId(
+  contractId: string,
+): Promise<string | null> {
+  return client.fetch<string | null>(
+    `*[_id == $contractId][0]{ "staffId": ${CONTRACT_OWNER_STAFF} }.staffId`,
+    { contractId },
+  )
+}
+
 export async function createdActivityAssigneeIds(input: {
+  contractId: string
   contractType: Exclude<SourceContractType, 'officerContract'>
   sectionId?: string
   divisionId?: string
@@ -186,12 +204,16 @@ export async function createdActivityAssigneeIds(input: {
     return { ok: false, error: 'Assignees are required' }
   }
   if (ids.length === 0) return { ok: true, ids: [] }
-  const eligible = await loadCascadeAssigneeOptions({
-    contractType: input.contractType,
-    sectionId: input.sectionId,
-    divisionId: input.divisionId,
-  })
+  const [eligible, ownerId] = await Promise.all([
+    loadCascadeAssigneeOptions({
+      contractType: input.contractType,
+      sectionId: input.sectionId,
+      divisionId: input.divisionId,
+    }),
+    contractOwnerStaffId(input.contractId),
+  ])
   const allowed = new Set((eligible ?? []).map(person => person._id))
+  if (ownerId) allowed.add(ownerId)
   if (ids.some(id => !allowed.has(id))) {
     return {
       ok: false,
@@ -261,14 +283,18 @@ export async function setMeasurableActivityAssignees(input: {
   }
 
   const level = CASCADE_LEVELS[source._type]
-  const eligible = await loadCascadeAssigneeOptions({
-    contractType: source._type,
-    sectionId: source.sectionId,
-    divisionId: source.divisionId,
-  })
+  const [eligible, ownerId] = await Promise.all([
+    loadCascadeAssigneeOptions({
+      contractType: source._type,
+      sectionId: source.sectionId,
+      divisionId: source.divisionId,
+    }),
+    contractOwnerStaffId(contractId),
+  ])
   const eligibleIds = new Set((eligible ?? []).map(person => person._id))
   const currentIds = (source.currentAssigneeIds ?? []).filter(Boolean)
   const allowedIds = new Set([...eligibleIds, ...currentIds])
+  if (ownerId) allowedIds.add(ownerId)
   if (uniqueIds.some(id => !allowedIds.has(id))) {
     return {
       ok: false,
@@ -719,6 +745,7 @@ export async function shareFinalizedAssignments(
   const source = await client.fetch<{
     _type?: SourceContractType
     financialYearLabel?: string
+    ownerStaffId?: string
     sectionId?: string
     divisionId?: string
     objectives?: Array<{
@@ -737,6 +764,7 @@ export async function shareFinalizedAssignments(
     /* groq */ `*[_id == $contractId][0]{
       _type,
       financialYearLabel,
+      "ownerStaffId": ${CONTRACT_OWNER_STAFF},
       "sectionId": section._ref,
       "divisionId": division._ref,
       objectives[]{
@@ -781,6 +809,7 @@ export async function shareFinalizedAssignments(
         if (!activity?._key) continue
         if (!isSharedCascadeActivity(activity.activityType)) continue
         for (const staffId of (activity.assigneeIds ?? []).filter(Boolean)) {
+          if (staffId === source.ownerStaffId) continue
           if (!seenStaff.has(staffId)) {
             seenStaff.add(staffId)
             staffIds.push(staffId)
@@ -914,12 +943,14 @@ interface ReleasedSourceInitiative {
 interface ReleasedSourceContract {
   _id: string
   _type?: Exclude<SourceContractType, 'officerContract'>
+  ownerStaffId?: string
   initiatives?: Array<ReleasedSourceInitiative | null> | null
 }
 
 const RELEASED_SOURCE_PROJECTION = /* groq */ `{
   _id,
   _type,
+  "ownerStaffId": ${CONTRACT_OWNER_STAFF},
   "initiatives": objectives[].initiatives[]{
     _key,
     title,
@@ -1076,6 +1107,12 @@ export async function receiveFinalizedUpstreamCascade(
       if (!initiative?._key) continue
       for (const activity of initiative.measurableActivities ?? []) {
         if (!activity?._key || !isSharedCascadeActivity(activity.activityType)) {
+          continue
+        }
+        if (
+          source.ownerStaffId &&
+          downstream.staffId === source.ownerStaffId
+        ) {
           continue
         }
         const assigneeIds = (activity.assigneeIds ?? []).filter(Boolean)

@@ -15,6 +15,7 @@ import {
   type SectionDelegationRecord,
 } from '@/lib/section-delegation.server'
 import { loadCascadeAssigneeOptions } from '@/lib/contract-cascade/assign-measurable-activity.server'
+import { withAssignToMyself } from '@/lib/contract-cascade/assignee-names'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { client } from '@/sanity/lib/client'
 import { getDivisionContractByDivision } from '@/sanity/lib/division-contracts/get-division-contract-by-division'
@@ -210,6 +211,10 @@ export async function loadAssistantCommissionerContractPageData(options?: {
     assistantCommissionerStaffIdForOnboarding,
     canManageContract,
     planningContractSupport,
-    assigneeOptions: assigneeOptions ?? [],
+    assigneeOptions:
+      withAssignToMyself(
+        assigneeOptions ?? [],
+        divisionContract?.assistantCommissioner,
+      ) ?? [],
   }
 }
