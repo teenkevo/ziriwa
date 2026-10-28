@@ -3,10 +3,8 @@
 import * as React from 'react'
 import { useServerRefresh } from '@/hooks/use-server-refresh'
 import { WorkspaceRouteLink } from '@/components/workspace-route-link'
-import { endOfMonth, endOfQuarter, endOfWeek, format } from 'date-fns'
 import {
   ArrowLeft,
-  CalendarIcon,
   Check,
   Loader2,
   Plus,
@@ -394,9 +392,6 @@ export function ActivityPageContent({
   const [reportingFrequency, setReportingFrequency] = React.useState<
     'weekly' | 'monthly' | 'quarterly' | 'n/a'
   >(activity.reportingFrequency ?? 'n/a')
-  /** KPI activities use a free-form due date; periodic cycles apply to CC/measurable. */
-  const dueDateReportingFrequency =
-    numberingKind === 'kpi' ? 'n/a' : reportingFrequency
 
   React.useEffect(() => {
     setTitle(activity.title)
@@ -1892,56 +1887,23 @@ export function ActivityPageContent({
               <div className='flex flex-col gap-1'>
                 <Label className='mb-2 text-sm'>Due Date</Label>
                 <div className='flex items-center gap-2'>
-                  {dueDateReportingFrequency === 'weekly' ? (
-                    <div className='flex h-9 min-w-[200px] items-center gap-2 rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground'>
-                      <CalendarIcon className='h-4 w-4 shrink-0' />
-                      <span>
-                        Due end of this week (
-                        {format(endOfWeek(new Date()), 'PPP')})
-                      </span>
-                    </div>
-                  ) : (
-                    <>
-                      <div className='relative min-w-[200px]'>
-                        <DatePicker
-                          value={targetDate}
-                          onChange={value => {
-                            void handleTargetDateChange(value)
-                          }}
-                          placeholder='Select due date'
-                          disabled={
-                            isSavingActivity ||
-                            isSavingDate ||
-                            !canEditActivity
-                          }
-                        />
-                        {isSavingDate ? (
-                          <Loader2 className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground' />
-                        ) : null}
-                      </div>
-                      {dueDateReportingFrequency === 'monthly' ||
-                      dueDateReportingFrequency === 'quarterly' ? (
-                        <Button
-                          type='button'
-                          variant='ghost'
-                          size='sm'
-                          className='h-9 text-muted-foreground'
-                          disabled={isSavingActivity || !canEditActivity}
-                          onClick={() => {
-                            const end =
-                              dueDateReportingFrequency === 'quarterly'
-                                ? endOfQuarter(new Date())
-                                : endOfMonth(new Date())
-                            void handleTargetDateChange(
-                              format(end, 'yyyy-MM-dd'),
-                            )
-                          }}
-                        >
-                          Set to end of period
-                        </Button>
-                      ) : null}
-                    </>
-                  )}
+                  <div className='relative min-w-[200px]'>
+                    <DatePicker
+                      value={targetDate}
+                      onChange={value => {
+                        void handleTargetDateChange(value)
+                      }}
+                      placeholder='Select due date'
+                      disabled={
+                        isSavingActivity ||
+                        isSavingDate ||
+                        !canEditActivity
+                      }
+                    />
+                    {isSavingDate ? (
+                      <Loader2 className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground' />
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>

@@ -98,6 +98,7 @@ import {
   type ActivityFinalizeField,
 } from '@/lib/contract-finalize'
 import { measurableActivityType } from '@/lib/measurable-activity-type'
+import { CrossCuttingTypeConfirmDialog } from '@/features/sections/components/cross-cutting-type-confirm-dialog'
 import type { MeasurableActivity } from '@/sanity/lib/section-contracts/get-section-contract'
 
 const ACTIVITY_TYPES = [
@@ -284,6 +285,9 @@ export function MeasurableActivitiesTable({
     }),
   )
   const [deleteKey, setDeleteKey] = React.useState<string | null>(null)
+  const [crossCuttingKey, setCrossCuttingKey] = React.useState<string | null>(
+    null,
+  )
   /** Which cell is mid-save, so only that row shows a spinner. */
   const [pendingEdit, setPendingEdit] = React.useState<{
     key: string
@@ -406,24 +410,27 @@ export function MeasurableActivitiesTable({
           <DataTableColumnHeader column={column} title='Type' />
         ),
         cell: ({ row }) => {
-          const typeLocked =
-            (row.original.assignees?.length ?? 0) > 0 &&
-            row.original.activityType !== 'cross-cutting'
           const saving = isPending(row.original._key, 'activityType')
           return (
             <div className='flex items-center gap-2' aria-busy={saving}>
               <Select
                 value={measurableActivityType(row.original.activityType)}
-                onValueChange={v =>
+                onValueChange={v => {
+                  const hasAssignees = (row.original.assignees?.length ?? 0) > 0
+                  if (
+                    v === 'cross-cutting' &&
+                    hasAssignees &&
+                    row.original.activityType !== 'cross-cutting'
+                  ) {
+                    setCrossCuttingKey(row.original._key)
+                    return
+                  }
                   void runUpdate(row.original._key, 'activityType', {
                     activityType: v as MeasurableActivity['activityType'],
                   })
-                }
+                }}
                 disabled={
-                  isSaving ||
-                  !canManage ||
-                  isCascadedItem(row.original) ||
-                  typeLocked
+                  isSaving || !canManage || isCascadedItem(row.original)
                 }
               >
                 <SelectTrigger
@@ -482,47 +489,6 @@ export function MeasurableActivitiesTable({
             } satisfies ColumnDef<MeasurableActivityRow>,
           ]
         : []),
-      {
-        accessorKey: 'status',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title='Status' />
-        ),
-        cell: ({ row }) => {
-          const saving = isPending(row.original._key, 'status')
-          return (
-            <div className='flex items-center gap-2' aria-busy={saving}>
-              <Select
-                value={row.original.status || 'not_started'}
-                onValueChange={v =>
-                  void runUpdate(row.original._key, 'status', { status: v })
-                }
-                disabled={isSaving || !canManage || isCascadedItem(row.original)}
-              >
-                <SelectTrigger
-                  className='h-9 w-[130px] text-xs'
-                  onClick={e => e.stopPropagation()}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className='text-xs'>
-                  {ACTIVITY_STATUSES.map(s => (
-                    <SelectItem
-                      key={s.value}
-                      value={s.value}
-                      className='text-xs'
-                    >
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {saving ? <CellSavingSpinner label='Saving status' /> : null}
-            </div>
-          )
-        },
-        filterFn: (row, id, value) => value.includes(row.getValue(id)),
-        accessorFn: row => row.status || 'not_started',
-      },
       {
         accessorKey: 'targetDate',
         header: ({ column }) => (
@@ -754,16 +720,6 @@ export function MeasurableActivitiesTable({
                 }))}
               />
             )}
-            {table.getColumn('status') && (
-              <DataTableFacetedFilter
-                column={table.getColumn('status')}
-                title='Filter by Status'
-                options={ACTIVITY_STATUSES.map(s => ({
-                  label: s.label,
-                  value: s.value,
-                }))}
-              />
-            )}
             {table.getColumn('dueWindow') && (
               <DataTableFacetedFilter
                 column={table.getColumn('dueWindow')}
@@ -877,6 +833,20 @@ export function MeasurableActivitiesTable({
           </div>
         </div>
       </div>
+
+      <CrossCuttingTypeConfirmDialog
+        open={crossCuttingKey !== null}
+        onOpenChange={open => {
+          if (!open) setCrossCuttingKey(null)
+        }}
+        onConfirm={() => {
+          if (!crossCuttingKey) return
+          void runUpdate(crossCuttingKey, 'activityType', {
+            activityType: 'cross-cutting',
+          })
+          setCrossCuttingKey(null)
+        }}
+      />
 
       <AlertDialog
         open={deleteKey !== null}

@@ -13,6 +13,7 @@ import {
 } from '@/lib/deputy-project-contract-access.server'
 import { client } from '@/sanity/lib/client'
 import { rejectCascadedContractEdit } from '@/lib/contract-cascade/reject-cascaded-edit.server'
+import { releaseCrossCuttingActivity } from '@/lib/contract-cascade/assign-measurable-activity.server'
 import { rejectFinalizedContractMutation } from '@/lib/contract-finalize.server'
 import {
   applyCreatedActivityEvidence,
@@ -620,6 +621,14 @@ export async function PATCH(
         if (Object.keys(setPayload).length > 0) patch = patch.set(setPayload)
         if (unsetPaths.length > 0) patch = patch.unset(unsetPaths)
         await patch.commit()
+      }
+      if (activityType === 'cross-cutting') {
+        await releaseCrossCuttingActivity({
+          contractId: id,
+          objectiveIndex,
+          initiativeIndex,
+          activityIndex,
+        })
       }
       audit.sectionContract.updated(
         id,

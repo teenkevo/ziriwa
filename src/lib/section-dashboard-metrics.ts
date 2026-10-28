@@ -397,10 +397,7 @@ export function computeSectionDashboardMetrics(input: {
 
         // Upcoming measurable activities (activity-level due date, not yet completed)
         if (act.status !== 'completed') {
-          const activityDue =
-            act.reportingFrequency === 'weekly'
-              ? getCurrentPeriodDueDate('weekly') || act.targetDate
-              : act.targetDate
+          const activityDue = act.targetDate
           if (activityDue && activityDue >= today) {
             upcomingActivities.push({
               _key: act._key,

@@ -16,20 +16,8 @@ export type DueItem = {
 }
 
 /**
- * Get end of current week as ISO date string (yyyy-MM-dd).
- */
-function getEndOfWeekDate(): string {
-  const now = new Date()
-  const day = now.getDay()
-  const endOfWeek = new Date(now)
-  endOfWeek.setDate(now.getDate() + (6 - day))
-  return endOfWeek.toISOString().slice(0, 10)
-}
-
-/**
- * Flatten activities and KPI tasks with due dates from embedded objectives.
- * - CRC activities: use activity-level targetDate/reportingFrequency
- * - KPI tasks: use task-level reportingFrequency; due = end of current period
+ * Flatten activities and detailed tasks with due dates from embedded objectives.
+ * The activity due date is the deadline. Periodic tasks use the current report due date.
  */
 export function getDueItemsFromContract(
   contract: SectionContract | null,
@@ -38,16 +26,12 @@ export function getDueItemsFromContract(
   if (!contract?.objectives) return []
 
   const items: DueItem[] = []
-  const endOfWeekDate = getEndOfWeekDate()
 
   for (const obj of contract.objectives) {
     for (const init of obj.initiatives ?? []) {
       for (const act of init.measurableActivities ?? []) {
         // CRC activities: activity-level due date
-        const actEffectiveDate =
-          act.reportingFrequency === 'weekly'
-            ? endOfWeekDate
-            : act.targetDate
+        const actEffectiveDate = act.targetDate
 
         if (actEffectiveDate && filter(actEffectiveDate)) {
           items.push({
@@ -115,8 +99,7 @@ export function getOverdueItemsFromContract(
   for (const obj of contract.objectives) {
     for (const init of obj.initiatives ?? []) {
       for (const act of init.measurableActivities ?? []) {
-        const actDate =
-          act.reportingFrequency === 'weekly' ? undefined : act.targetDate
+        const actDate = act.targetDate
 
         if (actDate && actDate < today && act.status !== 'completed') {
           items.push({

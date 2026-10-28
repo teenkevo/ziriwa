@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { endOfMonth, endOfQuarter, endOfWeek, format } from 'date-fns'
 import { Check, Loader2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -23,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ActivityAssigneesPicker } from '@/features/sections/components/activity-assignees-picker'
+import { CrossCuttingTypeConfirmDialog } from '@/features/sections/components/cross-cutting-type-confirm-dialog'
 import { resolveAssigneeNames } from '@/lib/contract-cascade/assignee-names'
 import type { CascadeAssigneeOption } from '@/lib/contract-cascade/types'
 import { activityFinalizeFields } from '@/lib/contract-finalize'
@@ -118,7 +118,6 @@ export function MeasurableActivityDetailsPanel({
   unassignedLabel = 'Assign',
   onAssigneesChange,
   title,
-  status,
   evidenceDrafts,
   onEvidenceChange,
   onActivityChange,
@@ -143,6 +142,7 @@ export function MeasurableActivityDetailsPanel({
   >(null)
   const [savingAssignees, setSavingAssignees] = React.useState(false)
   const [savingDueDate, setSavingDueDate] = React.useState(false)
+  const [confirmCrossCutting, setConfirmCrossCutting] = React.useState(false)
   const titleEditRef = React.useRef<HTMLDivElement>(null)
   const skipEvidenceCommitRef = React.useRef(false)
   const evidenceBaselineRef = React.useRef<EvidenceDraft[] | null>(null)
@@ -428,17 +428,22 @@ export function MeasurableActivityDetailsPanel({
             value={measurableActivityType(activity.activityType)}
             onValueChange={value => {
               if (value !== 'core' && value !== 'cross-cutting') return
+              const hasAssignees = (activity.assignees?.length ?? 0) > 0
+              if (
+                value === 'cross-cutting' &&
+                hasAssignees &&
+                activity.activityType !== 'cross-cutting'
+              ) {
+                setConfirmCrossCutting(true)
+                return
+              }
               void saveActivity({ activityType: value })
             }}
-            disabled={
-              !canManage ||
-              isSaving ||
-              ((activity.assignees?.length ?? 0) > 0 &&
-                activity.activityType !== 'cross-cutting')
-            }
+            disabled={!canManage || isSaving}
           >
             <SelectTrigger
               className={cn(
+                'w-full',
                 missingFields.has('type') &&
                   '!border-destructive dark:!border-destructive',
               )}
@@ -450,12 +455,6 @@ export function MeasurableActivityDetailsPanel({
               <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
             </SelectContent>
           </Select>
-          {(activity.assignees?.length ?? 0) > 0 &&
-          activity.activityType !== 'cross-cutting' ? (
-            <p className='text-xs text-muted-foreground'>
-              Remove assignees before changing this activity type.
-            </p>
-          ) : null}
         </div>
 
         {assigneeOptions ? (
@@ -529,239 +528,50 @@ export function MeasurableActivityDetailsPanel({
         ) : null}
 
         <div className='space-y-2'>
-          <Label className='text-xs text-muted-foreground'>Status</Label>
-          <Select
-            value={status || 'not_started'}
-            onValueChange={value => {
-              void saveActivity({ status: value })
-            }}
-            disabled={!canManage || isSaving}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value='not_started'>Not started</SelectItem>
-              <SelectItem value='in_progress'>In progress</SelectItem>
-              <SelectItem value='completed'>Completed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className='space-y-2'>
               <Label
                 className='text-xs text-muted-foreground'
                 required={activity.activityType !== 'cross-cutting'}
               >
                 Due date
               </Label>
-              {reportingFrequency === 'weekly' ? (
-                <div
-                  className={cn(
-                    'flex h-9 items-center rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground',
-                    missingFields.has('dueDate') && '!border-destructive',
-                  )}
-                >
-                  Due end of this week ({format(endOfWeek(new Date()), 'PPP')})
-                </div>
-              ) : (
-                <div className='space-y-1'>
-                  <div
-                    className='flex items-center gap-1'
-                    aria-busy={savingDueDate}
-                  >
-                    <DatePicker
-                      className={cn(
-                        'flex-1',
-                        missingFields.has('dueDate') &&
-                          '!border-destructive dark:!border-destructive',
-                      )}
-                      value={dueDate}
-                      disabled={!canManage || isSaving || savingDueDate}
-                      placeholder='Select due date'
-                      onChange={value => {
-                        void changeDueDate(value)
-                      }}
-                    />
-                    {savingDueDate ? (
-                      <Loader2
-                        className='h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground'
-                        aria-label='Saving due date'
-                      />
-                    ) : null}
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='icon'
-                      className='h-9 w-9 shrink-0 text-muted-foreground'
-                      aria-label='Clear due date'
-                      disabled={!canManage || isSaving || savingDueDate || !dueDate}
-                      onClick={() => {
-                        void changeDueDate('')
-                      }}
-                    >
-                      <X className='h-4 w-4' />
-                    </Button>
-                  </div>
-                  {reportingFrequency === 'monthly' ||
-                  reportingFrequency === 'quarterly' ? (
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='sm'
-                      className='h-8 px-2 text-muted-foreground'
-                      disabled={!canManage || isSaving || savingDueDate}
-                      onClick={() => {
-                        const end =
-                          reportingFrequency === 'quarterly'
-                            ? endOfQuarter(new Date())
-                            : endOfMonth(new Date())
-                        void changeDueDate(format(end, 'yyyy-MM-dd'))
-                      }}
-                    >
-                      Set to end of period
-                    </Button>
-                  ) : null}
-                </div>
-              )}
-            </div>
-
-            <div className='space-y-2'>
-              <Label className='text-xs text-muted-foreground'>Priority</Label>
-              <Select
-                value={priority}
-                disabled={!canManage || isSaving}
-                onValueChange={value => {
-                  const previous = priority
-                  const next = value as NonNullable<
-                    MeasurableActivity['priority']
-                  >
-                  setPriority(next)
-                  void saveActivity({ priority: next }).catch(() =>
-                    setPriority(previous),
-                  )
-                }}
+              <div
+                className='flex items-center gap-1'
+                aria-busy={savingDueDate}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACTIVITY_PRIORITIES.map(item => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Card aria-busy={reportingSave !== null}>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 p-4'>
-                <div>
-                  <CardTitle className='text-sm font-medium'>
-                    Activity is reported periodically
-                  </CardTitle>
-                  <CardDescription className='mt-1 text-xs'>
-                    {reportingSave === 'toggle'
-                      ? 'Changing reporting settings…'
-                      : 'Enable if this activity has regular reporting cycles'}
-                  </CardDescription>
-                </div>
-                <div className='flex items-center gap-2'>
-                  {reportingSave === 'toggle' ? (
-                    <Loader2
-                      className='h-4 w-4 animate-spin text-muted-foreground'
-                      aria-hidden
-                    />
-                  ) : null}
-                  <Switch
-                    checked={reportingFrequency !== 'n/a'}
-                    disabled={!canManage || reportingSave !== null}
-                    onCheckedChange={checked => {
-                      const previous = reportingFrequency
-                      const next: ReportingFrequency = checked
-                        ? 'monthly'
-                        : 'n/a'
-                      setReportingFrequency(next)
-                      void saveReporting(
-                        'toggle',
-                        { reportingFrequency: next },
-                        () => setReportingFrequency(previous),
-                      )
-                    }}
+                <DatePicker
+                  className={cn(
+                    'flex-1',
+                    missingFields.has('dueDate') &&
+                      '!border-destructive dark:!border-destructive',
+                  )}
+                  value={dueDate}
+                  disabled={!canManage || isSaving || savingDueDate}
+                  placeholder='Select due date'
+                  onChange={value => {
+                    void changeDueDate(value)
+                  }}
+                />
+                {savingDueDate ? (
+                  <Loader2
+                    className='h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground'
+                    aria-label='Saving due date'
                   />
-                </div>
-              </CardHeader>
-              {reportingFrequency !== 'n/a' ? (
-                <CardContent className='space-y-4 px-4 pb-4 pt-0'>
-                  <div className='space-y-2'>
-                    <Label className='text-xs text-muted-foreground'>
-                      Reporting frequency
-                    </Label>
-                    <div className='flex items-center gap-2'>
-                      <Select
-                        value={reportingFrequency}
-                        disabled={!canManage || reportingSave !== null}
-                        onValueChange={value => {
-                          const previous = reportingFrequency
-                          const next = value as ReportingFrequency
-                          setReportingFrequency(next)
-                          void saveReporting(
-                            'frequency',
-                            { reportingFrequency: next },
-                            () => setReportingFrequency(previous),
-                          )
-                        }}
-                      >
-                        <SelectTrigger className='min-w-0 flex-1'>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value='weekly'>Weekly</SelectItem>
-                          <SelectItem value='monthly'>Monthly</SelectItem>
-                          <SelectItem value='quarterly'>Quarterly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {reportingSave === 'toggle' ||
-                      reportingSave === 'frequency' ? (
-                        <Loader2
-                          className='h-4 w-4 shrink-0 animate-spin text-muted-foreground'
-                          aria-label='Changing reporting frequency'
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className='space-y-2'>
-                    <Label className='text-xs text-muted-foreground'>
-                      Reporting starts
-                    </Label>
-                    <div className='flex items-center gap-2'>
-                      <DatePicker
-                        className='min-w-0 flex-1'
-                        value={periodStart}
-                        disabled={!canManage || reportingSave !== null}
-                        placeholder='Defaults to FY start'
-                        onChange={value => {
-                          const previous = periodStart
-                          setPeriodStart(value)
-                          void saveReporting(
-                            'start',
-                            { reportingPeriodStart: value },
-                            () => setPeriodStart(previous),
-                          )
-                        }}
-                      />
-                      {reportingSave === 'toggle' || reportingSave === 'start' ? (
-                        <Loader2
-                          className='h-4 w-4 shrink-0 animate-spin text-muted-foreground'
-                          aria-label='Changing reporting start'
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                </CardContent>
-              ) : null}
-            </Card>
+                ) : null}
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon'
+                  className='h-9 w-9 shrink-0 text-muted-foreground'
+                  aria-label='Clear due date'
+                  disabled={!canManage || isSaving || savingDueDate || !dueDate}
+                  onClick={() => {
+                    void changeDueDate('')
+                  }}
+                >
+                  <X className='h-4 w-4' />
+                </Button>
+              </div>
+            </div>
 
         <div className='space-y-2'>
           <Label className='text-xs text-muted-foreground' required>
@@ -899,8 +709,152 @@ export function MeasurableActivityDetailsPanel({
             </div>
           ) : null}
         </div>
+            <div className='space-y-2'>
+              <Label className='text-xs text-muted-foreground'>Priority</Label>
+              <Select
+                value={priority}
+                disabled={!canManage || isSaving}
+                onValueChange={value => {
+                  const previous = priority
+                  const next = value as NonNullable<
+                    MeasurableActivity['priority']
+                  >
+                  setPriority(next)
+                  void saveActivity({ priority: next }).catch(() =>
+                    setPriority(previous),
+                  )
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACTIVITY_PRIORITIES.map(item => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Card aria-busy={reportingSave !== null}>
+              <CardHeader className='flex flex-row items-center justify-between space-y-0 p-4'>
+                <div>
+                  <CardTitle className='text-sm font-medium'>
+                    Activity is reported periodically
+                  </CardTitle>
+                  <CardDescription className='mt-1 text-xs'>
+                    {reportingSave === 'toggle'
+                      ? 'Changing reporting settings…'
+                      : 'Enable if this activity has regular reporting cycles'}
+                  </CardDescription>
+                </div>
+                <div className='flex items-center gap-2'>
+                  {reportingSave === 'toggle' ? (
+                    <Loader2
+                      className='h-4 w-4 animate-spin text-muted-foreground'
+                      aria-hidden
+                    />
+                  ) : null}
+                  <Switch
+                    checked={reportingFrequency !== 'n/a'}
+                    disabled={!canManage || reportingSave !== null}
+                    onCheckedChange={checked => {
+                      const previous = reportingFrequency
+                      const next: ReportingFrequency = checked
+                        ? 'monthly'
+                        : 'n/a'
+                      setReportingFrequency(next)
+                      void saveReporting(
+                        'toggle',
+                        { reportingFrequency: next },
+                        () => setReportingFrequency(previous),
+                      )
+                    }}
+                  />
+                </div>
+              </CardHeader>
+              {reportingFrequency !== 'n/a' ? (
+                <CardContent className='space-y-4 px-4 pb-4 pt-0'>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-muted-foreground'>
+                      Reporting frequency
+                    </Label>
+                    <div className='flex items-center gap-2'>
+                      <Select
+                        value={reportingFrequency}
+                        disabled={!canManage || reportingSave !== null}
+                        onValueChange={value => {
+                          const previous = reportingFrequency
+                          const next = value as ReportingFrequency
+                          setReportingFrequency(next)
+                          void saveReporting(
+                            'frequency',
+                            { reportingFrequency: next },
+                            () => setReportingFrequency(previous),
+                          )
+                        }}
+                      >
+                        <SelectTrigger className='min-w-0 flex-1'>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='weekly'>Weekly</SelectItem>
+                          <SelectItem value='monthly'>Monthly</SelectItem>
+                          <SelectItem value='quarterly'>Quarterly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {reportingSave === 'toggle' ||
+                      reportingSave === 'frequency' ? (
+                        <Loader2
+                          className='h-4 w-4 shrink-0 animate-spin text-muted-foreground'
+                          aria-label='Changing reporting frequency'
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-muted-foreground'>
+                      Reporting starts
+                    </Label>
+                    <div className='flex items-center gap-2'>
+                      <DatePicker
+                        className='min-w-0 flex-1'
+                        value={periodStart}
+                        disabled={!canManage || reportingSave !== null}
+                        placeholder='Defaults to FY start'
+                        onChange={value => {
+                          const previous = periodStart
+                          setPeriodStart(value)
+                          void saveReporting(
+                            'start',
+                            { reportingPeriodStart: value },
+                            () => setPeriodStart(previous),
+                          )
+                        }}
+                      />
+                      {reportingSave === 'toggle' || reportingSave === 'start' ? (
+                        <Loader2
+                          className='h-4 w-4 shrink-0 animate-spin text-muted-foreground'
+                          aria-label='Changing reporting start'
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                </CardContent>
+              ) : null}
+            </Card>
+
         <div className='h-8 shrink-0' aria-hidden />
       </div>
+      <CrossCuttingTypeConfirmDialog
+        open={confirmCrossCutting}
+        onOpenChange={setConfirmCrossCutting}
+        onConfirm={() => {
+          void saveActivity({ activityType: 'cross-cutting' })
+        }}
+      />
     </aside>
   )
 }

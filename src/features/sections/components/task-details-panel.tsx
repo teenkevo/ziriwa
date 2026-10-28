@@ -278,6 +278,7 @@ export function TaskDetailsPanel({
       const periods = getExpectedPeriodsForTask(
         task.reportingPeriodStart,
         taskFreq as ReportingFrequency,
+        task.targetDate ? { until: task.targetDate } : undefined,
       )
       if (periods.length > 0) {
         const now = new Date()
@@ -305,6 +306,7 @@ export function TaskDetailsPanel({
     task?._key,
     task?.reportingFrequency,
     task?.reportingPeriodStart,
+    task?.targetDate,
     taskFreq,
   ])
 
@@ -1791,6 +1793,7 @@ export function TaskDetailsPanel({
                         const periods = getExpectedPeriodsForTask(
                           task.reportingPeriodStart,
                           taskFreq as ReportingFrequency,
+                          task.targetDate ? { until: task.targetDate } : undefined,
                         )
                         const now = new Date()
                         const todayStart = new Date(

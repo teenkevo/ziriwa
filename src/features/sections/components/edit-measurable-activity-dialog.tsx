@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { CrossCuttingTypeConfirmDialog } from '@/features/sections/components/cross-cutting-type-confirm-dialog'
 import {
   contractsApiBase,
   type ContractsApiResource,
@@ -80,6 +81,7 @@ function EditMeasurableActivityForm({
     dateInputValue(initialTargetDate),
   )
   const [isSaving, setIsSaving] = React.useState(false)
+  const [confirmCrossCutting, setConfirmCrossCutting] = React.useState(false)
 
   React.useEffect(() => {
     onSubmittingChange(isSaving)
@@ -88,7 +90,6 @@ function EditMeasurableActivityForm({
   const canSubmit =
     Boolean(title.trim()) &&
     (activityType === 'core' || activityType === 'cross-cutting')
-  const crossCuttingLocked = hasAssignees && activityType !== 'cross-cutting'
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -157,14 +158,21 @@ function EditMeasurableActivityForm({
           </Label>
           <Select
             value={activityType || undefined}
-            onValueChange={value =>
-              setActivityType(
-                value === 'cross-cutting' ? 'cross-cutting' : 'core',
-              )
-            }
-            disabled={isSaving || crossCuttingLocked}
+            onValueChange={value => {
+              const next = value === 'cross-cutting' ? 'cross-cutting' : 'core'
+              if (
+                next === 'cross-cutting' &&
+                hasAssignees &&
+                activityType !== 'cross-cutting'
+              ) {
+                setConfirmCrossCutting(true)
+                return
+              }
+              setActivityType(next)
+            }}
+            disabled={isSaving}
           >
-            <SelectTrigger id='edit-activity-type'>
+            <SelectTrigger id='edit-activity-type' className='w-full'>
               <SelectValue placeholder='Select type' />
             </SelectTrigger>
             <SelectContent>
@@ -172,11 +180,11 @@ function EditMeasurableActivityForm({
               <SelectItem value='cross-cutting'>Cross-cutting</SelectItem>
             </SelectContent>
           </Select>
-          {crossCuttingLocked ? (
-            <p className='text-xs text-muted-foreground'>
-              Remove assignees before changing this activity type.
-            </p>
-          ) : null}
+          <CrossCuttingTypeConfirmDialog
+            open={confirmCrossCutting}
+            onOpenChange={setConfirmCrossCutting}
+            onConfirm={() => setActivityType('cross-cutting')}
+          />
         </div>
         <div className='space-y-2'>
           <Label htmlFor='edit-activity-target-date'>Due date</Label>

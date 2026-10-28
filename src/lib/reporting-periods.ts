@@ -6,10 +6,10 @@
 
 import {
   startOfWeek,
-  endOfWeek,
   endOfMonth,
   endOfQuarter,
   format,
+  addDays,
   addWeeks,
   addMonths,
   addQuarters,
@@ -36,6 +36,19 @@ function getEndOfFY(date: Date): Date {
 }
 
 export type ReportingFrequency = 'weekly' | 'monthly' | 'quarterly'
+
+/** Working week is Monday–Friday. A weekly report is due on Friday. */
+function endOfWorkingWeek(date: Date): Date {
+  return addDays(startOfWeek(date, { weekStartsOn: 1 }), 4)
+}
+
+/** Report due dates fall on a weekday. Saturday and Sunday move back to Friday. */
+function lastWeekday(date: Date): Date {
+  const day = date.getDay()
+  if (day === 6) return addDays(date, -1)
+  if (day === 0) return addDays(date, -2)
+  return date
+}
 
 export type PeriodInfo = {
   periodKey: string
@@ -83,12 +96,13 @@ export function getPeriodInfo(
       const [year, month] = periodKey.split('-').map(Number)
       const start = new Date(year, month - 1, 1)
       const end = endOfMonth(start)
+      const due = lastWeekday(end)
       return {
         periodKey,
         label: format(start, 'MMMM yyyy'),
         startDate: format(start, 'yyyy-MM-dd'),
         endDate: format(end, 'yyyy-MM-dd'),
-        dueDate: format(end, 'yyyy-MM-dd'),
+        dueDate: format(due, 'yyyy-MM-dd'),
       }
     }
     if (frequency === 'quarterly') {
@@ -96,12 +110,13 @@ export function getPeriodInfo(
       const quarter = parseInt(q.replace('Q', ''), 10)
       const start = new Date(parseInt(year, 10), (quarter - 1) * 3, 1)
       const end = endOfQuarter(start)
+      const due = lastWeekday(end)
       return {
         periodKey,
         label: `Q${quarter} ${year}`,
         startDate: format(start, 'yyyy-MM-dd'),
         endDate: format(end, 'yyyy-MM-dd'),
-        dueDate: format(end, 'yyyy-MM-dd'),
+        dueDate: format(due, 'yyyy-MM-dd'),
       }
     }
     if (frequency === 'weekly') {
@@ -110,13 +125,13 @@ export function getPeriodInfo(
       const jan4 = new Date(parseInt(year, 10), 0, 4)
       const start = startOfWeek(jan4, { weekStartsOn: 1 })
       const periodStart = addWeeks(start, weekNum - 1)
-      const end = endOfWeek(periodStart, { weekStartsOn: 1 })
+      const due = endOfWorkingWeek(periodStart)
       return {
         periodKey,
         label: `Week ${weekNum} ${year}`,
         startDate: format(periodStart, 'yyyy-MM-dd'),
-        endDate: format(end, 'yyyy-MM-dd'),
-        dueDate: format(end, 'yyyy-MM-dd'),
+        endDate: format(due, 'yyyy-MM-dd'),
+        dueDate: format(due, 'yyyy-MM-dd'),
       }
     }
   } catch {
@@ -157,13 +172,13 @@ export function getPeriodsInRange(
 }
 
 /**
- * Get expected periods for a task from reporting start through current + future.
- * Used to populate period selector for periodic deliverables.
+ * Get expected report periods from the reporting start through the deadline.
+ * Without a deadline, periods run through the end of the financial year.
  */
 export function getExpectedPeriodsForTask(
   reportingPeriodStart: string,
   frequency: ReportingFrequency,
-  options?: { periodsAhead?: number },
+  options?: { periodsAhead?: number; until?: string },
 ): PeriodInfo[] {
   const start = parseDateAsLocal(reportingPeriodStart)
   const now = new Date()
@@ -176,7 +191,12 @@ export function getExpectedPeriodsForTask(
   } else {
     horizon = addQuarters(now, options?.periodsAhead ?? 2)
   }
-  const end = isAfter(horizon, fyEnd) ? horizon : fyEnd
+  let end = isAfter(horizon, fyEnd) ? horizon : fyEnd
+  if (options?.until) {
+    const deadline = parseDateAsLocal(options.until)
+    if (isBefore(deadline, start)) return []
+    end = deadline
+  }
   return getPeriodsInRange(
     format(start, 'yyyy-MM-dd'),
     format(end, 'yyyy-MM-dd'),
@@ -192,13 +212,13 @@ export function getCurrentPeriodDueDate(
 ): string {
   const now = new Date()
   if (frequency === 'weekly') {
-    return format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    return format(endOfWorkingWeek(now), 'yyyy-MM-dd')
   }
   if (frequency === 'monthly') {
-    return format(endOfMonth(now), 'yyyy-MM-dd')
+    return format(lastWeekday(endOfMonth(now)), 'yyyy-MM-dd')
   }
   if (frequency === 'quarterly') {
-    return format(endOfQuarter(now), 'yyyy-MM-dd')
+    return format(lastWeekday(endOfQuarter(now)), 'yyyy-MM-dd')
   }
   return ''
 }

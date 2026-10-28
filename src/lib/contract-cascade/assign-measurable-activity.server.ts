@@ -384,7 +384,6 @@ export async function releaseCrossCuttingActivity(input: {
 }): Promise<void> {
   const source = await loadActivityCascadeContext(input)
   if (!source?._type || source.activityType !== 'cross-cutting') return
-  if (source._type === 'officerContract') return
   await clearActivityCascade({ ...input, source })
 }
 
@@ -421,11 +420,6 @@ async function clearActivityCascade(input: {
   const { contractId, objectiveIndex, initiativeIndex, activityIndex, source } =
     input
   const currentIds = (source.currentAssigneeIds ?? []).filter(Boolean)
-  if (!source._type || source._type === 'officerContract' || !source.activityKey) {
-    return
-  }
-  if (!source.initiativeKey || !source.financialYearLabel) return
-
   await writeClient
     .patch(contractId)
     .set({
@@ -434,6 +428,10 @@ async function clearActivityCascade(input: {
     })
     .commit()
 
+  if (!source._type || source._type === 'officerContract' || !source.activityKey) {
+    return
+  }
+  if (!source.initiativeKey || !source.financialYearLabel) return
   if (currentIds.length === 0) return
   const level = CASCADE_LEVELS[source._type]
   for (const staffId of currentIds) {

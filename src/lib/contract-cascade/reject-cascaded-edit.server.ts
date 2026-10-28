@@ -17,9 +17,6 @@ const LOCKED_OPS = new Set([
   'setActivityAssignees',
 ])
 
-const ASSIGNED_TYPE_MESSAGE =
-  'Remove assignees before changing this activity type.'
-
 interface EditPayload {
   objectiveIndex?: unknown
   initiativeIndex?: unknown
@@ -66,26 +63,6 @@ export async function rejectCascadedContractEdit(
   const kind = await writeClient.fetch<string | null>(query, params)
   if (isCascadedItem({ cascadeKind: kind })) {
     return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 403 })
-  }
-
-  if (
-    op === 'updateActivity' &&
-    payload.activityType === 'cross-cutting' &&
-    Number.isInteger(payload.initiativeIndex) &&
-    Number.isInteger(payload.activityIndex)
-  ) {
-    const assignees = await writeClient.fetch<unknown[] | null>(
-      `*[_id == $id][0].objectives[$objectiveIndex].initiatives[$initiativeIndex].measurableActivities[$activityIndex].assignees`,
-      {
-        id: contractId,
-        objectiveIndex,
-        initiativeIndex: payload.initiativeIndex,
-        activityIndex: payload.activityIndex,
-      },
-    )
-    if ((assignees?.length ?? 0) > 0) {
-      return NextResponse.json({ error: ASSIGNED_TYPE_MESSAGE }, { status: 400 })
-    }
   }
 
   return null
