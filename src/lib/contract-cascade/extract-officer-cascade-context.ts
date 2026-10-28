@@ -5,19 +5,6 @@ import type {
 } from './types'
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
 
-function taskText(task: { task?: string } | string): string {
-  if (typeof task === 'string') return task.trim()
-  return task.task?.trim() ?? ''
-}
-
-function resolveSupervisorTaskKey(
-  raw: { _key?: string } | string,
-  index: number,
-): string {
-  if (typeof raw !== 'string' && raw._key) return raw._key
-  return `idx-${index}`
-}
-
 function findSupervisorMeasurable(
   objectives: SsmartaObjective[],
   initiativeKey: string,
@@ -44,8 +31,7 @@ export function buildOfficerCascadeRewriteContexts(
 
   for (const selection of selections) {
     for (const activitySelection of expandOfficerCascadeActivities(selection)) {
-      const { activityKey, taskKeys } = activitySelection
-      const selectedKeys = new Set(taskKeys)
+      const { activityKey } = activitySelection
       const located = findSupervisorMeasurable(
         supervisorObjectives,
         selection.initiativeKey,
@@ -55,14 +41,7 @@ export function buildOfficerCascadeRewriteContexts(
 
       const { objective, initiative, measurable } = located
       const measurableTitle = measurable.title?.trim() ?? ''
-      const supervisorTasks: string[] = []
-      for (const [index, raw] of (measurable.tasks ?? []).entries()) {
-        const key = resolveSupervisorTaskKey(raw, index)
-        if (!selectedKeys.has(key)) continue
-        const text = taskText(raw)
-        if (text) supervisorTasks.push(text)
-      }
-      if (supervisorTasks.length === 0) continue
+      if (!measurableTitle) continue
 
       items.push({
         activityKey,
@@ -74,12 +53,12 @@ export function buildOfficerCascadeRewriteContexts(
         managerKpiTitle: measurableTitle,
         managerAim: measurableTitle,
         managerTargetDate: measurable.targetDate,
-        managerTasks: supervisorTasks,
+        managerTasks: [],
         asIs: {
           objectiveTitle: initiative.title,
           initiativeTitle: measurableTitle,
           measurableTitle,
-          tasks: supervisorTasks,
+          tasks: [],
         },
       })
     }

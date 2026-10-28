@@ -36,7 +36,7 @@ export interface CascadeImportSelection {
   initiativeKey: string
   /** Whole-measurable import (manager / supervisor cascade). */
   activityKeys: string[]
-  /** Task-level import (officer cascade); when set, drives import per measurable. */
+  /** Present for officer import; task keys are unused. */
   activities?: CascadeImportActivitySelection[]
 }
 
@@ -99,7 +99,6 @@ export interface ManagerCascadeKpiOption {
   hasAim: boolean
   canCascade: boolean
   alreadyImported: boolean
-  /** Officer cascade: selectable detailed tasks under this KPI. */
   tasks?: CascadeKpiTaskOption[]
 }
 

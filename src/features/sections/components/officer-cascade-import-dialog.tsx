@@ -75,8 +75,8 @@ export function OfficerCascadeImportDialog({
             </DialogTitle>
             <DialogDescription>
               {isProjectWorkstream
-                ? 'Select tasks from measurable activities your workstream lead has added to their contract.'
-                : "Select activities from the supervisor's contract to cascade to your own contract."}
+                ? 'Select measurable activities your workstream lead has added to their contract.'
+                : "Select measurable activities from the supervisor's contract to cascade to your own contract."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={flow.handleSelectSubmit}>
@@ -109,9 +109,9 @@ export function OfficerCascadeImportDialog({
                     Preparing…
                   </>
                 ) : flow.importableCount === 0 ? (
-                  'Select tasks to import'
+                  'Select measurable activities to import'
                 ) : (
-                  `Continue with ${flow.importableCount} task${flow.importableCount === 1 ? '' : 's'}`
+                  `Continue with ${flow.importableCount} activit${flow.importableCount === 1 ? 'y' : 'ies'}`
                 )}
               </Button>
             </DialogFooter>

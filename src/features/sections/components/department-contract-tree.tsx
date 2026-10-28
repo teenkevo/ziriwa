@@ -104,9 +104,9 @@ interface DepartmentContractTreeProps {
 }
 
 function contractTreeShowsTasksOnly(
-  contractsApi: DepartmentContractTreeProps['contractsApi'],
+  _contractsApi: DepartmentContractTreeProps['contractsApi'],
 ): boolean {
-  return contractsApi === 'officer-contracts'
+  return false
 }
 
 function cascadedObjectivesWaitingMessage(

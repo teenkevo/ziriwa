@@ -28,7 +28,7 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            'selections is required: array of { initiativeKey, activities: [{ activityKey, taskKeys }] }',
+            'selections is required: array of { initiativeKey, activityKeys }',
         },
         { status: 400 },
       )
@@ -69,7 +69,7 @@ export async function POST(
       rewrites: rewriteMap,
     })
 
-    if (importedTaskKeys.length === 0) {
+    if (importedActivityKeys.length === 0) {
       return NextResponse.json(
         {
           error: 'No items were imported',

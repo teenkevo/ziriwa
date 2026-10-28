@@ -26,13 +26,14 @@ export function expandOfficerCascadeActivities(
     return selection.activities
       .map(activity => ({
         activityKey: activity.activityKey.trim(),
-        taskKeys: activity.taskKeys
-          .map(key => key.trim())
-          .filter(Boolean),
+        taskKeys: [],
       }))
-      .filter(activity => activity.activityKey && activity.taskKeys.length > 0)
+      .filter(activity => activity.activityKey)
   }
-  return []
+  return selection.activityKeys
+    .map(key => key.trim())
+    .filter(Boolean)
+    .map(activityKey => ({ activityKey, taskKeys: [] }))
 }
 
 export function countOfficerImportableTasks(
@@ -40,9 +41,7 @@ export function countOfficerImportableTasks(
 ) {
   let count = 0
   for (const selection of selections) {
-    for (const activity of expandOfficerCascadeActivities(selection)) {
-      count += activity.taskKeys.length
-    }
+    count += expandOfficerCascadeActivities(selection).length
   }
   return count
 }
@@ -64,21 +63,25 @@ export function normalizeOfficerCascadeSelections(
 
     const initiativeKey = (item as CascadeImportSelection).initiativeKey.trim()
     const activitiesRaw = (item as CascadeImportSelection).activities
-    if (!Array.isArray(activitiesRaw)) return null
-
+    const activityKeysRaw = (item as CascadeImportSelection).activityKeys
     const activities: CascadeImportActivitySelection[] = []
-    for (const activity of activitiesRaw) {
-      if (!activity || typeof activity !== 'object') return null
-      const activityKey = String(
-        (activity as CascadeImportActivitySelection).activityKey ?? '',
-      ).trim()
-      const taskKeysRaw = (activity as CascadeImportActivitySelection).taskKeys
-      if (!activityKey || !Array.isArray(taskKeysRaw)) return null
-      const taskKeys = taskKeysRaw
-        .filter((k): k is string => typeof k === 'string' && Boolean(k.trim()))
-        .map(k => k.trim())
-      if (taskKeys.length === 0) continue
-      activities.push({ activityKey, taskKeys })
+
+    if (Array.isArray(activitiesRaw) && activitiesRaw.length > 0) {
+      for (const activity of activitiesRaw) {
+        if (!activity || typeof activity !== 'object') return null
+        const activityKey = String(
+          (activity as CascadeImportActivitySelection).activityKey ?? '',
+        ).trim()
+        if (!activityKey) return null
+        activities.push({ activityKey, taskKeys: [] })
+      }
+    } else if (Array.isArray(activityKeysRaw)) {
+      for (const key of activityKeysRaw) {
+        if (typeof key !== 'string' || !key.trim()) continue
+        activities.push({ activityKey: key.trim(), taskKeys: [] })
+      }
+    } else {
+      return null
     }
 
     if (activities.length === 0) continue

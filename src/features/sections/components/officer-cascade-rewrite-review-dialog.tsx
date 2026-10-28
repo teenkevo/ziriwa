@@ -58,10 +58,6 @@ export function OfficerCascadeRewriteReviewDialog({
     () => groupItemsByInitiative(items),
     [items],
   )
-  const totalTaskCount = React.useMemo(
-    () => items.reduce((n, item) => n + item.asIs.tasks.length, 0),
-    [items],
-  )
 
   function updateDraft(
     activityKey: string,
@@ -198,26 +194,6 @@ export function OfficerCascadeRewriteReviewDialog({
                           disabled={isSubmitting}
                         />
                       </div>
-
-                      <div className='space-y-2'>
-                        <Label htmlFor={`officer-tasks-${item.activityKey}`}>
-                          Detailed tasks (one per line)
-                        </Label>
-                        <Textarea
-                          id={`officer-tasks-${item.activityKey}`}
-                          value={draft.tasks.join('\n')}
-                          onChange={event =>
-                            updateDraft(item.activityKey, {
-                              tasks: event.target.value
-                                .split('\n')
-                                .map(line => line.trim())
-                                .filter(Boolean),
-                            })
-                          }
-                          rows={3}
-                          disabled={isSubmitting}
-                        />
-                      </div>
                     </div>
                   )
                 })}
@@ -242,7 +218,7 @@ export function OfficerCascadeRewriteReviewDialog({
                 Importing…
               </>
             ) : (
-              `Import ${totalTaskCount} task${totalTaskCount === 1 ? '' : 's'}`
+              `Import ${items.length} activit${items.length === 1 ? 'y' : 'ies'}`
             )}
           </Button>
         </DialogFooter>

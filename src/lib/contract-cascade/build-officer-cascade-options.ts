@@ -1,50 +1,30 @@
+import { managerActivityCanCascade } from './aim'
 import type {
   ManagerCascadeObjectiveOption,
   SupervisorCascadeOptionsResponse,
 } from './types'
-import type {
-  DetailedTask,
-  SsmartaObjective,
-} from '@/sanity/lib/section-contracts/get-section-contract'
+import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
 
 interface CascadeSourceLike {
   supervisorContractId?: string
   activityKey?: string
-  taskKey?: string
   nodeRole?: string
 }
 
-function taskLabel(task: DetailedTask | string): string {
-  if (typeof task === 'string') return task.trim()
-  return task.task?.trim() ?? ''
-}
-
-function taskKey(task: DetailedTask | string, index: number): string {
-  if (typeof task !== 'string' && task._key) return task._key
-  return `idx-${index}`
-}
-
-function isTaskAlreadyImported(
+function isActivityAlreadyImported(
   officerObjectives: SsmartaObjective[] | undefined,
   supervisorContractId: string,
   activityKey: string,
-  supervisorTaskKey: string,
 ): boolean {
   for (const obj of officerObjectives ?? []) {
     for (const init of obj.initiatives ?? []) {
-      for (const act of init.measurableActivities ?? []) {
-        for (const raw of act.tasks ?? []) {
-          const src = (raw as { cascadeSource?: CascadeSourceLike })
-            .cascadeSource
-          if (
-            src?.supervisorContractId === supervisorContractId &&
-            src.activityKey === activityKey &&
-            src.taskKey === supervisorTaskKey &&
-            src.nodeRole === 'supervisorTaskAsTask'
-          ) {
-            return true
-          }
-        }
+      const src = (init as { cascadeSource?: CascadeSourceLike }).cascadeSource
+      if (
+        src?.supervisorContractId === supervisorContractId &&
+        src.activityKey === activityKey &&
+        src.nodeRole === 'supervisorMeasurableAsInitiative'
+      ) {
+        return true
       }
     }
   }
@@ -63,53 +43,36 @@ export function buildOfficerCascadeOptions(
   for (const obj of supervisorObjectives ?? []) {
     const initiatives = []
     for (const init of obj.initiatives ?? []) {
-      const kpis = []
+      const activities = []
       for (const act of init.measurableActivities ?? []) {
-        if (act.activityType === 'cross-cutting') continue
-        const taskOptions = []
-        for (const [index, raw] of (act.tasks ?? []).entries()) {
-          const title = taskLabel(raw)
-          if (!title) continue
-          const key = taskKey(raw, index)
-          const alreadyImported = isTaskAlreadyImported(
-            officerObjectives,
-            supervisorContractId,
-            act._key,
-            key,
-          )
-          taskOptions.push({
-            taskKey: key,
-            title,
-            canCascade: !alreadyImported,
-            alreadyImported,
-          })
-        }
-
-        const canCascade = taskOptions.some(task => task.canCascade)
-        const alreadyImported =
-          taskOptions.length > 0 &&
-          taskOptions.every(task => task.alreadyImported)
-
-        kpis.push({
+        if (!managerActivityCanCascade(act)) continue
+        const alreadyImported = isActivityAlreadyImported(
+          officerObjectives,
+          supervisorContractId,
+          act._key,
+        )
+        const activityType =
+          act.activityType === 'kpi' ||
+          act.activityType === 'measurable' ||
+          act.activityType === 'core'
+            ? act.activityType
+            : 'measurable'
+        activities.push({
           activityKey: act._key,
           title: act.title,
           aim: act.title?.trim() ?? '',
-          activityType:
-            act.activityType === 'kpi'
-              ? ('kpi' as const)
-              : ('measurable' as const),
+          activityType,
           hasAim: true,
-          canCascade,
+          canCascade: !alreadyImported,
           alreadyImported,
-          tasks: taskOptions,
         })
       }
-      if (kpis.length > 0) {
+      if (activities.length > 0) {
         initiatives.push({
           initiativeKey: init._key,
           code: init.code,
           title: init.title,
-          kpis,
+          kpis: activities,
         })
       }
     }

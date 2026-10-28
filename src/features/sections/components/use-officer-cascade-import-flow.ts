@@ -90,11 +90,11 @@ export function useOfficerCascadeImportFlow({
         officerContractId,
         supervisorContractId,
       })
-      const importedCount = Array.isArray(data.importedTaskKeys)
-        ? data.importedTaskKeys.length
+      const importedCount = Array.isArray(data.importedActivityKeys)
+        ? data.importedActivityKeys.length
         : countOfficerImportableTasks(selections) || importableCount
       toast.success(
-        `Cascaded ${importedCount} task${importedCount === 1 ? '' : 's'} from supervisor's contract`,
+        `Cascaded ${importedCount} measurable activit${importedCount === 1 ? 'y' : 'ies'} from supervisor's contract`,
       )
       await refreshRouter()
       await onComplete?.()

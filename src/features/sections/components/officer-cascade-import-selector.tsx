@@ -6,7 +6,6 @@ import { Loader2 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { taskSelectionId } from '@/lib/contract-cascade/officer-cascade-selection'
 import type {
   CascadeImportSelection,
   SupervisorCascadeOptionsResponse,
@@ -52,43 +51,35 @@ export function invalidateOfficerCascadeOptionsCache(params: {
 
 function buildSelections(
   options: SupervisorCascadeOptionsResponse,
-  selectedTaskIds: Set<string>,
+  selectedActivityKeys: Set<string>,
 ): CascadeImportSelection[] {
-  const byInitiative = new Map<string, Map<string, Set<string>>>()
+  const byInitiative = new Map<string, string[]>()
 
   for (const obj of options.objectives) {
     for (const init of obj.initiatives) {
-      for (const kpi of init.kpis) {
-        for (const task of kpi.tasks ?? []) {
-          const id = taskSelectionId(kpi.activityKey, task.taskKey)
-          if (!selectedTaskIds.has(id) || !task.canCascade) continue
-          let activities = byInitiative.get(init.initiativeKey)
-          if (!activities) {
-            activities = new Map()
-            byInitiative.set(init.initiativeKey, activities)
-          }
-          const taskKeys = activities.get(kpi.activityKey) ?? new Set()
-          taskKeys.add(task.taskKey)
-          activities.set(kpi.activityKey, taskKeys)
+      for (const activity of init.kpis) {
+        if (
+          !selectedActivityKeys.has(activity.activityKey) ||
+          !activity.canCascade
+        ) {
+          continue
         }
+        const keys = byInitiative.get(init.initiativeKey) ?? []
+        keys.push(activity.activityKey)
+        byInitiative.set(init.initiativeKey, keys)
       }
     }
   }
 
   return Array.from(byInitiative.entries()).map(
-    ([initiativeKey, activities]) => {
-      const activityEntries = Array.from(activities.entries()).map(
-        ([activityKey, taskKeys]) => ({
-          activityKey,
-          taskKeys: Array.from(taskKeys),
-        }),
-      )
-      return {
-        initiativeKey,
-        activityKeys: activityEntries.map(entry => entry.activityKey),
-        activities: activityEntries,
-      }
-    },
+    ([initiativeKey, activityKeys]) => ({
+      initiativeKey,
+      activityKeys,
+      activities: activityKeys.map(activityKey => ({
+        activityKey,
+        taskKeys: [],
+      })),
+    }),
   )
 }
 
@@ -104,9 +95,9 @@ export function OfficerCascadeImportSelector({
     React.useState<SupervisorCascadeOptionsResponse | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
-  const [selectedTaskIds, setSelectedTaskIds] = React.useState<Set<string>>(
-    () => new Set(),
-  )
+  const [selectedActivityKeys, setSelectedActivityKeys] = React.useState<
+    Set<string>
+  >(() => new Set())
 
   React.useEffect(() => {
     let cancelled = false
@@ -174,16 +165,18 @@ export function OfficerCascadeImportSelector({
     let count = 0
     for (const obj of options.objectives) {
       for (const init of obj.initiatives) {
-        for (const kpi of init.kpis) {
-          for (const task of kpi.tasks ?? []) {
-            const id = taskSelectionId(kpi.activityKey, task.taskKey)
-            if (selectedTaskIds.has(id) && task.canCascade) count += 1
+        for (const activity of init.kpis) {
+          if (
+            selectedActivityKeys.has(activity.activityKey) &&
+            activity.canCascade
+          ) {
+            count += 1
           }
         }
       }
     }
     return count
-  }, [options, selectedTaskIds])
+  }, [options, selectedActivityKeys])
 
   React.useEffect(() => {
     if (!options) {
@@ -195,16 +188,16 @@ export function OfficerCascadeImportSelector({
     }
 
     onSelectionChange({
-      selections: buildSelections(options, selectedTaskIds),
+      selections: buildSelections(options, selectedActivityKeys),
       importableCount: importableSelectedCount,
     })
-  }, [options, selectedTaskIds, importableSelectedCount, onSelectionChange])
+  }, [options, selectedActivityKeys, importableSelectedCount, onSelectionChange])
 
-  function toggleTask(id: string) {
-    setSelectedTaskIds(prev => {
+  function toggleActivity(activityKey: string) {
+    setSelectedActivityKeys(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(activityKey)) next.delete(activityKey)
+      else next.add(activityKey)
       return next
     })
   }
@@ -233,7 +226,7 @@ export function OfficerCascadeImportSelector({
           <>
             The workstream lead contract has no measurable activities yet. Ask
             your workstream lead to add measurable activities on their contract
-            before you can cascade tasks.
+            before you can cascade measurable activities.
           </>
         ) : (
           <>
@@ -267,73 +260,46 @@ export function OfficerCascadeImportSelector({
                   {init.title.length > 100 ? '…' : ''}
                 </span>
               </p>
-              <ul className='space-y-3'>
-                {init.kpis.map(kpi => {
-                  const tasks = kpi.tasks ?? []
+              <ul className='space-y-2'>
+                {init.kpis.map(activity => {
+                  const isSelected = selectedActivityKeys.has(activity.activityKey)
+                  const isAlreadyOnContract = activity.alreadyImported
+                  const checkboxDisabled = disabled || !activity.canCascade
+                  const isCheckboxChecked = isSelected || isAlreadyOnContract
 
                   return (
-                    <li key={kpi.activityKey} className='space-y-3'>
-                      <p className='text-xs font-medium leading-normal'>
-                        KPI:{' '}
-                        <span className='font-normal text-muted-foreground'>
-                          {kpi.title}
-                        </span>
-                      </p>
-                      <p className='text-[11px] font-medium uppercase underline tracking-wide'>
-                        Detailed tasks
-                      </p>
-                      {tasks.length === 0 ? (
-                        <p className='text-xs text-muted-foreground'>
-                          No detailed tasks on this KPI yet.
-                        </p>
-                      ) : (
-                        <ul className='space-y-2'>
-                          {tasks.map(task => {
-                            const id = taskSelectionId(
-                              kpi.activityKey,
-                              task.taskKey,
-                            )
-                            const isSelected = selectedTaskIds.has(id)
-                            const isAlreadyOnContract = task.alreadyImported
-                            const checkboxDisabled =
-                              disabled || !task.canCascade
-                            const isCheckboxChecked =
-                              isSelected || isAlreadyOnContract
-
-                            return (
-                              <li key={id} className='flex items-start gap-2'>
-                                <Checkbox
-                                  id={`officer-cascade-task-${id}`}
-                                  checked={isCheckboxChecked}
-                                  disabled={checkboxDisabled}
-                                  onCheckedChange={() => toggleTask(id)}
-                                  className='mt-0.5'
-                                />
-                                <div className='flex-1 min-w-0'>
-                                  <Label
-                                    htmlFor={`officer-cascade-task-${id}`}
-                                    className={cn(
-                                      'block text-xs font-normal leading-tight cursor-pointer',
-                                      checkboxDisabled &&
-                                        'cursor-not-allowed',
-                                      checkboxDisabled &&
-                                        !isAlreadyOnContract &&
-                                        'opacity-70',
-                                    )}
-                                  >
-                                    {task.title}
-                                  </Label>
-                                  {isAlreadyOnContract ? (
-                                    <p className='text-xs text-orange-600 dark:text-orange-400'>
-                                      Already on your contract
-                                    </p>
-                                  ) : null}
-                                </div>
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      )}
+                    <li
+                      key={activity.activityKey}
+                      className='flex items-start gap-2'
+                    >
+                      <Checkbox
+                        id={`officer-cascade-activity-${activity.activityKey}`}
+                        checked={isCheckboxChecked}
+                        disabled={checkboxDisabled}
+                        onCheckedChange={() =>
+                          toggleActivity(activity.activityKey)
+                        }
+                        className='mt-0.5'
+                      />
+                      <div className='min-w-0 flex-1'>
+                        <Label
+                          htmlFor={`officer-cascade-activity-${activity.activityKey}`}
+                          className={cn(
+                            'block cursor-pointer text-xs font-normal leading-tight',
+                            checkboxDisabled && 'cursor-not-allowed',
+                            checkboxDisabled &&
+                              !isAlreadyOnContract &&
+                              'opacity-70',
+                          )}
+                        >
+                          {activity.title}
+                        </Label>
+                        {isAlreadyOnContract ? (
+                          <p className='text-xs text-orange-600 dark:text-orange-400'>
+                            Already on your contract
+                          </p>
+                        ) : null}
+                      </div>
                     </li>
                   )
                 })}

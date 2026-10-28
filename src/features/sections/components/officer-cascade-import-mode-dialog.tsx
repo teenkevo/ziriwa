@@ -65,10 +65,10 @@ export function OfficerCascadeImportModeDialog({
       <DialogContent className='max-w-lg'>
         <DialogHeader>
           <DialogTitle>
-            Import {importableCount} task{importableCount === 1 ? '' : 's'}
+            Import {importableCount} activit{importableCount === 1 ? 'y' : 'ies'}
           </DialogTitle>
           <DialogDescription>
-            Choose how the selected supervisor tasks should appear on your
+            Choose how the selected measurable activities should appear on your
             officer contract, then select Finish.
           </DialogDescription>
         </DialogHeader>

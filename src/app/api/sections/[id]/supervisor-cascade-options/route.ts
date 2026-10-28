@@ -5,7 +5,6 @@ import { buildOfficerCascadeOptions } from '@/lib/contract-cascade/build-officer
 import { assertOfficerContractManageAllowed } from '@/lib/officer-contract-access.server'
 import type { SsmartaObjective } from '@/sanity/lib/section-contracts/get-section-contract'
 import { client } from '@/sanity/lib/client'
-import { SPRINT_CONTRACT_TASKS_PROJECTION } from '@/sanity/lib/contracts/sprint-contract-tasks-projection'
 
 /**
  * GET /api/sections/[id]/supervisor-cascade-options
@@ -40,13 +39,7 @@ export async function GET(
             _key,
             initiatives[] {
               _key,
-              measurableActivities[] {
-                _key,
-                tasks[] {
-                  _key,
-                  cascadeSource { supervisorContractId, activityKey, taskKey, nodeRole }
-                }
-              }
+              cascadeSource { supervisorContractId, activityKey, nodeRole }
             }
           }
         }`,
@@ -91,7 +84,7 @@ export async function GET(
             measurableActivities[] {
               _key,
               title,
-              ${SPRINT_CONTRACT_TASKS_PROJECTION}
+              activityType,
             }
           }
         }

@@ -20,7 +20,7 @@ export const OFFICER_CASCADE_REWRITE_SYSTEM_PROMPT = `You rewrite cascaded perfo
 Mapping:
 - officer objective <= supervisor initiative
 - officer initiative <= supervisor measurable (KPI)
-- officer measurable <= supervisor measurable (with detailed tasks)
+- officer measurable <= supervisor measurable
 
 Style rules:
 OBJECTIVE (objectiveTitle)
@@ -40,14 +40,10 @@ MEASURABLE (measurableTitle)
 - Prefer "Identification of...", "Development of...", "Completion of...", "Prioritization of..."
 - Stay aligned to supervisor measurable intent
 
-TASKS (tasks)
-- Rewrite supervisor tasks for officer execution where helpful
-- Keep the same scope; do not invent new work
-- Return as a JSON string array
-
 General:
 - Do not copy the same sentence across objective, initiative, and measurable
 - Do not invent new targets, dates, or scope
+- Do not cascade detailed tasks. The tasks array must be empty
 - Preserve supervisor dates and percentages when relevant
 - Use British date style when the source uses it
 
@@ -59,7 +55,7 @@ Return JSON only:
       "objectiveTitle": "...",
       "initiativeTitle": "...",
       "measurableTitle": "...",
-      "tasks": ["..."]
+      "tasks": []
     }
   ]
 }`
@@ -77,7 +73,6 @@ export function buildOfficerCascadeRewriteUserPrompt(
           initiative: context.managerInitiativeTitle,
           measurable: context.managerKpiTitle,
           targetDate: context.managerTargetDate ?? null,
-          tasks: context.managerTasks,
         },
       })),
     },
