@@ -336,6 +336,7 @@ export function DivisionPageContent({
             divisionName={division.name}
             divisionAcronym={division.acronym}
             managers={managers}
+            canEditContractAlignment={isSuperadmin}
           />
         )}
 

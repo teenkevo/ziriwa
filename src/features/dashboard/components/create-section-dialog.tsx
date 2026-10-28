@@ -16,6 +16,18 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  CONTRACT_ALIGNMENT_LABELS,
+  parseContractAlignment,
+  type ContractAlignment,
+} from '@/lib/contract-alignment'
 import { buildPlanningSectionName } from '@/lib/planning-section-name'
 import { AnimatedExpand } from './animated-expand'
 import { ManagerSwitcher } from './manager-switcher'
@@ -44,6 +56,8 @@ interface CreateSectionDialogProps {
   divisionName: string
   divisionAcronym?: string
   managers: StaffMember[]
+  /** Superadmin-only: set ITIL 4 vs PMS alignment for future FY contracts. */
+  canEditContractAlignment?: boolean
   onSuccess?: (section: Section) => void
 }
 
@@ -54,6 +68,7 @@ export function CreateSectionDialog({
   divisionName,
   divisionAcronym,
   managers,
+  canEditContractAlignment = false,
   onSuccess,
 }: CreateSectionDialogProps) {
   const { router, refresh: refreshRouter } = useServerRefresh()
@@ -61,6 +76,8 @@ export function CreateSectionDialog({
   const [name, setName] = React.useState('')
   const [managerId, setManagerId] = React.useState<string>('')
   const [isPlanningSection, setIsPlanningSection] = React.useState(false)
+  const [contractAlignment, setContractAlignment] =
+    React.useState<ContractAlignment>('itil4')
 
   const planningName = React.useMemo(
     () =>
@@ -76,6 +93,7 @@ export function CreateSectionDialog({
     setName('')
     setManagerId('')
     setIsPlanningSection(false)
+    setContractAlignment('itil4')
   }, [open])
 
   const effectiveName = isPlanningSection ? planningName : name
@@ -97,6 +115,7 @@ export function CreateSectionDialog({
           managerId: isPlanningSection ? undefined : managerId,
           isPlanningSection,
           order: 0,
+          ...(canEditContractAlignment ? { contractAlignment } : {}),
         }),
       })
       if (!res.ok) {
@@ -107,6 +126,7 @@ export function CreateSectionDialog({
       setName('')
       setManagerId('')
       setIsPlanningSection(false)
+      setContractAlignment('itil4')
       await refreshRouter()
       onOpenChange(false)
       onSuccess?.(newSection)
@@ -123,9 +143,12 @@ export function CreateSectionDialog({
       <DialogContent disableClose={isCreating}>
         <DialogHeader>
           <DialogTitle>Add Section</DialogTitle>
-          <DialogDescription>
-            Add a new section to {divisionName}.
-          </DialogDescription>
+            <DialogDescription>
+              Add a new section to {divisionName}.
+              {canEditContractAlignment
+                ? ' Contract alignment applies to newly onboarded financial-year contracts.'
+                : null}
+            </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className='space-y-4 py-2 pb-4'>
@@ -201,6 +224,36 @@ export function CreateSectionDialog({
                 placeholder='Select or create manager'
               />
             </AnimatedExpand>
+            {canEditContractAlignment ? (
+              <div className='space-y-2'>
+                <Label htmlFor='createContractAlignment'>
+                  Contract alignment
+                </Label>
+                <Select
+                  value={contractAlignment}
+                  onValueChange={value =>
+                    setContractAlignment(parseContractAlignment(value))
+                  }
+                  disabled={isCreating}
+                >
+                  <SelectTrigger id='createContractAlignment'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='itil4'>
+                      {CONTRACT_ALIGNMENT_LABELS.itil4}
+                    </SelectItem>
+                    <SelectItem value='pms'>
+                      {CONTRACT_ALIGNMENT_LABELS.pms}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className='text-xs text-muted-foreground'>
+                  ITIL 4 contracts are aligned to the ITIL 4 framework. PMS
+                  contracts are aligned to the newly developed PMS.
+                </p>
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
