@@ -113,11 +113,7 @@ export function SectionDashboardContent({
 
   return (
     <div className='space-y-8'>
-      <div
-        className={`grid gap-6 lg:grid-cols-4 ${
-          sprintPlaceholder ? 'lg:items-start' : 'lg:items-stretch'
-        }`}
-      >
+      <div className='grid gap-6 lg:grid-cols-4 lg:items-stretch'>
         <div className='min-w-0 lg:col-span-3'>
           <OverduePanel
             upcomingActivities={metrics.upcomingActivities}
@@ -132,7 +128,7 @@ export function SectionDashboardContent({
             workspaceBasePath={workspaceBasePath}
           />
         </div>
-        <div className='min-w-0 lg:col-span-1'>
+        <div className='flex min-w-0 flex-col lg:col-span-1'>
           {sprintPlaceholder ? (
             <ContractSprintPlaceholder
               mode={sprintPlaceholder.mode}

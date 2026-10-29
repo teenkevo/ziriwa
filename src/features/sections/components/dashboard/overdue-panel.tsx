@@ -866,7 +866,7 @@ export function OverduePanel({
         </h2>
       </div>
 
-      <div className='relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-muted/30 via-background to-muted/10'>
+      <div className='relative flex flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-muted/30 via-background to-muted/10'>
         <div
           aria-hidden
           className={cn(
@@ -921,6 +921,14 @@ export function OverduePanel({
           </button>
         </div>
 
+        <div className='grid'>
+          <div className='invisible col-start-1 row-start-1' aria-hidden>
+            <AllClearState
+              title='Nothing needs action'
+              description='Contract and sprint items are clear right now.'
+            />
+          </div>
+          <div className='col-start-1 row-start-1 min-w-0'>
         {modeTotal === 0 ? (
           <AllClearState
             title={
@@ -1064,6 +1072,8 @@ export function OverduePanel({
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
       </div>
     </section>

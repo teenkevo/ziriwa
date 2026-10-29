@@ -44,11 +44,11 @@ export function AssistantCommissionerDashboardContent({
           <h1 className='text-2xl font-bold'>Dashboard</h1>
         </div>
 
-        <div className='grid gap-6 lg:grid-cols-4 lg:items-start'>
+        <div className='grid gap-6 lg:grid-cols-4 lg:items-stretch'>
           <div className='min-w-0 lg:col-span-3'>
             <AssistantCommissionerFocusPanel focusItems={data.focusItems} />
           </div>
-          <div className='min-w-0 lg:col-span-1'>
+          <div className='flex min-w-0 flex-col lg:col-span-1'>
             {sprintPlaceholder ? (
               <ContractSprintPlaceholder
                 mode={sprintPlaceholder.mode}
